@@ -1,3 +1,4 @@
+import gzip
 import os, json, time, hmac, hashlib, sqlite3, secrets, threading, uuid
 from decimal import Decimal
 from functools import wraps
@@ -34,6 +35,8 @@ def create_app(config=None):
     app = Flask(__name__)
     app.config.update(DATABASE=os.getenv('DATABASE',str(ROOT/'instance/app.sqlite3')), DEMO_MODE=os.getenv('DEMO_MODE','0')=='1', BOT_TOKEN=os.getenv('BOT_TOKEN',''), ADMIN_IDS={int(x.strip()) for x in os.getenv('ADMIN_IDS','').split(',') if x.strip().isdigit()}, PORTALS_API_KEY=os.getenv('PORTALS_API_KEY',''), BOT_USERNAME=os.getenv('BOT_USERNAME',''), MAX_CONTENT_LENGTH=16384)
     if config: app.config.update(config)
+    catalog_seed=json.loads(gzip.decompress((ROOT/'data/catalog_seed.json.gz').read_bytes())) if (ROOT/'data/catalog_seed.json.gz').exists() else {'collections':[]}
+    catalog_job={'running':False,'completed':0,'total':0,'error':'','updated_at':None}
     Path(app.config['DATABASE']).parent.mkdir(parents=True,exist_ok=True)
     def db():
         if 'db' not in g:
@@ -62,6 +65,8 @@ def create_app(config=None):
                         fresh=db().execute('INSERT OR IGNORE INTO demo_accounts VALUES(?,?)',(g.user['id'],'100')).rowcount
                         if fresh:
                             for gift in DEMO_GIFTS:db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],gift['id'],json.dumps(gift),'unlisted'))
+                if not app.config['DEMO_MODE']:
+                    db().execute('INSERT OR IGNORE INTO demo_accounts VALUES(?,?)',(g.user['id'],'0'));db().commit()
                 return fn(*args,**kwargs)
             return run
         return deco
@@ -81,13 +86,13 @@ def create_app(config=None):
     api_lock=threading.Lock();last_call=[0.0]
     def portal(path,params=None):
         key=app.config['PORTALS_API_KEY']
-        public_paths={'nfts/search':'nfts/search','collections/preview':'collections','market/config':'collections'}
+        public_paths={'nfts/search':'nfts/search','collections/preview':'collections','market/config':'collections','collections/filters':'collections/filters'}
         if not key and path not in public_paths:
             return {'attribute_floors':{}}
         base='https://portal-market.com/partners/' if key else 'https://portal-market.com/api/'
         remote_path=path if key else public_paths[path]
         if not key and path in {'market/config','collections/preview'}:
-            params={**(params or {}),'limit':100}
+            params={**(params or {}),'limit':5000}
         headers={'Accept':'application/json'}
         if key:headers['Authorization']='partners '+key
         with api_lock:
@@ -119,7 +124,7 @@ def create_app(config=None):
     def me():
         refs=db().execute('SELECT count(*) FROM users WHERE referrer=?',(g.user['id'],)).fetchone()[0]
         link=f"https://t.me/{app.config['BOT_USERNAME']}?startapp=ref_{g.user['id']}" if app.config['BOT_USERNAME'] else None
-        return dict(user=g.user,is_admin=g.is_admin,demo=app.config['DEMO_MODE'],inventory_count=len(owned()),balance=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0] if app.config['DEMO_MODE'] else '0',inventory_value=str(sum(Decimal(x['price']) for x in owned())),bought=db().execute("SELECT count(*) FROM history WHERE user_id=? AND kind='buy'",(g.user['id'],)).fetchone()[0],sold=0,volume='0',referrals=refs,referral_level=1,referral_progress=min(refs*10,100),invite_link=link)
+        return dict(user=g.user,is_admin=g.is_admin,demo=app.config['DEMO_MODE'],inventory_count=len(owned()),balance=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0],inventory_value=str(sum(Decimal(x['price']) for x in owned())),bought=db().execute("SELECT count(*) FROM history WHERE user_id=? AND kind='buy'",(g.user['id'],)).fetchone()[0],sold=0,volume='0',referrals=refs,referral_level=1,referral_progress=min(refs*10,100),invite_link=link)
     @app.post('/api/referral')
     @auth()
     def referral():
@@ -133,7 +138,15 @@ def create_app(config=None):
     @auth()
     def catalog():
         collections,updated=cached('collections',[]);attributes,_=cached('attributes',{})
-        return dict(collections=collections,attributes=attributes,updated_at=updated,demo=app.config['DEMO_MODE'])
+        if not collections:collections=[{k:v for k,v in c.items() if k!='models'} for c in catalog_seed['collections']]
+        return dict(collections=collections,attributes=attributes,updated_at=updated,demo=app.config['DEMO_MODE'],source='portals' if updated else 'snapshot',snapshot_updated_at=catalog_seed.get('updated_at'))
+    def collection_models(slug):
+        live,_=cached('models:'+slug)
+        if live:return live
+        return next((c.get('models',[]) for c in catalog_seed['collections'] if c['id']==slug or c['short_name']==slug),[])
+    @app.get('/api/collections/<slug>/models')
+    @auth()
+    def models(slug):return {'models':collection_models(slug)}
     @app.get('/api/market')
     @auth()
     def market():
@@ -152,7 +165,17 @@ def create_app(config=None):
             from werkzeug.exceptions import HTTPException
             if not isinstance(error,HTTPException):raise
             if previous:return {**previous,'stale':True,'updated_at':updated,'warning':'Portal недоступен — показаны сохранённые цены'}
-            return {'gifts':[],'demo':False,'source':'unavailable','warning':'Portal не ответил на открытый запрос. Живые цены пока не загружены.'}
+            rows=[]
+            for c in catalog_seed['collections']:
+                if params.get('collection_id') and c['id']!=params['collection_id']:continue
+                for m in c['models']:
+                    if params.get('filter_by_models') and m['name']!=params['filter_by_models']:continue
+                    if params.get('search') and params['search'].lower() not in (c['name']+' '+m['name']).lower():continue
+                    rows.append(dict(id=c['id']+':'+m['name'],collection_id=c['id'],name=c['name'],model=m['name'],backdrop='',price=m['price'],image=m['image'],number='',catalog_only=True))
+            if params.get('sort_by')=='price asc':rows.sort(key=lambda x:Decimal(x['price']))
+            offset=max(0,int(params.get('offset',0)))
+            return {'gifts':rows[offset:offset+40],'total':len(rows),'demo':False,'source':'snapshot','warning':'Сохранённый каталог · оценочные цены TON. Обновление Portal пока недоступно.'}
+
 
     @app.get('/api/inventory')
     @auth()
@@ -237,7 +260,7 @@ def create_app(config=None):
     @auth(admin=True)
     def status():
         c,t=cached('collections',[])
-        return {'configured':bool(app.config['PORTALS_API_KEY']),'mode':'partner' if app.config['PORTALS_API_KEY'] else 'public','updated_at':t,'collections':len(c),'users':db().execute('SELECT count(*) FROM users').fetchone()[0],'audit':[dict(x) for x in db().execute('SELECT actor,action,created FROM audit ORDER BY id DESC LIMIT 20')]}
+        return {'configured':bool(app.config['PORTALS_API_KEY']),'mode':'partner' if app.config['PORTALS_API_KEY'] else 'public','updated_at':t,'collections':len(c),'sync':dict(catalog_job),'users':db().execute('SELECT count(*) FROM users').fetchone()[0],'audit':[dict(x) for x in db().execute('SELECT actor,action,created FROM audit ORDER BY id DESC LIMIT 20')]}
     @app.post('/api/admin/portal/test')
     @auth(admin=True)
     def test_portal():
@@ -245,12 +268,68 @@ def create_app(config=None):
     @app.post('/api/admin/portal/sync')
     @auth(admin=True)
     def sync():
-        c=portal('collections/preview').get('collections',[]);a=portal('collections/attribute-floors').get('attribute_floors',{})
-        if not isinstance(c,list) or not isinstance(a,dict):abort(502,description='Неожиданный формат ответа Portals')
-        now=int(time.time())
-        with db():
-            for k,v in [('collections',c),('attributes',a)]:db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(k,json.dumps(v),now))
-        audit('Portal: catalog synchronized');return {'ok':True,'collections':len(c),'updated_at':now}
+        if catalog_job['running']:return {'ok':True,**catalog_job}
+        catalog_job.update(running=True,completed=0,total=0,error='')
+        audit('Portal: catalog refresh started')
+        def worker():
+            with app.app_context():
+                try:
+                    data=portal('collections/preview');rows=data.get('collections') or data.get('items') or []
+                    if not rows:raise ValueError('Источник вернул пустой каталог')
+                    catalog_job['total']=len(rows)
+                    with db():db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',('collections',json.dumps(rows),int(time.time())))
+                    for c in rows:
+                        slug=c.get('short_name') or c.get('shortName')
+                        if not slug:continue
+                        try:
+                            result=portal('collections/filters',{'short_names':slug})
+                            def find_models(node):
+                                if isinstance(node,dict):
+                                    if isinstance(node.get('models'),(dict,list)):return node['models']
+                                    for v in node.values():
+                                        found=find_models(v)
+                                        if found:return found
+                                return None
+                            models=find_models(result) or {};seed={m['name']:m for m in collection_models(slug)};parsed=[]
+                            for name,value in (models.items() if isinstance(models,dict) else [(x.get('name') or x.get('value'),x) for x in models if isinstance(x,dict)]):
+                                if not name:continue
+                                price=value.get('floor_price',value.get('floor',value.get('price',0))) if isinstance(value,dict) else value
+                                parsed.append({'name':name,'price':str(price or 0),'image':seed.get(name,{}).get('image',c.get('photo_url','')),'price_source':'portals'})
+                            if parsed:
+                                with db():db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',('models:'+slug,json.dumps(parsed),int(time.time())))
+                        except Exception as error:catalog_job['error']='Часть моделей не обновлена: '+str(error)[:100]
+                        catalog_job['completed']+=1
+                    catalog_job['updated_at']=int(time.time())
+                except Exception as error:catalog_job['error']='Portal не обновлён: '+str(error)[:150]
+                finally:catalog_job['running']=False
+        threading.Thread(target=worker,daemon=True).start()
+        return {'ok':True,**catalog_job}
+    @app.get('/api/admin/users')
+    @auth(admin=True)
+    def users():
+        query='%'+request.args.get('search','')[:100]+'%'
+        rows=db().execute('SELECT u.*, COALESCE(a.balance,0) balance,(SELECT count(*) FROM inventory i WHERE i.user_id=u.id) gifts FROM users u LEFT JOIN demo_accounts a ON a.user_id=u.id WHERE CAST(u.id AS TEXT) LIKE ? OR u.name LIKE ? OR u.username LIKE ? ORDER BY u.created DESC LIMIT 100',(query,query,query)).fetchall()
+        return {'users':[dict(r) for r in rows]}
+    @app.post('/api/admin/users/<int:uid>/balance')
+    @auth(admin=True)
+    def user_balance(uid):
+        if not db().execute('SELECT 1 FROM users WHERE id=?',(uid,)).fetchone():abort(404)
+        try:amount=Decimal(str((request.get_json() or {}).get('balance')))
+        except Exception:abort(400,description='Укажите баланс числом')
+        if not amount.is_finite() or amount<0 or amount>1000000000:abort(400,description='Недопустимый баланс')
+        db().execute('INSERT OR REPLACE INTO demo_accounts VALUES(?,?)',(uid,str(amount.quantize(Decimal('0.01')))));db().commit();audit('Balance edited: '+str(uid))
+        return {'ok':True}
+    @app.post('/api/admin/users/<int:uid>/gifts')
+    @auth(admin=True)
+    def user_gift(uid):
+        if not db().execute('SELECT 1 FROM users WHERE id=?',(uid,)).fetchone():abort(404)
+        data=request.get_json() or {};slug=data.get('collection_id');name=data.get('model')
+        collection=next((c for c in catalog_seed['collections'] if c['id']==slug),None)
+        model=next((m for m in collection_models(slug) if m['name']==name),None)
+        if not collection or not model:abort(400,description='Выберите коллекцию и модель из каталога')
+        gift=dict(id='grant-'+uuid.uuid4().hex,name=collection['name'],collection_id=slug,model=name,backdrop='',price=model['price'],image=model['image'],number='',origin='admin-grant',price_unit='TON' if model.get('price_source')=='snapshot-estimate' else 'GRAM')
+        db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(uid,gift['id'],json.dumps(gift),'unlisted'));db().commit();audit('Gift granted: '+str(uid)+' '+collection['name']+' / '+name)
+        return {'ok':True,'gift':gift}
     @app.get('/api/admin/selection')
     @auth(admin=True)
     def get_selection():
