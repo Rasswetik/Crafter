@@ -134,9 +134,22 @@ def create_app(config=None):
             ref=int(raw[4:]);row=db().execute('SELECT 1 FROM users WHERE id=?',(ref,)).fetchone()
             if ref!=g.user['id'] and row:db().execute('UPDATE users SET referrer=? WHERE id=? AND referrer IS NULL AND created>=?',(ref,g.user['id'],int(time.time())-60));db().commit()
         return {'ok':True}
+    def public_catalog():
+        rows,updated=cached('thermos:collections',[])
+        if rows and time.time()-updated<300:return rows
+        import thermos
+        try:
+            rows=thermos.collections()
+            db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',('thermos:collections',json.dumps(rows),int(time.time())));db().commit()
+        except Exception:
+            if not rows:raise
+        return rows
     @app.get('/api/catalog')
     @auth()
     def catalog():
+        if not app.config['PORTALS_API_KEY']:
+            try:return dict(collections=public_catalog(),attributes={},source='thermos',price_unit='TON',demo=app.config['DEMO_MODE'])
+            except Exception:pass
         collections,updated=cached('collections',[]);attributes,_=cached('attributes',{})
         if not collections:collections=[{k:v for k,v in c.items() if k!='models'} for c in catalog_seed['collections']]
         return dict(collections=collections,attributes=attributes,updated_at=updated,demo=app.config['DEMO_MODE'],source='portals' if updated else 'snapshot',snapshot_updated_at=catalog_seed.get('updated_at'))
@@ -146,10 +159,31 @@ def create_app(config=None):
         return next((c.get('models',[]) for c in catalog_seed['collections'] if c['id']==slug or c['short_name']==slug),[])
     @app.get('/api/collections/<slug>/models')
     @auth()
-    def models(slug):return {'models':collection_models(slug)}
+    def models(slug):
+        if not app.config['PORTALS_API_KEY']:
+            import thermos
+            c=next((c for c in public_catalog() if c['id']==slug),None)
+            if c:
+                data=thermos.request('attributes',{'collections':[c['name']]}).get(c['name'],{})
+                return {'models':[dict(name=m['name'],image=m.get('image_url',''),price=thermos.ton(m.get('stats',{}).get('floor')),price_source='thermos',price_unit='TON') for m in data.get('models',[])]}
+        return {'models':collection_models(slug)}
     @app.get('/api/market')
     @auth()
     def market():
+        if not app.config['PORTALS_API_KEY'] and not app.config['DEMO_MODE']:
+            import thermos
+            params={k:request.args[k][:150] for k in ('search','collection_id','filter_by_models','filter_by_backdrops','filter_by_symbols','sort_by','offset') if request.args.get(k)}
+            key='thermos:market:'+urlencode(sorted(params.items()))
+            previous,updated=cached(key)
+            if previous and time.time()-updated<60:return previous
+            try:
+                rows,_=cached('thermos:collections',[])
+                result=thermos.gifts(params,rows)
+                db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(key,json.dumps(result),int(time.time())));db().commit()
+                return result
+            except Exception:
+                if previous:return {**previous,'warning':'Показаны сохранённые предложения. Цены могут измениться.'}
+                abort(502,description='Каталог временно недоступен. Повторите загрузку.')
         if not app.config['PORTALS_API_KEY'] and app.config['DEMO_MODE']:return {'gifts':DEMO_GIFTS,'demo':True,'source':'demo'}
         allowed={'search','collection_id','filter_by_models','filter_by_backdrops','sort_by','offset'}
         params={k:request.args[k][:150] for k in allowed if request.args.get(k)};params.update(limit=40,status='listed')
@@ -343,9 +377,10 @@ def create_app(config=None):
         selection=(request.get_json() or {}).get('selection',{})
         if not isinstance(selection,dict) or len(selection)>1000 or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in selection.values()):abort(400)
         db().execute("INSERT OR REPLACE INTO settings VALUES('selection',?)",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
-    if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','1')=='1':
+    if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     return app
 
 app=create_app()
 if __name__=='__main__':app.run(host='127.0.0.1',port=int(os.getenv('PORT','5000')),debug=False)
+
