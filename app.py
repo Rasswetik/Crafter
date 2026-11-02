@@ -1,4 +1,5 @@
 import gzip
+import re, unicodedata
 import os, json, time, hmac, hashlib, sqlite3, secrets, threading, uuid
 from decimal import Decimal
 from functools import wraps
@@ -46,7 +47,30 @@ def create_app(config=None):
     def close(error):
         if 'db' in g:g.db.close()
     with app.app_context():
-        db().executescript('''CREATE TABLE IF NOT EXISTS craft_quotes(id TEXT PRIMARY KEY,user_id INTEGER,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT, username TEXT, referrer INTEGER, created INTEGER); CREATE TABLE IF NOT EXISTS cache(key TEXT PRIMARY KEY, payload TEXT, updated INTEGER); CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, payload TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, actor INTEGER, action TEXT, created INTEGER); CREATE TABLE IF NOT EXISTS inventory(user_id INTEGER, nft_id TEXT, payload TEXT, status TEXT DEFAULT 'unlisted', PRIMARY KEY(user_id,nft_id)); CREATE TABLE IF NOT EXISTS demo_accounts(user_id INTEGER PRIMARY KEY,balance TEXT); CREATE TABLE IF NOT EXISTS history(id TEXT PRIMARY KEY,user_id INTEGER,kind TEXT,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS craft_requests(user_id INTEGER,request_id TEXT,result TEXT,PRIMARY KEY(user_id,request_id));'''); db().commit()
+        db().executescript('''CREATE TABLE IF NOT EXISTS local_numbers(collection_id TEXT,number INTEGER,PRIMARY KEY(collection_id,number)); CREATE TABLE IF NOT EXISTS local_purchases(user_id INTEGER,request_id TEXT,result TEXT,PRIMARY KEY(user_id,request_id)); CREATE TABLE IF NOT EXISTS local_sold(source_id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS craft_quotes(id TEXT PRIMARY KEY,user_id INTEGER,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT, username TEXT, referrer INTEGER, created INTEGER); CREATE TABLE IF NOT EXISTS cache(key TEXT PRIMARY KEY, payload TEXT, updated INTEGER); CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, payload TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, actor INTEGER, action TEXT, created INTEGER); CREATE TABLE IF NOT EXISTS inventory(user_id INTEGER, nft_id TEXT, payload TEXT, status TEXT DEFAULT 'unlisted', PRIMARY KEY(user_id,nft_id)); CREATE TABLE IF NOT EXISTS demo_accounts(user_id INTEGER PRIMARY KEY,balance TEXT); CREATE TABLE IF NOT EXISTS history(id TEXT PRIMARY KEY,user_id INTEGER,kind TEXT,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS craft_requests(user_id INTEGER,request_id TEXT,result TEXT,PRIMARY KEY(user_id,request_id));'''); db().commit()
+    def gift_number(collection_id,preferred=None):
+        try:preferred=int(preferred)
+        except (TypeError,ValueError):preferred=None
+        for attempt in range(50):
+            number=preferred if attempt==0 and preferred and preferred>0 else secrets.randbelow(999999)+1
+            try:
+                db().execute('INSERT INTO local_numbers VALUES(?,?)',(collection_id,number))
+                return number
+            except sqlite3.IntegrityError:pass
+        abort(409,description='Не удалось присвоить номер подарка')
+    with app.app_context(),db():
+        for row in db().execute('SELECT user_id,nft_id,payload FROM inventory').fetchall():
+            gift=json.loads(row['payload'])
+            try:existing_number=int(gift.get('number') or 0)
+            except (ValueError,TypeError):existing_number=0
+            if existing_number>0:
+                db().execute('INSERT OR IGNORE INTO local_numbers VALUES(?,?)',(gift.get('collection_id',gift['name']),existing_number))
+            if existing_number<=0:
+                gift['number']=gift_number(gift.get('collection_id',gift['name']))
+                db().execute('UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?',(json.dumps(gift),row['user_id'],row['nft_id']))
+    def local_market_rows(result):
+        sold={r[0] for r in db().execute('SELECT source_id FROM local_sold')}
+        return {**result,'gifts':[g for g in result['gifts'] if g['id'] not in sold],'purchase_mode':'local'}
     def auth(admin=False):
         def deco(fn):
             @wraps(fn)
@@ -153,11 +177,16 @@ def create_app(config=None):
         collections,updated=cached('collections',[]);attributes,_=cached('attributes',{})
         if not collections:collections=[{k:v for k,v in c.items() if k!='models'} for c in catalog_seed['collections']]
         return dict(collections=collections,attributes=attributes,updated_at=updated,demo=app.config['DEMO_MODE'],source='portals' if updated else 'snapshot',snapshot_updated_at=catalog_seed.get('updated_at'))
+    def canonical_name(value):
+        text=unicodedata.normalize('NFKC',str(value)).casefold()
+        return re.sub(r"[^\w]",'',text)
+    def catalog_collection(value):
+        return next((c for c in public_catalog() if str(value) in (str(c['id']),str(c.get('short_name',''))) or canonical_name(value)==canonical_name(c['name'])),None)
     def collection_attributes(slug):
         key='thermos:attributes:'+slug;data,updated=cached(key)
         if data and time.time()-updated<300:return data
         import thermos
-        c=next((c for c in public_catalog() if c['id']==slug),None)
+        c=catalog_collection(slug)
         if not c:return dict(models=[],backdrops=[],symbols=[])
         try:
             data=thermos.request('attributes',{'collections':[c['name']]}).get(c['name'],{})
@@ -193,7 +222,7 @@ def create_app(config=None):
             except Exception:abort(400,description='Недопустимый диапазон цены')
             key='public:market:'+urlencode(sorted(params.items()))
             previous,updated=cached(key)
-            if previous and time.time()-updated<60:return previous
+            if previous and time.time()-updated<60:return local_market_rows(previous)
             try:
                 rows,_=cached('thermos:collections',[])
                 try:
@@ -203,9 +232,9 @@ def create_app(config=None):
                     if (params.get('min_price') or params.get('max_price')) and params.get('price_unit')=='GRAM':abort(502,description='Фильтр цены GRAM временно недоступен. Повторите запрос.')
                     result=thermos.gifts(params,rows)
                 db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(key,json.dumps(result),int(time.time())));db().commit()
-                return result
+                return local_market_rows(result)
             except Exception:
-                if previous:return {**previous,'warning':'Показаны сохранённые предложения. Цены могут измениться.'}
+                if previous:return local_market_rows({**previous,'warning':'Показаны сохранённые предложения. Цены могут измениться.'})
                 abort(502,description='Каталог временно недоступен. Повторите загрузку.')
         if not app.config['PORTALS_API_KEY'] and app.config['DEMO_MODE']:return {'gifts':DEMO_GIFTS,'demo':True,'source':'demo'}
         allowed={'search','collection_id','filter_by_models','filter_by_backdrops','sort_by','offset'}
@@ -249,12 +278,12 @@ def create_app(config=None):
         gifts={x['id']:x for x in owned() if x['status']=='unlisted'}
         if any(x not in gifts for x in ids):abort(409,description='Подарок недоступен')
         chosen=[gifts[x] for x in ids]
-        if any(x.get('origin') not in ('admin-grant','application-craft') for x in chosen):abort(409,description='Доступны подарки внутреннего инвентаря Crafter')
+        if any(x.get('origin') not in ('admin-grant','application-craft','local-purchase') for x in chosen):abort(409,description='Доступны подарки внутреннего инвентаря Crafter')
         catalog=public_catalog();target=next((c for c in catalog if c['id']==data.get('target_id')),None)
         if not target:abort(400,description='Выберите коллекцию результата')
-        floors={c['name']:Decimal(c['floor_price']) for c in catalog}
-        if any(x['name'] not in floors for x in chosen):abort(409,description='Не удалось оценить коллекцию')
-        value=sum(floors[x['name']] for x in chosen);cost=Decimal(target['floor_price'])
+        floors={canonical_name(c['name']):Decimal(c['floor_price']) for c in catalog}
+        if any(canonical_name(x['name']) not in floors for x in chosen):abort(409,description='Не удалось оценить коллекцию')
+        value=sum(floors[canonical_name(x['name'])] for x in chosen);cost=Decimal(target['floor_price'])
         if value<=0 or cost<=0:abort(409,description='Нет актуальной оценки подарков')
         models=collection_models(target['id'])
         if not models:abort(409,description='Модели коллекции пока недоступны')
@@ -263,7 +292,7 @@ def create_app(config=None):
         if permitted is not None:models=[m for m in models if m['name'] in permitted]
         if not models:abort(409,description='Администратор не выбрал модели результата')
         chance=min(9500,int(value/cost*Decimal(9500)))
-        reward_model=min(models,key=lambda m:Decimal(m.get('price') or 0))
+        reward_model=secrets.choice(models)
         return dict(gift_ids=ids,target_id=target['id'],chance_bps=chance,input_value=str(value),target_value=str(cost),target=target,model=reward_model,scope='application')
     @app.post('/api/craft/quote')
     @auth()
@@ -286,7 +315,7 @@ def create_app(config=None):
             if any(x not in eligible for x in ids):abort(409,description='Подарок уже использован или выставлен на продажу')
             success=secrets.randbelow(10000)<q['chance_bps'];reward=None
             if success:
-                t=q['target'];m=q['model'];reward=dict(id='craft-'+uuid.uuid4().hex,name=t['name'],collection_id=t['id'],model=m['name'],backdrop='',price=t['floor_price'],price_unit='TON',image=m.get('image') or t['photo_url'],number='',origin='application-craft',crafted=True)
+                t=q['target'];m=q['model'];reward=dict(id='craft-'+uuid.uuid4().hex,name=t['name'],collection_id=t['id'],model=m['name'],backdrop='',price=t['floor_price'],price_unit='TON',image=m.get('image') or t['photo_url'],number=gift_number(t['id']),origin='application-craft',crafted=True)
             for nft in ids:db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?',(g.user['id'],nft))
             if reward:db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
             result=dict(success=success,chance=q['chance_bps']/100,gift=reward,consumed=ids,scope='application')
@@ -326,6 +355,34 @@ def create_app(config=None):
                     db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?',(g.user['id'],nft))
             record(action,{'gifts':[gifts[x] for x in ids],'recipient':data.get('recipient'),'demo':True})
         return {'ok':True,'demo':True}
+    @app.post('/api/local/buy')
+    @auth()
+    def local_buy():
+        data=request.get_json() or {};source_id=data.get('id');rid=data.get('request_id')
+        if not isinstance(source_id,str) or not isinstance(rid,str) or not 1<=len(rid)<=100:abort(400)
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            prior=db().execute('SELECT result FROM local_purchases WHERE user_id=? AND request_id=?',(g.user['id'],rid)).fetchone()
+            if prior:return json.loads(prior[0])
+            if db().execute('SELECT 1 FROM local_sold WHERE source_id=?',(source_id,)).fetchone():abort(409,description='Этот подарок уже куплен локально')
+            gift=None
+            for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",(int(time.time())-300,)):
+                gift=next((item for item in json.loads(row[0]).get('gifts',[]) if item['id']==source_id),None)
+                if gift:break
+            if not gift:abort(409,description='Предложение устарело. Обновите маркет.')
+            if gift.get('price_unit')!='GRAM':abort(409,description='Локальная покупка доступна для предложений в GRAM')
+            price=Decimal(gift['price'])
+            if not price.is_finite() or price<=0:abort(409,description='Нет цены подарка')
+            balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])
+            if price>balance:abort(409,description='Недостаточно GRAM на локальном балансе')
+            gift={**gift,'id':'local-'+uuid.uuid4().hex,'source_id':source_id,'source_number':gift.get('number'),'number':gift_number(gift.get('collection_id') or gift['name'],gift.get('number')),'origin':'local-purchase'}
+            db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-price),g.user['id']))
+            db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],gift['id'],json.dumps(gift),'unlisted'))
+            db().execute('INSERT INTO local_sold VALUES(?)',(source_id,))
+            result=dict(ok=True,gift=gift,balance=str(balance-price),scope='application')
+            record('buy',dict(gift=gift,price=str(price),scope='application'))
+            db().execute('INSERT INTO local_purchases VALUES(?,?,?)',(g.user['id'],rid,json.dumps(result)))
+        return result
     @app.post('/api/demo/buy')
     @auth()
     def demo_buy():
@@ -412,10 +469,10 @@ def create_app(config=None):
     def user_gift(uid):
         if not db().execute('SELECT 1 FROM users WHERE id=?',(uid,)).fetchone():abort(404)
         data=request.get_json() or {};slug=data.get('collection_id');name=data.get('model')
-        collection=next((c for c in public_catalog() if c['id']==slug or c['short_name']==slug),None)
-        model=next((m for m in collection_models(slug) if m['name']==name),None)
+        collection=catalog_collection(slug)
+        model=next((m for m in collection_models(collection['id'] if collection else str(slug)) if canonical_name(m['name'])==canonical_name(name)),None)
         if not collection or not model:abort(400,description='Выберите коллекцию и модель из каталога')
-        gift=dict(id='grant-'+uuid.uuid4().hex,name=collection['name'],collection_id=slug,model=name,backdrop='',price=model['price'],image=model['image'],number='',origin='admin-grant',price_unit=model.get('price_unit','TON'))
+        gift=dict(id='grant-'+uuid.uuid4().hex,name=collection['name'],collection_id=collection['id'],model=model['name'],backdrop='',price=model['price'],image=model['image'],number=gift_number(collection['id'],data.get('number')),origin='admin-grant',price_unit=model.get('price_unit','TON'))
         db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(uid,gift['id'],json.dumps(gift),'unlisted'));db().commit();audit('Gift granted: '+str(uid)+' '+collection['name']+' / '+name)
         return {'ok':True,'gift':gift}
     @app.get('/api/admin/selection')
