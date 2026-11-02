@@ -36,6 +36,7 @@ window.fetch=async (url,options={})=>{
  persistDemo();return {ok,json:async()=>data};
 };
 '''.replace('GIFTS',json.dumps(DEMO_GIFTS,ensure_ascii=False))
+html=html.replace('<script src="/static/cube.js"></script>','<script>'+(root/'static/cube.js').read_text()+'</script>')
 html=html.replace('<script src="/static/app.js"></script>','<script>'+mock+'\n'+(root/'static/app.js').read_text()+'</script>').replace('<script src="/static/screens.js"></script>','<script>'+(root/'static/screens.js').read_text()+'</script>')
 for file in (root/'static/assets').glob('*.webp'):
  html=html.replace('/static/assets/'+file.name,'data:image/webp;base64,'+base64.b64encode(file.read_bytes()).decode())
