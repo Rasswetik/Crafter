@@ -1,0 +1,1 @@
+(async()=>{const splash=document.querySelector('#splash');const started=Date.now();try{await boot()}finally{const delay=Math.max(0,1100-(Date.now()-started));setTimeout(()=>{splash.classList.add('finished');setTimeout(()=>splash.remove(),400)},delay)}})();

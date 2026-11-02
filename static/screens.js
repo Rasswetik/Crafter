@@ -80,5 +80,3 @@ async function refreshPortal(button){button.disabled=true;try{await api('admin/p
 async function pollPortal(){try{let s=await api('admin/status'),el=document.querySelector('#sync-progress');if(!el)return;el.textContent=s.sync.running?`Обработано коллекций: ${s.sync.completed} / ${s.sync.total}`:s.sync.error||'Каталог обновлён';if(s.sync.running)setTimeout(pollPortal,2000);else state.catalog=await api('catalog')}catch(e){toast(e.message)}}
 async function showCatalogModels(slug){let data=await api('collections/'+encodeURIComponent(slug)+'/models');document.querySelector('#catalog-models').innerHTML=data.models.map(m=>`<div class="model-row"><span>${esc(m.name)}</span><b style="margin-left:auto">${money(m.price)} ${m.price_source==='snapshot-estimate'?'TON':'GRAM'}</b></div>`).join('')}
 
-boot();
-
