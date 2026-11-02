@@ -5,8 +5,8 @@ const arg=x=>esc(JSON.stringify(String(x)));
 const imageURL=x=>/^(https:\/\/|\/static\/assets\/|data:image\/webp;base64,)/.test(x||'')?x:'';
 const money=x=>{let n=Number(x);return Number.isFinite(n)?n.toLocaleString('ru-RU',{maximumFractionDigits:2}):'—'};
 let state={page:'market',me:null,gifts:[],catalog:{collections:[],attributes:{}},selected:[],list:false,query:'',collection:'',model:'',backdrop:'',sort:false,inventory:[],crafting:false,selection:{}};
-const tg=window.Telegram?.WebApp;tg?.ready();tg?.expand();tg?.setHeaderColor?.('#131313');tg?.setBackgroundColor?.('#131313');
-async function api(path,body){const response=await fetch('/api/'+path,{method:body===undefined?'GET':'POST',headers:{'Content-Type':'application/json','X-Telegram-Init-Data':tg?.initData||''},...(body!==undefined?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok)throw Error(data.error||'Ошибка запроса');return data}
+let tg=window.Telegram?.WebApp;
+async function api(path,body){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),12000);try{const response=await fetch('/api/'+path,{method:body===undefined?'GET':'POST',signal:controller.signal,headers:{'Content-Type':'application/json','X-Telegram-Init-Data':tg?.initData||''},...(body!==undefined?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok)throw Error(data.error||'Ошибка запроса');return data}catch(e){if(e.name==='AbortError')throw Error('Сервер долго не отвечает. Попробуйте ещё раз.');throw e}finally{clearTimeout(timer)}}
 function toast(msg){let el=document.querySelector('#toast');el.textContent=msg;el.style.display='block';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>el.style.display='none',3500)}
 function sheet(title,html){document.querySelector('#sheet-title').textContent=title;document.querySelector('#sheet-body').innerHTML=html;document.querySelector('#sheet').showModal()}
 function closeSheet(){document.querySelector('#sheet').close()}
@@ -36,5 +36,6 @@ async function adminAction(action,button){button.disabled=true;try{await api('ad
 function adminModels(key){let data=state.catalog.attributes[key]||{};let models=data.models||data.model||{};let entries=Array.isArray(models)?models.map(m=>[m.name,m.floor_price]):Object.entries(models);document.querySelector('#model-list').innerHTML=entries.length?entries.map(([name,p])=>`<label class="model-row"><input type="checkbox" value="${esc(name)}" ${state.selection[key]?.includes(name)?'checked':''} onchange="changeModel(${arg(key)},this)"><span>${esc(name)}</span><b style="margin-left:auto">${money(typeof p==='object'?p.floor_price:p)} ◆</b></label>`).join(''):'<p class="sub">Нет моделей в ответе API для этой коллекции.</p>'}
 function changeModel(key,el){let values=new Set(state.selection[key]||[]);el.checked?values.add(el.value):values.delete(el.value);state.selection[key]=[...values]}
 async function saveModels(){try{await api('admin/selection',{selection:state.selection});toast('Выбор моделей сохранён')}catch(e){toast(e.message)}}
-async function boot(){try{state.me=await api('me');state.catalog=await api('catalog');api('referral',{}).catch(()=>{});await go('market')}catch(e){document.querySelector('#main').innerHTML=`<div class="empty">${icon('shield')}<h2>Вход через Telegram</h2><p>${esc(e.message)}</p></div>`}}
+async function boot(){try{state.me=await api('me');state.catalog=await api('catalog');api('referral',{}).catch(()=>{});await go('market')}catch(e){document.querySelector('#main').innerHTML=`<div class="empty">${icon('shield')}<h2>Не удалось загрузить приложение</h2><p>${esc(e.message)}</p><button class="secondary" onclick="location.reload()">Повторить</button></div>`}}
+
 
