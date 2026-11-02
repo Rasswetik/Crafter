@@ -57,3 +57,19 @@ def test_craft_idempotency(tmp_path):
     assert a.status_code==200 and b.json==a.json
     assert len(c.get('/api/history').json['items'])==1
     assert c.post('/api/craft',json={**payload,'request_id':'another-craft'}).status_code==409
+
+def test_preview_contains_real_cube_renderer(client):
+    result=client.get('/preview')
+    assert result.status_code==200
+    assert b'Software-projected solid cube' in result.data
+    assert b'CrafterCube.draw' in result.data
+    assert b'window.fetch=async' in result.data
+    assert result.headers['Cache-Control']=='no-cache, must-revalidate'
+
+def test_market_key_is_optional_and_failure_is_honest(client,monkeypatch):
+    import app
+    def deny(*a,**k):raise app.URLError('unavailable')
+    monkeypatch.setattr(app,'urlopen',deny)
+    r=client.get('/api/market',headers=signed())
+    assert r.status_code==200 and r.json['source']=='unavailable'
+    assert r.json['gifts']==[] and r.json['warning']
