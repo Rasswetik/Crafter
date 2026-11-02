@@ -48,6 +48,6 @@ function draw(ctx,{rx,ry,textures=[],size=220,reveal=false}){
  ctx.fillStyle=`rgba(9,16,30,${Math.max(0,.12-face.normal[2]*.08)})`;ctx.fill();ctx.strokeStyle='rgba(190,204,229,.45)';ctx.lineWidth=.9;ctx.stroke();ctx.restore();}
  return visible;
 }
-const api={geometry,rotate,pose,draw,symbolTexture};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.CrafterCube=api;
+const api={faces,geometry,rotate,pose,draw,symbolTexture};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.CrafterCube=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
 

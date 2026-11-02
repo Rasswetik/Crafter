@@ -74,7 +74,7 @@ def create_app(config=None):
     def local_market_rows(result):
         # Local test prices use the source numeric amount in app GRAM; no FX or external purchase.
         sold={r[0] for r in db().execute('SELECT source_id FROM local_sold')}
-        return {**result,'price_unit':'GRAM','gifts':[{**g,'source_price_unit':g.get('source_price_unit',g.get('price_unit','GRAM')),'price_unit':'GRAM','local_price':str(g['price'])} for g in result['gifts'] if g['id'] not in sold],'purchase_mode':'local'}
+        return {**result,'price_unit':'GRAM','gifts':[{**g,'source_price_unit':g.get('source_price_unit',g.get('price_unit','GRAM')),'price_unit':'GRAM','source_price':g.get('source_price',g['price']),'price':str(Decimal(str(g['price'])).quantize(Decimal('0.01'))),'local_price':str(Decimal(str(g['price'])).quantize(Decimal('0.01')))} for g in result['gifts'] if g['id'] not in sold],'purchase_mode':'local'}
     def auth(admin=False):
         def deco(fn):
             @wraps(fn)
@@ -375,16 +375,62 @@ def create_app(config=None):
             if not gift:abort(409,description='Предложение устарело. Обновите маркет.')
             source_unit=gift.get('price_unit','GRAM')
             if source_unit not in ('GRAM','TON'):abort(409,description='Неизвестная валюта предложения')
-            price=Decimal(gift['price'])
+            price=Decimal(gift['price']).quantize(Decimal('0.01'))
             if not price.is_finite() or price<=0:abort(409,description='Нет цены подарка')
             balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])
+            if data.get('expected_price') is not None:
+                try:expected=Decimal(str(data['expected_price'])).quantize(Decimal('0.01'))
+                except Exception:abort(400)
+                if expected!=price:abort(409,description='Цена подарка изменилась. Обновите маркет.')
             if price>balance:abort(409,description='Недостаточно GRAM на локальном балансе')
-            gift={**gift,'source_price_unit':source_unit,'price_unit':'GRAM','id':'local-'+uuid.uuid4().hex,'source_id':source_id,'source_number':gift.get('number'),'number':gift_number(gift.get('collection_id') or gift['name'],gift.get('number')),'origin':'local-purchase'}
+            gift={**gift,'source_price':gift['price'],'price':str(price),'source_price_unit':source_unit,'price_unit':'GRAM','id':'local-'+uuid.uuid4().hex,'source_id':source_id,'source_number':gift.get('number'),'number':gift_number(gift.get('collection_id') or gift['name'],gift.get('number')),'origin':'local-purchase'}
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-price),g.user['id']))
             db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],gift['id'],json.dumps(gift),'unlisted'))
             db().execute('INSERT INTO local_sold VALUES(?)',(source_id,))
             result=dict(ok=True,gift=gift,balance=str(balance-price),scope='application')
             record('buy',dict(gift=gift,price=str(price),scope='application'))
+            db().execute('INSERT INTO local_purchases VALUES(?,?,?)',(g.user['id'],rid,json.dumps(result)))
+        return result
+    @app.post('/api/local/cart/buy')
+    @auth()
+    def buy_cart():
+        data=request.get_json() or {};ids=data.get('gift_ids');rid=data.get('request_id')
+        if not isinstance(ids,list) or not 1<=len(ids)<=100 or any(not isinstance(x,str) for x in ids) or len(ids)!=len(set(ids)):abort(400,description='Выберите подарки в корзине')
+        if not isinstance(rid,str) or not 1<=len(rid)<=80:abort(400)
+        rid='cart:'+rid
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            prior=db().execute('SELECT result FROM local_purchases WHERE user_id=? AND request_id=?',(g.user['id'],rid)).fetchone()
+            if prior:return json.loads(prior[0])
+            sold={r[0] for r in db().execute('SELECT source_id FROM local_sold')}
+            if any(gid in sold for gid in ids):abort(409,description='Один из подарков уже куплен. Обновите корзину.')
+            found={}
+            for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",(int(time.time())-300,)):
+                for gift in json.loads(row[0]).get('gifts',[]):
+                    if gift['id'] in ids and gift['id'] not in found:found[gift['id']]=gift
+                if len(found)==len(ids):break
+            if len(found)!=len(ids):abort(409,description='Цены в корзине устарели. Обновите маркет.')
+            total=Decimal(0)
+            for gift in found.values():
+                price=Decimal(gift['price']).quantize(Decimal('0.01'))
+                if not price.is_finite() or price<=0 or gift.get('price_unit') not in ('GRAM','TON'):abort(409,description='Нет цены подарка')
+                total+=price
+            balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])
+            if data.get('expected_total') is not None:
+                try:expected=Decimal(str(data['expected_total'])).quantize(Decimal('0.01'))
+                except Exception:abort(400)
+                if expected!=total:abort(409,description='Цены в корзине изменились. Обновите маркет.')
+            if total>balance:abort(409,description='Недостаточно GRAM на балансе')
+            rewards=[]
+            for source_id in ids:
+                gift=found[source_id]
+                reward={**gift,'source_price':gift['price'],'price':str(Decimal(gift['price']).quantize(Decimal('0.01'))),'id':'local-'+uuid.uuid4().hex,'source_id':source_id,'source_number':gift.get('number'),'source_price_unit':gift.get('price_unit'),'price_unit':'GRAM','number':gift_number(gift.get('collection_id') or gift['name'],gift.get('number')),'origin':'local-purchase'}
+                db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
+                db().execute('INSERT INTO local_sold VALUES(?)',(source_id,))
+                record('buy',dict(gift=reward,price=str(gift['price']),scope='application'))
+                rewards.append(reward)
+            db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-total),g.user['id']))
+            result=dict(ok=True,gifts=rewards,balance=str(balance-total),total=str(total),scope='application')
             db().execute('INSERT INTO local_purchases VALUES(?,?,?)',(g.user['id'],rid,json.dumps(result)))
         return result
     @app.post('/api/demo/buy')
