@@ -130,6 +130,10 @@ def create_app(config=None):
     def inventory():
         # A partner token belongs to the operator, NOT to all Mini App users.
         return {'gifts':owned(),'demo':app.config['DEMO_MODE']}
+    @app.get('/api/craft/targets')
+    @auth()
+    def craft_targets():
+        return {'gifts':DEMO_GIFTS if app.config['DEMO_MODE'] else [],'demo':app.config['DEMO_MODE']}
     @app.post('/api/craft')
     @auth()
     def craft():

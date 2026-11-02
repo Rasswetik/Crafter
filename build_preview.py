@@ -14,7 +14,8 @@ function persistDemo(){try{localStorage.setItem('crafter-v2',JSON.stringify(demo
 function demoHistory(kind,data){demoState.history.unshift({id:String(Date.now()),kind,data,created:Date.now()/1000})}
 window.fetch=async (url,options={})=>{
  const route=url.replace('/api/','').split('?')[0],body=JSON.parse(options.body||'{}');let data={},ok=true;
- if(route==='me')data={user:{id:5257227756,first_name:'Гошан',username:'goshan_wow'},is_admin:true,demo:true,balance:String(demoState.balance),inventory_count:demoState.inventory.length,inventory_value:String(demoState.inventory.reduce((a,x)=>a+Number(x.price),0)),bought:demoState.history.filter(x=>x.kind==='buy').length,sold:0,volume:'0',referrals:0,referral_level:1,referral_progress:0,invite_link:null};
+ if(route==='craft/targets')data={gifts:previewGifts,demo:true};
+ else if(route==='me')data={user:{id:5257227756,first_name:'Гошан',username:'goshan_wow'},is_admin:true,demo:true,balance:String(demoState.balance),inventory_count:demoState.inventory.length,inventory_value:String(demoState.inventory.reduce((a,x)=>a+Number(x.price),0)),bought:demoState.history.filter(x=>x.kind==='buy').length,sold:0,volume:'0',referrals:0,referral_level:1,referral_progress:0,invite_link:null};
  else if(route==='market')data={gifts:previewGifts,demo:true,source:'demo'};
  else if(route==='inventory')data={gifts:demoState.inventory,demo:true};
  else if(route==='history')data={items:demoState.history};
