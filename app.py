@@ -34,7 +34,7 @@ DEMO_GIFTS = [
 
 def create_app(config=None):
     app = Flask(__name__)
-    app.config.update(DATABASE=os.getenv('DATABASE',str(ROOT/'instance/app.sqlite3')), DEMO_MODE=os.getenv('DEMO_MODE','0')=='1', BOT_TOKEN=os.getenv('BOT_TOKEN',''), ADMIN_IDS={int(x.strip()) for x in os.getenv('ADMIN_IDS','').split(',') if x.strip().isdigit()}, PORTALS_API_KEY=os.getenv('PORTALS_API_KEY',''), BOT_USERNAME=os.getenv('BOT_USERNAME',''), MAX_CONTENT_LENGTH=16384)
+    app.config.update(DATABASE=os.getenv('DATABASE',str(Path('/var/data/crafter.sqlite3') if Path('/var/data').is_dir() else ROOT/'instance/app.sqlite3')), DEMO_MODE=os.getenv('DEMO_MODE','0')=='1', BOT_TOKEN=os.getenv('BOT_TOKEN',''), ADMIN_IDS={int(x.strip()) for x in os.getenv('ADMIN_IDS','').split(',') if x.strip().isdigit()}, PORTALS_API_KEY=os.getenv('PORTALS_API_KEY',''), BOT_USERNAME=os.getenv('BOT_USERNAME',''), MAX_CONTENT_LENGTH=16384)
     if config: app.config.update(config)
     catalog_seed=json.loads(gzip.decompress((ROOT/'data/catalog_seed.json.gz').read_bytes())) if (ROOT/'data/catalog_seed.json.gz').exists() else {'collections':[]}
     catalog_job={'running':False,'completed':0,'total':0,'error':'','updated_at':None}
@@ -70,6 +70,14 @@ def create_app(config=None):
                 db().execute('INSERT OR IGNORE INTO local_numbers VALUES(?,?)',(gift.get('collection_id',gift['name']),existing_number))
             if existing_number<=0:
                 gift['number']=gift_number(gift.get('collection_id',gift['name']))
+                db().execute('UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?',(json.dumps(gift),row['user_id'],row['nft_id']))
+            if gift.get('origin') in ('admin-grant','application-craft'):
+                gift.setdefault('source_price_unit',gift.get('price_unit','TON'));gift['price_unit']='GRAM'
+                if not gift.get('background'):
+                    cache_row=db().execute('SELECT payload FROM cache WHERE key=?',('thermos:attributes:'+str(gift.get('collection_id','')),)).fetchone()
+                    backgrounds=json.loads(cache_row[0]).get('backdrops',[]) if cache_row else []
+                    gift['background']=backgrounds[int(hashlib.sha256(gift['id'].encode()).hexdigest(),16)%len(backgrounds)] if backgrounds else {'center_color':5140105,'edge_color':2503750}
+                    if gift['background'].get('name'):gift['backdrop']=gift['background']['name']
                 db().execute('UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?',(json.dumps(gift),row['user_id'],row['nft_id']))
     def local_market_rows(result):
         # Local test prices use the source numeric amount in app GRAM; no FX or external purchase.
@@ -234,6 +242,8 @@ def create_app(config=None):
                     result=portals_public.listings(params,rows)
                 except Exception:
                     result=thermos.gifts(params,rows)
+                result['next_offset']=max(0,int(params.get('offset',0)))+20
+                result['has_more']=len(result['gifts'])>=20
                 db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(key,json.dumps(result),int(time.time())));db().commit()
                 return local_market_rows(result)
             except Exception:
@@ -247,7 +257,7 @@ def create_app(config=None):
         if previous and int(time.time())-updated<60:return {**previous,'updated_at':updated}
         try:
             data=portal('nfts/search',params)
-            result={'gifts':[normalized(n) for n in data.get('results',[])],'demo':False,'source':'portals','total':data.get('total_count',0)}
+            result={'gifts':[normalized(n) for n in data.get('results',[])],'demo':False,'source':'portals','total':data.get('total_count',0),'next_offset':max(0,int(params.get('offset',0)))+40,'has_more':len(data.get('results',[]))>=40}
             db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(cache_key,json.dumps(result),int(time.time())));db().commit()
             return result
         except Exception as error:
@@ -263,7 +273,7 @@ def create_app(config=None):
                     rows.append(dict(id=c['id']+':'+m['name'],collection_id=c['id'],name=c['name'],model=m['name'],backdrop='',price=m['price'],image=m['image'],number='',catalog_only=True))
             if params.get('sort_by')=='price asc':rows.sort(key=lambda x:Decimal(x['price']))
             offset=max(0,int(params.get('offset',0)))
-            return {'gifts':rows[offset:offset+40],'total':len(rows),'demo':False,'source':'snapshot','warning':'Сохранённый каталог · оценочные цены TON. Обновление Portal пока недоступно.'}
+            return {'gifts':rows[offset:offset+40],'total':len(rows),'next_offset':offset+40,'has_more':offset+40<len(rows),'demo':False,'source':'snapshot','warning':'Сохранённый каталог · оценочные цены TON. Обновление Portal пока недоступно.'}
 
 
     @app.get('/api/inventory')
@@ -296,7 +306,9 @@ def create_app(config=None):
         if not models:abort(409,description='Администратор не выбрал модели результата')
         chance=min(9500,int(value/cost*Decimal(9500)))
         reward_model=secrets.choice(models)
-        return dict(gift_ids=ids,target_id=target['id'],chance_bps=chance,input_value=str(value),target_value=str(cost),target=target,model=reward_model,scope='application')
+        attrs=collection_attributes(target['id']);backdrops=attrs.get('backdrops',[])
+        backdrop=secrets.choice(backdrops) if backdrops else {'name':'','center_color':5140105,'edge_color':2503750}
+        return dict(gift_ids=ids,target_id=target['id'],chance_bps=chance,input_value=str(value),target_value=str(cost),target=target,model=reward_model,backdrop=backdrop,scope='application')
     @app.post('/api/craft/quote')
     @auth()
     def craft_quote():
@@ -318,7 +330,7 @@ def create_app(config=None):
             if any(x not in eligible for x in ids):abort(409,description='Подарок уже использован или выставлен на продажу')
             success=secrets.randbelow(10000)<q['chance_bps'];reward=None
             if success:
-                t=q['target'];m=q['model'];reward=dict(id='craft-'+uuid.uuid4().hex,name=t['name'],collection_id=t['id'],model=m['name'],backdrop='',price=t['floor_price'],price_unit='TON',image=m.get('image') or t['photo_url'],number=gift_number(t['id']),origin='application-craft',crafted=True)
+                t=q['target'];m=q['model'];reward=dict(id='craft-'+uuid.uuid4().hex,name=t['name'],collection_id=t['id'],model=m['name'],backdrop=q.get('backdrop',{}).get('name',''),background=q.get('backdrop',{}),price=t['floor_price'],source_price_unit= t.get('price_unit','TON'),price_unit='GRAM',image=m.get('image') or t['photo_url'],number=gift_number(t['id']),origin='application-craft',crafted=True)
             for nft in ids:db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?',(g.user['id'],nft))
             if reward:db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
             result=dict(success=success,chance=q['chance_bps']/100,gift=reward,consumed=ids,scope='application')
@@ -522,7 +534,7 @@ def create_app(config=None):
         collection=catalog_collection(slug)
         model=next((m for m in collection_models(collection['id'] if collection else str(slug)) if canonical_name(m['name'])==canonical_name(name)),None)
         if not collection or not model:abort(400,description='Выберите коллекцию и модель из каталога')
-        gift=dict(id='grant-'+uuid.uuid4().hex,name=collection['name'],collection_id=collection['id'],model=model['name'],backdrop='',price=model['price'],image=model['image'],number=gift_number(collection['id'],data.get('number')),origin='admin-grant',price_unit=model.get('price_unit','TON'))
+        gift=dict(id='grant-'+uuid.uuid4().hex,name=collection['name'],collection_id=collection['id'],model=model['name'],backdrop='',price=model['price'],image=model['image'],number=gift_number(collection['id'],data.get('number')),origin='admin-grant',source_price_unit=model.get('price_unit','TON'),price_unit='GRAM')
         db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(uid,gift['id'],json.dumps(gift),'unlisted'));db().commit();audit('Gift granted: '+str(uid)+' '+collection['name']+' / '+name)
         return {'ok':True,'gift':gift}
     @app.get('/api/admin/selection')
@@ -535,6 +547,8 @@ def create_app(config=None):
         selection=(request.get_json() or {}).get('selection',{})
         if not isinstance(selection,dict) or len(selection)>1000 or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in selection.values()):abort(400)
         db().execute("INSERT OR REPLACE INTO settings VALUES('selection',?)",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
+    from wallet import install_wallet
+    install_wallet(app,db,auth,record,audit)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     return app
