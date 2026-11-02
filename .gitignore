@@ -1,0 +1,8 @@
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+instance/*
+Crafter_Preview.html
+Gift_Market_Preview.html
+*.zip
