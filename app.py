@@ -42,6 +42,9 @@ def create_app(config=None):
     def db():
         if 'db' not in g:
             g.db=sqlite3.connect(app.config['DATABASE'],timeout=10);g.db.row_factory=sqlite3.Row
+            g.db.execute('PRAGMA busy_timeout=10000')
+            g.db.execute('PRAGMA journal_mode=WAL')
+            g.db.execute('PRAGMA foreign_keys=ON')
         return g.db
     @app.teardown_appcontext
     def close(error):
@@ -69,8 +72,9 @@ def create_app(config=None):
                 gift['number']=gift_number(gift.get('collection_id',gift['name']))
                 db().execute('UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?',(json.dumps(gift),row['user_id'],row['nft_id']))
     def local_market_rows(result):
+        # Local test prices use the source numeric amount in app GRAM; no FX or external purchase.
         sold={r[0] for r in db().execute('SELECT source_id FROM local_sold')}
-        return {**result,'gifts':[g for g in result['gifts'] if g['id'] not in sold],'purchase_mode':'local'}
+        return {**result,'price_unit':'GRAM','gifts':[{**g,'source_price_unit':g.get('source_price_unit',g.get('price_unit','GRAM')),'price_unit':'GRAM','local_price':str(g['price'])} for g in result['gifts'] if g['id'] not in sold],'purchase_mode':'local'}
     def auth(admin=False):
         def deco(fn):
             @wraps(fn)
@@ -229,7 +233,6 @@ def create_app(config=None):
                     import portals_public
                     result=portals_public.listings(params,rows)
                 except Exception:
-                    if (params.get('min_price') or params.get('max_price')) and params.get('price_unit')=='GRAM':abort(502,description='Фильтр цены GRAM временно недоступен. Повторите запрос.')
                     result=thermos.gifts(params,rows)
                 db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(key,json.dumps(result),int(time.time())));db().commit()
                 return local_market_rows(result)
@@ -370,12 +373,13 @@ def create_app(config=None):
                 gift=next((item for item in json.loads(row[0]).get('gifts',[]) if item['id']==source_id),None)
                 if gift:break
             if not gift:abort(409,description='Предложение устарело. Обновите маркет.')
-            if gift.get('price_unit')!='GRAM':abort(409,description='Локальная покупка доступна для предложений в GRAM')
+            source_unit=gift.get('price_unit','GRAM')
+            if source_unit not in ('GRAM','TON'):abort(409,description='Неизвестная валюта предложения')
             price=Decimal(gift['price'])
             if not price.is_finite() or price<=0:abort(409,description='Нет цены подарка')
             balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])
             if price>balance:abort(409,description='Недостаточно GRAM на локальном балансе')
-            gift={**gift,'id':'local-'+uuid.uuid4().hex,'source_id':source_id,'source_number':gift.get('number'),'number':gift_number(gift.get('collection_id') or gift['name'],gift.get('number')),'origin':'local-purchase'}
+            gift={**gift,'source_price_unit':source_unit,'price_unit':'GRAM','id':'local-'+uuid.uuid4().hex,'source_id':source_id,'source_number':gift.get('number'),'number':gift_number(gift.get('collection_id') or gift['name'],gift.get('number')),'origin':'local-purchase'}
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-price),g.user['id']))
             db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],gift['id'],json.dumps(gift),'unlisted'))
             db().execute('INSERT INTO local_sold VALUES(?)',(source_id,))
