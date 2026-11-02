@@ -124,7 +124,7 @@ def create_app(config=None):
     def me():
         refs=db().execute('SELECT count(*) FROM users WHERE referrer=?',(g.user['id'],)).fetchone()[0]
         link=f"https://t.me/{app.config['BOT_USERNAME']}?startapp=ref_{g.user['id']}" if app.config['BOT_USERNAME'] else None
-        return dict(user=g.user,is_admin=g.is_admin,demo=app.config['DEMO_MODE'],inventory_count=len(owned()),balance=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0],inventory_value=str(sum(Decimal(x['price']) for x in owned())),bought=db().execute("SELECT count(*) FROM history WHERE user_id=? AND kind='buy'",(g.user['id'],)).fetchone()[0],sold=0,volume='0',referrals=refs,referral_level=1,referral_progress=min(refs*10,100),invite_link=link)
+        return dict(user=g.user,is_admin=g.is_admin,demo=app.config['DEMO_MODE'],inventory_count=len(owned()),balance=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0],inventory_value=str(sum(Decimal(x['price']) for x in owned() if x.get('price_unit')!='TON')),bought=db().execute("SELECT count(*) FROM history WHERE user_id=? AND kind='buy'",(g.user['id'],)).fetchone()[0],sold=0,volume='0',referrals=refs,referral_level=1,referral_progress=min(refs*10,100),invite_link=link)
     @app.post('/api/referral')
     @auth()
     def referral():
@@ -268,14 +268,17 @@ def create_app(config=None):
     @app.post('/api/admin/portal/sync')
     @auth(admin=True)
     def sync():
+        audit('Portal: catalog refresh started')
+        return start_catalog_refresh()
+    def start_catalog_refresh():
         if catalog_job['running']:return {'ok':True,**catalog_job}
         catalog_job.update(running=True,completed=0,total=0,error='')
-        audit('Portal: catalog refresh started')
         def worker():
             with app.app_context():
                 try:
                     data=portal('collections/preview');rows=data.get('collections') or data.get('items') or []
                     if not rows:raise ValueError('Источник вернул пустой каталог')
+                    rows=[{**c,'short_name':c.get('short_name') or c.get('shortName') or '', 'photo_url':c.get('photo_url') or 'https://portal-market.com/collection_previews/'+str(c.get('short_name') or c.get('shortName') or '')+'.webp'} for c in rows]
                     catalog_job['total']=len(rows)
                     with db():db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',('collections',json.dumps(rows),int(time.time())))
                     for c in rows:
@@ -340,6 +343,8 @@ def create_app(config=None):
         selection=(request.get_json() or {}).get('selection',{})
         if not isinstance(selection,dict) or len(selection)>1000 or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in selection.values()):abort(400)
         db().execute("INSERT OR REPLACE INTO settings VALUES('selection',?)",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
+    if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','1')=='1':
+        start_catalog_refresh()
     return app
 
 app=create_app()
