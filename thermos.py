@@ -18,11 +18,15 @@ def collections():
 
 def gifts(params, catalog):
     collection=next((c for c in catalog if c['id']==params.get('collection_id')),None)
-    body={'markets':['PORTALS'],'per_page':20,'page':max(0,int(params.get('offset',0)))//20+1,'ordering':'PRICE_ASC' if params.get('sort_by')=='price asc' else 'PRICE_DESC'}
+    body={'markets':['PORTALS'],'per_page':20,'page':max(0,int(params.get('offset',0)))//20+1,'ordering':{'price asc':'PRICE_ASC','price desc':'PRICE_DESC','external_collection_number asc':'NUMBER_ASC','external_collection_number desc':'NUMBER_DESC','model_rarity asc':'MODEL_RARITY_ASC','model_rarity desc':'MODEL_RARITY_DESC'}.get(params.get('sort_by'),'PRICE_ASC')}
     if collection:body['collections']=[collection['name']]
     if params.get('search'):body['query']=params['search']
     for src,dst in [('filter_by_models','models'),('filter_by_backdrops','backdrops'),('filter_by_symbols','symbols')]:
         if params.get(src):body[dst]=[params[src]]
+    price_range={}
+    for key,out in [('min_price','min'),('max_price','max')]:
+        if params.get(key):price_range[out]=str(int(Decimal(params[key])*1000000000))
+    if price_range:body['price_range']=price_range
     data=request('gifts',body)
     ids={c['name']:c['id'] for c in catalog}
-    return dict(gifts=[dict(id=g['external_id'],name=g['collection'],collection_id=ids.get(g['collection'],''),model=g.get('model',{}).get('name',''),backdrop=g.get('backdrop',{}).get('name',''),symbol=g.get('symbol',{}).get('name',''),price=ton(g['price']),price_unit='TON',number=g['number'],image=g['image_url'],marketplace=g['marketplace']) for g in data.get('items',[])],total=data.get('count',0),demo=False,source='thermos')
+    return dict(gifts=[dict(id=g['external_id'],name=g['collection'],collection_id=ids.get(g['collection'],''),model=g.get('model',{}).get('name',''),backdrop=g.get('backdrop',{}).get('name',''),symbol=g.get('symbol',{}).get('name',''),price=ton(g['price']),price_unit='TON',number=g['number'],image=g['image_url'],marketplace=g['marketplace']) for g in data.get('items',[])],total=data.get('count',0),demo=False,source='thermos',price_unit='TON',sort_by=params.get('sort_by') if params.get('sort_by') not in (None,'listed_at desc') else 'price asc',warning='Сортировка по новым временно недоступна в Portals. Показаны цены по возрастанию.' if params.get('sort_by') in (None,'listed_at desc') else '')

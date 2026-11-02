@@ -183,13 +183,25 @@ def create_app(config=None):
     def market():
         if not app.config['PORTALS_API_KEY'] and not app.config['DEMO_MODE']:
             import thermos
-            params={k:request.args[k][:150] for k in ('search','collection_id','filter_by_models','filter_by_backdrops','filter_by_symbols','sort_by','offset') if request.args.get(k)}
-            key='thermos:market:'+urlencode(sorted(params.items()))
+            params={k:request.args[k][:150] for k in ('search','collection_id','filter_by_models','filter_by_backdrops','filter_by_symbols','sort_by','offset','min_price','max_price','price_unit') if request.args.get(k)}
+            try:
+                for price_key in ('min_price','max_price'):
+                    if price_key in params:
+                        val=Decimal(params[price_key])
+                        if not val.is_finite() or val<0 or val>1000000000:raise ValueError()
+                if 'min_price' in params and 'max_price' in params and Decimal(params['min_price'])>Decimal(params['max_price']):raise ValueError()
+            except Exception:abort(400,description='Недопустимый диапазон цены')
+            key='public:market:'+urlencode(sorted(params.items()))
             previous,updated=cached(key)
             if previous and time.time()-updated<60:return previous
             try:
                 rows,_=cached('thermos:collections',[])
-                result=thermos.gifts(params,rows)
+                try:
+                    import portals_public
+                    result=portals_public.listings(params,rows)
+                except Exception:
+                    if (params.get('min_price') or params.get('max_price')) and params.get('price_unit')=='GRAM':abort(502,description='Фильтр цены GRAM временно недоступен. Повторите запрос.')
+                    result=thermos.gifts(params,rows)
                 db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(key,json.dumps(result),int(time.time())));db().commit()
                 return result
             except Exception:
