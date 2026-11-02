@@ -81,13 +81,21 @@ def create_app(config=None):
     api_lock=threading.Lock();last_call=[0.0]
     def portal(path,params=None):
         key=app.config['PORTALS_API_KEY']
-        if not key:abort(409,description='На сервере не задан PORTALS_API_KEY')
+        public_paths={'nfts/search':'nfts/search','collections/preview':'collections','market/config':'collections'}
+        if not key and path not in public_paths:
+            return {'attribute_floors':{}}
+        base='https://portal-market.com/partners/' if key else 'https://portal-market.com/api/'
+        remote_path=path if key else public_paths[path]
+        if not key and path in {'market/config','collections/preview'}:
+            params={**(params or {}),'limit':100}
+        headers={'Accept':'application/json'}
+        if key:headers['Authorization']='partners '+key
         with api_lock:
             time.sleep(max(0,1.05-(time.monotonic()-last_call[0])))
-            req=Request('https://portal-market.com/partners/'+path+('?' + urlencode(params) if params else ''),headers={'Authorization':'partners '+key,'Accept':'application/json'})
+            req=Request(base+remote_path+('?' + urlencode(params) if params else ''),headers=headers)
             try:
                 with urlopen(req,timeout=20) as response:result=json.load(response)
-            except (URLError,TimeoutError):abort(502,description='Portals недоступен или не принял ключ. Проверьте подключение.')
+            except (URLError,TimeoutError):abort(502,description='Источник Portal сейчас недоступен. Сохранённые данные остаются доступны.')
             finally:last_call[0]=time.monotonic()
         return result
     def normalized(n):
@@ -95,6 +103,15 @@ def create_app(config=None):
         return dict(id=n['id'],name=n.get('name','Gift'),collection_id=n.get('collection_id',''),model=attrs.get('model',''),backdrop=attrs.get('backdrop',''),price=str(n.get('price') or n.get('floor_price') or '0'),number=n.get('external_collection_number',''),image=n.get('photo_url',''))
     @app.get('/')
     def index():return render_template('index.html')
+    @app.get('/preview')
+    def preview():
+        from build_preview import build_preview
+        return build_preview()
+    @app.after_request
+    def cache_control(response):
+        if request.path=='/' or request.path=='/preview' or request.path.startswith('/static/'):
+            response.headers['Cache-Control']='no-cache, must-revalidate'
+        return response
     @app.get('/health')
     def health():return {'ok':True}
     @app.get('/api/me')
@@ -123,8 +140,20 @@ def create_app(config=None):
         if not app.config['PORTALS_API_KEY'] and app.config['DEMO_MODE']:return {'gifts':DEMO_GIFTS,'demo':True,'source':'demo'}
         allowed={'search','collection_id','filter_by_models','filter_by_backdrops','sort_by','offset'}
         params={k:request.args[k][:150] for k in allowed if request.args.get(k)};params.update(limit=40,status='listed')
-        data=portal('nfts/search',params)
-        return {'gifts':[normalized(n) for n in data.get('results',[])],'demo':False,'source':'portals','total':data.get('total_count',0)}
+        cache_key='market:'+urlencode(sorted(params.items()))
+        previous,updated=cached(cache_key)
+        if previous and int(time.time())-updated<60:return {**previous,'updated_at':updated}
+        try:
+            data=portal('nfts/search',params)
+            result={'gifts':[normalized(n) for n in data.get('results',[])],'demo':False,'source':'portals','total':data.get('total_count',0)}
+            db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(cache_key,json.dumps(result),int(time.time())));db().commit()
+            return result
+        except Exception as error:
+            from werkzeug.exceptions import HTTPException
+            if not isinstance(error,HTTPException):raise
+            if previous:return {**previous,'stale':True,'updated_at':updated,'warning':'Portal недоступен — показаны сохранённые цены'}
+            return {'gifts':[],'demo':False,'source':'unavailable','warning':'Portal не ответил на открытый запрос. Живые цены пока не загружены.'}
+
     @app.get('/api/inventory')
     @auth()
     def inventory():
@@ -208,7 +237,7 @@ def create_app(config=None):
     @auth(admin=True)
     def status():
         c,t=cached('collections',[])
-        return {'configured':bool(app.config['PORTALS_API_KEY']),'updated_at':t,'collections':len(c),'users':db().execute('SELECT count(*) FROM users').fetchone()[0],'audit':[dict(x) for x in db().execute('SELECT actor,action,created FROM audit ORDER BY id DESC LIMIT 20')]}
+        return {'configured':bool(app.config['PORTALS_API_KEY']),'mode':'partner' if app.config['PORTALS_API_KEY'] else 'public','updated_at':t,'collections':len(c),'users':db().execute('SELECT count(*) FROM users').fetchone()[0],'audit':[dict(x) for x in db().execute('SELECT actor,action,created FROM audit ORDER BY id DESC LIMIT 20')]}
     @app.post('/api/admin/portal/test')
     @auth(admin=True)
     def test_portal():
