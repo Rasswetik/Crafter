@@ -1,5 +1,8 @@
-const paths={market:'M4 4h16v17l-8-5-8 5V4Zm5 4v5h6V8H9Z',gift:'M3 8h18v4H3V8Zm2 4v9h14v-9M12 8v13M12 8C5 8 6 1 10 4l2 4Zm0 0c7 0 6-7 2-4l-2 4Z',craft:'M3 11h18l-3 5h-5v3h4v2H7v-2h4v-3H8l-5-5Zm7-7 9-2 1 4-9 2-1-4ZM7 3l3 7',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',shield:'M12 2 3 6v6c0 5 9 10 9 10s9-5 9-10V6l-9-4Zm-4 10 3 3 5-6',grid:'M3 3h7v7H3V3Zm11 0h7v7h-7V3ZM3 14h7v7H3v-7Zm11 0h7v7h-7v-7Z'};
-const icon=(name)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.gift}"/></svg>`;
+const paths={market:'M4 4h16v17l-8-5-8 5V4Zm5 4v5h6V8H9Z',gift:'M3 8h18v4H3V8Zm2 4v9h14v-9M12 8v13M12 8C5 8 6 1 10 4l2 4Zm0 0c7 0 6-7 2-4l-2 4Z',search:'m21 21-5-5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Z',shield:'M12 2 3 6v6c0 5 9 10 9 10s9-5 9-10V6l-9-4Zm-4 10 3 3 5-6',grid:'M3 3h7v7H3V3Zm11 0h7v7h-7V3ZM3 14h7v7H3v-7Zm11 0h7v7h-7v-7Z'};
+function anvilArt(className = 'anvil-svg') {
+    return `<span class="anvil-mark ${className}" aria-hidden="true"></span>`;
+}
+const icon=(name)=>name === 'craft' ? anvilArt('craft-icon') : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.gift}"/></svg>`;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const arg=x=>esc(JSON.stringify(String(x)));
 const imageURL=x=>/^(https:\/\/|\/static\/assets\/|data:image\/webp;base64,)/.test(x||'')?x:'';

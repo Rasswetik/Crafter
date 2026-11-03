@@ -106,7 +106,6 @@ async function playForge(forge, gifts, result) {
 
         decals.forEach((decal, index) => {
             const face = visible.find(item => item.index === CrafterCube.inputFaces[index]);
-            decal.classList.toggle('is-flying', frame.flight?.index === index);
             if (frame.flight?.index === index && face) {
                 placeForgePanel(decal, forgeFlight(origins[index], face.points, frame.flight.progress));
             } else if (index < frame.attached && face && release < 1) {
@@ -146,7 +145,7 @@ async function playForge(forge, gifts, result) {
     });
 }
 
-function showForgeResult(status, result) {
+function showForgeResult(status, result, usedGifts = []) {
     const gift = result.gift;
     status.closest('.craft-page').classList.add('craft-finished');
     status.classList.add('forge-complete');
@@ -157,7 +156,15 @@ function showForgeResult(status, result) {
             <figcaption><b>${esc(gift.name)} ${gift.number ? '#' + esc(gift.number) : ''}</b>
                 <span>${esc(gift.model)}</span></figcaption>
         </figure>`
-            : `<p>Использовано подарков: ${result.consumed.length}</p>`}
+            : ''}
+        ${usedGifts.length ? `<section class="craft-materials" aria-labelledby="craft-materials-title">
+            <h3 id="craft-materials-title">Crafty Dolls</h3>
+            <div class="craft-materials-row">
+                ${usedGifts.map(item => `<div class="craft-material" style="background:${giftBackdrop(item)}">
+                    <img src="${esc(imageURL(item.image))}" alt="${esc(item.name)}">
+                </div>`).join('')}
+            </div>
+        </section>` : ''}
         <div class="forge-result-actions">
             <button class="primary" onclick="go('gifts')">Мои подарки</button>
             <button class="forge-again" onclick="renderCraft()">Ещё крафт</button>
@@ -206,7 +213,7 @@ async function runCraft() {
             page.querySelector('.forge-animation')?.remove();
             page.classList.add('forge-visual-unavailable');
         }
-        showForgeResult(status, result);
+        showForgeResult(status, result, gifts.filter(gift => consumed.has(gift.id)));
         refreshMe().catch(() => {});
     } catch (error) {
         if (error.status >= 400 && error.status < 500) state.quote = null;

@@ -34,7 +34,7 @@ for (let count = 1; count <= 4; count++) {
     const sequence = cube.timeline(count);
     const arrivals = [];
     const flights = [];
-    let attached = 0, activeFlight = -1;
+    let attached = 0, activeFlight = -1, rewardVisibleWhileTurning = false;
     for (let time = 0; time <= sequence.duration; time += 5) {
         const frame = sequence.at(time);
         assert(frame.attached >= attached && frame.attached <= attached + 1);
@@ -53,14 +53,16 @@ for (let count = 1; count <= 4; count++) {
         }
         if (frame.reveal > 0) {
             assert.equal(attached, count);
-            assert(time - arrivals.at(-1) >= 4500, 'The outcome stays hidden during the spin');
-            const [face] = cube.geometry(view(frame.rx, frame.ry, frame.roll));
-            assert.equal(face.index, cube.resultFace);
-            assert(Math.abs(face.normal[2] - 1) < 1e-8, 'Reveal starts after the result face is square to the viewer');
+            assert(time - arrivals.at(-1) >= 3600, 'The outcome stays hidden until the final turn');
+            assert.equal(frame.reveal, 1, 'The reward is fully opaque as it turns into view');
+            const face = cube.geometry(view(frame.rx, frame.ry, frame.roll))
+                .find(item => item.index === cube.resultFace);
+            if (face && face.normal[2] < .95) rewardVisibleWhileTurning = true;
         }
     }
     assert.equal(flights.length, count);
     assert.equal(arrivals.length, count);
+    assert(rewardVisibleWhileTurning, 'The reward is shown before the cube stops');
 
     const end = sequence.at(sequence.duration);
     const result = cube.geometry(view(end.rx, end.ry)).find(face => face.index === cube.resultFace);

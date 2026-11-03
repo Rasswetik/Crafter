@@ -232,7 +232,8 @@
                 roll: Math.sin(rotation*tau*1.5) * .33 * sway,
                 attached: count,
                 release: smooth((progress - .70) / .22),
-                reveal: smooth((elapsed - inputEnd - spin) / 260)
+                // Swap the artwork while the reward face is still turned away.
+                reveal: progress >= .80 ? 1 : 0
             };
         }
 

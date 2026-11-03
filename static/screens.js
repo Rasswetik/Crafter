@@ -30,13 +30,6 @@ function inventoryAction(action){if(action==='add'){sheet('Добавить по
 async function submitInventoryAction(action){try{await api('inventory/action',{action,gift_ids:[...state.picked],price:document.querySelector('#action-value')?.value,recipient:document.querySelector('#action-value')?.value});closeSheet();state.picked.clear();state.inventory=(await api('inventory')).gifts;await refreshMe();await renderGifts();toast('Тестовая операция выполнена')}catch(e){toast(e.message)}}
 function detail(id){let g=[...state.gifts,...state.inventory].find(g=>g.id===id);if(!g)return;const own=state.page==='gifts';sheet(g.name,`<img class="detail-art" src="${esc(imageURL(g.image))}" alt="${esc(g.name)}"><div class="gift-detail-number">#${esc(g.number)}</div><div class="attributes"><div><span>Модель</span><b>${esc(g.model||'—')}</b></div><div><span>Фон</span><b>${esc(g.backdrop||'—')}</b></div><div><span>Статус</span><b>${own?(g.status==='listed'?'Выставлен':'В инвентаре'):'На маркете'}</b></div></div><button class="primary" onclick="${own?`closeSheet();togglePicked(${arg(g.id)})`:`buyGift(${arg(g.id)})`}">${own?'Выбрать подарок':'Купить за '+money(g.price)+' ◆'}</button>`)}
 async function buyGift(id){if(state.gifts.find(g=>g.id===id)?.catalog_only)return toast('Это модель из каталога, а не предложение на продажу');if(!state.me.demo)return toast('Покупки за реальные средства ещё не подключены');try{await api('demo/buy',{id});await refreshMe();closeSheet();toast('Подарок добавлен в «Мои подарки»')}catch(e){toast(e.message)}}
-function anvilArt(className = 'anvil-svg') {
-    return `<svg class="${className}" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor">
-        <path d="m38 11 39-9 4 14-39 8Z M43 21l6-1 6 20-6 2Z"/>
-        <path d="M16 44h69L67 58H55v17l13 7v6H28v-6l13-7V58H30c-7 0-13-7-14-14Z"/>
-        <path d="M24 25c-2 9-2 13 3 16l7-1-4-16Z"/>
-    </svg>`;
-}
 const baseRenderProfile=renderProfile;
 renderProfile=function(){baseRenderProfile();let p=document.querySelector('.pill b');if(p)p.innerHTML=(state.me.inventory_count||0)+' 🎁'};
 
