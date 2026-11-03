@@ -2,7 +2,7 @@
 (function (root) {
     'use strict';
 
-    const radius = 0.22;
+    const radius = 0.16;
     const core = 1 - radius;
     const cameraDistance = 5;
     const tau = 2 * Math.PI;
@@ -78,19 +78,22 @@
 
     const mesh = buildMesh();
     const panelCorners = faces.map(face =>
-        [[-.70,-.70], [.70,-.70], [.70,.70], [-.70,.70]]
+        [[-core,-core], [core,-core], [core,core], [-core,core]]
             .map(([u, v]) => facePoint(face, u, v))
     );
 
-    function camera(rx, ry, width, height) {
+    function camera(rx, ry, width, height, roll = 0) {
         const sx = Math.sin(rx), cx = Math.cos(rx);
         const sy = Math.sin(ry), cy = Math.cos(ry);
+        const sz = Math.sin(roll), cz = Math.cos(roll);
         const focal = Math.min(width * .82, height * 1.06);
         const eye = [-sy*cameraDistance, sx*cy*cameraDistance, cx*cy*cameraDistance];
 
         function rotate([x, y, z]) {
             const pitchZ = y * sx + z * cx;
-            return [x*cy + pitchZ*sy, y*cx - z*sx, -x*sy + pitchZ*cy];
+            const screenX = x*cy + pitchZ*sy;
+            const screenY = y*cx - z*sx;
+            return [screenX*cz - screenY*sz, screenX*sz + screenY*cz, -x*sy + pitchZ*cy];
         }
 
         function project(point) {
@@ -169,15 +172,15 @@
         const intro = 160;
         const fly = 380;
         const turn = 310;
-        const spin = 2040;
-        const hold = 160;
+        const spin = 4550;
+        const hold = 850;
         const step = fly + turn;
         const inputEnd = intro + count*fly + (count - 1)*turn;
         const pitch = -.34;
         const yaw = .36;
         const lastYaw = yaw + (count - 1)*Math.PI/2;
-        const finalYaw = 2*tau + yaw;
-        const finalPitch = -1.30;
+        const finalYaw = 3*tau;
+        const finalPitch = -Math.PI/2;
         const duration = inputEnd + spin + hold;
 
         function at(elapsed) {
@@ -201,14 +204,16 @@
             }
             const progress = clamp((elapsed - inputEnd) / spin);
             const rotation = smooth(progress);
-            const tilt = smooth((progress - .48) / .52);
+            const tilt = smooth((progress - .63) / .37);
+            const sway = Math.sin(progress*Math.PI) ** 2;
             return {
                 rx: mix(pitch, finalPitch, tilt) +
-                    Math.sin(rotation*tau) * .39 * (1 - progress),
+                    Math.sin(rotation*tau*2) * .62 * sway,
                 ry: mix(lastYaw, finalYaw, rotation),
+                roll: Math.sin(rotation*tau*1.5) * .33 * sway,
                 attached: count,
-                release: smooth((progress - .55) / .31),
-                reveal: smooth((progress - .76) / .24)
+                release: smooth((progress - .70) / .22),
+                reveal: smooth((elapsed - inputEnd - spin) / 260)
             };
         }
 

@@ -23,18 +23,21 @@ function renderCraft() {
     state.selected = gifts.map(gift => gift.id);
     saveCraftDraft();
     const quote = state.quote?.key === craftQuoteKey(state.selected, state.target?.id) ? state.quote : null;
-    const chance = quote?.chance || 0;
+    const pending = !quote && gifts.length > 0 && Boolean(state.target);
+    const chance = quote?.chance ?? (pending ? null : 0);
     document.querySelector('#main').innerHTML = `
         <section class="craft-page">
             <div class="craft-title"><button class="info-btn" onclick="craftRules()">i</button></div>
             <div class="forge" id="forge">
                 ${Array.from({length: CRAFT_GIFT_LIMIT}, (_, index) => slot(index, gifts)).join('')}
-                <div class="anvil">
+                <div class="anvil${pending ? ' chance-pending' : ''}">
                     <svg class="chance-ring" viewBox="0 0 120 120">
                         <circle cx="60" cy="60" r="49"/>
-                        <circle class="chance-value" cx="60" cy="60" r="49" style="stroke-dasharray:${chance / 100 * 308} 308"/>
+                        <circle class="chance-value" cx="60" cy="60" r="49" style="stroke-dasharray:${(chance ?? 0) / 100 * 308} 308"/>
                     </svg>
-                    ${anvilArt()}<strong>${money(chance)}%</strong>
+                    ${anvilArt()}<strong class="craft-chance" data-chance="${chance ?? 0}">
+                        <span class="craft-chance-number">${chance === null ? '…' : money(chance)}</span><small>%</small>
+                    </strong>
                 </div>
             </div>
             <div class="craft-caption">Добавьте до <b>${CRAFT_GIFT_LIMIT} подарков</b>, чтобы скрафтить</div>
@@ -92,23 +95,65 @@ async function updateCraftQuote() {
     if (!ids.length || !target) return;
     const isCurrent = () => !state.crafting && state.page === 'craft' &&
         craftQuoteKey(ids, target) === craftQuoteKey(state.selected, state.target?.id);
+    const estimate = estimateCraftChance(ids, target);
+    if (estimate !== null && state.quote?.key !== craftQuoteKey(ids, target)) {
+        showCraftChance(estimate, true);
+    }
     try {
         const quote = await getCraftQuote(ids, target);
         if (!isCurrent()) return;
         state.quote = quote;
-        document.querySelector('#forge .chance-value').style.strokeDasharray = (quote.chance / 100 * 308) + ' 308';
-        document.querySelector('#forge .anvil strong').textContent = money(quote.chance) + '%';
+        showCraftChance(quote.chance);
     } catch (error) {
-        if (isCurrent()) toast(error.message);
+        if (isCurrent()) {
+            document.querySelector('#forge .anvil')?.classList.remove('chance-pending');
+            toast(error.message);
+        }
     }
+}
+
+function estimateCraftChance(ids, target) {
+    if (state.me?.demo || state.catalog.source !== 'thermos') return null;
+    const collections = state.catalog.collections;
+    const targetFloor = Number(collections.find(item => item.id === target)?.floor_price);
+    if (!Number.isFinite(targetFloor) || targetFloor <= 0) return null;
+    const canonical = value => String(value).normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}_]/gu, '');
+    const floors = new Map(collections.map(item => [canonical(item.name), Number(item.floor_price)]));
+    const inputFloors = ids.map(id => floors.get(canonical(state.inventory.find(gift => gift.id === id)?.name)));
+    if (inputFloors.some(value => !Number.isFinite(value) || value <= 0)) return null;
+    const total = inputFloors.reduce((sum, value) => sum + value, 0);
+    return Math.min(9500, Math.floor(total / targetFloor * 9500)) / 100;
+}
+
+function showCraftChance(chance, approximate = false) {
+    const anvil = document.querySelector('#forge .anvil');
+    if (!anvil) return;
+    const label = anvil.querySelector('.craft-chance');
+    const number = label.querySelector('.craft-chance-number');
+    const ring = anvil.querySelector('.chance-value');
+    anvil.classList.remove('chance-pending');
+    ring.style.strokeDasharray = (chance / 100 * 308) + ' 308';
+    label.classList.toggle('chance-estimate', approximate);
+    label.setAttribute('aria-label', (approximate ? 'Примерный шанс ' : 'Шанс ') + money(chance) + '%');
+    if (label.chanceFrame) cancelAnimationFrame(label.chanceFrame);
+    const from = Number(label.dataset.chance);
+    const started = performance.now();
+    const duration = matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 420;
+    function draw(now) {
+        if (!label.isConnected) return;
+        const progress = duration ? CrafterCube.smooth((now - started) / duration) : 1;
+        const value = from + (chance - from) * progress;
+        label.dataset.chance = value;
+        number.textContent = money(value);
+        if (progress < 1) label.chanceFrame = requestAnimationFrame(draw);
+    }
+    draw(started);
 }
 
 function chooseTarget() {
     if (!state.crafting) openCatalogSheet('target');
 }
 
-function detail(id){const own=state.page==='gifts',g=(own?state.inventory:state.gifts).find(x=>x.id===id);if(!g)return;state.detailGift=g;sheet(own?'Подарок':'Покупка подарка',`<img class="purchase-art" src="${esc(imageURL(g.image))}" alt="${esc(g.name)}"><div class="purchase-heading"><h3>${esc(g.name)}</h3><span>${g.number?'#'+esc(g.number):'Инвентарь Crafter'}</span></div><div class="purchase-attrs">${[['Модель',g.model],['Фон',g.backdrop],['Символ',g.symbol]].map(([n,v])=>`<div><small>${n}</small><b>${esc(v||'—')}</b></div>`).join('')}</div><div class="quote-summary"><span>Цена</span><b>${money(g.price)} ${esc(g.price_unit||'GRAM')}</b></div>${own?`<button class="primary" onclick="closeSheet();togglePicked(${arg(g.id)})">Выбрать подарок</button>`:`<p class="sub">Предложение Portals. Покупка и оплата выполняются на площадке продавца.</p><button class="primary" onclick="openSeller()">Открыть Portals</button>`}`)}
-function openSeller(){const url=state.detailGift?.purchase_url||'https://portal-market.com/';if(tg?.openTelegramLink&&url.startsWith('https://t.me/'))tg.openTelegramLink(url);else window.open(url,'_blank','noopener,noreferrer')}
 const gramIcon=()=>'<img class="gram-icon" src="/static/assets/gram.svg" alt="GRAM">';
 const currencyHTML=g=>(g.price_unit==='TON'||g.catalog_only)?'TON':gramIcon();
 Object.assign(state,{order:'listed_at desc',minPrice:'',maxPrice:''});
@@ -123,13 +168,68 @@ function openPriceFilters(){sheet('Цена',`<p class="sub">Диапазон ц
 function applyPriceFilters(){const min=document.querySelector('#price-min').value,max=document.querySelector('#price-max').value;if((min&&(!Number.isFinite(Number(min))||Number(min)<0))||(max&&(!Number.isFinite(Number(max))||Number(max)<0))||(min&&max&&Number(min)>Number(max)))return toast('Укажите корректный диапазон цены');state.minPrice=min;state.maxPrice=max;closeSheet();refreshFilteredPage();changedFilter()}
 const themedSheet=sheet;sheet=function(t,h){document.querySelector('#sheet').classList.remove('sort-sheet','price-sheet','purchase-sheet');themedSheet(t,h)};
 nav=function(){document.querySelector('#nav').innerHTML=`<div class="nav-main">${[['market','market','Маркет'],['gifts','gift','Мои подарки'],['craft','craft','Крафт']].map(([p,i,n])=>`<button class="${state.page===p?'active':''}" onclick="go('${p}')" aria-label="${n}">${icon(i)}<span>${n}</span></button>`).join('')}</div><button class="profile-nav ${['profile','admin'].includes(state.page)?'active':''}" onclick="go('profile')" aria-label="Профиль"><span class="avatar">${avatar()}</span></button>`};
-detail=function(id){const own=state.page==='gifts',g=(own?state.inventory:state.gifts).find(x=>x.id===id);if(!g)return;state.detailGift=g;const c=state.catalog.collections.find(c=>c.id===g.collection_id||c.name===g.name);sheet('',`<div class="portal-product"><img src="${esc(imageURL(g.image))}" alt="${esc(g.name)}"><div><h2>${esc(g.name)} ›</h2>${g.number?`<span>#${esc(g.number)}</span>`:''}</div></div>${own?'<div class="product-availability">'+icon('craft')+' Доступно для крафта</div>':''}<div class="product-properties">${[['Модель',g.model],['Символ',g.symbol],['Фон',g.backdrop]].map(([n,v])=>`<div><span>${n}</span><b>${esc(v||'—')}</b></div>`).join('')}<div><span>Мин. цена коллекции</span><strong>${g.floor_price?money(g.floor_price)+' '+esc(g.price_unit||'GRAM'):c?money(c.floor_price)+' '+esc(c.price_unit||'TON'):'—'}</strong></div></div><div class="product-price"><span>Цена подарка</span><b>${money(g.price)} ${currencyHTML(g)}</b></div>${own?`<div class="product-actions"><button class="lucky-craft" onclick="craftFromDetail()">Lucky Craft<small>За свои подарки</small></button><button class="primary" onclick="closeSheet();togglePicked(${arg(g.id)})">Выбрать подарок</button></div>`:`<p class="sub">Покупка и оплата выполняются в Portals.</p><button class="primary" onclick="openSeller()">${g.purchase_url?"Купить подарок в Portals":"Открыть Portals"}<small>${money(g.price)} ${esc(g.price_unit||'GRAM')}</small></button>`}`);document.querySelector('#sheet').classList.add('purchase-sheet')};
-function craftFromDetail(){const g=state.detailGift;if(!g)return;state.selected=[g.id];state.quote=null;closeSheet();go('craft')}
+Object.assign(paths, { eye: 'M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z' });
+
+function telegramGiftLink(gift) {
+    if (/^https:\/\/t\.me\/nft\/[a-z0-9]+-[1-9]\d*$/i.test(gift.telegram_url || '')) {
+        return gift.telegram_url;
+    }
+    const local = ['application-craft', 'admin-grant', 'local-purchase'].includes(gift.origin);
+    const number = String(gift.source_number ?? (local ? '' : gift.number ?? ''));
+    const slug = gift.name.normalize('NFKD').replace(/[^a-z0-9]/gi, '');
+    return slug && /^[1-9]\d*$/.test(number) ? 'https://t.me/nft/' + slug + '-' + number : '';
+}
+
+function openTelegramGift() {
+    const url = state.detailGift && telegramGiftLink(state.detailGift);
+    if (!url) return toast('У этого подарка пока нет ссылки в Telegram');
+    if (tg?.openTelegramLink) tg.openTelegramLink(url);
+    else window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function productFloor(gift) {
+    const collection = state.catalog.collections.find(item =>
+        item.id === gift.collection_id || item.name === gift.name
+    );
+    if (Number(gift.floor_price) > 0) {
+        return money(gift.floor_price) + ' ' + (gift.source_price_unit || gift.price_unit || 'GRAM');
+    }
+    if (Number(collection?.floor_price) > 0) {
+        return money(collection.floor_price) + ' ' + (collection.price_unit || 'TON');
+    }
+    return '—';
+}
+
+detail = function (id) {
+    const own = state.page === 'gifts';
+    const gift = (own ? state.inventory : state.gifts).find(item => item.id === id);
+    if (!gift) return;
+    state.detailGift = gift;
+    const eyeLabel = telegramGiftLink(gift) ? 'Открыть подарок в Telegram' : 'У подарка пока нет ссылки в Telegram';
+    const attributes = [['Модель', gift.model], ['Символ', gift.symbol], ['Фон', gift.backdrop]];
+    sheet('', `
+        <div class="portal-product${own ? ' owned-gift-product' : ''}">
+            <img src="${esc(imageURL(gift.image))}" alt="${esc(gift.name)}">
+            ${own ? `<button class="gift-telegram-eye" onclick="openTelegramGift()" aria-label="${eyeLabel}" title="${eyeLabel}">${icon('eye')}</button>` : ''}
+            <div><h2>${esc(gift.name)}</h2>${gift.number ? `<span>#${esc(gift.number)}</span>` : ''}</div>
+        </div>
+        <div class="product-properties">
+            ${attributes.map(([label, value]) => `<div><span>${label}</span><b>${esc(value || '—')}</b></div>`).join('')}
+            <div><span>Мин. цена</span><strong>${esc(productFloor(gift))}</strong></div>
+            ${own ? '<div><span>Лучшее предложение</span><strong></strong></div>' : ''}
+        </div>
+        ${own ? `<div class="product-actions owned-gift-actions">
+            <button class="secondary" onclick="toast('Вывод пока недоступен')">Вывод</button>
+            <button class="primary" onclick="toast('Продажа пока недоступна')">Продать</button>
+        </div>` : `<button id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
+            <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
+        </button>`}`);
+    document.querySelector('#sheet').classList.add('purchase-sheet');
+};
 
 function refreshFilteredPage(){if(state.page==='gifts')renderGifts();else renderMarket()}
 const serverFilterGrid=filterGrid;filterGrid=function(){if(state.page!=='gifts')return serverFilterGrid();const original=state.inventory;state.inventory=original.filter(g=>(state.minPrice===''||Number(g.price)>=Number(state.minPrice))&&(state.maxPrice===''||Number(g.price)<=Number(state.maxPrice)));const order=state.order||'listed_at desc';if(order==='price asc'||order==='price desc')state.inventory.sort((a,b)=>(Number(a.price)-Number(b.price))*(order==='price asc'?1:-1));if(order.startsWith('external_collection_number'))state.inventory.sort((a,b)=>(Number(a.number)-Number(b.number))*(order.endsWith('asc')?1:-1));if(order.startsWith('model_rarity'))state.inventory.sort((a,b)=>((a.rarity?.model??Infinity)-(b.rarity?.model??Infinity))*(order.endsWith('asc')?1:-1));try{return serverFilterGrid()}finally{state.inventory=original}};
 
-const beforeLocalDetail=detail;detail=function(id){beforeLocalDetail(id);const g=state.detailGift;if(!g)return;const own=state.page==='gifts';if(!own){const body=document.querySelector('#sheet-body');body.querySelectorAll('.sub,.product-price').forEach(el=>el.remove());const buy=body.querySelector('.primary');if(buy){buy.id="buy-gift";buy.innerHTML=`<span>Купить подарок</span><span class="buy-gift-price">${money(g.price)} ${currencyHTML(g)}</span>`;buy.onclick=()=>localBuyGift(g.id);buy.disabled=false;}}else{const art=document.querySelector('.portal-product');if(art&&!document.querySelector('.detail-craft-button'))art.insertAdjacentHTML('afterend','<button class="detail-craft-button" onclick="craftFromDetail()">'+icon('craft')+' Крафт</button>')}};
 const localRequestIds=new Map();
 function paymentRequestId(key){if(localRequestIds.has(key))return localRequestIds.get(key);let rid;try{rid=sessionStorage.getItem(key)}catch{}if(!rid){if(globalThis.crypto?.randomUUID)rid=crypto.randomUUID();else if(globalThis.crypto?.getRandomValues)rid=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');else rid=Date.now().toString(36)+Math.random().toString(36).slice(2);try{sessionStorage.setItem(key,rid)}catch{}}localRequestIds.set(key,rid);return rid}
 function purchaseError(message){let el=document.querySelector('#purchase-error');if(!el){el=document.createElement('p');el.id='purchase-error';el.className='purchase-error';el.setAttribute('role','alert');document.querySelector('#sheet-body')?.appendChild(el)}el.textContent=message}

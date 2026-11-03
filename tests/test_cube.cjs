@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const cube = require('../static/cube.js');
 
-const view = (rx, ry) => cube.camera(rx, ry, 318, 236);
+const view = (rx, ry, roll) => cube.camera(rx, ry, 318, 236, roll);
 assert.equal(cube.geometry(view(-.38, .55)).length, 3);
 assert.equal(cube.geometry(view(0, 0)).length, 1);
 
@@ -33,7 +33,13 @@ for (let count = 1; count <= 4; count++) {
             assert(face && face.normal[2] > .8, 'Flight ends on the face turned toward the viewer');
             if (index > 0) assert(time > arrivals[index - 1]);
         }
-        if (frame.reveal > 0) assert.equal(attached, count);
+        if (frame.reveal > 0) {
+            assert.equal(attached, count);
+            assert(time - arrivals.at(-1) >= 4500, 'The outcome stays hidden during the spin');
+            const [face] = cube.geometry(view(frame.rx, frame.ry, frame.roll));
+            assert.equal(face.index, cube.resultFace);
+            assert(Math.abs(face.normal[2] - 1) < 1e-8, 'Reveal starts after the result face is square to the viewer');
+        }
     }
     assert.equal(flights.length, count);
     assert.equal(arrivals.length, count);

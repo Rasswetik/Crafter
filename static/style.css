@@ -54,6 +54,7 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     inset: 0;
     width: 100%;
     height: 100%;
+    opacity: .58;
 }
 .forge-decal {
     position: absolute;
@@ -71,7 +72,7 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     display: grid;
     place-items: center;
     color: #f4f7ff;
-    background: linear-gradient(155deg, #ffffff1f, #18213429);
+    background: linear-gradient(155deg, #ffffff1b, #32182519);
     box-shadow: inset 0 0 0 1px #dce7ff28;
 }
 .forge-anvil-panel svg {
@@ -83,8 +84,8 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     display: block;
     width: 100%;
     height: 100%;
-    padding: 7%;
-    object-fit: contain;
+    padding: 0;
+    object-fit: cover;
 }
 .forge-visual-unavailable #forge { display: none; }
 .manufacturing-status {
@@ -97,7 +98,7 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
 .manufacturing-status p { color: #bbc4d2; font-size: 13px; margin: 9px 0 16px; }
 .manufacturing-status p b { color: #f4f7ff; font-size: 15px; }
 .forge-result-art {
-    width: 96px;
+    width: min(190px, 75%);
     aspect-ratio: 1;
     margin: 0 auto;
     overflow: hidden;
@@ -199,3 +200,80 @@ dialog.gift-picker::before { background: #977282; }
 .gift-picker .picker-footer { background: #3e222f; }
 .gift-picker .picker-gift.selected > div { border-color: #d77795; }
 .gift-picker .picker-gift.selected span { background: #a64261; border-color: #d77795; }
+
+.forge .craft-slot:not(.is-empty) { border: 0; overflow: hidden; }
+.forge .craft-slot img { border-radius: inherit; }
+.gift-picker .picker-gift > div { border: 0; }
+.gift-picker .picker-gift.selected > div::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 2px solid #d77795;
+    border-radius: inherit;
+    pointer-events: none;
+}
+.forge-gift-panel:not(.is-flying) {
+    border-radius: 4px;
+    clip-path: inset(0 round 4px);
+}
+
+.forge .chance-ring {
+    width: 106px !important;
+    height: 106px !important;
+    left: 50%;
+    top: 6px !important;
+    transform: translateX(-50%);
+}
+.forge .anvil-svg { top: 19px; width: 66px !important; height: 66px !important; }
+.forge .anvil .craft-chance {
+    bottom: 11px;
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    gap: 2px;
+    font-size: 17px;
+    line-height: 20px;
+    font-variant-numeric: tabular-nums;
+}
+.craft-chance small { font-size: 11px; color: #e1b3c2; }
+.craft-chance.chance-estimate::before { content: '≈'; color: #e1b3c2; font-size: 12px; }
+.chance-pending .chance-value {
+    stroke-dasharray: 54 308 !important;
+    animation: craft-chance-wait .95s linear infinite;
+}
+@keyframes craft-chance-wait {
+    from { transform: rotate(-90deg); }
+    to { transform: rotate(270deg); }
+}
+
+.craft-finished #forge { display: none; }
+.forge-complete { margin-top: clamp(24px, 7dvh, 58px); width: min(100%, 340px); }
+.forge-result-gift { margin: 16px 0 21px; animation: craft-result-enter .3s ease-out; }
+.forge-result-gift figcaption { margin: 12px auto 0; }
+.forge-result-gift figcaption b { display: block; font-size: 20px; line-height: 1.25; }
+.forge-result-gift figcaption span { display: block; margin-top: 4px; color: #d5b2c0; font-size: 13px; }
+@keyframes craft-result-enter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.gift-telegram-eye {
+    position: absolute;
+    z-index: 3;
+    top: 13px;
+    right: 13px;
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+    background: #0004;
+    color: #fff;
+}
+.gift-telegram-eye svg { width: 17px; height: 17px; }
+.owned-gift-actions .secondary { background: #373737; }
+
+@media (prefers-reduced-motion: reduce) {
+    .chance-pending .chance-value, .forge-result-gift { animation: none; }
+}

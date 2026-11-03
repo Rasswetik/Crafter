@@ -71,16 +71,17 @@ async function playForge(forge, gifts, result) {
     const sequence = CrafterCube.timeline(gifts.length);
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let visible = [];
-    let lastPitch, lastYaw;
+    let lastPitch, lastYaw, lastRoll;
     let hiddenSlots = 0;
 
     function paint(elapsed) {
         const frame = sequence.at(elapsed);
-        if (frame.rx !== lastPitch || frame.ry !== lastYaw) {
-            const view = CrafterCube.camera(frame.rx, frame.ry, width, height);
+        if (frame.rx !== lastPitch || frame.ry !== lastYaw || frame.roll !== lastRoll) {
+            const view = CrafterCube.camera(frame.rx, frame.ry, width, height, frame.roll);
             visible = CrafterCube.draw(ctx, view, width, height);
             lastPitch = frame.rx;
             lastYaw = frame.ry;
+            lastRoll = frame.roll;
         }
 
         const taken = frame.attached + (frame.flight ? 1 : 0);
@@ -98,6 +99,7 @@ async function playForge(forge, gifts, result) {
 
         decals.forEach((decal, index) => {
             const face = visible.find(item => item.index === CrafterCube.inputFaces[index]);
+            decal.classList.toggle('is-flying', frame.flight?.index === index);
             if (frame.flight?.index === index && face) {
                 placeForgePanel(decal, forgeFlight(origins[index], face.points, frame.flight.progress));
             } else if (index < frame.attached && face && release < 1) {
@@ -139,11 +141,15 @@ async function playForge(forge, gifts, result) {
 
 function showForgeResult(status, result) {
     const gift = result.gift;
+    status.closest('.craft-page').classList.add('craft-finished');
     status.classList.add('forge-complete');
     status.innerHTML = `
         <h2>${gift ? 'Подарок изготовлен' : 'Крафт не удался'}</h2>
-        ${gift ? `<div class="forge-result-art"><img src="${esc(imageURL(gift.image))}" alt="${esc(gift.name)}"></div>
-            <p><b>${esc(gift.name)} #${esc(gift.number)}</b><br>${esc(gift.model)}</p>`
+        ${gift ? `<figure class="forge-result-gift">
+            <div class="forge-result-art"><img src="${esc(imageURL(gift.image))}" alt=""></div>
+            <figcaption><b>${esc(gift.name)} ${gift.number ? '#' + esc(gift.number) : ''}</b>
+                <span>${esc(gift.model)}</span></figcaption>
+        </figure>`
             : `<p>Использовано подарков: ${result.consumed.length}</p>`}
         <div class="forge-result-actions">
             <button class="primary" onclick="go('gifts')">Мои подарки</button>

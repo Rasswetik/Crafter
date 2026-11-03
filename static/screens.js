@@ -70,7 +70,7 @@ function renderPicker() {
     list.innerHTML = state.pickerGifts.length ? `<div class="grid">${state.pickerGifts.map(gift => {
         const selected = state.pickerSelected.has(gift.id);
         return `<button class="picker-gift ${selected ? 'selected' : ''}" aria-pressed="${selected}" onclick="togglePicker(${arg(gift.id)})">
-            <div><img src="${esc(imageURL(gift.image))}" alt=""><span>${selected ? '✓' : ''}</span></div>
+            <div style="background:${giftBackdrop(gift)}"><img src="${esc(imageURL(gift.image))}" alt=""><span>${selected ? '✓' : ''}</span></div>
             <b>${esc(gift.name)}</b><small>#${esc(gift.number)}</small>
         </button>`;
     }).join('')}</div>` : `<div class="picker-empty">${anvilArt('picker-anvil')}<p>Нет подарков для крафта</p></div>`;
