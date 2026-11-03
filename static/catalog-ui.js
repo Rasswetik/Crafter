@@ -30,11 +30,14 @@ function renderCraft() {
             <div class="forge" id="forge">
                 ${Array.from({length: CRAFT_GIFT_LIMIT}, (_, index) => slot(index, gifts)).join('')}
                 <div class="anvil${pending ? ' chance-pending' : ''}">
-                    <svg class="chance-ring" viewBox="0 0 120 120">
-                        <circle cx="60" cy="60" r="49"/>
-                        <circle class="chance-value" cx="60" cy="60" r="49" style="stroke-dasharray:${(chance ?? 0) / 100 * 308} 308"/>
-                    </svg>
-                    ${anvilArt()}<strong class="craft-chance" data-chance="${chance ?? 0}">
+                    <div class="craft-gauge" aria-hidden="true">
+                        <svg class="chance-ring" viewBox="0 0 120 120">
+                            <circle cx="60" cy="60" r="49"/>
+                            <circle class="chance-value" cx="60" cy="60" r="49" style="stroke-dasharray:${(chance ?? 0) / 100 * 308} 308"/>
+                        </svg>
+                        ${anvilArt()}
+                    </div>
+                    <strong class="craft-chance" data-chance="${chance ?? 0}">
                         <span class="craft-chance-number">${chance === null ? '…' : money(chance)}</span><small>%</small>
                     </strong>
                 </div>
@@ -209,7 +212,7 @@ detail = function (id) {
     sheet('', `
         <div class="portal-product${own ? ' owned-gift-product' : ''}">
             <img src="${esc(imageURL(gift.image))}" alt="${esc(gift.name)}">
-            ${own ? `<button class="gift-telegram-eye" onclick="openTelegramGift()" aria-label="${eyeLabel}" title="${eyeLabel}">${icon('eye')}</button>` : ''}
+            <button type="button" class="gift-telegram-eye" onclick="openTelegramGift()" aria-label="${eyeLabel}" title="${eyeLabel}">${icon('eye')}</button>
             <div><h2>${esc(gift.name)}</h2>${gift.number ? `<span>#${esc(gift.number)}</span>` : ''}</div>
         </div>
         <div class="product-properties">
@@ -224,6 +227,7 @@ detail = function (id) {
             <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
         </button>`}`);
     document.querySelector('#sheet').classList.add('purchase-sheet');
+    mountGiftAnimation(document.querySelector('.portal-product'), gift);
 };
 
 function refreshFilteredPage(){if(state.page==='gifts')renderGifts();else renderMarket()}

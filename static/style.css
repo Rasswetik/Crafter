@@ -271,17 +271,33 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
 .craft-icon { width: 23px; height: 23px; flex: none; }
 .card-craft .craft-icon { width: 15px; height: 15px; }
 
+.forge .anvil {
+    display: grid;
+    grid-template-rows: minmax(0, 1fr) 20px;
+    align-items: stretch;
+    justify-content: stretch;
+    gap: 3px;
+    padding: 6px 8px 8px;
+}
+.craft-gauge { display: grid; place-items: center; position: relative; min-height: 0; }
 .forge .chance-ring {
-    width: 82% !important;
+    position: static;
+    width: 100% !important;
+    height: 100% !important;
+    transform: none;
+}
+.forge .anvil-svg {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 51% !important;
+    max-height: 60%;
     height: auto !important;
     aspect-ratio: 1;
-    left: 50%;
-    top: 6px !important;
-    transform: translateX(-50%);
 }
-.forge .anvil-svg { top: 15%; width: 51% !important; height: auto !important; aspect-ratio: 1; }
 .forge .anvil .craft-chance {
-    bottom: 11px;
+    position: static;
+    margin: 0;
     display: flex;
     justify-content: center;
     align-items: baseline;
@@ -338,6 +354,19 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     color: #fff;
 }
 .gift-telegram-eye svg { width: 17px; height: 17px; }
+.forge-result-art { position: relative; }
+.gift-animation-layer, .gift-animation-replay {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+}
+.gift-animation-layer { opacity: 0; pointer-events: none; }
+.gift-animation-playing > .gift-animation-layer { opacity: 1; }
+.gift-animation-playing > img { opacity: 0; }
+.gift-animation-replay { z-index: 1; border: 0; border-radius: inherit; background: transparent; }
+.gift-animation-replay:focus-visible { outline: 2px solid var(--blue); outline-offset: -4px; }
 .owned-gift-actions .secondary { background: #373737; }
 
 @media (prefers-reduced-motion: reduce) {

@@ -180,7 +180,11 @@ function showForgeResult(status, result, usedGifts = []) {
             <button class="primary" onclick="go('gifts')">Мои подарки</button>
             <button class="forge-again" onclick="renderCraft()">Ещё раз</button>
         </div>`;
-    if (gift) status.querySelector('.forge-result-art').style.background = giftBackdrop(gift);
+    if (gift) {
+        const art = status.querySelector('.forge-result-art');
+        art.style.background = giftBackdrop(gift);
+        mountGiftAnimation(art, gift);
+    }
 }
 
 async function runCraft() {
@@ -201,6 +205,7 @@ async function runCraft() {
         const quote = await getCraftQuote(ids, state.target.id);
         state.quote = quote;
         const result = await api('craft', { quote_id: quote.quote_id, request_id: quote.quote_id });
+        if (result.gift && !giftAnimationMotion.matches) prepareGiftAnimation(result.gift);
 
         const consumed = new Set(result.consumed);
         state.inventory = state.inventory.filter(gift => !consumed.has(gift.id));
