@@ -163,7 +163,7 @@ function showForgeResult(status, result, usedGifts = []) {
     status.innerHTML = `
         ${gift ? '' : '<h2>Проигрыш</h2>'}
         ${gift ? `<figure class="forge-result-gift">
-            <div class="forge-result-art"><img src="${esc(imageURL(gift.image))}" alt=""></div>
+            <div class="forge-result-art">${giftPattern(gift)}<img ${giftPicture(gift, true)} alt=""></div>
             <figcaption><b>${esc(gift.name)} ${gift.number ? '#' + esc(gift.number) : ''}</b>
                 <span>${esc(gift.model)}</span></figcaption>
         </figure>`

@@ -155,7 +155,7 @@ def create_app(config=None):
         return result
     def normalized(n):
         attrs={a.get('type','').lower():a.get('value',a.get('name','')) for a in n.get('attributes',[]) if isinstance(a,dict)}
-        return dict(id=n['id'],name=n.get('name','Gift'),collection_id=n.get('collection_id',''),model=attrs.get('model',''),backdrop=attrs.get('backdrop',''),price=str(n.get('price') or n.get('floor_price') or '0'),number=n.get('external_collection_number',''),image=n.get('photo_url',''))
+        return dict(id=n['id'],name=n.get('name','Gift'),collection_id=n.get('collection_id',''),model=attrs.get('model',''),symbol=attrs.get('symbol',attrs.get('pattern','')),backdrop=attrs.get('backdrop',''),price=str(n.get('price') or n.get('floor_price') or '0'),number=n.get('external_collection_number',''),image=n.get('photo_url',''))
     @app.get('/')
     def index():return render_template('index.html')
     @app.get('/preview')
@@ -294,7 +294,22 @@ def create_app(config=None):
     @auth()
     def inventory():
         # A partner token belongs to the operator, NOT to all Mini App users.
-        return {'gifts':owned(),'demo':app.config['DEMO_MODE']}
+        gifts = owned()
+        symbols_by_collection = {}
+        for gift in gifts:
+            if gift.get('symbol') or gift.get('source_id') or gift.get('origin') not in ('admin-grant', 'application-craft'):
+                continue
+            collection_id = gift.get('collection_id', '')
+            if collection_id not in symbols_by_collection:
+                attrs, _ = cached('thermos:attributes:' + str(collection_id), {})
+                symbols_by_collection[collection_id] = [
+                    item['name'] for item in attrs.get('symbols', []) if item.get('name')
+                ]
+            symbols = symbols_by_collection[collection_id]
+            if symbols:
+                index = int(hashlib.sha256(gift['id'].encode()).hexdigest(), 16) % len(symbols)
+                gift['symbol'] = symbols[index]
+        return {'gifts': gifts, 'demo': app.config['DEMO_MODE']}
     @app.get('/api/craft/targets')
     @auth()
     def craft_targets():
@@ -322,9 +337,16 @@ def create_app(config=None):
         if not models:abort(409,description='Администратор не выбрал модели результата')
         chance=min(9500,int(value/cost*Decimal(9500)))
         reward_model=secrets.choice(models)
-        attrs=collection_attributes(target['id']);backdrops=attrs.get('backdrops',[])
-        backdrop=secrets.choice(backdrops) if backdrops else {'name':'','center_color':5140105,'edge_color':2503750}
-        return dict(gift_ids=ids,target_id=target['id'],chance_bps=chance,input_value=str(value),target_value=str(cost),target=target,model=reward_model,backdrop=backdrop,scope='application')
+        backdrop, symbol = reward_attributes(target['id'])
+        return dict(gift_ids=ids,target_id=target['id'],chance_bps=chance,input_value=str(value),target_value=str(cost),target=target,model=reward_model,backdrop=backdrop,symbol=symbol,scope='application')
+    def reward_attributes(collection_id):
+        attrs = collection_attributes(collection_id)
+        backdrops = {item['name']: item for item in attrs.get('backdrops', []) if item.get('name')}
+        for name, center, edge in [('Onyx Black', 0x505658, 0x24282A), ('Black', 0x343434, 0x101010)]:
+            backdrops.setdefault(name, dict(name=name, center_color=center, edge_color=edge))
+        symbols = [item['name'] for item in attrs.get('symbols', []) if item.get('name')]
+        return secrets.choice(list(backdrops.values())), secrets.choice(symbols) if symbols else ''
+
     @app.post('/api/craft/quote')
     @auth()
     def craft_quote():
@@ -332,7 +354,7 @@ def create_app(config=None):
         db().execute('INSERT INTO craft_quotes VALUES(?,?,?,?)',(qid,g.user['id'],json.dumps(q),int(time.time())));db().commit()
         return dict(quote_id=qid,chance=q['chance_bps']/100,input_value=q['input_value'],target_value=q['target_value'],price_unit='TON',expires_at=int(time.time())+120,scope='application')
 
-    def claim_craft_market_gift(target, model):
+    def claim_craft_market_gift(target, model, backdrop, symbol):
         # Use the same freshness window as local checkout and claim inside the craft transaction.
         sold = {row[0] for row in db().execute('SELECT source_id FROM local_sold')}
         pages = db().execute("""
@@ -348,7 +370,9 @@ def create_app(config=None):
                 key = market_collectible_key(gift)
                 if (not source_id or source_id in sold or not key or key in sold or
                         gift.get('catalog_only') or canonical_name(gift.get('name', '')) != collection_name or
-                        canonical_name(gift.get('model', '')) != model_name):
+                        canonical_name(gift.get('model', '')) != model_name or
+                        (symbol and canonical_name(gift.get('backdrop', '')) != canonical_name(backdrop.get('name', ''))) or
+                        (symbol and not gift.get('symbol'))):
                     continue
                 source_unit = gift.get('price_unit', 'GRAM')
                 try:
@@ -390,11 +414,12 @@ def create_app(config=None):
             success=secrets.randbelow(10000)<q['chance_bps'];reward=None
             if success:
                 t, m = q['target'], q['model']
-                reward = claim_craft_market_gift(t, m)
+                backdrop = q.get('backdrop', {})
+                symbol = q.get('symbol', '')
+                reward = claim_craft_market_gift(t, m, backdrop, symbol)
                 if reward is None:
-                    backdrop = q.get('backdrop', {})
                     reward = dict(id='craft-'+uuid.uuid4().hex, name=t['name'], collection_id=t['id'],
-                                  model=m['name'], backdrop=backdrop.get('name', ''), background=backdrop,
+                                  model=m['name'], backdrop=backdrop.get('name', ''), background=backdrop, symbol=symbol,
                                   price=t['floor_price'], source_price_unit=t.get('price_unit', 'TON'),
                                   price_unit='GRAM', image=m.get('image') or t['photo_url'],
                                   number=gift_number(t['id']), origin='application-craft', crafted=True)
@@ -605,7 +630,8 @@ def create_app(config=None):
         collection=catalog_collection(slug)
         model=next((m for m in collection_models(collection['id'] if collection else str(slug)) if canonical_name(m['name'])==canonical_name(name)),None)
         if not collection or not model:abort(400,description='Выберите коллекцию и модель из каталога')
-        gift=dict(id='grant-'+uuid.uuid4().hex,name=collection['name'],collection_id=collection['id'],model=model['name'],backdrop='',price=model['price'],image=model['image'],number=gift_number(collection['id'],data.get('number')),origin='admin-grant',source_price_unit=model.get('price_unit','TON'),price_unit='GRAM')
+        backdrop, symbol = reward_attributes(collection['id'])
+        gift=dict(id='grant-'+uuid.uuid4().hex,name=collection['name'],collection_id=collection['id'],model=model['name'],backdrop=backdrop.get('name', ''),background=backdrop,symbol=symbol,price=model['price'],image=model['image'],number=gift_number(collection['id'],data.get('number')),origin='admin-grant',source_price_unit=model.get('price_unit','TON'),price_unit='GRAM')
         db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(uid,gift['id'],json.dumps(gift),'unlisted'));db().commit();audit('Gift granted: '+str(uid)+' '+collection['name']+' / '+name)
         return {'ok':True,'gift':gift}
     @app.get('/api/admin/selection')

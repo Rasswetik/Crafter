@@ -215,13 +215,12 @@
             const sway = Math.sin(clamp(progress / finalTurn)*Math.PI) ** 2;
             const sinceThrow = elapsed - inputEnd;
             const jump = Math.sin(clamp(sinceThrow / 720)*Math.PI);
-            const bounce = Math.sin(clamp((sinceThrow - 720) / 260)*Math.PI);
             return {
                 rx: mix(pitch, finalPitch, tilt) +
-                    Math.sin(rotation*tau*2) * .62 * sway,
+                    Math.sin(rotation*tau*2) * .32 * sway,
                 ry: mix(lastYaw, finalYaw, rotation),
-                roll: Math.sin(rotation*tau*1.5) * .33 * sway - .20*jump,
-                offsetY: -.25*jump - .065*bounce,
+                roll: Math.sin(rotation*tau*1.5) * .14 * sway - .08*jump,
+                offsetY: -.205*jump,
                 attached: count,
                 release: smooth((progress - .70) / .22),
                 // Swap the artwork while the reward face is still turned away.

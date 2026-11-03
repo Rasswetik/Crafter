@@ -133,3 +133,28 @@ def test_market_key_is_optional_and_failure_is_honest(client,monkeypatch):
     monkeypatch.setattr(thermos, 'gifts', deny)
     r=client.get('/api/market',headers=signed())
     assert r.status_code == 502 and r.json['error']
+
+
+def test_craft_keeps_black_background_and_symbol_when_market_has_only_floor(client, craft_inputs, monkeypatch):
+    import thermos
+    from app import DEMO_GIFTS
+    monkeypatch.setattr(thermos, 'request', lambda *_: {'Snoop Dogg': {
+        'models': [{'name': 'Emerald', 'image_url': '/static/assets/snoop.webp'}],
+        'backdrops': [{'name': 'Gold'}],
+        'symbols': [{'name': 'Rain Drop'}],
+    }})
+    monkeypatch.setattr('app.secrets.choice', lambda items: items[-1])
+    listing = {**DEMO_GIFTS[0], 'id': 'floor-listing', 'symbol': 'Rain Drop', 'price_unit': 'GRAM'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('INSERT INTO cache VALUES (?, ?, ?)',
+                   ('public:market:', json.dumps({'gifts': [listing]}), int(time.time())))
+    headers = signed()
+    quote = client.post('/api/craft/quote', headers=headers,
+                        json={'gift_ids': craft_inputs[:1], 'target_id': 'snoop'}).json
+    result = client.post('/api/craft', headers=headers,
+                         json={'quote_id': quote['quote_id'], 'request_id': 'black-craft'})
+    assert result.status_code == 200
+    gift = result.json['gift']
+    assert (gift['backdrop'], gift['symbol']) == ('Black', 'Rain Drop')
+    assert 'source_id' not in gift
+    assert client.get('/api/market', headers=headers).json['gifts'][0]['id'] == listing['id']

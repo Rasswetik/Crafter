@@ -23,5 +23,5 @@ def listings(params,catalog):
     for n in data['results']:
         attrs={a['type'].lower():a.get('value','') for a in n.get('attributes',[])}
         rarity={a['type'].lower():a.get('rarity_per_mille') for a in n.get('attributes',[])}
-        gifts.append(dict(id=n['id'],name=n['name'],collection_id=ids.get(n['name'],n['collection_id']),model=attrs.get('model',''),symbol=attrs.get('symbol',''),backdrop=attrs.get('backdrop',''),rarity=rarity,number=n.get('external_collection_number'),image=n['photo_url'],price=str(n['price']),price_unit='GRAM',floor_price=n.get('floor_price'),listed_at=n.get('listed_at'),purchase_url='https://t.me/portals_market_bot/market?startapp=gift_'+n['id']))
+        gifts.append(dict(id=n['id'],name=n['name'],collection_id=ids.get(n['name'],n['collection_id']),model=attrs.get('model',''),symbol=attrs.get('symbol',attrs.get('pattern','')),backdrop=attrs.get('backdrop',''),rarity=rarity,number=n.get('external_collection_number'),image=n['photo_url'],price=str(n['price']),price_unit='GRAM',floor_price=n.get('floor_price'),listed_at=n.get('listed_at'),purchase_url='https://t.me/portals_market_bot/market?startapp=gift_'+n['id']))
     return dict(gifts=gifts,total=data.get('total_count',0),source='portals',price_unit='GRAM',sort_by=order,demo=False)

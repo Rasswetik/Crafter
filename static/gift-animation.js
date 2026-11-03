@@ -1,3 +1,38 @@
+function fragmentGiftPath(gift) {
+    const link = telegramGiftLink(gift);
+    return link ? 'https://nft.fragment.com/gift/' + link.split('/').pop().toLowerCase() : '';
+}
+
+function giftAssetPart(value) {
+    return encodeURIComponent(value).replace(/'/g, '%27');
+}
+
+function giftPicture(gift, large = false) {
+    const fragment = fragmentGiftPath(gift);
+    const model = giftAnimationPath(gift);
+    const original = imageURL(gift.image);
+    const fallback = fragment ? fragment + (large ? '.large.jpg' : '.medium.jpg') : model ? model + '.png' : '';
+    const sharp = large ? (fragment ? fragment + '.large.jpg' : model ? model + '.png' : '') : '';
+    const urls = [...new Set([sharp, original, fallback, model && model + '.png'].filter(Boolean))];
+    return `src="${esc(urls.shift() || '')}" data-gift-fallback="${esc(JSON.stringify(urls))}" onerror="nextGiftPicture(this)"`;
+}
+
+function nextGiftPicture(image) {
+    const urls = JSON.parse(image.dataset.giftFallback);
+    if (!urls.length) {
+        image.hidden = true;
+        return;
+    }
+    image.dataset.giftFallback = JSON.stringify(urls.slice(1));
+    image.src = urls[0];
+}
+
+function giftPattern(gift) {
+    if (!gift.symbol) return '';
+    const path = 'https://api.changes.tg/symbol/' + [gift.name, gift.symbol].map(giftAssetPart).join('/') + '.png';
+    return `<span class="gift-symbol-pattern" aria-hidden="true" style="--gift-symbol:url(&quot;${esc(path)}&quot;)"></span>`;
+}
+
 const giftAnimationCache = new Map();
 const giftAnimationEndpoint = 'https://api.changes.tg/model/';
 const giftAnimationMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -27,13 +62,24 @@ function loadGiftAnimationPlayer() {
 function giftAnimationPath(gift) {
     const parts = [gift.name, gift.model].map(value => String(value ?? '').trim());
     if (parts.some(value => !value || value === '.' || value === '..')) return '';
-    return giftAnimationEndpoint + parts.map(value => encodeURIComponent(value).replace(/'/g, '%27')).join('/');
+    return giftAnimationEndpoint + parts.map(giftAssetPart).join('/');
 }
 
-async function downloadGiftAnimation(path) {
+async function downloadGiftAnimation(path, fragment) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 7000);
     try {
+        if (fragment) {
+            try {
+                const full = await fetch(fragment + '.lottie.json', {
+                    credentials: 'omit', signal: AbortSignal.timeout(2500),
+                });
+                if (full.ok) {
+                    const data = await full.json();
+                    if (validGiftAnimation(data)) return data;
+                }
+            } catch {}
+        }
         // Older Telegram WebViews can use the same TGS document as unpacked Lottie JSON.
         const compressed = typeof DecompressionStream === 'function';
         const response = await fetch(path + (compressed ? '.tgs' : '.json'), {
@@ -44,30 +90,33 @@ async function downloadGiftAnimation(path) {
         const data = await (compressed
             ? new Response(response.body.pipeThrough(new DecompressionStream('gzip')))
             : response).json();
-        if (!Array.isArray(data.layers) || !data.layers.length || !Number.isFinite(data.fr) ||
-            !Number.isFinite(data.w) || !Number.isFinite(data.h) || data.w < 1 || data.h < 1 ||
-            data.w > 2048 || data.h > 2048 ||
-            data.assets?.some(asset => asset.p || asset.u)) {
-            throw new Error('Invalid gift animation');
-        }
+        if (!validGiftAnimation(data)) throw new Error('Invalid gift animation');
         return data;
     } finally {
         clearTimeout(timer);
     }
 }
 
+function validGiftAnimation(data) {
+    return Array.isArray(data?.layers) && data.layers.length && Number.isFinite(data.fr) &&
+        Number.isFinite(data.w) && Number.isFinite(data.h) && data.w >= 1 && data.h >= 1 &&
+        data.w <= 2048 && data.h <= 2048 && !data.assets?.some(asset => asset.p || asset.u);
+}
+
 function prepareGiftAnimation(gift) {
     const path = giftAnimationPath(gift);
     if (!path) return null;
-    if (!giftAnimationCache.has(path)) {
+    const fragment = fragmentGiftPath(gift);
+    const key = fragment || path;
+    if (!giftAnimationCache.has(key)) {
         if (giftAnimationCache.size >= 32) giftAnimationCache.delete(giftAnimationCache.keys().next().value);
-        const pending = downloadGiftAnimation(path).catch(() => {
-            if (giftAnimationCache.get(path) === pending) giftAnimationCache.delete(path);
+        const pending = downloadGiftAnimation(path, fragment).catch(() => {
+            if (giftAnimationCache.get(key) === pending) giftAnimationCache.delete(key);
             return null;
         });
-        giftAnimationCache.set(path, pending);
+        giftAnimationCache.set(key, pending);
     }
-    return giftAnimationCache.get(path);
+    return giftAnimationCache.get(key);
 }
 
 async function playGiftAnimation(art, gift, layer, dialog) {

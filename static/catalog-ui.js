@@ -211,7 +211,7 @@ detail = function (id) {
     const attributes = [['Модель', gift.model], ['Символ', gift.symbol], ['Фон', gift.backdrop]];
     sheet('', `
         <div class="portal-product${own ? ' owned-gift-product' : ''}">
-            <img src="${esc(imageURL(gift.image))}" alt="${esc(gift.name)}">
+            ${giftPattern(gift)}<img ${giftPicture(gift, true)} alt="${esc(gift.name)}">
             <button type="button" class="gift-telegram-eye" onclick="openTelegramGift()" aria-label="${eyeLabel}" title="${eyeLabel}">${icon('eye')}</button>
             <div><h2>${esc(gift.name)}</h2>${gift.number ? `<span>#${esc(gift.number)}</span>` : ''}</div>
         </div>
