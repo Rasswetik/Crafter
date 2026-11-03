@@ -47,7 +47,7 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     width: 150px;
     height: 36px;
     transform: translateX(-50%);
-    background: radial-gradient(ellipse, #10162375 0, transparent 68%);
+    background: radial-gradient(ellipse, #0008 0, transparent 68%);
 }
 .forge-animation canvas {
     position: absolute;
@@ -72,7 +72,7 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     display: grid;
     place-items: center;
     color: #f4f7ff;
-    background: linear-gradient(155deg, #ffffff1b, #32182519);
+    background: linear-gradient(155deg, #ffffff1b, #0002);
     box-shadow: inset 0 0 0 1px #dce7ff28;
 }
 .forge-anvil-panel svg {
@@ -112,9 +112,6 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     border-radius: 25px;
     min-height: 49px;
     color: #e7effd;
-}
-@media (max-height: 740px) {
-    .manufacturing .forge { margin-top: 34px; margin-bottom: 21px; }
 }
 
 .splash {
@@ -170,36 +167,71 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     .splash-progress { animation: none; }
 }
 
-/* Burgundy craft workspace and gift picker. */
-.craft-view header { background: #2b121c; }
-.craft-page {
-    background: radial-gradient(ellipse at 50% 35%, #663043, #3e1928 48%, #220e18 100%);
+/* Match the main Crafter palette and keep the top bar and forge aligned. */
+.craft-header { display: none; }
+.craft-view header {
+    height: 56px;
+    padding: 0 16px;
+    justify-content: space-between;
+    background: var(--bg);
+    border-bottom: 1px solid #ffffff0d;
 }
-.craft-page .info-btn { color: #57273a; background: #efcad6; }
-.forge .craft-slot { background: #502738; border-color: #7c475b; }
-.forge .slot-plus::before, .forge .slot-plus::after { background: #633044; }
-.forge .anvil { background: #56283b; border-color: #895468; color: #fff2f7; }
-.forge .chance-ring { stroke: #805164; }
-.forge .chance-ring .chance-value { stroke: #f0a0b8; }
-.craft-page .target { background: #542638; border-color: #7c465b; }
+.craft-view .craft-header { display: flex; align-items: center; gap: 8px; }
+.craft-header h1 { margin: 0; font-size: 20px; line-height: 1; }
+.craft-header .info-btn {
+    width: 24px;
+    height: 24px;
+    color: #d6d6d6;
+    background: #292929;
+    font-size: 15px;
+}
+.craft-view .balance { white-space: nowrap; }
+.craft-view #main { padding-bottom: 0; min-height: calc(100dvh - 56px); }
+.craft-view #nav { bottom: max(16px, env(safe-area-inset-bottom)); }
+.craft-view nav .profile-nav { background: #282828e6; }
+.craft-page {
+    margin: 0 -16px;
+    min-height: calc(100dvh - 56px);
+    padding: 0 24px calc(100px + env(safe-area-inset-bottom));
+    background: radial-gradient(ellipse at 50% 34%, #242424, var(--bg) 70%);
+}
+.craft-page::before { opacity: .18; }
+.craft-page .forge { margin: clamp(36px, 10dvh, 84px) auto 26px; }
+.craft-page .craft-bottom { padding-top: 16px; }
+.forge .craft-slot {
+    width: clamp(60px, 24%, 75px);
+    height: auto;
+    aspect-ratio: 1;
+    background: #252525;
+    border-color: #414141;
+}
+.forge .slot-plus::before, .forge .slot-plus::after { background: #353535; }
+.forge .anvil {
+    width: min(130px, 44%);
+    height: auto;
+    aspect-ratio: 1;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    background: #292929;
+    border-color: #454545;
+    color: #f5f5f5;
+}
+.forge .chance-ring { stroke: #484848; }
+.forge .chance-ring .chance-value { stroke: var(--blue); }
+.craft-page .target { background: #262626; border-color: #454545; }
 .craft-page .target svg,
 .craft-page .craft-caption,
 .craft-page .craft-warning,
-.manufacturing-status p { color: #d5b2c0; }
-.craft-page .craft-caption b { color: #f7e4ec; }
+.manufacturing-status p { color: #a9a9a9; }
+.craft-page .craft-caption b { color: #f5f5f5; }
 .craft-page .craft-action,
 .craft-page .forge-result-actions .primary,
-.gift-picker .picker-footer .primary { background: #91364f; color: #fff6fa; }
+.gift-picker .picker-footer .primary { background: var(--blue); color: #fff; }
 
-dialog.gift-picker { background: #321a25; border-color: #654052; }
-dialog.gift-picker::before { background: #977282; }
-.gift-picker .close { background: #563245; color: #f2dae5; }
-.gift-picker .picker-empty { color: #d5b0c0; }
-.picker-empty .picker-anvil { width: 52px; height: 52px; color: #f1d2df; }
+.gift-picker .picker-empty { color: #a9a9a9; }
+.picker-empty .picker-anvil { width: 52px; height: 52px; color: #e4e4e4; }
 .picker-empty p { margin: 9px 0 0; }
-.gift-picker .picker-footer { background: #3e222f; }
-.gift-picker .picker-gift.selected > div { border-color: #d77795; }
-.gift-picker .picker-gift.selected span { background: #a64261; border-color: #d77795; }
+.gift-picker .picker-gift.selected span { background: var(--blue); border-color: var(--blue); }
 
 .forge .craft-slot:not(.is-empty) { border: 0; overflow: hidden; }
 .forge .craft-slot img { border-radius: inherit; }
@@ -208,7 +240,7 @@ dialog.gift-picker::before { background: #977282; }
     content: '';
     position: absolute;
     inset: 0;
-    border: 2px solid #d77795;
+    border: 2px solid var(--blue);
     border-radius: inherit;
     pointer-events: none;
 }
@@ -218,13 +250,14 @@ dialog.gift-picker::before { background: #977282; }
 }
 
 .forge .chance-ring {
-    width: 106px !important;
-    height: 106px !important;
+    width: 82% !important;
+    height: auto !important;
+    aspect-ratio: 1;
     left: 50%;
     top: 6px !important;
     transform: translateX(-50%);
 }
-.forge .anvil-svg { top: 19px; width: 66px !important; height: 66px !important; }
+.forge .anvil-svg { top: 15%; width: 51% !important; height: auto !important; aspect-ratio: 1; }
 .forge .anvil .craft-chance {
     bottom: 11px;
     display: flex;
@@ -235,8 +268,8 @@ dialog.gift-picker::before { background: #977282; }
     line-height: 20px;
     font-variant-numeric: tabular-nums;
 }
-.craft-chance small { font-size: 11px; color: #e1b3c2; }
-.craft-chance.chance-estimate::before { content: '≈'; color: #e1b3c2; font-size: 12px; }
+.craft-chance small { font-size: 11px; color: #adadad; }
+.craft-chance.chance-estimate::before { content: '≈'; color: #adadad; font-size: 12px; }
 .chance-pending .chance-value {
     stroke-dasharray: 54 308 !important;
     animation: craft-chance-wait .95s linear infinite;
@@ -251,7 +284,7 @@ dialog.gift-picker::before { background: #977282; }
 .forge-result-gift { margin: 16px 0 21px; animation: craft-result-enter .3s ease-out; }
 .forge-result-gift figcaption { margin: 12px auto 0; }
 .forge-result-gift figcaption b { display: block; font-size: 20px; line-height: 1.25; }
-.forge-result-gift figcaption span { display: block; margin-top: 4px; color: #d5b2c0; font-size: 13px; }
+.forge-result-gift figcaption span { display: block; margin-top: 4px; color: #adadad; font-size: 13px; }
 @keyframes craft-result-enter {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }

@@ -56,6 +56,13 @@ async function playForge(forge, gifts, result) {
     forge.append(scene);
     const bounds = scene.getBoundingClientRect();
     const { width, height } = bounds;
+    const anvil = forge.querySelector('.anvil').getBoundingClientRect();
+    const cubeFrame = {
+        left: anvil.left - bounds.left,
+        top: anvil.top - bounds.top,
+        width: anvil.width,
+        height: anvil.height
+    };
     const ratio = Math.min(window.devicePixelRatio || 1, 2);
     canvas.width = Math.round(width * ratio);
     canvas.height = Math.round(height * ratio);
@@ -77,7 +84,7 @@ async function playForge(forge, gifts, result) {
     function paint(elapsed) {
         const frame = sequence.at(elapsed);
         if (frame.rx !== lastPitch || frame.ry !== lastYaw || frame.roll !== lastRoll) {
-            const view = CrafterCube.camera(frame.rx, frame.ry, width, height, frame.roll);
+            const view = CrafterCube.camera(frame.rx, frame.ry, width, height, frame.roll, cubeFrame);
             visible = CrafterCube.draw(ctx, view, width, height);
             lastPitch = frame.rx;
             lastYaw = frame.ry;

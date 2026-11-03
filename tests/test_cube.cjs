@@ -13,6 +13,23 @@ for (const {position} of cube.mesh.vertices) {
     assert(Math.abs(distance - cube.radius) < 1e-9);
 }
 
+const anvil = {left: 83, top: 47, width: 130, height: 130};
+for (const [pitch, yaw, roll] of [[0, 0, 0], [-.4, .6, .2], [-Math.PI/2, 0, 0]]) {
+    const camera = cube.camera(pitch, yaw, 318, 236, roll, anvil);
+    const vertices = cube.mesh.vertices.map(({position}) => camera.project(position));
+    const left = Math.min(...vertices.map(point => point[0]));
+    const right = Math.max(...vertices.map(point => point[0]));
+    const top = Math.min(...vertices.map(point => point[1]));
+    const bottom = Math.max(...vertices.map(point => point[1]));
+    assert(Math.abs((left + right) / 2 - (anvil.left + 65)) < 1e-8);
+    assert(Math.abs((top + bottom) / 2 - (anvil.top + 65)) < 1e-8);
+    assert(Math.abs(Math.max(right - left, bottom - top) - 130) < 1e-8);
+    if (pitch === 0) {
+        assert(Math.abs(left - anvil.left) < 1e-8);
+        assert(Math.abs(top - anvil.top) < 1e-8);
+    }
+}
+
 for (let count = 1; count <= 4; count++) {
     const sequence = cube.timeline(count);
     const arrivals = [];
@@ -30,7 +47,8 @@ for (let count = 1; count <= 4; count++) {
             activeFlight = index;
             const face = cube.geometry(view(frame.rx, frame.ry))
                 .find(item => item.index === cube.inputFaces[index]);
-            assert(face && face.normal[2] > .8, 'Flight ends on the face turned toward the viewer');
+            assert(face && Math.abs(face.normal[2] - 1) < 1e-8,
+                'The receiving face is square to the viewer throughout the flight');
             if (index > 0) assert(time > arrivals[index - 1]);
         }
         if (frame.reveal > 0) {

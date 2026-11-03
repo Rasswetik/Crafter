@@ -82,11 +82,13 @@
             .map(([u, v]) => facePoint(face, u, v))
     );
 
-    function camera(rx, ry, width, height, roll = 0) {
+    function camera(rx, ry, width, height, roll = 0, frame) {
         const sx = Math.sin(rx), cx = Math.cos(rx);
         const sy = Math.sin(ry), cy = Math.cos(ry);
         const sz = Math.sin(roll), cz = Math.cos(roll);
-        const focal = Math.min(width * .82, height * 1.06);
+        let focal = Math.min(width * .82, height * 1.06);
+        let centerX = width / 2;
+        let centerY = height / 2;
         const eye = [-sy*cameraDistance, sx*cy*cameraDistance, cx*cy*cameraDistance];
 
         function rotate([x, y, z]) {
@@ -96,10 +98,29 @@
             return [screenX*cz - screenY*sz, screenX*sz + screenY*cz, -x*sy + pitchZ*cy];
         }
 
-        function project(point) {
+        function perspective(point) {
             const [x, y, z] = rotate(point);
-            const scale = focal / (cameraDistance - z);
-            return [width/2 + x*scale, height/2 + y*scale];
+            const distance = cameraDistance - z;
+            return [x / distance, y / distance];
+        }
+
+        if (frame) {
+            let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
+            for (const {position} of mesh.vertices) {
+                const [x, y] = perspective(position);
+                left = Math.min(left, x);
+                right = Math.max(right, x);
+                top = Math.min(top, y);
+                bottom = Math.max(bottom, y);
+            }
+            focal = Math.min(frame.width / (right - left), frame.height / (bottom - top));
+            centerX = frame.left + (frame.width - (left + right)*focal) / 2;
+            centerY = frame.top + (frame.height - (top + bottom)*focal) / 2;
+        }
+
+        function project(point) {
+            const [x, y] = perspective(point);
+            return [centerX + x*focal, centerY + y*focal];
         }
 
         return { eye, rotate, project };
@@ -119,10 +140,8 @@
     function surfaceColor(normal) {
         const diffuse = Math.max(0, dot(light, normal));
         const highlight = Math.max(0, dot(reflection, normal)) ** 12;
-        const red = Math.round(47 + 53*diffuse + 32*highlight);
-        const green = Math.round(18 + 27*diffuse + 20*highlight);
-        const blue = Math.round(30 + 36*diffuse + 26*highlight);
-        return 'rgb(' + red + ',' + green + ',' + blue + ')';
+        const gray = Math.round(56 + 49*diffuse + 34*highlight);
+        return 'rgb(' + gray + ',' + gray + ',' + (gray + 2) + ')';
     }
 
     function draw(ctx, view, width, height) {
@@ -176,8 +195,8 @@
         const hold = 850;
         const step = fly + turn;
         const inputEnd = intro + count*fly + (count - 1)*turn;
-        const pitch = -.34;
-        const yaw = .36;
+        const pitch = 0;
+        const yaw = 0;
         const lastYaw = yaw + (count - 1)*Math.PI/2;
         const finalYaw = 3*tau;
         const finalPitch = -Math.PI/2;

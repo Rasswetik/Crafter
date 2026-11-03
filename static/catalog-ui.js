@@ -27,7 +27,6 @@ function renderCraft() {
     const chance = quote?.chance ?? (pending ? null : 0);
     document.querySelector('#main').innerHTML = `
         <section class="craft-page">
-            <div class="craft-title"><button class="info-btn" onclick="craftRules()">i</button></div>
             <div class="forge" id="forge">
                 ${Array.from({length: CRAFT_GIFT_LIMIT}, (_, index) => slot(index, gifts)).join('')}
                 <div class="anvil${pending ? ' chance-pending' : ''}">
