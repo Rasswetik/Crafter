@@ -92,6 +92,31 @@ def test_four_gift_craft_awards_numbered_result_once(client, craft_inputs):
         item['id'] for item in client.get('/api/inventory', headers=headers).json['gifts']
     }
 
+def test_craft_claims_market_serial_and_blocks_purchase(client, craft_inputs):
+    headers = signed()
+    listing = {**DEMO_GIFTS[0], 'id': 'market-original', 'number': 29563, 'price_unit': 'GRAM'}
+    alternate = {**listing, 'id': 'same-gift-on-another-feed'}
+    other = {**listing, 'id': 'other-model', 'number': 29564, 'model': 'Different'}
+    now = int(time.time())
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.executemany('INSERT INTO cache VALUES (?, ?, ?)', [
+            ('public:market:', json.dumps({'gifts': [listing, other]}), now),
+            ('public:market:offset=20', json.dumps({'gifts': [alternate]}), now - 1),
+        ])
+    quote = client.post('/api/craft/quote', headers=headers,
+                        json={'gift_ids': craft_inputs[:1], 'target_id': 'snoop'}).json
+    request = {'quote_id': quote['quote_id'], 'request_id': 'market-craft'}
+    result = client.post('/api/craft', headers=headers, json=request)
+    assert result.status_code == 200
+    reward = result.json['gift']
+    assert (reward['number'], reward['source_number'], reward['source_id']) == (29563, 29563, listing['id'])
+    assert client.post('/api/craft', headers=headers, json=request).json == result.json
+    assert [gift['id'] for gift in client.get('/api/market', headers=headers).json['gifts']] == [other['id']]
+    assert not client.get('/api/market?offset=20', headers=headers).json['gifts']
+    buy = client.post('/api/local/buy', headers=headers,
+                      json={'id': alternate['id'], 'request_id': 'purchase'})
+    assert buy.status_code == 409 and 'недоступен' in buy.json['error']
+
 def test_preview_contains_real_cube_renderer(client):
     result=client.get('/preview')
     assert result.status_code==200

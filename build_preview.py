@@ -85,8 +85,10 @@ const previewCatalog=CATALOG_SEED;
     for script in (root/'static').glob('*.js'):
         body = (mock + '\n' if script.name == 'app.js' else '') + script.read_text()
         html = html.replace(f'<script src="/static/{script.name}"></script>', '<script>' + body + '</script>')
-    for file in (root/'static/assets').glob('*.webp'):
-     html=html.replace('/static/assets/'+file.name,'data:image/webp;base64,'+base64.b64encode(file.read_bytes()).decode())
+    for file in (root/'static/assets').iterdir():
+        if file.suffix in ('.webp', '.png') and '/static/assets/' + file.name in html:
+            encoded = base64.b64encode(file.read_bytes()).decode()
+            html = html.replace('/static/assets/' + file.name, f'data:image/{file.suffix[1:]};base64,{encoded}')
     html=html.replace('ДЕМО · тестовые цены и подарки','ТЕСТОВЫЙ РЕЖИМ')
     return html
 

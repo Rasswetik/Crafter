@@ -248,13 +248,19 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     border-radius: 22%;
     clip-path: inset(0 round 22%);
 }
-.forge-loss-panel {
+.forge-loss-panel, .forge-loss-art {
     display: grid;
     place-items: center;
     background: #d7d7d7;
     color: #171717;
 }
-.forge-loss-panel svg { width: 67%; height: 67%; }
+.forge-loss-panel img, .forge-loss-art img { width: 67%; height: 67%; object-fit: contain; }
+.forge-loss-art {
+    width: min(142px, 60%);
+    aspect-ratio: 1;
+    border-radius: 22%;
+    margin: 14px auto 20px;
+}
 
 .anvil-mark {
     display: block;

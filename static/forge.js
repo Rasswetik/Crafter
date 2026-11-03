@@ -15,15 +15,11 @@ function forgeGiftPanel(gift, sourceImage) {
     return panel;
 }
 
+const brokenGiftImage = '/static/assets/broken-gift.png';
+
 function forgeBrokenGiftPanel() {
     const panel = forgePanel('forge-loss-panel');
-    panel.innerHTML = `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor"
-        stroke-width="2.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
-        <path d="M27 22H8v10h5v20h13l6-10-7-5 7-8z"/>
-        <path d="M38 22h18v10h-5v20H34l6-10-7-6 7-8z"/>
-        <path d="M13 32h17m9 0h12M23 32v20m19-20v20"/>
-        <path d="M28 21c-10 0-12-9-7-12 4-2 8 3 9 9m6 2c10 0 13-9 7-12-4-2-8 3-9 10"/>
-    </svg>`;
+    panel.innerHTML = `<img src="${brokenGiftImage}" alt="">`;
     return panel;
 }
 
@@ -165,14 +161,14 @@ function showForgeResult(status, result, usedGifts = []) {
     status.closest('.craft-page').classList.add('craft-finished');
     status.classList.add('forge-complete');
     status.innerHTML = `
-        <h2>${gift ? 'Подарок изготовлен' : 'Крафт не удался'}</h2>
+        ${gift ? '' : '<h2>Проигрыш</h2>'}
         ${gift ? `<figure class="forge-result-gift">
             <div class="forge-result-art"><img src="${esc(imageURL(gift.image))}" alt=""></div>
             <figcaption><b>${esc(gift.name)} ${gift.number ? '#' + esc(gift.number) : ''}</b>
                 <span>${esc(gift.model)}</span></figcaption>
         </figure>`
-            : ''}
-        ${usedGifts.length ? `<section class="craft-materials" aria-labelledby="craft-materials-title">
+            : `<div class="forge-loss-art"><img src="${brokenGiftImage}" alt="Разбитый подарок"></div>`}
+        ${!gift && usedGifts.length ? `<section class="craft-materials" aria-labelledby="craft-materials-title">
             <h3 id="craft-materials-title">Crafty Dolls</h3>
             <div class="craft-materials-row">
                 ${usedGifts.map(item => `<div class="craft-material" style="background:${giftBackdrop(item)}">
@@ -182,7 +178,7 @@ function showForgeResult(status, result, usedGifts = []) {
         </section>` : ''}
         <div class="forge-result-actions">
             <button class="primary" onclick="go('gifts')">Мои подарки</button>
-            <button class="forge-again" onclick="renderCraft()">Ещё крафт</button>
+            <button class="forge-again" onclick="renderCraft()">Ещё раз</button>
         </div>`;
     if (gift) status.querySelector('.forge-result-art').style.background = giftBackdrop(gift);
 }
@@ -210,6 +206,21 @@ async function runCraft() {
         state.inventory = state.inventory.filter(gift => !consumed.has(gift.id));
         if (result.gift && !state.inventory.some(gift => gift.id === result.gift.id)) {
             state.inventory.push({ ...result.gift, status: 'unlisted' });
+        }
+        if (result.gift?.source_id) {
+            const won = result.gift;
+            const isWon = item => item.id === won.source_id ||
+                (item.name === won.name && String(item.number) === String(won.source_number));
+            state.gifts = state.gifts.filter(item => !isWon(item));
+            restoreCart();
+            let removed = false;
+            for (const [id, item] of state.cart) {
+                if (!isWon(item)) continue;
+                state.cart.delete(id);
+                state.cartSelected.delete(id);
+                removed = true;
+            }
+            if (removed) saveCart();
         }
         state.me.inventory_count = state.inventory.length;
         state.selected = [];

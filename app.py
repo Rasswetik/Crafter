@@ -1,7 +1,7 @@
 import gzip
 import re, unicodedata
 import os, json, time, hmac, hashlib, sqlite3, secrets, threading, uuid
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from functools import wraps
 from pathlib import Path
 from urllib.parse import parse_qsl, urlencode
@@ -75,16 +75,28 @@ def create_app(config=None):
                 db().execute('UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?',(json.dumps(gift),row['user_id'],row['nft_id']))
             if gift.get('origin') in ('admin-grant','application-craft'):
                 gift.setdefault('source_price_unit',gift.get('price_unit','TON'));gift['price_unit']='GRAM'
-                if not gift.get('background'):
+                if not gift.get('background') and not gift.get('source_id'):
                     cache_row=db().execute('SELECT payload FROM cache WHERE key=?',('thermos:attributes:'+str(gift.get('collection_id','')),)).fetchone()
                     backgrounds=json.loads(cache_row[0]).get('backdrops',[]) if cache_row else []
                     gift['background']=backgrounds[int(hashlib.sha256(gift['id'].encode()).hexdigest(),16)%len(backgrounds)] if backgrounds else {'center_color':5140105,'edge_color':2503750}
                     if gift['background'].get('name'):gift['backdrop']=gift['background']['name']
                 db().execute('UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?',(json.dumps(gift),row['user_id'],row['nft_id']))
+    def market_collectible_key(gift):
+        number = str(gift.get('number') or '')
+        name = canonical_name(gift.get('name', ''))
+        if name and re.fullmatch(r'[1-9][0-9]{0,14}', number):
+            return f'craft-collectible:{name}:{number}'
+        return None
+
+    def hide_claimed_market_gifts(result):
+        sold = {row[0] for row in db().execute('SELECT source_id FROM local_sold')}
+        return {**result, 'gifts': [gift for gift in result['gifts']
+                                  if gift['id'] not in sold and market_collectible_key(gift) not in sold]}
+
     def local_market_rows(result):
         # Local test prices use the source numeric amount in app GRAM; no FX or external purchase.
-        sold={r[0] for r in db().execute('SELECT source_id FROM local_sold')}
-        return {**result,'price_unit':'GRAM','gifts':[{**g,'source_price_unit':g.get('source_price_unit',g.get('price_unit','GRAM')),'price_unit':'GRAM','source_price':g.get('source_price',g['price']),'price':str(Decimal(str(g['price'])).quantize(Decimal('0.01'))),'local_price':str(Decimal(str(g['price'])).quantize(Decimal('0.01')))} for g in result['gifts'] if g['id'] not in sold],'purchase_mode':'local'}
+        result = hide_claimed_market_gifts(result)
+        return {**result,'price_unit':'GRAM','gifts':[{**g,'source_price_unit':g.get('source_price_unit',g.get('price_unit','GRAM')),'price_unit':'GRAM','source_price':g.get('source_price',g['price']),'price':str(Decimal(str(g['price'])).quantize(Decimal('0.01'))),'local_price':str(Decimal(str(g['price'])).quantize(Decimal('0.01')))} for g in result['gifts']],'purchase_mode':'local'}
     def auth(admin=False):
         def deco(fn):
             @wraps(fn)
@@ -256,16 +268,16 @@ def create_app(config=None):
         params={k:request.args[k][:150] for k in allowed if request.args.get(k)};params.update(limit=40,status='listed')
         cache_key='market:'+urlencode(sorted(params.items()))
         previous,updated=cached(cache_key)
-        if previous and int(time.time())-updated<60:return {**previous,'updated_at':updated}
+        if previous and int(time.time())-updated<60:return hide_claimed_market_gifts({**previous,'updated_at':updated})
         try:
             data=portal('nfts/search',params)
             result={'gifts':[normalized(n) for n in data.get('results',[])],'demo':False,'source':'portals','total':data.get('total_count',0),'next_offset':max(0,int(params.get('offset',0)))+40,'has_more':len(data.get('results',[]))>=40}
             db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(cache_key,json.dumps(result),int(time.time())));db().commit()
-            return result
+            return hide_claimed_market_gifts(result)
         except Exception as error:
             from werkzeug.exceptions import HTTPException
             if not isinstance(error,HTTPException):raise
-            if previous:return {**previous,'stale':True,'updated_at':updated,'warning':'Portal недоступен — показаны сохранённые цены'}
+            if previous:return hide_claimed_market_gifts({**previous,'stale':True,'updated_at':updated,'warning':'Portal недоступен — показаны сохранённые цены'})
             rows=[]
             for c in catalog_seed['collections']:
                 if params.get('collection_id') and c['id']!=params['collection_id']:continue
@@ -319,6 +331,45 @@ def create_app(config=None):
         q=make_quote(request.get_json() or {});qid=uuid.uuid4().hex
         db().execute('INSERT INTO craft_quotes VALUES(?,?,?,?)',(qid,g.user['id'],json.dumps(q),int(time.time())));db().commit()
         return dict(quote_id=qid,chance=q['chance_bps']/100,input_value=q['input_value'],target_value=q['target_value'],price_unit='TON',expires_at=int(time.time())+120,scope='application')
+
+    def claim_craft_market_gift(target, model):
+        # Use the same freshness window as local checkout and claim inside the craft transaction.
+        sold = {row[0] for row in db().execute('SELECT source_id FROM local_sold')}
+        pages = db().execute("""
+            SELECT payload FROM cache
+            WHERE (key LIKE 'public:market:%' OR key LIKE 'market:%') AND updated >= ?
+            ORDER BY updated DESC
+        """, (int(time.time()) - 300,))
+        collection_name = canonical_name(target['name'])
+        model_name = canonical_name(model['name'])
+        for row in pages:
+            for gift in json.loads(row['payload']).get('gifts', []):
+                source_id = gift.get('id')
+                key = market_collectible_key(gift)
+                if (not source_id or source_id in sold or not key or key in sold or
+                        gift.get('catalog_only') or canonical_name(gift.get('name', '')) != collection_name or
+                        canonical_name(gift.get('model', '')) != model_name):
+                    continue
+                source_unit = gift.get('price_unit', 'GRAM')
+                try:
+                    price = Decimal(str(gift.get('price'))).quantize(Decimal('0.01'))
+                except InvalidOperation:
+                    continue
+                if source_unit not in ('GRAM', 'TON') or not price.is_finite() or price <= 0:
+                    continue
+                number = int(gift['number'])
+                reserved = db().execute('INSERT OR IGNORE INTO local_numbers VALUES (?, ?)',
+                                        (target['id'], number))
+                if not reserved.rowcount:
+                    continue
+                db().executemany('INSERT INTO local_sold VALUES (?)', [(source_id,), (key,)])
+                return {**gift, 'id': 'craft-' + uuid.uuid4().hex, 'collection_id': target['id'],
+                        'source_id': source_id, 'source_number': number, 'number': number,
+                        'source_price': gift['price'], 'source_price_unit': source_unit,
+                        'price': str(price), 'price_unit': 'GRAM',
+                        'origin': 'application-craft', 'crafted': True}
+        return None
+
     @app.post('/api/craft')
     @auth()
     def craft():
@@ -338,7 +389,15 @@ def create_app(config=None):
             if any(x not in eligible for x in ids):abort(409,description='Подарок уже использован или выставлен на продажу')
             success=secrets.randbelow(10000)<q['chance_bps'];reward=None
             if success:
-                t=q['target'];m=q['model'];reward=dict(id='craft-'+uuid.uuid4().hex,name=t['name'],collection_id=t['id'],model=m['name'],backdrop=q.get('backdrop',{}).get('name',''),background=q.get('backdrop',{}),price=t['floor_price'],source_price_unit= t.get('price_unit','TON'),price_unit='GRAM',image=m.get('image') or t['photo_url'],number=gift_number(t['id']),origin='application-craft',crafted=True)
+                t, m = q['target'], q['model']
+                reward = claim_craft_market_gift(t, m)
+                if reward is None:
+                    backdrop = q.get('backdrop', {})
+                    reward = dict(id='craft-'+uuid.uuid4().hex, name=t['name'], collection_id=t['id'],
+                                  model=m['name'], backdrop=backdrop.get('name', ''), background=backdrop,
+                                  price=t['floor_price'], source_price_unit=t.get('price_unit', 'TON'),
+                                  price_unit='GRAM', image=m.get('image') or t['photo_url'],
+                                  number=gift_number(t['id']), origin='application-craft', crafted=True)
             for nft in ids:db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?',(g.user['id'],nft))
             if reward:db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
             result=dict(success=success,chance=q['chance_bps']/100,gift=reward,consumed=ids,scope='application')
@@ -393,6 +452,8 @@ def create_app(config=None):
                 gift=next((item for item in json.loads(row[0]).get('gifts',[]) if item['id']==source_id),None)
                 if gift:break
             if not gift:abort(409,description='Предложение устарело. Обновите маркет.')
+            if db().execute('SELECT 1 FROM local_sold WHERE source_id=?',(market_collectible_key(gift),)).fetchone():
+                abort(409, description='Этот подарок уже недоступен на маркете')
             source_unit=gift.get('price_unit','GRAM')
             if source_unit not in ('GRAM','TON'):abort(409,description='Неизвестная валюта предложения')
             price=Decimal(gift['price']).quantize(Decimal('0.01'))
@@ -430,6 +491,8 @@ def create_app(config=None):
                     if gift['id'] in ids and gift['id'] not in found:found[gift['id']]=gift
                 if len(found)==len(ids):break
             if len(found)!=len(ids):abort(409,description='Цены в корзине устарели. Обновите маркет.')
+            if any(market_collectible_key(gift) in sold for gift in found.values()):
+                abort(409, description='Один из подарков уже недоступен на маркете')
             total=Decimal(0)
             for gift in found.values():
                 price=Decimal(gift['price']).quantize(Decimal('0.01'))
