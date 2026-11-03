@@ -13,24 +13,101 @@ async function openCatalogSheet(kind){
  document.querySelector('#sheet').classList.add('catalog-sheet');renderCatalogRows('');
 }
 function renderCatalogRows(query){const rows=state.catalogRows.filter(r=>r.name.toLowerCase().includes(query.toLowerCase()));document.querySelector('#catalog-rows').innerHTML=rows.length?rows.map(r=>`<button class="catalog-row" onclick="pickCatalogRow(${arg(r.value)})">${state.sheetKind==='target'?'':`<span class="catalog-check ${state.sheetValue===r.value?'checked':''}">${state.sheetValue===r.value?'✓':''}</span>`}<span class="catalog-thumb">${r.image?`<img loading="lazy" src="${esc(imageURL(r.image))}" alt="">`:''}</span><strong>${esc(r.name)}</strong><b>${r.price!=null&&Number(r.price)>0?money(r.price)+' '+esc(r.unit):'—'}</b></button>`).join(''):`<div class="catalog-empty">${state.sheetKind!=='collection'&&!state.collection?'Сначала выберите коллекцию':'Нет доступных данных'}</div>`}
-function pickCatalogRow(value){if(state.sheetKind==='target'){const c=state.catalog.collections.find(x=>x.id===value);if(c){state.target={id:c.id,name:c.name,image:c.photo_url};closeSheet();renderCraft()}return}state.sheetValue=state.sheetValue===value?'':value;renderCatalogRows(document.querySelector('.catalog-search input').value)}
+function pickCatalogRow(value){if(state.sheetKind==='target'){const c=state.catalog.collections.find(x=>x.id===value);if(c){state.target={id:c.id,name:c.name,image:c.photo_url};state.quote=null;closeSheet();renderCraft();updateCraftQuote()}return}state.sheetValue=state.sheetValue===value?'':value;renderCatalogRows(document.querySelector('.catalog-search input').value)}
 function applyCatalogFilter(){const k=state.sheetKind;if(k==='collection'&&state.collection!==state.sheetValue){state.model='';state.backdrop='';state.symbol=''}state[k]=state.sheetValue;closeSheet();if(state.page==='market')renderMarket();else renderGifts();changedFilter()}
-const demoChooseTarget=chooseTarget;chooseTarget=function(){if(state.me.demo)return demoChooseTarget();openCatalogSheet('target')};
-
 function craftRules(){sheet('Как работает крафт',`<div class="attributes"><div><span>Оценка подарков</span><b>Флор коллекции в TON</b></div><div><span>Шанс</span><b>Сумма флоров / флор цели × 95%</b></div><div><span>Максимальный шанс</span><b>95%</b></div></div><p class="sub">Выбранные подарки списываются. При успехе результат появляется в инвентаре Crafter. Операция работает с подарками приложения; передачу NFT в Telegram она не выполняет.</p><button class="primary" onclick="closeSheet()">Понятно</button>`)}
-function renderCraft(){const chosen=state.selected.map(id=>state.inventory.find(g=>g.id===id&&g.status==='unlisted')).filter(Boolean);state.selected=chosen.map(g=>g.id);const chance=state.quote?.chance||0;document.querySelector('#main').innerHTML=`<section class="craft-page"><div class="craft-title"><button class="info-btn" onclick="craftRules()">i</button></div><div class="forge" id="forge">${[0,1].map(i=>slot(i,chosen)).join('')}<div class="anvil"><svg class="chance-ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="49"/><circle class="chance-value" cx="60" cy="60" r="49" style="stroke-dasharray:${chance/100*308} 308"/></svg>${anvilArt()}<strong>${money(chance)}%</strong></div>${[2,3].map(i=>slot(i,chosen)).join('')}</div><div class="craft-caption">Добавьте до <b>100 подарков</b>, чтобы скрафтить</div><button class="target" onclick="chooseTarget()">${state.target?`<img src="${esc(imageURL(state.target.image))}" alt="">${esc(state.target.name)}`:'Выберите подарок'}${icon('chevron')}</button><div class="craft-warning">⚠ Если крафт не удастся,<br>подарки сгорят</div><div class="craft-bottom"><button id="craft-button" class="primary craft-action" onclick="${chosen.length?'runCraft()':'pickGift()'}">${chosen.length?'Скрафтить':'Добавить подарки для крафта'}</button></div></section>`}
-const quotedApplyPicker=applyPicker;applyPicker=async function(){state.selected=[...state.pickerSelected];state.quote=null;closeSheet();renderCraft();await updateCraftQuote()};
-removeGift=async function(id){if(state.crafting)return;state.selected=state.selected.filter(x=>x!==id);state.quote=null;renderCraft();await updateCraftQuote()};
-let craftQuoteVersion=0;
-async function updateCraftQuote(){const version=++craftQuoteVersion;state.quote=null;if(!state.selected.length||!state.target)return;const target=state.target.id,ids=state.selected.join('|');try{const q=await api('craft/quote',{gift_ids:state.selected,target_id:target});if(version!==craftQuoteVersion||target!==state.target?.id||ids!==state.selected.join('|')||state.crafting)return;state.quote=q;if(state.page==='craft')renderCraft()}catch(e){if(version===craftQuoteVersion&&!state.crafting)toast(e.message)}}
-chooseTarget=function(){openCatalogSheet('target')};
-const originalPickCatalog=pickCatalogRow;pickCatalogRow=function(value){if(state.sheetKind==='target'){const c=state.catalog.collections.find(x=>x.id===value);if(c){state.target={id:c.id,name:c.name,image:c.photo_url};state.quote=null;closeSheet();renderCraft();updateCraftQuote()}return}originalPickCatalog(value)};
-runCraft=async function(){if(state.crafting)return;if(!state.target)return chooseTarget();if(!state.selected.length)return pickGift();await updateCraftQuote();if(!state.quote)return;const q=state.quote;sheet('Подтвердите крафт',`<div class="quote-summary"><span>Подарков</span><b>${state.selected.length}</b></div><div class="quote-summary"><span>Сумма флоров</span><b>${money(q.input_value)} TON</b></div><div class="quote-summary"><span>Шанс</span><b>${money(q.chance)}%</b></div><p class="sub">При запуске выбранные подарки спишутся. В случае неудачи они не возвращаются.</p><button class="primary craft-action" onclick="executeCraft()">Скрафтить</button>`)};
-async function executeCraft(){if(state.crafting||!state.quote)return;const q=state.quote;if(Date.now()/1000>q.expires_at){closeSheet();return updateCraftQuote()}state.crafting=true;closeSheet();const button=document.querySelector('#craft-button');button.disabled=true;button.textContent='Изготовление…';try{const data=await api('craft',{quote_id:q.quote_id,request_id:q.quote_id});await playForge();state.selected=[];state.quote=null;state.inventory=(await api('inventory')).gifts;await refreshMe();sheet(data.success?'Подарок изготовлен':'Неудачная попытка',`<div class="result craft-result">${data.success?`<img src="${esc(imageURL(data.gift.image))}" alt=""><h2>${esc(data.gift.name)}</h2><p>${esc(data.gift.model)}</p>`:`${anvilArt()}<h2>Крафт не удался</h2><p>Использовано подарков: ${data.consumed.length}</p>`}<button class="primary" onclick="closeSheet();go('gifts')">Мои подарки</button></div>`)}catch(e){state.quote=null;state.inventory=(await api('inventory')).gifts;state.selected=state.selected.filter(id=>state.inventory.some(g=>g.id===id));toast(e.message)}finally{state.crafting=false;renderCraft()}}
+function renderCraft() {
+    const gifts = state.selected.map(id => state.inventory.find(gift =>
+        gift.id === id && gift.status === 'unlisted'
+    )).filter(Boolean).slice(0, CRAFT_GIFT_LIMIT);
+    state.selected = gifts.map(gift => gift.id);
+    const quote = state.quote?.key === craftQuoteKey(state.selected, state.target?.id) ? state.quote : null;
+    const chance = quote?.chance || 0;
+    document.querySelector('#main').innerHTML = `
+        <section class="craft-page">
+            <div class="craft-title"><button class="info-btn" onclick="craftRules()">i</button></div>
+            <div class="forge" id="forge">
+                ${Array.from({length: CRAFT_GIFT_LIMIT}, (_, index) => slot(index, gifts)).join('')}
+                <div class="anvil">
+                    <svg class="chance-ring" viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="49"/>
+                        <circle class="chance-value" cx="60" cy="60" r="49" style="stroke-dasharray:${chance / 100 * 308} 308"/>
+                    </svg>
+                    ${anvilArt()}<strong>${money(chance)}%</strong>
+                </div>
+            </div>
+            <div class="craft-caption">Добавьте до <b>${CRAFT_GIFT_LIMIT} подарков</b>, чтобы скрафтить</div>
+            <button class="target" onclick="chooseTarget()">${state.target ?
+                `<img src="${esc(imageURL(state.target.image))}" alt="">${esc(state.target.name)}` :
+                'Выберите подарок'}${icon('chevron')}</button>
+            <div class="craft-warning">⚠ Если крафт не удастся,<br>подарки сгорят</div>
+            <div class="craft-bottom">
+                <button id="craft-button" class="primary craft-action" onclick="${gifts.length ? 'runCraft()' : 'pickGift()'}">
+                    ${gifts.length ? 'Скрафтить' : 'Добавить подарки для крафта'}
+                </button>
+            </div>
+        </section>`;
+}
+
+function applyPicker() {
+    state.selected = [...state.pickerSelected].slice(0, CRAFT_GIFT_LIMIT);
+    state.quote = null;
+    closeSheet();
+    renderCraft();
+    updateCraftQuote();
+}
+
+function removeGift(id) {
+    if (state.crafting) return;
+    state.selected = state.selected.filter(giftId => giftId !== id);
+    state.quote = null;
+    renderCraft();
+    updateCraftQuote();
+}
+
+const craftQuoteKey = (ids, target) => JSON.stringify([target, ids]);
+let pendingCraftQuote;
+
+function getCraftQuote(ids, target) {
+    const key = craftQuoteKey(ids, target);
+    if (state.quote?.key === key && state.quote.expires_at > Date.now() / 1000) {
+        return Promise.resolve(state.quote);
+    }
+    if (pendingCraftQuote?.key === key) return pendingCraftQuote.promise;
+
+    const pending = {key};
+    pending.promise = api('craft/quote', {gift_ids: ids, target_id: target})
+        .then(quote => ({...quote, key}))
+        .finally(() => {
+            if (pendingCraftQuote === pending) pendingCraftQuote = null;
+        });
+    pendingCraftQuote = pending;
+    return pending.promise;
+}
+
+async function updateCraftQuote() {
+    const ids = state.selected;
+    const target = state.target?.id;
+    if (!ids.length || !target) return;
+    const isCurrent = () => !state.crafting && state.page === 'craft' &&
+        craftQuoteKey(ids, target) === craftQuoteKey(state.selected, state.target?.id);
+    try {
+        const quote = await getCraftQuote(ids, target);
+        if (!isCurrent()) return;
+        state.quote = quote;
+        document.querySelector('#forge .chance-value').style.strokeDasharray = (quote.chance / 100 * 308) + ' 308';
+        document.querySelector('#forge .anvil strong').textContent = money(quote.chance) + '%';
+    } catch (error) {
+        if (isCurrent()) toast(error.message);
+    }
+}
+
+function chooseTarget() {
+    if (!state.crafting) openCatalogSheet('target');
+}
+
 function detail(id){const own=state.page==='gifts',g=(own?state.inventory:state.gifts).find(x=>x.id===id);if(!g)return;state.detailGift=g;sheet(own?'Подарок':'Покупка подарка',`<img class="purchase-art" src="${esc(imageURL(g.image))}" alt="${esc(g.name)}"><div class="purchase-heading"><h3>${esc(g.name)}</h3><span>${g.number?'#'+esc(g.number):'Инвентарь Crafter'}</span></div><div class="purchase-attrs">${[['Модель',g.model],['Фон',g.backdrop],['Символ',g.symbol]].map(([n,v])=>`<div><small>${n}</small><b>${esc(v||'—')}</b></div>`).join('')}</div><div class="quote-summary"><span>Цена</span><b>${money(g.price)} ${esc(g.price_unit||'GRAM')}</b></div>${own?`<button class="primary" onclick="closeSheet();togglePicked(${arg(g.id)})">Выбрать подарок</button>`:`<p class="sub">Предложение Portals. Покупка и оплата выполняются на площадке продавца.</p><button class="primary" onclick="openSeller()">Открыть Portals</button>`}`)}
 function openSeller(){const url=state.detailGift?.purchase_url||'https://portal-market.com/';if(tg?.openTelegramLink&&url.startsWith('https://t.me/'))tg.openTelegramLink(url);else window.open(url,'_blank','noopener,noreferrer')}
-slot=function(i,chosen){const g=chosen[i];return `<button class="slot craft-slot" data-index="${i}" onclick="${g?`removeGift(${arg(g.id)})`:'pickGift()'}" aria-label="${g?'Убрать подарок':'Добавить подарок'}">${g?`<img src="${esc(imageURL(g.image))}" alt="${esc(g.name)}">${i===3&&chosen.length>4?`<span class="slot-count">+${chosen.length-4}</span>`:''}`:'<span class="slot-plus"></span>'}</button>`};
-
 const gramIcon=()=>'<img class="gram-icon" src="/static/assets/gram.svg" alt="GRAM">';
 const currencyHTML=g=>(g.price_unit==='TON'||g.catalog_only)?'TON':gramIcon();
 Object.assign(state,{order:'listed_at desc',minPrice:'',maxPrice:''});

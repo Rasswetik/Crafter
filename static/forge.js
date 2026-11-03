@@ -1,45 +1,204 @@
-/* Physical six-face cube. WebGL depth testing, with a software renderer fallback. */
-function forgeRenderer(canvas,size){
- const dpr=Math.min(devicePixelRatio||1,2);canvas.width=canvas.height=size*dpr;canvas.style.width=canvas.style.height=size+'px';
- const gl=canvas.getContext('webgl',{alpha:true,antialias:true,premultipliedAlpha:false,preserveDrawingBuffer:true});
- if(!gl){const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);return {draw:(rx,ry,textures)=>CrafterCube.draw(ctx,{rx,ry,textures,size}),destroy(){}}}
- const vs='attribute vec3 position;attribute vec2 uv;uniform vec2 angles;varying vec2 vUV;void main(){float cx=cos(angles.x),sx=sin(angles.x),cy=cos(angles.y),sy=sin(angles.y);vec3 p=vec3(position.x,position.y*cx-position.z*sx,position.y*sx+position.z*cx);p=vec3(p.x*cy+p.z*sy,p.y,-p.x*sy+p.z*cy);float w=5.0-p.z;gl_Position=vec4(2.0*p.x,-2.0*p.y,1.02*w-2.02,w);vUV=uv;}';
- const fs='precision mediump float;varying vec2 vUV;uniform sampler2D face;uniform float outline;uniform float shade;void main(){vec4 c=texture2D(face,vUV);gl_FragColor=outline>0.5?vec4(0.64,0.71,0.81,0.72):vec4(c.rgb*shade,c.a);}';
- function shader(type,source){const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw Error('Cube shader');return s}
- const vert=shader(gl.VERTEX_SHADER,vs),frag=shader(gl.FRAGMENT_SHADER,fs),program=gl.createProgram();gl.attachShader(program,vert);gl.attachShader(program,frag);gl.linkProgram(program);if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw Error('Cube program');gl.useProgram(program);
- const pos=gl.getAttribLocation(program,'position'),uv=gl.getAttribLocation(program,'uv'),angles=gl.getUniformLocation(program,'angles'),outline=gl.getUniformLocation(program,'outline'),shade=gl.getUniformLocation(program,'shade');
- const texUV=[[0,0],[1,0],[1,1],[0,1]],indices=[0,1,2,0,2,3],edges=[0,1,1,2,2,3,3,0];
- const meshes=CrafterCube.faces.map(f=>{function buffer(ids){const b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(ids.flatMap(i=>[...f.points[i],...texUV[i]])),gl.STATIC_DRAW);return b}const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);return {body:buffer(indices),edges:buffer(edges),texture,last:null,normal:f.normal}});
- function bind(b){gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.enableVertexAttribArray(pos);gl.vertexAttribPointer(pos,3,gl.FLOAT,false,20,0);gl.enableVertexAttribArray(uv);gl.vertexAttribPointer(uv,2,gl.FLOAT,false,20,12)}
- gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);
- return {draw(rx,ry,textures){if(gl.isContextLost())throw Error('Cube context lost');gl.viewport(0,0,canvas.width,canvas.height);gl.clearColor(0,0,0,0);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.uniform2f(angles,rx,ry);gl.uniform1f(outline,0);gl.enable(gl.POLYGON_OFFSET_FILL);gl.polygonOffset(1,1);
-  meshes.forEach((m,i)=>{gl.bindTexture(gl.TEXTURE_2D,m.texture);if(m.last!==textures[i]){gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,textures[i]);m.last=textures[i]}gl.uniform1f(shade,.82+Math.max(0,CrafterCube.rotate(m.normal,rx,ry)[2])*.18);bind(m.body);gl.drawArrays(gl.TRIANGLES,0,6)});
-  gl.disable(gl.POLYGON_OFFSET_FILL);gl.uniform1f(outline,1);for(const m of meshes){bind(m.edges);gl.drawArrays(gl.LINES,0,8)}
- },destroy(){for(const m of meshes){gl.deleteBuffer(m.body);gl.deleteBuffer(m.edges);gl.deleteTexture(m.texture)}gl.deleteProgram(program);gl.deleteShader(vert);gl.deleteShader(frag)}}
+function forgePanel(className) {
+    const panel = document.createElement('div');
+    panel.className = 'forge-decal ' + className;
+    panel.hidden = true;
+    return panel;
 }
-function forgeTexture(image,kind,background){const c=document.createElement('canvas');c.width=c.height=256;const ctx=c.getContext('2d');if(kind){ctx.scale(2,2);CrafterCube.symbolTexture(ctx,kind)}else{if(background){const color=(v,f)=>Number.isInteger(v)?'#'+(v&0xffffff).toString(16).padStart(6,'0'):f;const gradient=ctx.createRadialGradient(128,105,10,128,128,185);gradient.addColorStop(0,color(background.center_color,'#4e6289'));gradient.addColorStop(1,color(background.edge_color,'#263346'));ctx.fillStyle=gradient}else ctx.fillStyle='#314052';ctx.fillRect(0,0,256,256);if(image){const ratio=Math.min(240/image.naturalWidth,240/image.naturalHeight),w=image.naturalWidth*ratio,h=image.naturalHeight*ratio;ctx.drawImage(image,(256-w)/2,(256-h)/2,w,h)}}return c}
-function forgeImage(url){return new Promise(resolve=>{if(!url)return resolve(null);let finished=false;const complete=img=>{if(!finished){finished=true;clearTimeout(timer);resolve(img)}};const timer=setTimeout(()=>complete(null),4500);const img=new Image();img.crossOrigin='anonymous';img.onload=()=>complete(img);img.onerror=()=>{const fallback=new Image();fallback.onload=()=>complete(fallback);fallback.onerror=()=>complete(null);fallback.src=imageURL(url)};img.src=imageURL(url)})}
-async function playForge(result){
- const page=document.querySelector('.craft-page'),forge=document.querySelector('#forge');if(!page||!forge)return;
- const selected=state.selected.map(id=>state.inventory.find(g=>g.id===id)).filter(Boolean),shown=selected.slice(0,4),size=260;
- const images=await Promise.all([...shown.map(g=>forgeImage(g.image)),forgeImage(result.gift?.image)]);
- const empty=forgeTexture(null),symbol=forgeTexture(null,'anvil'),textures=Array(6).fill(empty),giftTextures=images.slice(0,shown.length).map((img,i)=>forgeTexture(img,null,shown[i]?.background)),reward=images[images.length-1]?forgeTexture(images[images.length-1],null,result.gift?.background):symbol;
- textures[3]=symbol;textures[4]=symbol;
- page.classList.add('manufacturing');const scene=document.createElement('div');scene.className='cube-stage software-cube';scene.innerHTML='<canvas aria-label="Куб с подарками"></canvas>';forge.appendChild(scene);let canvas=scene.querySelector('canvas'),renderer;
- try{renderer=forgeRenderer(canvas,size)}catch{const replacement=document.createElement('canvas');canvas.replaceWith(replacement);canvas=replacement;canvas.width=canvas.height=size;const ctx=canvas.getContext('2d');renderer={draw:(rx,ry,t)=>CrafterCube.draw(ctx,{rx,ry,textures:t,size}),destroy(){}}}
- const initial={rx:-.16,ry:.48},faceOrder=[0,2,1,5],destinations=CrafterCube.faces.map(f=>{const center=f.points.reduce((p,v)=>p.map((x,i)=>x+v[i]/4),[0,0,0]);const p=CrafterCube.rotate(center,initial.rx,initial.ry);return {x:size/2+p[0]*size/(5-p[2]),y:size/2+p[1]*size/(5-p[2])}});
- const bounds=canvas.getBoundingClientRect(),slotImages=[...forge.querySelectorAll('.slot img')];slotImages.slice(0,4).forEach((img,i)=>{const slot=img.parentElement,r=slot.getBoundingClientRect(),dest=destinations[faceOrder[i]];img.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${bounds.left+dest.x-r.left-r.width/2}px,${bounds.top+dest.y-r.top-r.height/2}px) scale(.85)`,opacity:1},{transform:`translate(${bounds.left+dest.x-r.left-r.width/2}px,${bounds.top+dest.y-r.top-r.height/2}px) scale(.65)`,opacity:0}],{duration:650,delay:i*180,fill:'forwards',easing:'cubic-bezier(.4,0,.2,1)'})});
- const status=document.createElement('div');status.className='manufacturing-status';status.innerHTML='<h2>Изготовление</h2>';page.appendChild(status);
- const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,duration=reduced?700:7200;let released=false;
- function releaseInputs(rx,ry){if(released||reduced)return;released=true;shown.forEach((gift,i)=>{const face=CrafterCube.faces[faceOrder[i]],center=face.points.reduce((p,v)=>p.map((n,j)=>n+v[j]/4),[0,0,0]),point=CrafterCube.rotate(center,rx,ry),x=size/2+point[0]*size/(5-point[2]),y=size/2+point[1]*size/(5-point[2]);const img=document.createElement('img');img.className='cube-ejected-gift';img.src=imageURL(gift.image);img.alt='';img.style.left=(x-30)+'px';img.style.top=(y-30)+'px';scene.appendChild(img);const angle=-Math.PI*.75+i*Math.PI*.5;img.animate([{transform:'translate(0,0) scale(.75)',opacity:1},{transform:`translate(${Math.cos(angle)*125}px,${Math.sin(angle)*125}px) scale(.25)`,opacity:0}],{duration:650,easing:'cubic-bezier(.2,.5,.4,1)',fill:'forwards'}).onfinish=()=>img.remove()})}
- await new Promise(resolve=>{const start=performance.now();function frame(now){try{if(!canvas.isConnected)return resolve();const elapsed=now-start,p=Math.min(1,elapsed/duration);for(let i=0;i<giftTextures.length;i++)if(elapsed>=650+i*180||reduced)textures[faceOrder[i]]=giftTextures[i];let rx=initial.rx,ry=initial.ry;
-  if(p>.2&&p<.77){const spin=(p-.2)/.57;rx=-.16+Math.sin(spin*Math.PI*2)*.3;ry=.48+spin*Math.PI*4}
-  else if(p>=.77){const settle=Math.min(1,(p-.77)/.1),e=1-(1-settle)**3;rx=-.16;ry=(.48+Math.PI*4)*(1-e)+(Math.PI*4+.42)*e;if(p>.82){releaseInputs(rx,ry);textures.fill(empty);textures[3]=symbol}if(p>.87){textures[0]=result.success?reward:symbol;status.innerHTML=result.success?'<h2>Подарок изготовлен</h2>':'<h2>Крафт не удался</h2>'}}
-  try{renderer.draw(rx,ry,textures)}catch(error){renderer.destroy();const replacement=document.createElement('canvas');replacement.width=replacement.height=size;replacement.style.width=replacement.style.height=size+'px';canvas.replaceWith(replacement);canvas=replacement;const fallback=canvas.getContext('2d');renderer={draw:(x,y,t)=>CrafterCube.draw(fallback,{rx:x,ry:y,textures:t,size}),destroy(){}};renderer.draw(rx,ry,textures)}if(p<1)requestAnimationFrame(frame);else resolve()}catch(error){resolve()}}requestAnimationFrame(frame)});
- renderer.destroy();return {scene,status};
+
+function forgeGiftPanel(gift, sourceImage) {
+    const panel = forgePanel('forge-gift-panel');
+    panel.style.background = giftBackdrop(gift);
+    const image = sourceImage?.cloneNode() || new Image();
+    image.alt = '';
+    image.src = imageURL(gift.image);
+    panel.append(image);
+    return panel;
 }
-runCraft=async function(){if(state.crafting)return;if(!state.selected.length)return pickGift();if(!state.target)return chooseTarget();state.crafting=true;let result;const launchButton=document.querySelector('#craft-button');if(launchButton){launchButton.disabled=true;launchButton.textContent='Изготовление…'}
- try{let q=state.quote;if(!q||q.expires_at<Date.now()/1000){q=await api('craft/quote',{gift_ids:state.selected,target_id:state.target.id});state.quote=q}const button=document.querySelector('#craft-button');if(button){button.disabled=true;button.textContent='Изготовление…'}result=await api('craft',{quote_id:q.quote_id,request_id:q.quote_id});await playForge(result);state.selected=[];state.quote=null;const data=await Promise.allSettled([api('inventory'),api('me')]);if(data[0].status==='fulfilled')state.inventory=data[0].value.gifts;if(data[1].status==='fulfilled'){state.me=data[1].value;updateBalance()}const status=document.querySelector('.manufacturing-status');if(status){status.innerHTML=`<h2>${result.success?'Подарок изготовлен':'Крафт не удался'}</h2>${result.gift?`<p>${esc(result.gift.name)} #${esc(result.gift.number)}<br>${esc(result.gift.model)}</p>`:''}<button class="primary" onclick="go('gifts')">Мои подарки</button><button class="forge-again" onclick="renderCraft()">Ещё крафт</button>`}
- }catch(e){state.quote=null;purchaseError(e.message);toast(e.message);if(result){state.selected=[];renderCraft();toast('Результат сохранён. Откройте «Мои подарки».')}else renderCraft()}finally{state.crafting=false;const button=document.querySelector('#craft-button');if(button)button.disabled=false}
-};
-chooseTarget=function(){if(state.crafting)return;openCatalogSheet('target')};
+
+function placeForgePanel(panel, points, opacity = 1) {
+    const transform = points && opacity > 0 ? CrafterCube.panelTransform(points) : '';
+    panel.hidden = !transform;
+    if (!transform) return;
+    panel.style.transform = transform;
+    panel.style.opacity = opacity;
+}
+
+function forgeFlight(from, to, progress) {
+    const eased = CrafterCube.smooth(progress);
+    const arc = 19 * Math.sin(Math.PI * eased);
+    return from.map(([x, y], index) => [
+        x + (to[index][0] - x) * eased,
+        y + (to[index][1] - y) * eased - arc
+    ]);
+}
+
+async function playForge(forge, gifts, result) {
+    const scene = document.createElement('div');
+    scene.className = 'forge-animation';
+    scene.setAttribute('aria-hidden', 'true');
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw Error('Canvas unavailable');
+
+    const slots = gifts.map((_, index) => forge.querySelector('[data-index="' + index + '"]'));
+    const marks = CrafterCube.faces.map(() => {
+        const panel = forgePanel('forge-anvil-panel');
+        panel.innerHTML = anvilArt('forge-anvil-icon');
+        return panel;
+    });
+    const decals = gifts.map((gift, index) =>
+        forgeGiftPanel(gift, slots[index]?.querySelector('img'))
+    );
+    const reward = result.gift ? forgeGiftPanel(result.gift) : forgePanel('forge-anvil-panel');
+    if (!result.gift) reward.innerHTML = icon('gift');
+
+    scene.append(canvas, ...marks, ...decals, reward);
+    forge.append(scene);
+    const bounds = scene.getBoundingClientRect();
+    const { width, height } = bounds;
+    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    ctx.scale(ratio, ratio);
+
+    const origins = slots.map(slot => {
+        const box = slot.getBoundingClientRect();
+        const left = box.left - bounds.left;
+        const top = box.top - bounds.top;
+        return [[left, top], [left + box.width, top],
+            [left + box.width, top + box.height], [left, top + box.height]];
+    });
+    const sequence = CrafterCube.timeline(gifts.length);
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let visible = [];
+    let lastPitch, lastYaw;
+    let hiddenSlots = 0;
+
+    function paint(elapsed) {
+        const frame = sequence.at(elapsed);
+        if (frame.rx !== lastPitch || frame.ry !== lastYaw) {
+            const view = CrafterCube.camera(frame.rx, frame.ry, width, height);
+            visible = CrafterCube.draw(ctx, view, width, height);
+            lastPitch = frame.rx;
+            lastYaw = frame.ry;
+        }
+
+        const taken = frame.attached + (frame.flight ? 1 : 0);
+        while (hiddenSlots < taken) slots[hiddenSlots++].classList.add('forge-slot-taken');
+
+        const release = frame.release || 0;
+        const reveal = frame.reveal || 0;
+        marks.forEach((mark, index) => {
+            const face = visible.find(item => item.index === index);
+            const input = CrafterCube.inputFaces.indexOf(index);
+            const opacity = index === CrafterCube.resultFace ? 1 - reveal :
+                input >= 0 && input < frame.attached ? release : 1;
+            placeForgePanel(mark, face?.points, opacity);
+        });
+
+        decals.forEach((decal, index) => {
+            const face = visible.find(item => item.index === CrafterCube.inputFaces[index]);
+            if (frame.flight?.index === index && face) {
+                placeForgePanel(decal, forgeFlight(origins[index], face.points, frame.flight.progress));
+            } else if (index < frame.attached && face && release < 1) {
+                const lift = release * 21;
+                const points = face.points.map(([x, y]) =>
+                    [x + face.normal[0] * lift, y + (face.normal[1] - .22) * lift]
+                );
+                placeForgePanel(decal, points, 1 - release);
+            } else {
+                decal.hidden = true;
+            }
+        });
+        const resultFace = visible.find(face => face.index === CrafterCube.resultFace);
+        placeForgePanel(reward, resultFace?.points, reveal);
+    }
+
+    if (reduced) {
+        paint(sequence.duration);
+        return;
+    }
+    paint(0);
+    await new Promise((resolve, reject) => {
+        const started = performance.now();
+        function tick(now) {
+            if (!scene.isConnected) return resolve();
+            const elapsed = Math.min(now - started, sequence.duration);
+            try {
+                paint(elapsed);
+            } catch (error) {
+                reject(error);
+                return;
+            }
+            if (elapsed < sequence.duration) requestAnimationFrame(tick);
+            else resolve();
+        }
+        requestAnimationFrame(tick);
+    });
+}
+
+function showForgeResult(status, result) {
+    const gift = result.gift;
+    status.classList.add('forge-complete');
+    status.innerHTML = `
+        <h2>${gift ? 'Подарок изготовлен' : 'Крафт не удался'}</h2>
+        ${gift ? `<div class="forge-result-art"><img src="${esc(imageURL(gift.image))}" alt="${esc(gift.name)}"></div>
+            <p><b>${esc(gift.name)} #${esc(gift.number)}</b><br>${esc(gift.model)}</p>`
+            : `<p>Использовано подарков: ${result.consumed.length}</p>`}
+        <div class="forge-result-actions">
+            <button class="primary" onclick="go('gifts')">Мои подарки</button>
+            <button class="forge-again" onclick="renderCraft()">Ещё крафт</button>
+        </div>`;
+    if (gift) status.querySelector('.forge-result-art').style.background = giftBackdrop(gift);
+}
+
+async function runCraft() {
+    if (state.crafting) return;
+    if (!state.selected.length) return pickGift();
+    if (state.selected.length > CRAFT_GIFT_LIMIT) return pickGift();
+    if (!state.target) return chooseTarget();
+
+    const ids = [...state.selected];
+    const gifts = ids.map(id => state.inventory.find(gift => gift.id === id));
+    const page = document.querySelector('.craft-page');
+    const button = document.querySelector('#craft-button');
+    state.crafting = true;
+    button.disabled = true;
+    button.textContent = 'Изготовление…';
+
+    try {
+        const quote = await getCraftQuote(ids, state.target.id);
+        state.quote = quote;
+        const result = await api('craft', { quote_id: quote.quote_id, request_id: quote.quote_id });
+
+        const consumed = new Set(result.consumed);
+        state.inventory = state.inventory.filter(gift => !consumed.has(gift.id));
+        if (result.gift && !state.inventory.some(gift => gift.id === result.gift.id)) {
+            state.inventory.push({ ...result.gift, status: 'unlisted' });
+        }
+        state.me.inventory_count = state.inventory.length;
+        state.selected = [];
+        state.quote = null;
+
+        page.classList.add('manufacturing');
+        const status = document.createElement('section');
+        status.className = 'manufacturing-status';
+        status.setAttribute('aria-live', 'polite');
+        status.innerHTML = '<h2>Изготовление</h2>';
+        page.append(status);
+        try {
+            await playForge(page.querySelector('#forge'), gifts, result);
+        } catch {
+            page.querySelector('.forge-animation')?.remove();
+            page.classList.add('forge-visual-unavailable');
+        }
+        showForgeResult(status, result);
+        refreshMe().catch(() => {});
+    } catch (error) {
+        if (error.status >= 400 && error.status < 500) state.quote = null;
+        toast(error.message);
+        renderCraft();
+    } finally {
+        state.crafting = false;
+    }
+}

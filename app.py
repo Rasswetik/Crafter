@@ -26,6 +26,8 @@ def verify_telegram(raw, token):
     if type(user.get('id')) is not int or user['id'] <= 0: raise ValueError('user')
     return user
 
+CRAFT_GIFT_LIMIT = 4
+
 DEMO_GIFTS = [
  dict(id='demo-snoop',name='Snoop Dogg',collection_id='snoop',model='Emerald',backdrop='Gold',price='9.49',number=303022,image='/static/assets/snoop.webp'),
  dict(id='demo-amulet',name='Faith Amulet',collection_id='amulet',model='Moon Palace',backdrop='Gold',price='8.88',number=29726,image='/static/assets/amulet.webp'),
@@ -287,7 +289,9 @@ def create_app(config=None):
         return {'collections':public_catalog(),'scope':'application'}
     def make_quote(data):
         ids=data.get('gift_ids',[])
-        if not isinstance(ids,list) or not 1<=len(ids)<=100 or any(not isinstance(x,str) for x in ids) or len(set(ids))!=len(ids):abort(400,description='Выберите от 1 до 100 подарков')
+        if (not isinstance(ids, list) or not 1 <= len(ids) <= CRAFT_GIFT_LIMIT
+                or any(not isinstance(item, str) for item in ids) or len(set(ids)) != len(ids)):
+            abort(400, description='Выберите от 1 до 4 подарков')
         gifts={x['id']:x for x in owned() if x['status']=='unlisted'}
         if any(x not in gifts for x in ids):abort(409,description='Подарок недоступен')
         chosen=[gifts[x] for x in ids]
@@ -326,7 +330,11 @@ def create_app(config=None):
             if prior:return json.loads(prior[0])
             row=db().execute('SELECT payload,created FROM craft_quotes WHERE id=? AND user_id=?',(qid,g.user['id'])).fetchone()
             if not row or time.time()-row['created']>120:abort(409,description='Расчёт устарел. Повторите выбор.')
-            q=json.loads(row['payload']);ids=q['gift_ids'];eligible={x['id'] for x in owned() if x['status']=='unlisted'}
+            q = json.loads(row['payload'])
+            ids = q['gift_ids']
+            if not 1 <= len(ids) <= CRAFT_GIFT_LIMIT:
+                abort(400, description='Выберите от 1 до 4 подарков')
+            eligible = {gift['id'] for gift in owned() if gift['status'] == 'unlisted'}
             if any(x not in eligible for x in ids):abort(409,description='Подарок уже использован или выставлен на продажу')
             success=secrets.randbelow(10000)<q['chance_bps'];reward=None
             if success:

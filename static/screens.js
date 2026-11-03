@@ -20,52 +20,83 @@ async function inventoryTab(tab){state.inventoryTab=tab;state.picked.clear();awa
 async function renderGifts(){const counts={unlisted:state.inventory.filter(g=>g.status!=='listed').length,listed:state.inventory.filter(g=>g.status==='listed').length};document.querySelector('#main').innerHTML=`<div class="inventory-tabs">${[['gifts','Гифты'],['offers','Офферы'],['history','История']].map(([k,t])=>`<button class="${state.inventoryTab===k?'selected':''}" onclick="inventoryTab('${k}')">${t}</button>`).join('')}</div><div id="inventory-body"></div>`;const body=document.querySelector('#inventory-body');if(state.inventoryTab==='history'){const data=await api('history');body.innerHTML=data.items.length?`<div class="history-list">${data.items.map(h=>`<div class="history-item"><span class="history-icon">${icon(h.kind==='craft'?'hammer':h.kind==='buy'?'cart':'gift')}</span><div><b>${esc(({craft:'Крафт',sell:'Выставлено на продажу',unlist:'Снято с продажи',transfer:'Отправлено',withdraw:'Выведено',buy:'Куплено'})[h.kind]||h.kind)}</b><small>${new Date(h.created*1000).toLocaleString('ru-RU')}</small></div><span class="history-tag">ТЕСТ</span></div>`).join('')}</div>`:'<div class="inventory-empty">'+icon('gift')+'<h2>История пуста</h2><p>Здесь появятся операции с подарками</p></div>';return}if(state.inventoryTab==='offers'){body.innerHTML='<div class="inventory-empty">'+icon('cart')+'<h2>Нет активных офферов</h2><p>Предложения на ваши подарки появятся здесь</p></div>';return}body.innerHTML=`<div class="segment"><button class="${state.inventoryStatus==='unlisted'?'selected':''}" onclick="state.inventoryStatus='unlisted';state.picked.clear();renderGifts()">Не выставл. <span>${counts.unlisted}</span></button><button class="${state.inventoryStatus==='listed'?'selected':''}" onclick="state.inventoryStatus='listed';state.picked.clear();renderGifts()">Выставл. <span>${counts.listed}</span></button></div><div class="inventory-actions">${[['plus','Добавить','add'],['arrow','Вывод','withdraw'],['send','Отправить','transfer'],['cart',state.inventoryStatus==='listed'?'Снять':'Продать',state.inventoryStatus==='listed'?'unlist':'sell'],['hammer','Крафт','craft']].map(([i,t,a])=>`<button onclick="inventoryAction('${a}')">${icon(i)}<span>${t}</span></button>`).join('')}</div><div class="selection-bar"><span id="selection-count">Выберите подарки</span><button onclick="state.picked.clear();filterGrid();updatePicked()">Сбросить</button></div>${filters()}<div id="gifts-grid" class="grid"></div>${demoNote()}`;filterGrid()}
 function togglePicked(id){state.picked.has(id)?state.picked.delete(id):state.picked.add(id);filterGrid();updatePicked()}
 function updatePicked(){let e=document.querySelector('#selection-count');if(e)e.textContent=state.picked.size?'Выбрано: '+state.picked.size:'Выберите подарки'}
-function inventoryAction(action){if(action==='add'){sheet('Добавить подарки',`<div class="inventory-empty">${icon('gift')}<h2>Пополните коллекцию</h2><p>${state.me.demo?'В тестовом режиме подарки можно купить на тестовый баланс в маркете.':'Приём реальных подарков будет доступен после подключения депозитного бота.'}</p><button class="primary" onclick="closeSheet();go('market')">Перейти в маркет</button></div>`);return}if(!state.picked.size)return toast('Сначала выберите подарки');if(action==='craft'){const eligible=state.inventory.filter(x=>state.picked.has(x.id)&&x.status==='unlisted');if(eligible.length!==state.picked.size)return toast('Сначала снимите подарки с продажи');if(eligible.length>100)return toast('Выберите до 100 подарков');state.selected=eligible.map(g=>g.id);go('craft');return}sheet(({sell:'Продать подарки',unlist:'Снять с продажи',withdraw:'Вывести подарки',transfer:'Отправить подарки'})[action],`<p class="sub">Выбрано подарков: ${state.picked.size}. ${state.me.demo?'Тестовая операция. Реальные NFT не перемещаются.':''}</p>${action==='sell'?'<label class="form-label">Цена каждого подарка, GRAM</label><input class="field" id="action-value" type="number" min="0.01" step="0.01" placeholder="0.00">':action==='transfer'?'<label class="form-label">Получатель</label><input class="field" id="action-value" placeholder="@username или Telegram ID">':''}<button class="primary" onclick="submitInventoryAction('${action}')">Подтвердить</button>`)}
+function inventoryAction(action){if(action==='add'){sheet('Добавить подарки',`<div class="inventory-empty">${icon('gift')}<h2>Пополните коллекцию</h2><p>${state.me.demo?'В тестовом режиме подарки можно купить на тестовый баланс в маркете.':'Приём реальных подарков будет доступен после подключения депозитного бота.'}</p><button class="primary" onclick="closeSheet();go('market')">Перейти в маркет</button></div>`);return}if(!state.picked.size)return toast('Сначала выберите подарки');if(action==='craft'){const eligible=state.inventory.filter(x=>state.picked.has(x.id)&&x.status==='unlisted');if(eligible.length!==state.picked.size)return toast('Сначала снимите подарки с продажи');if(eligible.length>CRAFT_GIFT_LIMIT)return toast('Выберите до 4 подарков');state.selected=eligible.map(g=>g.id);state.quote=null;go('craft');return}sheet(({sell:'Продать подарки',unlist:'Снять с продажи',withdraw:'Вывести подарки',transfer:'Отправить подарки'})[action],`<p class="sub">Выбрано подарков: ${state.picked.size}. ${state.me.demo?'Тестовая операция. Реальные NFT не перемещаются.':''}</p>${action==='sell'?'<label class="form-label">Цена каждого подарка, GRAM</label><input class="field" id="action-value" type="number" min="0.01" step="0.01" placeholder="0.00">':action==='transfer'?'<label class="form-label">Получатель</label><input class="field" id="action-value" placeholder="@username или Telegram ID">':''}<button class="primary" onclick="submitInventoryAction('${action}')">Подтвердить</button>`)}
 async function submitInventoryAction(action){try{await api('inventory/action',{action,gift_ids:[...state.picked],price:document.querySelector('#action-value')?.value,recipient:document.querySelector('#action-value')?.value});closeSheet();state.picked.clear();state.inventory=(await api('inventory')).gifts;await refreshMe();await renderGifts();toast('Тестовая операция выполнена')}catch(e){toast(e.message)}}
 function detail(id){let g=[...state.gifts,...state.inventory].find(g=>g.id===id);if(!g)return;const own=state.page==='gifts';sheet(g.name,`<img class="detail-art" src="${esc(imageURL(g.image))}" alt="${esc(g.name)}"><div class="gift-detail-number">#${esc(g.number)}</div><div class="attributes"><div><span>Модель</span><b>${esc(g.model||'—')}</b></div><div><span>Фон</span><b>${esc(g.backdrop||'—')}</b></div><div><span>Статус</span><b>${own?(g.status==='listed'?'Выставлен':'В инвентаре'):'На маркете'}</b></div></div><button class="primary" onclick="${own?`closeSheet();togglePicked(${arg(g.id)})`:`buyGift(${arg(g.id)})`}">${own?'Выбрать подарок':'Купить за '+money(g.price)+' ◆'}</button>`)}
 async function buyGift(id){if(state.gifts.find(g=>g.id===id)?.catalog_only)return toast('Это модель из каталога, а не предложение на продажу');if(!state.me.demo)return toast('Покупки за реальные средства ещё не подключены');try{await api('demo/buy',{id});await refreshMe();closeSheet();toast('Подарок добавлен в «Мои подарки»')}catch(e){toast(e.message)}}
-function anvilArt(){return `<svg class="anvil-svg" viewBox="0 0 100 100" aria-hidden="true"><defs><linearGradient id="metal" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#d8dfed"/></linearGradient></defs><g class="hammer-art"><path d="m38 11 39-9 4 14-39 8Z" fill="url(#metal)"/><path d="m43 21 6-1 6 20-6 2Z" fill="#fff"/></g><path d="M16 44h69L67 58H55v17l13 7v6H28v-6l13-7V58H30c-7 0-13-7-14-14Z" fill="url(#metal)"/><path d="M24 25c-2 9-2 13 3 16l7-1-4-16Z" fill="#fff"/></svg>`}
-function renderCraft(){let chosen=state.selected.map(id=>state.inventory.find(g=>g.id===id&&g.status==='unlisted')).filter(Boolean);state.selected=chosen.map(g=>g.id);document.querySelector('#main').innerHTML=`<section class="craft-page"><div class="craft-title"><button class="info-btn" onclick="sheet('Крафт подарков','<p>Добавьте до четырёх подарков и выберите цель.</p><p>Тестовый шанс — 20% за подарок. При запуске выбранные тестовые подарки будут использованы. При успехе результат попадёт в ваш инвентарь.</p>')">i</button></div><div class="forge" id="forge">${[0,1].map(i=>slot(i,chosen)).join('')}<div class="anvil"><svg class="chance-ring" viewBox="0 0 120 120"><circle cx="60" cy="60" r="49"/><circle class="chance-value" cx="60" cy="60" r="49" style="stroke-dasharray:${state.me.demo?chosen.length*.2*308:0} 308"/></svg>${anvilArt()}<strong>${state.me.demo?chosen.length*20:0}%</strong><div class="impact-glow"></div><div class="sparks" id="sparks"></div></div>${[2,3].map(i=>slot(i,chosen)).join('')}<div class="forge-flash"></div></div><div class="craft-caption">Добавьте до <b>4 подарков</b>, чтобы скрафтить</div><button class="target" onclick="chooseTarget()">${state.target?`<img src="${esc(imageURL(state.target.image))}" alt="">${esc(state.target.name)}${state.target.number?` #${esc(state.target.number)}`:""}`:'Выберите подарок'}${icon('chevron')}</button><div class="craft-warning">⚠ Если крафт не удастся,<br>подарки сгорят</div><div class="craft-bottom"><button id="craft-button" class="primary craft-action" onclick="${chosen.length?'runCraft()':'pickGift()'}">${chosen.length?'Скрафтить':'Добавить подарки для крафта'}</button><div class="craft-foot">${state.me.demo?'Тестовый крафт':'Крафт пока не подключён'}</div></div></section>`}
-function pickGift(){if(state.crafting)return;let gifts=state.inventory.filter(g=>!state.selected.includes(g.id)&&g.status==='unlisted');sheet('Выберите подарок',`<p class="sub">Добавлено ${state.selected.length} из 4</p><div class="grid">${gifts.map(g=>card(g,'selectGift')).join('')}</div>${!gifts.length?'<p class="sub">Нет доступных подарков</p>':''}`)}
-function playForge(){
- const page=document.querySelector('.craft-page'),forge=document.querySelector('#forge');
- const selected=state.selected.map(id=>state.inventory.find(g=>g.id===id)).filter(Boolean);
- page.classList.add('manufacturing');
- const scene=document.createElement('div');scene.className='cube-stage software-cube';scene.innerHTML='<canvas aria-label="Вращающийся объёмный куб с подарками"></canvas>';
- forge.appendChild(scene);
- const center=forge.getBoundingClientRect();
- forge.querySelectorAll('.slot img').forEach((img,i)=>{const slot=img.parentElement,r=slot.getBoundingClientRect();slot.animate([{transform:'translate(0,0) scale(1)',opacity:1},{transform:`translate(${center.x+center.width/2-r.x-r.width/2}px,${center.y+center.height/2-r.y-r.height/2}px) scale(.8)`,opacity:1},{transform:`translate(${center.x+center.width/2-r.x-r.width/2}px,${center.y+center.height/2-r.y-r.height/2}px) scale(.65)`,opacity:0}],{duration:900,delay:i*900,fill:'forwards',easing:'ease-in-out'})});
- const status=document.createElement('div');status.className='manufacturing-status';status.innerHTML=`<h2>${icon('anvil')} Изготовление</h2><p>${esc(state.target.name)}${state.target.number?` #${esc(state.target.number)}`:""}</p><span>Вероятность успеха ${money(state.quote?.chance||0)}%</span><small>В случае неудачи эти подарки<br>пропадут.</small>`;page.appendChild(status);
- return animateCube(scene.querySelector('canvas'),selected,8500);
+function anvilArt(className = 'anvil-svg') {
+    return `<svg class="${className}" viewBox="0 0 100 100" aria-hidden="true" fill="currentColor">
+        <path d="m38 11 39-9 4 14-39 8Z M43 21l6-1 6 20-6 2Z"/>
+        <path d="M16 44h69L67 58H55v17l13 7v6H28v-6l13-7V58H30c-7 0-13-7-14-14Z"/>
+        <path d="M24 25c-2 9-2 13 3 16l7-1-4-16Z"/>
+    </svg>`;
 }
-async function animateCube(canvas,selected,duration){
- const size=220,dpr=Math.min(window.devicePixelRatio||1,3);canvas.width=size*dpr;canvas.height=size*dpr;const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);
- const makeSymbol=kind=>{const c=document.createElement('canvas');c.width=c.height=128;CrafterCube.symbolTexture(c.getContext('2d'),kind);return c};
- const anvil=makeSymbol('anvil'),gift=makeSymbol('gift');const textures=Array(6).fill(anvil);textures[6]=gift;
- selected.forEach((g,i)=>{const img=new Image();img.onload=()=>{const texture=document.createElement('canvas');texture.width=texture.height=256;const tc=texture.getContext('2d');tc.fillStyle='#314052';tc.fillRect(0,0,256,256);const ratio=Math.min(224/img.naturalWidth,224/img.naturalHeight),w=img.naturalWidth*ratio,h=img.naturalHeight*ratio;tc.drawImage(img,(256-w)/2,(256-h)/2,w,h);textures[i]=texture};img.src=imageURL(g.image)});
- if(window.matchMedia('(prefers-reduced-motion: reduce)').matches){CrafterCube.draw(ctx,{rx:-.38,ry:.55,textures,size});return new Promise(r=>setTimeout(r,600))}
- return new Promise(resolve=>{const started=performance.now();function frame(now){if(!canvas.isConnected){resolve();return}const progress=Math.min((now-started)/duration,1),p=CrafterCube.pose(progress);CrafterCube.draw(ctx,{...p,textures,size,reveal:progress>.9});if(progress<1)requestAnimationFrame(frame);else resolve()}requestAnimationFrame(frame)});
-}
-async function chooseTarget(){try{state.craftTargets=(await api('craft/targets')).gifts;sheet('Результат крафта',`<div class="grid">${state.craftTargets.map(g=>card(g,'setTarget')).join('')}</div>`)}catch(e){toast(e.message)}}
-function setTarget(id){state.target=(state.craftTargets||[]).find(g=>g.id===id);closeSheet();renderCraft()}
-async function runCraft(){if(!state.me.demo)return toast('Крафт пока не подключён');if(state.crafting)return;if(!state.target)return chooseTarget();state.crafting=true;document.querySelector('#craft-button').disabled=true;document.querySelector('#craft-button').textContent='Изготовление…';tg?.HapticFeedback?.impactOccurred('heavy');try{let [data]=await Promise.all([api('craft',{gift_ids:state.selected,target_id:state.target.id,request_id:crypto.randomUUID?crypto.randomUUID():String(Date.now())}),playForge()]);state.inventory=(await api('inventory')).gifts;state.selected=[];await refreshMe();sheet(data.success?'Подарок изготовлен':'Неудачная попытка',`<div class="result craft-result ${data.success?'win':'lose'}">${data.success?`<div class="reveal-rays"></div><img src="${esc(imageURL(data.gift.image))}" alt="${esc(data.gift.name)}"><h2>${esc(data.gift.name)}</h2><p>#${esc(data.gift.number)} · ${esc(data.gift.model)}</p>`:`${anvilArt()}<h2>Неудачная попытка</h2><p>Изготовление не удалось.<br>${data.consumed?.length||0} подарка утрачено.</p>`}<p class="sub">Результат тестового крафта сохранён</p><button class="primary" onclick="closeSheet();go('gifts')">Мои подарки</button></div>`)}catch(e){toast(e.message)}finally{state.crafting=false;renderCraft()}}
 const baseRenderProfile=renderProfile;
 renderProfile=function(){baseRenderProfile();let p=document.querySelector('.pill b');if(p)p.innerHTML=(state.me.inventory_count||0)+' 🎁'};
 
 
-// Native-style craft controls and a bottom-sheet multi-picker.
-function slot(i,chosen){return `<button class="slot craft-slot" data-index="${i}" onclick="${chosen[i]?`removeGift(${arg(chosen[i].id)})`:'pickGift()'}" aria-label="${chosen[i]?'Убрать подарок':'Добавить подарок'}">${chosen[i]?`<img src="${esc(imageURL(chosen[i].image))}" alt="${esc(chosen[i].name)}"><small>20%</small>`:'<span class="slot-plus"></span>'}</button>`}
+const CRAFT_GIFT_LIMIT = 4;
+
+function slot(index, gifts) {
+    const gift = gifts[index];
+    return `<button class="slot craft-slot${gift ? '' : ' is-empty'}" data-index="${index}"
+        ${gift ? `style="background:${giftBackdrop(gift)}"` : ''}
+        onclick="${gift ? `removeGift(${arg(gift.id)})` : 'pickGift()'}"
+        aria-label="${gift ? 'Убрать подарок' : 'Добавить подарок'}">
+        ${gift ? `<img src="${esc(imageURL(gift.image))}" alt="${esc(gift.name)}">` : '<span class="slot-plus"></span>'}
+    </button>`;
+}
+
 const baseSheet=sheet;
 sheet=function(title,html){document.querySelector('#sheet').classList.remove('gift-picker');baseSheet(title,html)};
 const baseCloseSheet=closeSheet;
 closeSheet=function(){document.querySelector('#sheet').classList.remove('gift-picker');baseCloseSheet()};
-function pickGift(){if(state.crafting)return;state.pickerGifts=state.inventory.filter(g=>g.status==='unlisted');state.pickerSelected=new Set(state.selected);sheet('Выберите подарок',`<div class="picker-content" id="picker-content"></div><div class="picker-footer"><div class="picker-range"><input type="range" min="0" max="${Math.min(100,state.pickerGifts.length)}" value="${state.pickerSelected.size}" oninput="pickerCount(Number(this.value))" aria-label="Количество подарков"><b id="picker-count"></b></div><div class="picker-chance"><span>Шанс крафта</span><strong id="picker-chance"></strong></div><button id="picker-apply" class="primary" onclick="applyPicker()"></button></div>`);document.querySelector('#sheet').classList.add('gift-picker');renderPicker()}
-function renderPicker(){const list=document.querySelector('#picker-content');list.innerHTML=state.pickerGifts.length?`<div class="grid">${state.pickerGifts.map(g=>`<button class="picker-gift ${state.pickerSelected.has(g.id)?'selected':''}" onclick="togglePicker(${arg(g.id)})"><div><img src="${esc(imageURL(g.image))}" alt="${esc(g.name)}"><span>${state.pickerSelected.has(g.id)?'✓':''}</span></div><b>${esc(g.name)}</b><small>#${esc(g.number)}</small></button>`).join('')}</div>`:`<div class="picker-empty">${icon('hammer')}<p>Нет подарков для крафта</p></div>`;const n=state.pickerSelected.size;document.querySelector('#picker-count').textContent=n+' гифтов';document.querySelector('#picker-chance').textContent='После выбора';document.querySelector('#picker-apply').textContent='Выбрать · '+n;document.querySelector('.picker-range input').value=n}
-function togglePicker(id){if(state.pickerSelected.has(id))state.pickerSelected.delete(id);else if(state.pickerSelected.size<100)state.pickerSelected.add(id);else return toast('Можно добавить до 100 подарков');renderPicker()}
-function pickerCount(n){state.pickerSelected=new Set(state.pickerGifts.slice(0,n).map(x=>x.id));renderPicker()}
-function applyPicker(){state.selected=[...state.pickerSelected];closeSheet();renderCraft()}
 
+function pickGift() {
+    if (state.crafting) return;
+    state.pickerGifts = state.inventory.filter(gift => gift.status === 'unlisted');
+    state.pickerSelected = new Set(state.selected.slice(0, CRAFT_GIFT_LIMIT));
+    const maximum = Math.min(CRAFT_GIFT_LIMIT, state.pickerGifts.length);
+    sheet('Выберите до 4 подарков', `
+        <div class="picker-content" id="picker-content"></div>
+        <div class="picker-footer">
+            <div class="picker-range">
+                <input type="range" min="0" max="${maximum}" oninput="pickerCount(Number(this.value))" aria-label="Количество подарков">
+                <b id="picker-count"></b>
+            </div>
+            <button id="picker-apply" class="primary" onclick="applyPicker()"></button>
+        </div>`);
+    document.querySelector('#sheet').classList.add('gift-picker');
+    renderPicker();
+}
 
+function renderPicker() {
+    const list = document.querySelector('#picker-content');
+    list.innerHTML = state.pickerGifts.length ? `<div class="grid">${state.pickerGifts.map(gift => {
+        const selected = state.pickerSelected.has(gift.id);
+        return `<button class="picker-gift ${selected ? 'selected' : ''}" aria-pressed="${selected}" onclick="togglePicker(${arg(gift.id)})">
+            <div><img src="${esc(imageURL(gift.image))}" alt=""><span>${selected ? '✓' : ''}</span></div>
+            <b>${esc(gift.name)}</b><small>#${esc(gift.number)}</small>
+        </button>`;
+    }).join('')}</div>` : `<div class="picker-empty">${icon('hammer')}<p>Нет подарков для крафта</p></div>`;
+    const count = state.pickerSelected.size;
+    document.querySelector('#picker-count').textContent = count + ' / ' + CRAFT_GIFT_LIMIT;
+    document.querySelector('#picker-apply').textContent = count ? 'Выбрать · ' + count : 'Готово';
+    document.querySelector('.picker-range input').value = count;
+}
+
+function togglePicker(id) {
+    if (state.pickerSelected.has(id)) state.pickerSelected.delete(id);
+    else if (state.pickerSelected.size < CRAFT_GIFT_LIMIT) state.pickerSelected.add(id);
+    else return toast('Можно добавить до 4 подарков');
+    renderPicker();
+}
+
+function pickerCount(count) {
+    const limit = Math.max(0, Math.min(count, CRAFT_GIFT_LIMIT));
+    state.pickerSelected = new Set(state.pickerGifts.slice(0, limit).map(gift => gift.id));
+    renderPicker();
+}
 
 state.adminSection='users';
 async function renderAdmin(){document.querySelector('#main').innerHTML=`<div class="admin-title"><h1>Управление</h1><button onclick="go('profile')">Закрыть</button></div><div class="admin-tabs"><button class="${state.adminSection==='users'?'selected':''}" onclick="state.adminSection='users';renderAdmin()">Пользователи</button><button class="${state.adminSection==='portal'?'selected':''}" onclick="state.adminSection='portal';renderAdmin()">Portal Market</button></div><div id="admin-content"></div>`;if(state.adminSection==='users'){document.querySelector('#admin-content').innerHTML='<label class="search-box">'+icon('search')+'<input placeholder="Имя, username или ID" oninput="searchUsers(this.value)" aria-label="Найти пользователя"></label><div id="users-list"></div>';await loadUsers('')}else{let status=await api('admin/status');document.querySelector('#admin-content').innerHTML=`<section class="panel"><h3>Каталог подарков</h3><p>Коллекций: ${state.catalog.collections.length}. Цены и изображения загружаются отдельно от выдачи подарков.</p><p>${status.mode==='partner'?'Partner API подключён':'Открытый API · без ключа'}</p><div id="sync-progress" class="notice">${esc(status.sync?.error||'Готово к обновлению')}</div><button class="primary" onclick="refreshPortal(this)">Обновить каталог Portal</button><p class="sub">При недоступности Portal сохраняется предыдущий каталог. Исходные оценки TON не выдаются за актуальные цены GRAM.</p></section><section class="panel"><h3>Коллекции и модели</h3><select class="field" id="catalog-collection" onchange="showCatalogModels(this.value)"><option value="">Выберите коллекцию</option>${state.catalog.collections.map(c=>`<option value="${esc(c.short_name||c.id)}">${esc(c.name)}</option>`).join('')}</select><div id="catalog-models"></div></section>`}}
