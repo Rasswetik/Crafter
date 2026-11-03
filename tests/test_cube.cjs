@@ -23,7 +23,11 @@ for (const [pitch, yaw, roll] of [[0, 0, 0], [-.4, .6, .2], [-Math.PI/2, 0, 0]])
     const bottom = Math.max(...vertices.map(point => point[1]));
     assert(Math.abs((left + right) / 2 - (anvil.left + 65)) < 1e-8);
     assert(Math.abs((top + bottom) / 2 - (anvil.top + 65)) < 1e-8);
-    assert(Math.abs(Math.max(right - left, bottom - top) - 130) < 1e-8);
+    const rotated = camera.rotate([1, 0, 0]);
+    const origin = camera.project([0, 0, 0]);
+    const edge = camera.project([1, 0, 0]);
+    assert(Math.abs(edge[0] - origin[0] - rotated[0] * 65) < 1e-8);
+    assert(Math.abs(edge[1] - origin[1] - rotated[1] * 65) < 1e-8);
     if (pitch === 0) {
         assert(Math.abs(left - anvil.left) < 1e-8);
         assert(Math.abs(top - anvil.top) < 1e-8);

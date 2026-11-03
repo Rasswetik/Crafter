@@ -86,9 +86,10 @@
         const sx = Math.sin(rx), cx = Math.cos(rx);
         const sy = Math.sin(ry), cy = Math.cos(ry);
         const sz = Math.sin(roll), cz = Math.cos(roll);
-        let focal = Math.min(width * .82, height * 1.06);
-        let centerX = width / 2;
-        let centerY = height / 2;
+        const focal = frame ? Math.min(frame.width, frame.height) / 2 :
+            Math.min(width * .82, height * 1.06);
+        const centerX = frame ? frame.left + frame.width / 2 : width / 2;
+        const centerY = frame ? frame.top + frame.height / 2 : height / 2;
         const eye = [-sy*cameraDistance, sx*cy*cameraDistance, cx*cy*cameraDistance];
 
         function rotate([x, y, z]) {
@@ -98,39 +99,24 @@
             return [screenX*cz - screenY*sz, screenX*sz + screenY*cz, -x*sy + pitchZ*cy];
         }
 
-        function perspective(point) {
-            const [x, y, z] = rotate(point);
-            const distance = cameraDistance - z;
-            return [x / distance, y / distance];
-        }
-
-        if (frame) {
-            let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity;
-            for (const {position} of mesh.vertices) {
-                const [x, y] = perspective(position);
-                left = Math.min(left, x);
-                right = Math.max(right, x);
-                top = Math.min(top, y);
-                bottom = Math.max(bottom, y);
-            }
-            focal = Math.min(frame.width / (right - left), frame.height / (bottom - top));
-            centerX = frame.left + (frame.width - (left + right)*focal) / 2;
-            centerY = frame.top + (frame.height - (top + bottom)*focal) / 2;
-        }
-
         function project(point) {
-            const [x, y] = perspective(point);
-            return [centerX + x*focal, centerY + y*focal];
+            const [x, y, z] = rotate(point);
+            const scale = frame ? focal : focal / (cameraDistance - z);
+            return [centerX + x*scale, centerY + y*scale];
         }
 
-        return { eye, rotate, project };
+        function isVisible(normal, center) {
+            return dot(normal, eye) > (frame ? .001 : dot(normal, center) + .001);
+        }
+
+        return { rotate, project, isVisible };
     }
 
     function geometry(view) {
         return faces.map((face, index) => ({
             index,
             normal: view.rotate(face.normal),
-            visible: dot(face.normal, view.eye) > 1.001,
+            visible: view.isVisible(face.normal, face.normal),
             points: panelCorners[index].map(view.project)
         })).filter(face => face.visible);
     }
@@ -151,7 +137,7 @@
         ctx.lineJoin = 'round';
         // Convex surface: a visible patch cannot occlude a second visible patch.
         for (const patch of mesh.patches) {
-            if (dot(patch.normal, view.eye) <= dot(patch.normal, patch.center)) continue;
+            if (!view.isVisible(patch.normal, patch.center)) continue;
             ctx.beginPath();
             patch.indices.forEach((index, corner) => {
                 const point = projected[index] ??= view.project(mesh.vertices[index].position);

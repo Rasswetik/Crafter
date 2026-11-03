@@ -26,10 +26,9 @@ function placeForgePanel(panel, points, opacity = 1) {
 function forgeFlight(from, to, progress) {
     const eased = CrafterCube.smooth(progress);
     const arc = 19 * Math.sin(Math.PI * eased);
-    return from.map(([x, y], index) => [
-        x + (to[index][0] - x) * eased,
-        y + (to[index][1] - y) * eased - arc
-    ]);
+    const deltaX = (to[0][0] + to[2][0] - from[0][0] - from[2][0]) / 2;
+    const deltaY = (to[0][1] + to[2][1] - from[0][1] - from[2][1]) / 2;
+    return from.map(([x, y]) => [x + deltaX * eased, y + deltaY * eased - arc]);
 }
 
 async function playForge(forge, gifts, result) {
@@ -107,7 +106,9 @@ async function playForge(forge, gifts, result) {
         decals.forEach((decal, index) => {
             const face = visible.find(item => item.index === CrafterCube.inputFaces[index]);
             if (frame.flight?.index === index && face) {
-                placeForgePanel(decal, forgeFlight(origins[index], face.points, frame.flight.progress));
+                const progress = frame.flight.progress;
+                const opacity = 1 - CrafterCube.smooth((progress - .84) / .16);
+                placeForgePanel(decal, forgeFlight(origins[index], face.points, progress), opacity);
             } else if (index < frame.attached && face && release < 1) {
                 const lift = release * 21;
                 const points = face.points.map(([x, y]) =>
