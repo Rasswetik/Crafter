@@ -21,6 +21,7 @@ function renderCraft() {
         gift.id === id && gift.status === 'unlisted'
     )).filter(Boolean).slice(0, CRAFT_GIFT_LIMIT);
     state.selected = gifts.map(gift => gift.id);
+    saveCraftDraft();
     const quote = state.quote?.key === craftQuoteKey(state.selected, state.target?.id) ? state.quote : null;
     const chance = quote?.chance || 0;
     document.querySelector('#main').innerHTML = `

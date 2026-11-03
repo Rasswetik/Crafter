@@ -179,6 +179,7 @@ async function runCraft() {
         state.me.inventory_count = state.inventory.length;
         state.selected = [];
         state.quote = null;
+        saveCraftDraft();
 
         page.classList.add('manufacturing');
         const status = document.createElement('section');

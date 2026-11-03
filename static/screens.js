@@ -56,15 +56,10 @@ function pickGift() {
     if (state.crafting) return;
     state.pickerGifts = state.inventory.filter(gift => gift.status === 'unlisted');
     state.pickerSelected = new Set(state.selected.slice(0, CRAFT_GIFT_LIMIT));
-    const maximum = Math.min(CRAFT_GIFT_LIMIT, state.pickerGifts.length);
     sheet('Выберите до 4 подарков', `
         <div class="picker-content" id="picker-content"></div>
         <div class="picker-footer">
-            <div class="picker-range">
-                <input type="range" min="0" max="${maximum}" oninput="pickerCount(Number(this.value))" aria-label="Количество подарков">
-                <b id="picker-count"></b>
-            </div>
-            <button id="picker-apply" class="primary" onclick="applyPicker()"></button>
+            <button class="primary" onclick="applyPicker()">Готово</button>
         </div>`);
     document.querySelector('#sheet').classList.add('gift-picker');
     renderPicker();
@@ -78,23 +73,13 @@ function renderPicker() {
             <div><img src="${esc(imageURL(gift.image))}" alt=""><span>${selected ? '✓' : ''}</span></div>
             <b>${esc(gift.name)}</b><small>#${esc(gift.number)}</small>
         </button>`;
-    }).join('')}</div>` : `<div class="picker-empty">${icon('hammer')}<p>Нет подарков для крафта</p></div>`;
-    const count = state.pickerSelected.size;
-    document.querySelector('#picker-count').textContent = count + ' / ' + CRAFT_GIFT_LIMIT;
-    document.querySelector('#picker-apply').textContent = count ? 'Выбрать · ' + count : 'Готово';
-    document.querySelector('.picker-range input').value = count;
+    }).join('')}</div>` : `<div class="picker-empty">${anvilArt('picker-anvil')}<p>Нет подарков для крафта</p></div>`;
 }
 
 function togglePicker(id) {
     if (state.pickerSelected.has(id)) state.pickerSelected.delete(id);
     else if (state.pickerSelected.size < CRAFT_GIFT_LIMIT) state.pickerSelected.add(id);
     else return toast('Можно добавить до 4 подарков');
-    renderPicker();
-}
-
-function pickerCount(count) {
-    const limit = Math.max(0, Math.min(count, CRAFT_GIFT_LIMIT));
-    state.pickerSelected = new Set(state.pickerGifts.slice(0, limit).map(gift => gift.id));
     renderPicker();
 }
 

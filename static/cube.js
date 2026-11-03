@@ -116,9 +116,9 @@
     function surfaceColor(normal) {
         const diffuse = Math.max(0, dot(light, normal));
         const highlight = Math.max(0, dot(reflection, normal)) ** 12;
-        const red = Math.round(31 + 44*diffuse + 31*highlight);
-        const green = Math.round(43 + 51*diffuse + 34*highlight);
-        const blue = Math.round(62 + 64*diffuse + 39*highlight);
+        const red = Math.round(47 + 53*diffuse + 32*highlight);
+        const green = Math.round(18 + 27*diffuse + 20*highlight);
+        const blue = Math.round(30 + 36*diffuse + 26*highlight);
         return 'rgb(' + red + ',' + green + ',' + blue + ')';
     }
 
