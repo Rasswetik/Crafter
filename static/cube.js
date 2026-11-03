@@ -175,8 +175,8 @@
 
     function timeline(count) {
         const intro = 160;
-        const fly = 380;
-        const turn = 310;
+        const fly = 310;
+        const turn = 235;
         const spin = 4550;
         const hold = 850;
         const step = fly + turn;
@@ -204,22 +204,28 @@
                 return {
                     rx: pitch - .16*Math.sin(progress*Math.PI),
                     ry: currentYaw + progress*Math.PI/2,
+                    offsetY: .045*Math.sin(progress*Math.PI),
                     attached: index + 1
                 };
             }
             const progress = clamp((elapsed - inputEnd) / spin);
-            const rotation = smooth(progress);
-            const tilt = smooth((progress - .63) / .37);
-            const sway = Math.sin(progress*Math.PI) ** 2;
+            const rotation = 1 - (1 - progress) ** 2.35;
+            const finalTurn = .76;
+            const tilt = smooth((progress - finalTurn) / (1 - finalTurn));
+            const sway = Math.sin(clamp(progress / finalTurn)*Math.PI) ** 2;
+            const sinceThrow = elapsed - inputEnd;
+            const jump = Math.sin(clamp(sinceThrow / 720)*Math.PI);
+            const bounce = Math.sin(clamp((sinceThrow - 720) / 260)*Math.PI);
             return {
                 rx: mix(pitch, finalPitch, tilt) +
                     Math.sin(rotation*tau*2) * .62 * sway,
                 ry: mix(lastYaw, finalYaw, rotation),
-                roll: Math.sin(rotation*tau*1.5) * .33 * sway,
+                roll: Math.sin(rotation*tau*1.5) * .33 * sway - .20*jump,
+                offsetY: -.25*jump - .065*bounce,
                 attached: count,
                 release: smooth((progress - .70) / .22),
                 // Swap the artwork while the reward face is still turned away.
-                reveal: progress >= .80 ? 1 : 0
+                reveal: progress >= finalTurn ? 1 : 0
             };
         }
 

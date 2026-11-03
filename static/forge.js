@@ -15,6 +15,18 @@ function forgeGiftPanel(gift, sourceImage) {
     return panel;
 }
 
+function forgeBrokenGiftPanel() {
+    const panel = forgePanel('forge-loss-panel');
+    panel.innerHTML = `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor"
+        stroke-width="2.7" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true">
+        <path d="M27 22H8v10h5v20h13l6-10-7-5 7-8z"/>
+        <path d="M38 22h18v10h-5v20H34l6-10-7-6 7-8z"/>
+        <path d="M13 32h17m9 0h12M23 32v20m19-20v20"/>
+        <path d="M28 21c-10 0-12-9-7-12 4-2 8 3 9 9m6 2c10 0 13-9 7-12-4-2-8 3-9 10"/>
+    </svg>`;
+    return panel;
+}
+
 function placeForgePanel(panel, points, opacity = 1) {
     const transform = points && opacity > 0 ? CrafterCube.panelTransform(points) : '';
     panel.hidden = !transform;
@@ -48,8 +60,7 @@ async function playForge(forge, gifts, result) {
     const decals = gifts.map((gift, index) =>
         forgeGiftPanel(gift, slots[index]?.querySelector('img'))
     );
-    const reward = result.gift ? forgeGiftPanel(result.gift) : forgePanel('forge-anvil-panel');
-    if (!result.gift) reward.innerHTML = icon('gift');
+    const reward = result.gift ? forgeGiftPanel(result.gift) : forgeBrokenGiftPanel();
 
     scene.append(canvas, ...marks, ...decals, reward);
     forge.append(scene);
@@ -77,17 +88,20 @@ async function playForge(forge, gifts, result) {
     const sequence = CrafterCube.timeline(gifts.length);
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let visible = [];
-    let lastPitch, lastYaw, lastRoll;
+    let lastPitch, lastYaw, lastRoll, lastOffset;
     let hiddenSlots = 0;
 
     function paint(elapsed) {
         const frame = sequence.at(elapsed);
-        if (frame.rx !== lastPitch || frame.ry !== lastYaw || frame.roll !== lastRoll) {
-            const view = CrafterCube.camera(frame.rx, frame.ry, width, height, frame.roll, cubeFrame);
+        const offset = (frame.offsetY || 0) * cubeFrame.height;
+        if (frame.rx !== lastPitch || frame.ry !== lastYaw || frame.roll !== lastRoll || offset !== lastOffset) {
+            const position = {...cubeFrame, top: cubeFrame.top + offset};
+            const view = CrafterCube.camera(frame.rx, frame.ry, width, height, frame.roll, position);
             visible = CrafterCube.draw(ctx, view, width, height);
             lastPitch = frame.rx;
             lastYaw = frame.ry;
             lastRoll = frame.roll;
+            lastOffset = offset;
         }
 
         const taken = frame.attached + (frame.flight ? 1 : 0);

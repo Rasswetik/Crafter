@@ -38,12 +38,16 @@ for (let count = 1; count <= 4; count++) {
     const sequence = cube.timeline(count);
     const arrivals = [];
     const flights = [];
-    let attached = 0, activeFlight = -1, rewardVisibleWhileTurning = false;
+    let attached = 0, activeFlight = -1, rewardVisibleWhileTurning = false, thrown = false;
     for (let time = 0; time <= sequence.duration; time += 5) {
         const frame = sequence.at(time);
         assert(frame.attached >= attached && frame.attached <= attached + 1);
         if (frame.attached > attached) arrivals.push(time);
         attached = frame.attached;
+        if (frame.offsetY < -.20) {
+            assert.equal(attached, count, 'The cube is thrown once all gifts have arrived');
+            thrown = true;
+        }
         if (frame.flight) {
             const {index} = frame.flight;
             assert.equal(index, attached);
@@ -57,7 +61,7 @@ for (let count = 1; count <= 4; count++) {
         }
         if (frame.reveal > 0) {
             assert.equal(attached, count);
-            assert(time - arrivals.at(-1) >= 3600, 'The outcome stays hidden until the final turn');
+            assert(time - arrivals.at(-1) >= 3400, 'The outcome stays hidden until the final turn');
             assert.equal(frame.reveal, 1, 'The reward is fully opaque as it turns into view');
             const face = cube.geometry(view(frame.rx, frame.ry, frame.roll))
                 .find(item => item.index === cube.resultFace);
@@ -66,9 +70,11 @@ for (let count = 1; count <= 4; count++) {
     }
     assert.equal(flights.length, count);
     assert.equal(arrivals.length, count);
+    assert(thrown);
     assert(rewardVisibleWhileTurning, 'The reward is shown before the cube stops');
 
     const end = sequence.at(sequence.duration);
+    assert(Math.abs(end.offsetY) < 1e-8);
     const result = cube.geometry(view(end.rx, end.ry)).find(face => face.index === cube.resultFace);
     assert(result && result.normal[2] > .8);
     assert.equal(end.reveal, 1);

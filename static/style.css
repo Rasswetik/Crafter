@@ -35,7 +35,7 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
 .manufacturing .craft-bottom { display: none; }
 .forge-animation {
     position: absolute;
-    inset: -28px -9px;
+    inset: -54px -9px -32px;
     z-index: 4;
     pointer-events: none;
 }
@@ -244,10 +244,17 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     border-radius: inherit;
     pointer-events: none;
 }
-.forge-gift-panel {
+.forge-gift-panel, .forge-loss-panel {
     border-radius: 22%;
     clip-path: inset(0 round 22%);
 }
+.forge-loss-panel {
+    display: grid;
+    place-items: center;
+    background: #d7d7d7;
+    color: #171717;
+}
+.forge-loss-panel svg { width: 67%; height: 67%; }
 
 .anvil-mark {
     display: block;
