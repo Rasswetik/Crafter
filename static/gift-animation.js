@@ -8,7 +8,13 @@ function giftCollectionSlug(name) {
 }
 
 function fragmentCollectionImage(slug) {
-    return slug ? 'https://fragment.com/file/gifts/' + slug + '/thumb.webp' : '';
+    // Serve via our own image proxy: Telegram WebViews can block cross-origin
+    // Fragment thumbnails. The server validates the slug and caches the PNG/WebP.
+    return /^[a-z0-9]{2,60}$/.test(slug || '') ? '/media/collection/' + slug : '';
+}
+function directFragmentCollectionImage(slug) {
+    return /^[a-z0-9]{2,60}$/.test(slug || '') ?
+        'https://fragment.com/file/gifts/' + slug + '/thumb.webp' : '';
 }
 
 function giftAssetPart(value) {
@@ -24,7 +30,7 @@ function giftPicture(gift, large = false) {
     const scalable = model ? model + '.svg' : '';
     const awarded = gift.origin === 'application-craft' && gift.source_id ? original : '';
     const sharp = large ? (fragment ? [proxy, original, fragment + '.large.jpg', ...exact] : [scalable, model && model + '.png']) : [];
-    const urls = [...new Set([awarded, ...sharp, original, ...exact, proxy, scalable, model && model + '.png', fragmentCollectionImage(giftCollectionSlug(gift.name))].filter(Boolean))];
+    const urls = [...new Set([awarded, ...sharp, original, ...exact, proxy, scalable, model && model + '.png', fragmentCollectionImage(giftCollectionSlug(gift.name)), directFragmentCollectionImage(giftCollectionSlug(gift.name))].filter(Boolean))];
     return `src="${esc(urls.shift() || '')}" data-gift-fallback="${esc(JSON.stringify(urls))}" onerror="nextGiftPicture(this)"`;
 }
 
