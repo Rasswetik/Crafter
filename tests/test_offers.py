@@ -54,6 +54,11 @@ def test_offer_fee_refunds_and_acceptance(client, notifications):
     assert action(client, offer['id'], 42, 'accept').status_code == 409
     assert get_balance(client, 42) == '4.80'
     assert get_balance(client, 43) == '14.940000000'
+    # Completed offers vanish from active inboxes, but their accounting stays recorded.
+    assert client.get('/api/offers', headers=signed(43)).json['placed'] == []
+    assert client.get('/api/offers', headers=signed(42)).json['received'] == []
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        assert db.execute("SELECT status FROM crafter_offers WHERE id=?", (offer['id'],)).fetchone()[0] == 'accepted'
     acquired, = client.get('/api/inventory', headers=signed(43)).json['gifts']
     assert acquired['id'] == gift['id'] and acquired['number'] == gift['number']
     assert [entry[0] for entry in notifications] == ['sendMessage','sendSticker']
@@ -69,13 +74,13 @@ def test_regular_purchase_and_expiry_release_offer_reservations(client):
     with sqlite3.connect(client.application.config['DATABASE']) as db:
         db.execute('UPDATE crafter_offers SET expires_at=1 WHERE id=?', (offer['id'],))
     assert get_balance(client, 43) == '19.990000000'
-    assert client.get('/api/offers', headers=signed(43)).json['placed'][0]['status'] == 'expired'
+    assert client.get('/api/offers', headers=signed(43)).json['placed'] == []
     offer = create(client, lot_id=lot['id'], request_id='again').json['offer']
     assert client.post('/api/resale/buy', headers=signed(44), json={
         'id':lot['id'], 'request_id':'regular', 'expected_price':'10'}).status_code == 200
     assert get_balance(client, 43) == '19.980000000'
     listing = client.get('/api/offers', headers=signed(43)).json['placed']
-    assert next(item for item in listing if item['id'] == offer['id'])['status'] == 'closed'
+    assert listing == []
 
 
 def test_collection_offer_partial_fill_and_withdraw(client):
