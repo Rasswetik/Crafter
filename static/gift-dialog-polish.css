@@ -1,0 +1,185 @@
+/* Floating product and offer sheets: keep a visible gap above the bottom
+   safe area, rounded on all four corners and scrollable under a mobile keyboard. */
+#sheet.purchase-sheet[open],
+#sheet.offer-sheet[open] {
+  position:fixed;
+  inset:auto 0 calc(14px + env(safe-area-inset-bottom)) 0;
+  display:block;
+  width:min(calc(100% - 26px), 488px);
+  max-width:488px;
+  max-height:calc(100dvh - 34px - env(safe-area-inset-bottom));
+  margin:0 auto;
+  border:1px solid #45464b;
+  border-radius:29px;
+  padding:26px 15px 17px;
+  overflow-x:hidden;
+  overflow-y:auto;
+  overscroll-behavior:contain;
+  box-sizing:border-box;
+  background:#202023;
+  box-shadow:0 20px 65px #0009;
+  scrollbar-width:thin;
+}
+#sheet.purchase-sheet[open]::before,
+#sheet.offer-sheet[open]::before {
+  content:"";
+  position:absolute;
+  top:8px;
+  left:50%;
+  width:34px;
+  height:4px;
+  border-radius:9px;
+  transform:translateX(-50%);
+  background:#77797d;
+}
+#sheet.offer-sheet[open] {
+  padding-top:24px;
+  padding-bottom:18px;
+}
+#sheet.offer-sheet .sheet-head {
+  display:flex;
+  align-items:center;
+  gap:8px;
+  margin-bottom:13px;
+}
+#sheet.offer-sheet .sheet-head h2 {
+  font-size:clamp(18px,5vw,22px);
+  font-weight:800;
+  letter-spacing:-.025em;
+  min-width:0;
+}
+#sheet.offer-sheet .sheet-head .close {
+  flex:none;
+  width:32px;height:32px;border-radius:11px;
+  background:#393a3e;color:#e6e6e6;
+}
+#sheet.offer-sheet .offer-trading-form {
+  display:grid;
+  gap:12px;
+  padding:0;
+  min-width:0;
+}
+#sheet.offer-sheet .offer-gift-summary {
+  min-width:0;
+}
+#sheet.offer-sheet .offer-gift-summary span {
+  min-width:0;
+}
+#sheet.offer-sheet .offer-gift-summary b {
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+#sheet.offer-sheet .offer-price-row {
+  min-width:0;
+}
+#sheet.offer-sheet .offer-price-row input {
+  min-width:0;
+  max-width:100%;
+}
+#sheet.offer-sheet .offer-trading-form > button[type=submit] {
+  margin:5px 0 0;
+  min-height:50px;
+  border-radius:25px;
+}
+#sheet.purchase-sheet .sheet-head .close {
+  top:9px;right:12px;
+  background:#3e3d3e;
+  color:#f2f2f3;
+  width:28px;height:28px;
+  font-size:21px;
+  border-radius:10px;
+}
+#sheet.purchase-sheet .portal-product {
+  max-width:min(68vw,260px);
+  margin-top:0;
+  border-radius:27px;
+}
+#sheet.purchase-sheet .portal-product > img {
+  object-fit:contain;
+}
+/* A generic .portal-product > div rule previously put the toolbar at the
+   bottom under a gradient with pointer-events:none. Override completely. */
+#sheet.purchase-sheet .portal-product > .gift-detail-tools {
+  position:absolute;
+  z-index:8;
+  inset:11px 11px auto 11px;
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  gap:7px;
+  width:auto;
+  padding:0;
+  margin:0;
+  border:0;
+  background:none;
+  border-radius:0;
+  text-align:initial;
+  pointer-events:auto;
+}
+#sheet.purchase-sheet .gift-detail-tools .gift-detail-tool {
+  position:relative;
+  z-index:9;
+  display:grid;
+  place-items:center;
+  flex:0 0 34px;
+  width:34px;height:34px;
+  padding:7px;
+  border:1px solid #ffffff24;
+  border-radius:50%;
+  color:#fff;
+  background:rgba(20,20,24,.35);
+  backdrop-filter:blur(7px);
+  box-shadow:0 2px 8px #0002;
+  cursor:pointer;
+  pointer-events:auto;
+}
+#sheet.purchase-sheet .gift-detail-tools .gift-detail-tool:active {transform:scale(.95)}
+#sheet.purchase-sheet .gift-detail-tools .gift-detail-tool:disabled {
+  opacity:.38;cursor:default;
+}
+#sheet.purchase-sheet .gift-detail-tools .gift-detail-tool svg {
+  display:block;
+  width:19px;height:19px;
+  fill:none;
+  color:#fff;
+}
+#sheet.purchase-sheet .gift-detail-tools .gift-eye-tool svg {
+  width:19px;height:15px;
+}
+#sheet.purchase-sheet .gift-detail-tools .gift-send-tool {
+  margin-right:auto;
+}
+#sheet.purchase-sheet .market-offer-primary .secondary small {
+  display:block;
+  margin-top:2px;
+  font-size:clamp(10px,2.9vw,12px);
+  line-height:1.1;
+  white-space:nowrap;
+  opacity:.65;
+  font-weight:650;
+}
+#sheet.purchase-sheet .market-offer-primary .secondary > span {
+  font-size:clamp(12px,3.3vw,15px);
+  line-height:1.1;
+  font-weight:800;
+}
+#sheet.purchase-sheet .lucky-craft svg {
+  width:22px;height:22px;
+  filter:drop-shadow(0 2px 4px #0004);
+}
+@media(max-width:370px) {
+  #sheet.purchase-sheet[open],#sheet.offer-sheet[open] {
+    width:calc(100% - 18px);
+    padding-left:12px;padding-right:12px;
+    border-radius:26px;
+    bottom:calc(10px + env(safe-area-inset-bottom));
+    max-height:calc(100dvh - 20px - env(safe-area-inset-bottom));
+  }
+  #sheet.purchase-sheet .portal-product {max-width:min(66vw,238px)}
+  #sheet.purchase-sheet .gift-detail-tools .gift-detail-tool {
+    width:32px;height:32px;flex-basis:32px;
+  }
+}
+@media (prefers-reduced-motion:reduce) {
+  #sheet.purchase-sheet .gift-detail-tool {transition:none}
+}
