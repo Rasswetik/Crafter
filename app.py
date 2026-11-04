@@ -126,6 +126,9 @@ def create_app(config=None):
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):abort(401,description='Недействительная авторизация Telegram')
                 g.is_admin=g.user['id'] in app.config['ADMIN_IDS']
                 if admin and not g.is_admin:abort(403,description='Доступ только для администратора')
+                if not g.is_admin and db().execute(
+                        'SELECT 1 FROM user_bans WHERE user_id=?',(g.user['id'],)).fetchone():
+                    abort(403,description='Ваш аккаунт Crafter заблокирован. Обратитесь к администратору.')
                 db().execute('INSERT INTO users VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,username=excluded.username',(g.user['id'],g.user.get('first_name',''),g.user.get('username',''),None,int(time.time())));db().commit()
                 photo = g.user.get('photo_url')
                 if isinstance(photo, str) and len(photo) <= 2048 and not any(ord(char) < 33 for char in photo) and https_url(photo):
@@ -1005,7 +1008,7 @@ def create_app(config=None):
     @auth(admin=True)
     def users():
         query='%'+request.args.get('search','')[:100]+'%'
-        rows=db().execute('SELECT u.*, COALESCE(a.balance,\'0\') balance,(SELECT count(*) FROM inventory i WHERE i.user_id=u.id) gifts FROM users u LEFT JOIN demo_accounts a ON a.user_id=u.id WHERE CAST(u.id AS TEXT) LIKE ? OR u.name LIKE ? OR u.username LIKE ? ORDER BY u.created DESC LIMIT 100',(query,query,query)).fetchall()
+        rows=db().execute('SELECT u.*, COALESCE(a.balance,\'0\') balance,(SELECT count(*) FROM inventory i WHERE i.user_id=u.id) gifts, EXISTS(SELECT 1 FROM user_bans WHERE user_id=u.id) AS banned FROM users u LEFT JOIN demo_accounts a ON a.user_id=u.id WHERE CAST(u.id AS TEXT) LIKE ? OR u.name LIKE ? OR u.username LIKE ? ORDER BY u.created DESC LIMIT 100',(query,query,query)).fetchall()
         return {'users':[dict(r) for r in rows]}
     @app.post('/api/admin/users/<int:uid>/balance')
     @auth(admin=True)
@@ -1097,6 +1100,8 @@ def create_app(config=None):
         {gift['id']: gift['price'] for gift in DEMO_GIFTS} if app.config['DEMO_MODE'] else {}
     )
     install_staking(app, db, auth, record, audit, staking_catalog, canonical_name, demo_stake_prices)
+    from admin_user_tools import install_admin_user_tools
+    install_admin_user_tools(app, db, auth, audit, record)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     return app
