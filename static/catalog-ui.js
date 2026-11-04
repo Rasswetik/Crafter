@@ -72,7 +72,7 @@ function catalogArtworkURLs(row) {
         'https://api.changes.tg/'+kind+'/'+part(name)+'/'+part(row.name)+'.png' : '';
     // Fallback artwork must belong to this exact trait, or be the official
     // collection thumbnail. Never show a random model from another gift.
-    if (kind==='model'||kind==='symbol') return [...new Set([listed,exact,official,fragment].filter(Boolean))];
+    if (kind==='model'||kind==='symbol') return [...new Set([exact,listed,official,fragment].filter(Boolean))];
     return [];
 }
 function catalogRowArtwork(row) {
