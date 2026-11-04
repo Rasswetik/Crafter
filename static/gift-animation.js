@@ -30,7 +30,9 @@ function giftPicture(gift, large = false) {
     const scalable = model ? model + '.svg' : '';
     const awarded = gift.origin === 'application-craft' && gift.source_id ? original : '';
     const sharp = large ? (fragment ? [proxy, original, fragment + '.large.jpg', ...exact] : [scalable, model && model + '.png']) : [];
-    const urls = [...new Set([awarded, ...sharp, original, ...exact, proxy, scalable, model && model + '.png', fragmentCollectionImage(giftCollectionSlug(gift.name)), directFragmentCollectionImage(giftCollectionSlug(gift.name))].filter(Boolean))];
+    // Individual NFT cards must resolve to their own collectible or EXACT model.
+    // A generic collection thumbnail is not a valid model fallback.
+    const urls = [...new Set([awarded, ...sharp, proxy, original, ...exact, scalable, model && model + '.png'].filter(Boolean))];
     return `src="${esc(urls.shift() || '')}" data-gift-fallback="${esc(JSON.stringify(urls))}" onerror="nextGiftPicture(this)"`;
 }
 
