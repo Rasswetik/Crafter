@@ -490,3 +490,28 @@ html { touch-action: pan-x pan-y; }
 .activity-types input { accent-color: var(--blue); }
 .activity-type-actions { display: flex; gap: 10px; }
 .activity-type-actions button { flex: 1; }
+
+.market-bulk-control { display: grid; gap: 4px; }
+.market-bulk-control span { color: #a5a5a5; font-size: 11px; }
+.market-bulk-control input { margin: 0; min-height: 24px; touch-action: pan-y; }
+.market-bulk-control input:disabled { opacity: .45; }
+.market-tool[aria-expanded="true"] svg { rotate: none; }
+.filter-strip .sort svg { width: 17px; height: 17px; }
+.market-tool { transition: background-color .16s ease, scale .16s ease; }
+.market-tool:active { scale: .94; }
+
+.collection-banner-enter { animation: collection-banner-enter .34s cubic-bezier(.2,.72,.25,1) both; }
+.collection-banner-art .collection-model-enter { animation: collection-model-enter .55s cubic-bezier(.18,.75,.28,1.16) both; }
+.collection-banner-art .collection-model-enter:nth-child(2) { animation-delay: 80ms; }
+@keyframes collection-banner-enter {
+    from { opacity: 0; translate: 0 12px; }
+    to { opacity: 1; translate: 0; }
+}
+@keyframes collection-model-enter {
+    from { opacity: 0; scale: .78; translate: 0 12px; }
+    to { opacity: .87; scale: 1; translate: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .collection-banner-enter, .collection-banner-art .collection-model-enter { animation: none; }
+    .market-tool { transition: none; }
+}

@@ -6,6 +6,10 @@ renderMarket = function () {
     const template = document.querySelector('#collection-screen');
     const section = template.content.firstElementChild.cloneNode(true);
     section.querySelector('h1').textContent = page.name;
+    if (!page.bannerEntered) {
+        section.querySelector('.collection-banner').classList.add('collection-banner-enter');
+        page.bannerEntered = true;
+    }
     const thumb = section.querySelector('.collection-thumbnail');
     const slug = giftCollectionSlug(page.name);
     const image = imageURL(page.photo_url);
@@ -27,6 +31,18 @@ renderMarket = function () {
             `<img ${giftPicture({name: page.name, model: model.name, image: model.image}, true)} alt="">`).join('');
     }
     document.querySelector('#main').prepend(section);
+    if (page.banner.length && !page.modelsEntered) {
+        page.modelsEntered = new Set();
+    }
+    section.querySelectorAll('.collection-banner-art img').forEach((model, index) => {
+        const reveal = () => {
+            if (!model.isConnected || !model.naturalWidth || page.modelsEntered.has(index)) return;
+            page.modelsEntered.add(index);
+            model.classList.add('collection-model-enter');
+        };
+        model.addEventListener('load', reveal);
+        if (model.complete) reveal();
+    });
 };
 
 const goWithoutCollection = go;

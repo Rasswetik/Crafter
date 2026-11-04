@@ -1,4 +1,7 @@
-Object.assign(paths, {activity:'M2 12h4l3-6 5 12 3-6h5'});
+Object.assign(paths, {
+    activity:'M2 12h4l3-6 5 12 3-6h5',
+    bulk:'M3 7h5m4 0h9M3 17h10m4 0h4M8 4v6m9 4v6',
+});
 const BULK_LIMIT = 50;
 let bulkSelection;
 let activity;
@@ -8,30 +11,52 @@ filters = function () {
     let html = marketToolFilters();
     if (state.page !== 'market') return html;
     const active = Boolean(activity);
-    const bulkOpen = Boolean(bulkSelection);
+    const bulkOpen = Boolean(bulkSelection?.expanded);
     if (active) html = html.replace(/<button[^>]*onclick="(?:openPriceFilters|openSort)\(\)"[^>]*>.*?<\/button>/g, '');
     return html.replace('</label>', `</label><button class="circle market-tool ${active?'selected':''}"
         onclick="toggleMarketActivity()" aria-label="Активность маркета" aria-pressed="${active}">${icon('activity')}</button>`)
         .replace('</div><div class="filter-strip">', `${active ? '' : `<button class="circle market-tool ${bulkOpen?'selected':''}"
-            onclick="toggleBulkSelection()" aria-label="Массовое добавление в корзину" aria-expanded="${bulkOpen}">${icon('chevron')}</button>`}</div>
+            onclick="toggleBulkSelection()" aria-label="Массовое добавление в корзину" aria-expanded="${bulkOpen}">${icon('bulk')}</button>`}</div>
             ${bulkOpen && !active ? bulkPanel() : ''}<div class="filter-strip">${active ? `<button class="filter-chip" onclick="openMarketActivityTypes()">Тип активности${activity.types.length ? ' · '+activity.types.length : ''}${icon('chevron')}</button>` : ''}`);
 };
 
 function bulkPanel() {
     return `<div class="market-bulk">
-        <input type="range" aria-label="Количество подарков" min="0" max="${BULK_LIMIT}" value="${bulkSelection.count}"
-            oninput="changeBulkSelection(Number(this.value))">
+        <label class="market-bulk-control"><span>Выбрать лоты</span>
+            <input type="range" aria-label="Количество подарков" min="0" max="${BULK_LIMIT}" value="${bulkSelection.count}"
+                ${state.marketFilterPending ? 'disabled' : ''} oninput="changeBulkSelection(Number(this.value))">
+        </label>
         <div><b data-bulk-total>0 GRAM</b><small data-bulk-count>0 подарков</small></div>
     </div>`;
 }
 
 function toggleBulkSelection() {
-    if (bulkSelection) bulkSelection = null;
-    else {
+    if (!bulkSelection) {
         restoreCart();
-        bulkSelection = {signature:marketParams().toString(), count:0, added:new Set(), loading:false};
+        bulkSelection = {signature:bulkFilterSignature(), count:0, added:new Set(), loading:false, expanded:false};
     }
+    bulkSelection.expanded = !bulkSelection.expanded;
     renderMarket();
+}
+
+function bulkFilterSignature() {
+    const params = marketParams();
+    params.delete('price_unit');
+    return params.toString();
+}
+
+function resetBulkForFilters() {
+    if (!bulkSelection || bulkSelection.signature === bulkFilterSignature()) return;
+    for (const id of bulkSelection.added) {
+        state.cart.delete(id);
+        state.cartSelected.delete(id);
+    }
+    // Replace the object so in-flight pagination cannot add lots from the old filter.
+    bulkSelection = {signature:bulkFilterSignature(), count:0, added:new Set(), loading:false,
+        expanded:bulkSelection.expanded};
+    saveCart();
+    filterGrid();
+    paintBulkSummary([]);
 }
 
 function marketBulkCandidates() {
@@ -78,14 +103,15 @@ function paintBulkSummary(items) {
     const count = document.querySelector('[data-bulk-count]');
     if (!total || !count) return;
     total.textContent = money(cartTotal(items)) + ' GRAM';
-    count.textContent = items.length + ' ' + giftCountWord(items.length);
+    count.textContent = state.marketFilterPending ? 'Обновляем выдачу…' :
+        items.length + ' ' + giftCountWord(items.length);
 }
 
 async function changeBulkSelection(count) {
     const bulk = bulkSelection;
-    if (!bulk || state.cartBuying) return;
+    if (!bulk || state.cartBuying || state.marketFilterPending) return;
     bulk.count = Math.max(0, Math.min(BULK_LIMIT, count));
-    const current = () => state.page === 'market' && bulkSelection === bulk && bulk.signature === marketParams().toString();
+    const current = () => state.page === 'market' && bulkSelection === bulk && bulk.signature === bulkFilterSignature();
     if (!current()) return;
     syncBulkSelection(bulk);
     if (bulk.loading) return;
@@ -205,7 +231,7 @@ function paintMarketActivity() {
 
 const renderMarketToolsBase = renderMarket;
 renderMarket = function () {
-    if (bulkSelection && bulkSelection.signature !== marketParams().toString()) bulkSelection = null;
+    resetBulkForFilters();
     renderMarketToolsBase();
     if (activity) {
         marketObserver?.disconnect();
@@ -216,7 +242,7 @@ renderMarket = function () {
             grid.className = '';
         }
         refreshMarketActivity();
-    } else if (bulkSelection) {
+    } else if (bulkSelection?.expanded) {
         paintBulkSummary(marketBulkCandidates().slice(0, bulkSelection.count).filter(item => state.cart.has(item.id)));
     }
 };
@@ -229,7 +255,14 @@ changedFilter = function () {
         refreshMarketActivity();
         return;
     }
+    resetBulkForFilters();
     changedMarketToolsBase();
+    const range = document.querySelector('.market-bulk input');
+    if (range && bulkSelection) {
+        range.value = bulkSelection.count;
+        range.disabled = Boolean(state.marketFilterPending);
+        if (state.marketFilterPending) paintBulkSummary([]);
+    }
 };
 
 const goMarketToolsBase = go;
