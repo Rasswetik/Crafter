@@ -51,3 +51,46 @@ def serve_collection_thumbnail(slug):
         'Cache-Control': 'public, max-age=86400, stale-while-revalidate=86400',
         'X-Content-Type-Options': 'nosniff'
     })
+
+
+# Serve the exact transparent gift model/symbol artwork in Telegram WebViews.
+# The upstream host and path kind are fixed; clients cannot proxy arbitrary URLs.
+from urllib.parse import quote
+from flask import request
+
+
+def _valid_trait_segment(value):
+    return isinstance(value, str) and 1 <= len(value) <= 120 and value == value.strip() and not any(
+        ord(char) < 32 or char in '/\\?#' for char in value
+    )
+
+
+@lru_cache(maxsize=1024)
+def load_trait_png(kind, gift, name):
+    url = ('https://api.changes.tg/' + kind + '/' + quote(gift, safe='')
+           + '/' + quote(name, safe='') + '.png?size=128')
+    upstream = Request(url, headers={
+        'Accept': 'image/png', 'User-Agent': 'Mozilla/5.0 Crafter/1.0',
+    })
+    try:
+        with build_opener(NoRedirect).open(upstream, timeout=6) as response:
+            data = response.read(1_000_001)
+    except (HTTPError, URLError, TimeoutError, OSError):
+        raise LookupError((gift, name))
+    if len(data) > 1_000_000 or not data.startswith(b'\x89PNG\r\n\x1a\n'):
+        raise LookupError((gift, name))
+    return data
+
+
+def serve_trait_png(kind):
+    gift, name = request.args.get('gift', ''), request.args.get('name', '')
+    if kind not in ('model', 'symbol') or not _valid_trait_segment(gift) or not _valid_trait_segment(name):
+        abort(404)
+    try:
+        data = load_trait_png(kind, gift, name)
+    except LookupError:
+        abort(404)
+    return Response(data, mimetype='image/png', headers={
+        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=86400',
+        'X-Content-Type-Options': 'nosniff',
+    })
