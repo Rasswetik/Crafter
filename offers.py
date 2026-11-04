@@ -71,7 +71,8 @@ def install_offer_display(app, db, auth, canonical_name):
                 'specific': specific[:10], 'count': len(general) + len(specific)}
 
 
-def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
+def install_trading_offers(app, db, auth, record, canonical_name, notify_sale,
+                           notify_offer=None, notify_purchase=None):
     with app.app_context():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS crafter_offers (
@@ -223,6 +224,8 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
                 if seller:
                     record('offer_received', {'offer_id':oid, 'gift':gift, 'price':str(price)}, uid=seller)
                 row = connection.execute('SELECT * FROM crafter_offers WHERE id=?', (oid,)).fetchone()
+            if seller and notify_offer:
+                notify_offer(seller, gift, price, 'received')
             return {'offer': public(row), 'balance': str(after_reserve)}
 
         @app.post('/api/offers/<offer_id>/action')
@@ -235,6 +238,7 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
             if action not in ('accept','decline','withdraw'):
                 abort(400)
             trade = None
+            withdrawn = None
             with db():
                 connection = db()
                 connection.execute('BEGIN IMMEDIATE')
@@ -246,6 +250,11 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
                     abort(409, description='Оффер уже закрыт')
                 if action == 'withdraw' and buyer == uid:
                     refund(row, 'withdrawn')
+                    if row['seller_id']:
+                        withdrawn = (row['seller_id'], json.loads(row['gift_json']), row['price'])
+                        record('offer_withdrawn', {
+                            'offer_id':row['id'], 'gift':withdrawn[1],
+                            'price':row['price']}, uid=row['seller_id'])
                 elif action == 'decline' and row['seller_id'] == uid:
                     refund(row, 'declined')
                 elif action == 'accept' and buyer != uid:
@@ -289,6 +298,10 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
                     abort(403, description='Это действие недоступно для вашего аккаунта')
             if trade:
                 notify_sale(uid, trade)
+                if notify_purchase:
+                    notify_purchase(buyer, trade)
+            if withdrawn and notify_offer:
+                notify_offer(*withdrawn, 'withdrawn')
             return {'ok':True, 'balance':str(balance(uid))}
 
     return close_lot_offers, expire_user_offers, register_resale_actions
