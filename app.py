@@ -741,7 +741,15 @@ def create_app(config=None):
         return [{**json.loads(row['payload']), 'status': row['status'],
                  'listing_price': row['listing_price']} for row in rows]
     def record(kind,payload,*,uid=None):
-        db().execute('INSERT INTO history VALUES(?,?,?,?,?)',(uuid.uuid4().hex,g.user['id'] if uid is None else uid,kind,json.dumps(payload),int(time.time())))
+        owner = g.user['id'] if uid is None else uid
+        # Snapshot the on-platform GRAM balance at the moment of the ledger event.
+        # Older events cannot be reconstructed reliably from today's balance.
+        snapshot = dict(payload)
+        account = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (owner,)).fetchone()
+        if account:
+            snapshot['balance_after'] = str(account['balance'])
+        db().execute('INSERT INTO history VALUES(?,?,?,?,?)',
+                     (uuid.uuid4().hex,owner,kind,json.dumps(snapshot),int(time.time())))
     @app.get('/api/history')
     @auth()
     def history():
@@ -1052,7 +1060,8 @@ def create_app(config=None):
         selection=(request.get_json() or {}).get('selection',{})
         if not isinstance(selection,dict) or len(selection)>1000 or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in selection.values()):abort(400)
         db().execute("INSERT INTO settings VALUES('selection',?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
-    from telegram_bot import https_url, install_telegram_bot, notify_gift_sale, notify_gift_transfer
+    from telegram_bot import (https_url, install_telegram_bot, notify_gift_sale,
+                              notify_gift_transfer, notify_offer_event, notify_gift_purchase)
     bot_settings = install_telegram_bot(app, db, auth, audit)
     from telegram_deposits import install_telegram_deposits
     install_telegram_deposits(app, db, auth, audit, record, bot_settings)
@@ -1064,11 +1073,25 @@ def create_app(config=None):
         except Exception:
             app.logger.warning('Telegram gift sale notification was not delivered')
 
+    def notify_crafter_offer(seller, gift, price, event):
+        try:
+            notify_offer_event(bot_settings(), seller, gift, price, event, app.config['BOT_TOKEN'])
+        except Exception:
+            app.logger.warning('Telegram offer notification was not delivered')
+
+    def notify_crafter_purchase(buyer, trade):
+        try:
+            notify_gift_purchase(bot_settings(), buyer, trade['gift'], trade['price'], app.config['BOT_TOKEN'])
+        except Exception:
+            app.logger.warning('Telegram purchase notification was not delivered')
+
     from offers import install_offer_display, install_trading_offers
     close_lot_offers, expire_offers, register_offers = install_trading_offers(
-        app, db, auth, record, canonical_name, notify_crafter_sale)
+        app, db, auth, record, canonical_name, notify_crafter_sale,
+        notify_crafter_offer, notify_crafter_purchase)
     resale_market, resale_activity_lots, available_crafter_lot, settle_crafter_lot = install_resale(
-        app, db, auth, record, canonical_name, market_collection_keys, notify_crafter_sale, close_lot_offers)
+        app, db, auth, record, canonical_name, market_collection_keys,
+        notify_crafter_sale, close_lot_offers, notify_crafter_purchase)
 
     def offer_collection(value):
         for key in ('thermos:collections', 'collections'):
