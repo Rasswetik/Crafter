@@ -82,7 +82,7 @@ function catalogRowArtwork(row) {
         /^(?:linear-gradient|radial-gradient|#[0-9a-f]{3,8}|rgb|hsl)/i.test(row.background) ?
         ' style="background:'+esc(row.background)+'"' : '';
     const img = urls.length ?
-        '<img loading="lazy" src="'+esc(urls[0])+'" data-fallback="'+
+        '<img loading="lazy" src="'+esc(urls[0])+'" data-gift-fallback="'+
             esc(JSON.stringify(urls.slice(1)))+
             '" alt="" onerror="nextGiftPicture(this)">' : '';
     return '<span class="catalog-thumb catalog-thumb-'+esc(kind)+'"'+background+'>'+img+'</span>';
