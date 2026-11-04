@@ -48,6 +48,16 @@ function makeBannerCarousel(banners, settings, open) {
     }) : [];
     if (controls.length) root.append(dots);
 
+    // Optional position indicator. It is omitted from the DOM when disabled.
+    let counter = null;
+    if (settings.show_counter) {
+        counter = document.createElement('div');
+        counter.className = 'banner-position-counter';
+        counter.setAttribute('role', 'status');
+        counter.setAttribute('aria-label', 'Текущий баннер');
+        root.append(counter);
+    }
+
     function show(index, backwards = false) {
         if (index !== current) {
             items.forEach(slide => slide.classList.remove('banner-out', 'banner-backwards'));
@@ -64,6 +74,9 @@ function makeBannerCarousel(banners, settings, open) {
             if (slide.tagName === 'BUTTON') slide.tabIndex = active ? 0 : -1;
             controls[position]?.setAttribute('aria-current', String(active));
         });
+        if (counter) {
+            counter.textContent = (current + 1) + ' из ' + slides.length;
+        }
         clearTimeout(timer);
         if (slides.length > 1 && !reducedMotion.matches) timer = setTimeout(advance, settings.interval * 1000);
     }
