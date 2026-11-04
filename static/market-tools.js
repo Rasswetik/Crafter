@@ -79,8 +79,9 @@ function marketBulkCandidates() {
     const filtered = state.gifts.filter(gift => !gift.catalog_only && Number(gift.price) > 0 &&
         ['GRAM', undefined].includes(gift.price_unit) &&
         (!collections.length || collections.includes(String(gift.collection_id)) || collections.includes(gift.name)) &&
-        (!state.model || gift.model === state.model) && (!state.backdrop || gift.backdrop === state.backdrop) &&
-        (!state.symbol || gift.symbol === state.symbol) &&
+        matchesSelectedTrait(state.model,gift.model) &&
+        matchesSelectedTrait(state.backdrop,gift.backdrop) &&
+        matchesSelectedTrait(state.symbol,gift.symbol) &&
         (gift.name+' '+gift.number+' '+(gift.model||'')).toLowerCase().includes(query)).filter(gift => {
         const serial = gift.number ? gift.name.toLowerCase() + ':' + gift.number : gift.id;
         if (seen.has(serial)) return false;
