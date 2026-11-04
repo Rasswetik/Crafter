@@ -277,12 +277,27 @@ detail = function (id) {
 function showGiftDetail(gift, source) {
     const own = source === 'inventory';
     state.detailGift = gift;
-    const eyeLabel = telegramGiftLink(gift) ? 'Открыть подарок в Telegram' : 'У подарка пока нет ссылки в Telegram';
+    const canOpenTelegram = Boolean(telegramGiftLink(gift));
+    const eyeLabel = canOpenTelegram ? 'Открыть подарок в Telegram' : 'Нет ссылки на подарок в Telegram';
     const attributes = [['model', 'Модель', gift.model], ['symbol', 'Узор', gift.symbol], ['backdrop', 'Фон', gift.backdrop]];
     sheet('', `
         <div class="portal-product${own ? ' owned-gift-product' : ''}">
-            ${giftPattern(gift)}<img ${giftPicture(gift, true)} alt="${esc(gift.name)}">
-            <button type="button" class="gift-telegram-eye" onclick="openTelegramGift()" aria-label="${eyeLabel}" title="${eyeLabel}">${icon('eye')}</button>
+            ${giftPattern(gift)}<img ${giftPicture(gift)} alt="${esc(gift.name)}" decoding="async">
+            <div class="gift-detail-tools" role="group" aria-label="Действия с подарком">
+                ${own && gift.status === 'unlisted' ? `<button type="button" class="gift-detail-tool gift-send-tool"
+                    onclick="startGiftTransfer(${arg(gift.id)})" aria-label="Отправить подарок" title="Отправить подарок">
+                    ${inventoryToolbarIcon('transfer')}
+                </button>` : ''}
+                <button type="button" class="gift-detail-tool gift-telegram-eye"
+                    onclick="openTelegramGift()" aria-label="${eyeLabel}" title="${eyeLabel}"
+                    ${canOpenTelegram ? '' : 'disabled'}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85"
+                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M2.4 12S6.1 5.8 12 5.8s9.6 6.2 9.6 6.2S17.9 18.2 12 18.2 2.4 12 2.4 12Z"/>
+                        <circle cx="12" cy="12" r="2.8"/>
+                    </svg>
+                </button>
+            </div>
             <div><h2><button type="button" class="gift-collection-link" onclick="openGiftCollection()" aria-label="Открыть коллекцию ${esc(gift.name)}">${esc(gift.name)}${icon('chevron')}</button></h2>${gift.number ? `<span>#${esc(gift.number)}</span>` : ''}</div>
         </div>
         <div class="product-properties">
@@ -306,8 +321,16 @@ function showGiftDetail(gift, source) {
             <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
         </button></div>` : ''}`);
     document.querySelector('#sheet').classList.add('purchase-sheet');
-    mountGiftAnimation(document.querySelector('.portal-product'), gift);
-    loadGiftAttributePrices(document.querySelector('.product-properties'), gift, attributes);
+    // Show the already-known gift immediately; network estimates and animation never block opening.
+    const panel = document.querySelector('#sheet-body .product-properties');
+    const art = document.querySelector('#sheet-body .portal-product');
+    requestAnimationFrame(() => {
+        setTimeout(() => {
+            if (!panel?.isConnected || !art?.isConnected || state.detailGift !== gift) return;
+            loadGiftAttributePrices(panel, gift, attributes);
+            mountGiftAnimation(art, gift, null, false); // Tap the gift to play animation on demand.
+        }, 40);
+    });
 };
 
 function refreshFilteredPage(){if(state.page==='gifts')renderGifts();else renderMarket()}
