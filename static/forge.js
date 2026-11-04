@@ -162,33 +162,54 @@ async function playForge(forge, gifts, result) {
 
 function showForgeResult(status, result, usedGifts = []) {
     const gift = result.gift;
-    status.closest('.craft-page').classList.add('craft-finished');
+    const stage = status.closest('.craft-page');
+    stage.classList.add('craft-finished');
+    stage.classList.toggle('craft-won', Boolean(gift));
+    stage.classList.toggle('craft-lost', !gift);
     status.classList.add('forge-complete');
+    const title = gift ? craftText('craftSuccess') : craftText('craftFailed');
+    const subtitle = gift ? craftText('giftInInventory') : craftText('giftsConsumed');
+    const confetti = gift ? `<div class="craft-result-confetti" aria-hidden="true">${Array.from({length: 16},
+        (_, i) => `<i style="--piece:${i}"></i>`).join('')}</div>` : '';
     status.innerHTML = `
-        ${gift ? '' : '<h2>Проигрыш</h2>'}
-        ${gift ? `<figure class="forge-result-gift">
-            <div class="forge-result-art">${giftPattern(gift)}<img ${giftPicture(gift, true)} alt=""></div>
-            <figcaption><b><button type="button" class="gift-collection-link" aria-label="Открыть коллекцию ${esc(gift.name)}">
-                ${esc(gift.name)} ${gift.number ? '#' + esc(gift.number) : ''}${icon('chevron')}</button></b>
-                <span>${esc(gift.model)}</span></figcaption>
-        </figure>`
-            : `<div class="forge-loss-art"><img src="${brokenGiftImage}" alt="Разбитый подарок"></div>`}
-        ${usedGifts.length ? `<section class="craft-materials" aria-labelledby="craft-materials-title">
-            <h3 id="craft-materials-title">Crafting Tools</h3>
-            <div class="craft-materials-row">
-                ${usedGifts.map((item, index) => `<div class="craft-material" style="background:${giftBackdrop(item)};--material-delay:${index * 85}ms">
-                    ${giftPattern(item)}<img ${giftPicture(item)} alt="${esc(item.name)}">
-                </div>`).join('')}
+        <div class="craft-result-screen ${gift ? 'is-success' : 'is-failure'}">
+            ${confetti}
+            <div class="craft-result-heading">
+                <h2>${title}</h2>
+                <p>${subtitle}</p>
             </div>
-        </section>` : ''}
-        <div class="forge-result-actions">
-            <button class="primary" onclick="go('gifts')">Мои подарки</button>
-            <button class="forge-again" onclick="renderCraft()">Ещё раз</button>
+            ${gift ? `<figure class="craft-result-figure forge-result-gift">
+                <div class="forge-result-art">${giftPattern(gift)}<img ${giftPicture(gift, true)} alt="${esc(gift.name)}"></div>
+                <figcaption>
+                    <button type="button" class="gift-collection-link craft-result-name" aria-label="${craftText('openCollection')} ${esc(gift.name)}">
+                        <span>${esc(gift.name)}</span><span class="craft-result-number">${gift.number ? '#' + esc(gift.number) : ''}</span>
+                    </button>
+                    ${gift.model ? `<small>${esc(gift.model)}</small>` : ''}
+                </figcaption>
+            </figure>` : `<div class="craft-result-loss"><img src="${brokenGiftImage}" alt=""><b>${craftText('noReward')}</b></div>`}
+            <div class="forge-result-actions">
+                <button type="button" class="craft-result-inventory" onclick="go('gifts')">${craftText('toInventory')}</button>
+                <button type="button" class="craft-result-again" onclick="go('craft')">${craftText('craftAgain')}</button>
+            </div>
+            ${usedGifts.length ? `<section class="craft-materials" aria-labelledby="craft-materials-title">
+                <div class="craft-materials-heading">
+                    <h3 id="craft-materials-title">${craftText('usedInCraft')}</h3>
+                    <span>${usedGifts.length}</span>
+                </div>
+                <div class="craft-materials-row">
+                    ${usedGifts.map((item, index) => `<div class="craft-material-entry">
+                        <div class="craft-material" style="background:${giftBackdrop(item)};--material-delay:${index * 85}ms">
+                            ${giftPattern(item)}<img ${giftPicture(item)} alt="${esc(item.name)}">
+                        </div>
+                        <strong title="${esc(item.name)}">${esc(item.name)}</strong>
+                        <small>${item.number ? '#' + esc(item.number) : ''}</small>
+                    </div>`).join('')}
+                </div>
+            </section>` : ''}
         </div>`;
     if (gift) {
         status.querySelector('.gift-collection-link').addEventListener('click', () => openGiftCollection(gift, false));
         const art = status.querySelector('.forge-result-art');
-        const stage = status.closest('.craft-page');
         const [center, edge] = giftBackdropColors(gift);
         art.style.background = giftBackdrop(gift);
         if (center && edge) {
