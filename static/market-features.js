@@ -8,9 +8,11 @@ function collectionMarketContext() {
         [item.id, item.short_name, item.name].some(value => String(value) === id));
     if (collection) return collection;
     const facet = state.marketFacets?.collection?.find(item => item.value === id || item.name === id);
-    if (facet) return {id, name:facet.name, photo_url:facet.image};
+    // Facet pictures and arbitrary gift thumbnails are *model artwork*, not
+    // official collection preview images. Never put those into the Craft CTA.
+    if (facet) return {id,name:facet.name,photo_url:''};
     const gift = state.gifts.find(item => [item.collection_id, item.name].some(value => String(value) === id));
-    return gift ? {id, name:gift.name, photo_url:gift.image} : null;
+    return gift ? {id,name:gift.name,photo_url:''} : null;
 }
 
 function offerRequest(collection) {
