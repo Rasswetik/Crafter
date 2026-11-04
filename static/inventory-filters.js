@@ -40,8 +40,9 @@ function ownedCatalogChoices(kind) {
                 // never the first owned gift's randomly chosen model PNG.
                 image: kind === 'collection'
                     ? imageURL(collection?.photo_url) || fragmentCollectionImage(giftCollectionSlug(gift.name))
-                    : kind === 'backdrop' ? '' : imageURL(gift.image),
+                    : '', // Never show a complete NFT as a standalone model/symbol.
                 background: kind === 'backdrop' ? giftBackdrop(gift) : '',
+                collection_name: kind !== 'collection' ? gift.name : '',
                 price,
                 unit: hasCatalogFloor
                     ? String(collection.price_unit || (['thermos','snapshot'].includes(state.catalog?.source) ? 'TON' : 'GRAM'))
@@ -49,6 +50,10 @@ function ownedCatalogChoices(kind) {
                 count: 0,
             };
             groups.set(value, existing);
+        }
+        if (kind !== 'collection' && existing.collection_name !== gift.name) {
+            // Same attribute name across multiple gift collections is ambiguous.
+            existing.collection_name = '';
         }
         existing.count++;
         if (price !== null && (existing.price === null || price < existing.price)) {
