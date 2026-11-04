@@ -946,6 +946,8 @@ def create_app(config=None):
         db().execute("INSERT INTO settings VALUES('selection',?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
     from telegram_bot import https_url, install_telegram_bot, notify_gift_transfer
     bot_settings = install_telegram_bot(app, db, auth, audit)
+    from telegram_deposits import install_telegram_deposits
+    install_telegram_deposits(app, db, auth, audit, record, bot_settings)
     from wallet import install_wallet
     install_wallet(app,db,auth,record,audit)
     from banners import install_banners
