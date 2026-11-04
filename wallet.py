@@ -234,7 +234,8 @@ def install_wallet(app,db,auth,record,audit):
     def withdraw():
         c=config();ready(c)
         if not c['withdraw_enabled']:abort(409,description='Вывод временно отключён')
-        data=request.get_json(silent=True) or {}
+        data=request.get_json(silent=True)
+        if not isinstance(data,dict):abort(400,description='Некорректные параметры вывода')
         rid=data.get('request_id')
         value=amount(data.get('gram'))
         if not isinstance(rid,str) or not 1<=len(rid)<=80:abort(400)
@@ -265,7 +266,7 @@ def install_wallet(app,db,auth,record,audit):
             p=dict(receiver=w['address'],sender=address(c['receiver']),network=c['network'],gram=str(value),nano=str(nano),ton=str(Decimal(nano)/1000000000),memo='crafter-withdraw:'+uuid.uuid4().hex)
             db().execute('INSERT INTO ton_withdrawals VALUES(?,?,?,?,?,NULL)',(wid,g.user['id'],json.dumps(p),'queued',int(time.time())))
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-value),g.user['id']))
-            db().execute('UPDATE wallet_balances SET gram=? WHERE user_id=? AND network=?',(str(paid-value),g.user['id'],c['network']))
+            db().execute('UPDATE wallet_balances SET gram=? WHERE user_id=? AND network=?',(str(backed-value),g.user['id'],c['network']))
             record('withdraw_request',p)
         return dict(id=wid,status='queued')
     @app.post('/api/wallet/withdraw/<wid>/cancel')
