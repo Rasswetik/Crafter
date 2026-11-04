@@ -22,8 +22,8 @@ function card(g, action = 'detail') {
         ${own && canSend ? `<button class="inventory-craft-dot" onclick="craftGiftById(${arg(g.id)})" aria-label="Использовать для крафта">${anvilArt('inventory-anvil')}</button>` : ''}
         <h3>${esc(g.name)}</h3><p class="number">#${esc(g.number)}</p>
         <div class="gift-bottom">
-            <button class="price" onclick="${action}(${arg(g.id)})">${own ? `<small>Мин. цена</small><b>${floor.endsWith(' GRAM') ? esc(floor.slice(0, -5)) + ' ' + gramIcon() : esc(floor)}</b>` : `${money(g.price)} ${g.catalog_only || g.price_unit === 'TON' ? 'TON' : gramIcon()}`}</button>
-            <button class="basket" onclick="${own ? 'startGiftTransfer' : action}(${arg(g.id)})" aria-label="${own ? 'Отправить подарок' : 'Открыть подарок'}" ${own && !canSend ? 'disabled' : ''}>${own ? inventoryToolbarIcon('transfer') : icon('basket')}</button>
+            <button class="price" onclick="${action}(${arg(g.id)})">${own ? `<small>Минимальная цена</small><b>${floor.endsWith(' GRAM') ? esc(floor.slice(0, -5)) + ' ' + gramIcon() : esc(floor)}</b>` : `${money(g.price)} ${g.catalog_only || g.price_unit === 'TON' ? 'TON' : gramIcon()}`}</button>
+            ${own ? '' : `<button class="basket" onclick="${action}(${arg(g.id)})" aria-label="Открыть подарок">${icon('basket')}</button>`}
         </div>
     </article>`;
 }
