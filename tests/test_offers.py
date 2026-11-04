@@ -107,6 +107,31 @@ def test_collection_offer_partial_fill_and_withdraw(client):
     assert get_balance(client, 42) == '4.80'
 
 
+
+def test_sell_now_prefers_a_funded_matching_offer_over_a_higher_ineligible_one(client):
+    gift = prepare_sale(client)
+    # High offer does not match the seller's model; lower general offer does.
+    mismatch = create(client, 43, collection='Snoop Dogg', model='Not Owned',
+                      price='16.00', request_id='model-mismatch')
+    general = create(client, 44, collection='Snoop Dogg', price='5.00',
+                     request_id='funded-general')
+    assert mismatch.status_code == 200 and general.status_code == 200
+    display = client.get('/api/market/offers?collection=Snoop%20Dogg', headers=signed(42)).json
+    assert display['count'] == 2
+    assert display['best']['id'] == general.json['offer']['id']
+    assert display['best']['executable'] == 1
+    assert action(client, general.json['offer']['id'], 42,
+                  'accept', gift_id=gift['id']).status_code == 200
+    assert client.get('/api/market/offers?collection=Snoop%20Dogg',
+                      headers=signed(42)).json['best']['executable'] == 0
+    acquired, = client.get('/api/inventory', headers=signed(44)).json['gifts']
+    assert acquired['id'] == gift['id']
+    sale = client.get('/api/wallet/history?types=sale', headers=signed(42)).json['items'][0]
+    assert sale['data']['price'] == '5.00'
+    assert sale['data']['proceeds'] == '4.80'
+    assert sale['data']['balance_after'] == '4.80'
+
+
 def test_concurrent_offer_and_purchase_settle_at_most_once(client):
     prepare_sale(client)
     assert change_listing(client, 'sell', '10.00').status_code == 200
