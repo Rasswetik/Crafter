@@ -22,6 +22,36 @@ function depositInstructionRow(iconName, title, description, variant = '') {
         <div><b>${title}</b><small>${description}</small></div>
     </div>`;
 }
+const crafterDepositPNG = [
+    '/static/assets/splash-watch-platinum.png',
+    '/static/assets/splash-ring-chrome.png',
+    '/static/assets/splash-bonded-silver.png',
+    '/static/assets/lucky-craft.png'
+];
+const crafterDepositBackgrounds = [
+    'linear-gradient(145deg,#c04bca,#5a2ea1)',
+    'linear-gradient(145deg,#32b8d6,#1862bb)',
+    'linear-gradient(145deg,#72cc7c,#18837e)',
+    'linear-gradient(145deg,#efaf65,#c05e4e)',
+    'linear-gradient(145deg,#698eea,#333e97)',
+    'linear-gradient(145deg,#da8fa6,#903a7a)'
+];
+function randomDepositGift(serial) {
+    if (serial !== giftDepositRequest) return;
+    const tile = document.querySelector('#sheet .gift-deposit-random-tile');
+    if (!tile || !tile.isConnected || !document.querySelector('#sheet')?.open) return;
+    const nextGift = crafterDepositPNG[Math.floor(Math.random() * crafterDepositPNG.length)];
+    const nextBg = crafterDepositBackgrounds[Math.floor(Math.random() * crafterDepositBackgrounds.length)];
+    const img = tile.querySelector('img');
+    if (img) {
+        tile.style.background = nextBg;
+        img.classList.remove('gift-deposit-spawn');
+        void img.offsetWidth;
+        img.src = nextGift;
+        img.classList.add('gift-deposit-spawn');
+    }
+    setTimeout(() => randomDepositGift(serial), 3200);
+}
 function openGiftDeposit() {
     const serial = ++giftDepositRequest;
     giftDepositTarget = '';
@@ -34,7 +64,7 @@ function openGiftDeposit() {
                 <div class="gift-deposit-sparkle gift-deposit-sparkle-d"></div>
                 <div class="gift-deposit-exchange">
                     <div class="gift-deposit-party">
-                        <img src="/static/assets/crafter-pepe.webp" alt="" width="70" height="70">
+                        <span class="gift-deposit-random-tile"><img src="/static/assets/splash-watch-platinum.png" alt="Случайный NFT-подарок" width="70" height="70"></span>
                         <strong>Предмет</strong>
                     </div>
                     <span class="gift-deposit-exchange-arrow">${depositInstructionIcons.chevron}</span>
@@ -64,6 +94,7 @@ function openGiftDeposit() {
             </button>
         </div>`);
     document.querySelector('#sheet').classList.add('gift-deposit-sheet');
+    randomDepositGift(serial);
     api('telegram-deposits/receiver').then(info => {
         if (serial !== giftDepositRequest) return;
         const screen = document.querySelector('#sheet .gift-deposit-content');
