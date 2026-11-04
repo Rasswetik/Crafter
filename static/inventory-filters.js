@@ -25,21 +25,23 @@ function ownedCatalogChoices(kind) {
             : String(gift[property] || '').trim();
         if (!value) continue;
         let existing = groups.get(value);
-        const candidate = Number(gift.floor_price ?? gift.price);
+        const collection = state.catalog?.collections?.find(row =>
+            String(row.id) === String(gift.collection_id) ||
+            String(row.name).toLowerCase() === String(gift.name).toLowerCase());
+        // A sale price is not a floor price. Show only a confirmed floor snapshot.
+        const hasCatalogFloor = kind === 'collection' && Number(collection?.floor_price) > 0;
+        const candidate = hasCatalogFloor ? Number(collection.floor_price) : Number(gift.floor_price);
         const price = Number.isFinite(candidate) && candidate > 0 ? candidate : null;
         if (!existing) {
-            const collection = kind === 'collection'
-                ? state.catalog?.collections?.find(row =>
-                    String(row.id) === String(gift.collection_id) ||
-                    String(row.name).toLowerCase() === String(gift.name).toLowerCase())
-                : null;
             existing = {
                 value,
                 name: kind === 'collection' ? String(collection?.name || gift.name || value) : value,
                 image: imageURL(gift.image) || imageURL(collection?.photo_url) || '/static/assets/amulet.webp',
                 background: kind === 'backdrop' ? giftBackdrop(gift) : '',
                 price,
-                unit: String(gift.price_unit || collection?.price_unit || 'GRAM'),
+                unit: hasCatalogFloor
+                    ? String(collection.price_unit || (['thermos','snapshot'].includes(state.catalog?.source) ? 'TON' : 'GRAM'))
+                    : String(gift.price_unit || 'GRAM'),
                 count: 0,
             };
             groups.set(value, existing);
