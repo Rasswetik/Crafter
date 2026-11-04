@@ -1,0 +1,40 @@
+/* Wallet withdrawal clarity and safe cancellation controls. */
+.wallet-withdraw-note {
+    font-size: 12px;
+    line-height: 1.52;
+    color: #b7bdc8;
+    padding: 11px 13px;
+    margin: 14px 0 3px;
+    background: #25303a;
+    border: 1px solid #3a4b59;
+    border-radius: 14px;
+    text-align: left;
+}
+.wallet-withdraw-note b { color:#f3f5f7; font-weight:750; }
+.wallet-max:disabled { opacity:.42; cursor:not-allowed; }
+.wallet-cancel-withdraw {
+    padding: 4px 0;
+    margin-top: 5px;
+    background:transparent;
+    border:0;
+    color:#b5cbf2;
+    font-size:11px;
+    font-weight:700;
+    text-align:left;
+}
+.wallet-cancel-withdraw:disabled { opacity:.5; }
+.wallet-history-row .wallet-cancelled-amount {
+    color:#9298a4;
+    text-decoration:line-through;
+    font-weight:600;
+}
+html[data-crafter-theme="light"] .wallet-withdraw-note {
+    background:#edf4fa;
+    border-color:#d0dfea;
+    color:#48576a;
+}
+html[data-crafter-theme="light"] .wallet-withdraw-note b { color:#202c3d; }
+html[data-crafter-theme="light"] .wallet-cancel-withdraw { color:#1166ab; }
+@media (prefers-reduced-motion: reduce) {
+    .wallet-cancel-withdraw { transition:none }
+}
