@@ -40,8 +40,7 @@ def install_staking(app, db, auth, record, audit, public_catalog):
                 value_gram TEXT NOT NULL, apr_bps INTEGER NOT NULL,
                 locked_at INTEGER NOT NULL, unlock_at INTEGER NOT NULL,
                 locked_days INTEGER NOT NULL, settled_days INTEGER NOT NULL DEFAULT 0,
-                status TEXT NOT NULL, withdrawn_at INTEGER,
-                UNIQUE (user_id,nft_id)
+                status TEXT NOT NULL, withdrawn_at INTEGER
             );
             CREATE TABLE IF NOT EXISTS staking_rewards (
                 entry_id TEXT NOT NULL, day_no INTEGER NOT NULL, user_id INTEGER NOT NULL,
