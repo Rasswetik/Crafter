@@ -381,25 +381,44 @@ html { touch-action: pan-x pan-y; }
 .gift-symbol-pattern {
     position: absolute;
     inset: 0;
-    background: #0005;
-    mask: var(--gift-symbol) center / 34px 34px repeat;
+    background: #0002;
+    -webkit-mask: var(--gift-symbol) center / 46px 46px repeat;
+    mask: var(--gift-symbol) center / 46px 46px repeat;
     pointer-events: none;
 }
-.portal-product > img, .forge-result-art > img { position: relative; }
+.portal-product > img, .forge-result-art > img, .forge-gift-panel > img { position: relative; }
 .forge-loss-panel img, .forge-loss-art img { filter: invert(1); }
 
 .product-properties > .trait-row { display: grid; grid-template-columns: 62px minmax(0, 1fr) max-content; gap: 8px; }
 .product-properties .trait-row > span { min-width: 0; }
 .trait-row small { margin-left: 5px; color: #62aaff; white-space: nowrap; }
 .market-gift-actions { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; }
-.market-gift-actions #buy-gift { margin: 0; min-width: 0; width: 100%; flex-direction: column; gap: 3px; min-height: 54px; padding: 8px 5px; }
-.lucky-craft {
+.purchase-sheet .market-gift-actions #buy-gift, .purchase-sheet .lucky-craft {
     min-width: 0;
-    min-height: 54px;
-    border-radius: 26px;
-    padding: 7px 30px 7px 10px;
-    color: #fff;
-    background: #582891 url('/static/assets/lucky-craft.png') center / 100% 100% no-repeat;
+    width: 100%;
+    height: 50px;
+    min-height: 50px !important;
+    max-height: none;
+    margin: 0;
+    padding: 5px 9px;
+    border-radius: 25px;
+    line-height: 1.15;
+    font-size: 13px;
 }
-.lucky-craft strong, .lucky-craft small { display: block; }
-.lucky-craft small { margin-top: 3px; opacity: .85; font-size: 10px; }
+.purchase-sheet .market-gift-actions #buy-gift { flex-direction: column; gap: 3px; }
+.purchase-sheet .lucky-craft {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    color: #fff;
+    background: linear-gradient(108deg, #563387, #8d56bf);
+}
+.lucky-craft strong { display: block; }
+.purchase-sheet .lucky-craft small { margin-top: 3px; font-size: 10px; opacity: .82; }
+.lucky-craft svg { width: 19px; height: 19px; flex: none; }
+.craft-page.craft-finished {
+    background:
+        radial-gradient(ellipse at 50% 27%, color-mix(in srgb, var(--craft-result-center, #4d4d4d) 32%, transparent), transparent 60%),
+        linear-gradient(var(--bg), color-mix(in srgb, var(--craft-result-edge, #262626) 20%, var(--bg)));
+}

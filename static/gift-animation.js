@@ -11,9 +11,10 @@ function giftPicture(gift, large = false) {
     const fragment = fragmentGiftPath(gift);
     const model = giftAnimationPath(gift);
     const original = imageURL(gift.image);
-    const fallback = fragment ? fragment + (large ? '.large.jpg' : '.medium.jpg') : model ? model + '.png' : '';
-    const sharp = large ? (fragment ? fragment + '.large.jpg' : model ? model + '.png' : '') : '';
-    const urls = [...new Set([sharp, original, fallback, model && model + '.png'].filter(Boolean))];
+    const exact = fragment ? [fragment + '.webp', fragment + (large ? '.large.jpg' : '.medium.jpg')] : [];
+    const scalable = model ? model + '.svg' : '';
+    const sharp = large ? (fragment ? [fragment + '.large.jpg', ...exact] : [scalable]) : [];
+    const urls = [...new Set([...sharp, original, ...exact, scalable, model && model + '.png?size=512'].filter(Boolean))];
     return `src="${esc(urls.shift() || '')}" data-gift-fallback="${esc(JSON.stringify(urls))}" onerror="nextGiftPicture(this)"`;
 }
 
@@ -27,10 +28,62 @@ function nextGiftPicture(image) {
     image.src = urls[0];
 }
 
+function giftSymbolPath(gift) {
+    return gift.symbol ? 'https://api.changes.tg/symbol/' +
+        [gift.name, gift.symbol].map(giftAssetPart).join('/') + '.png' : '';
+}
+
 function giftPattern(gift) {
-    if (!gift.symbol) return '';
-    const path = 'https://api.changes.tg/symbol/' + [gift.name, gift.symbol].map(giftAssetPart).join('/') + '.png';
-    return `<span class="gift-symbol-pattern" aria-hidden="true" style="--gift-symbol:url(&quot;${esc(path)}&quot;)"></span>`;
+    const path = giftSymbolPath(gift);
+    return path ? `<span class="gift-symbol-pattern" aria-hidden="true" style="--gift-symbol:url(&quot;${esc(path)}&quot;)"></span>` : '';
+}
+
+const giftAttributeRequests = new Map();
+
+function giftAttributes(gift) {
+    const collection = giftCollection(gift);
+    if (!collection) return Promise.resolve(null);
+    const id = collection.id;
+    if (!giftAttributeRequests.has(id)) {
+        const request = api('collections/' + encodeURIComponent(id) + '/attributes')
+            .finally(() => giftAttributeRequests.delete(id));
+        giftAttributeRequests.set(id, request);
+    }
+    return giftAttributeRequests.get(id);
+}
+
+async function prepareGiftBackdrop(art, gift, stage) {
+    function paint(current) {
+        if (!art.isConnected) return;
+        art.style.background = giftBackdrop(current);
+        const [center, edge] = giftBackdropColors(current);
+        if (stage && center && edge) {
+            stage.style.setProperty('--craft-result-center', center);
+            stage.style.setProperty('--craft-result-edge', edge);
+        }
+    }
+
+    paint(gift);
+    const attributes = await giftAttributes(gift).catch(() => null);
+    const backdrop = attributes?.backdrops?.find(item => item.name === gift.backdrop);
+    const resolved = {...gift, background: {...gift.background, ...backdrop}};
+    paint(resolved);
+
+    // A transparent model must never replace a complete poster unless its backdrop can be shown.
+    if (gift.backdrop && !giftBackdropColors(resolved).every(Boolean)) return false;
+    const symbol = attributes?.symbols?.find(item => item.name === gift.symbol);
+    const candidate = /^https:\/\//.test(symbol?.image_url || '') ? symbol.image_url : null;
+    for (const url of new Set([candidate, giftSymbolPath(gift)].filter(Boolean))) {
+        const preview = new Image();
+        preview.crossOrigin = 'anonymous';
+        preview.src = url;
+        try {
+            await preview.decode();
+            art.querySelector('.gift-symbol-pattern')?.style.setProperty('--gift-symbol', `url("${encodeURI(url).replace(/"/g, '%22')}")`);
+            return true;
+        } catch {}
+    }
+    return !gift.symbol;
 }
 
 const giftAnimationCache = new Map();
@@ -119,7 +172,7 @@ function prepareGiftAnimation(gift) {
     return giftAnimationCache.get(key);
 }
 
-async function playGiftAnimation(art, gift, layer, dialog) {
+async function playGiftAnimation(art, gift, layer, dialog, backdrop) {
     stopGiftAnimation?.();
     const pending = prepareGiftAnimation(gift);
     if (!pending) return;
@@ -141,8 +194,8 @@ async function playGiftAnimation(art, gift, layer, dialog) {
     observer.observe(dialog || document.querySelector('#main'), {childList: true, subtree: true});
     dialog?.addEventListener('close', stop);
     try {
-        const [data, lottie] = await Promise.all([pending, loadGiftAnimationPlayer()]);
-        if (stopped || !art.isConnected || !data) return stop();
+        const [data, lottie, ready] = await Promise.all([pending, loadGiftAnimationPlayer(), backdrop]);
+        if (stopped || !art.isConnected || !data || !ready) return stop();
         player = lottie.loadAnimation({
             container: layer,
             renderer: 'svg',
@@ -161,7 +214,20 @@ async function playGiftAnimation(art, gift, layer, dialog) {
     }
 }
 
-function mountGiftAnimation(art, gift) {
+function mountGiftAnimation(art, gift, stage) {
+    const backdrop = prepareGiftBackdrop(art, gift, stage);
+    backdrop.then(ready => {
+        const path = giftAnimationPath(gift);
+        if (!ready || !path || !gift.backdrop || !art.isConnected) return;
+        const vector = new Image();
+        vector.src = path + '.svg';
+        vector.decode().then(() => {
+            const poster = art.querySelector(':scope > img');
+            if (!poster || !art.isConnected) return;
+            poster.src = vector.src;
+            poster.hidden = false;
+        }).catch(() => {});
+    });
     if (!giftAnimationPath(gift)) return;
     const dialog = art.closest('dialog');
     const layer = document.createElement('span');
@@ -171,7 +237,7 @@ function mountGiftAnimation(art, gift) {
     replay.type = 'button';
     replay.className = 'gift-animation-replay';
     replay.setAttribute('aria-label', 'Воспроизвести анимацию подарка');
-    replay.addEventListener('click', () => playGiftAnimation(art, gift, layer, dialog));
+    replay.addEventListener('click', () => playGiftAnimation(art, gift, layer, dialog, backdrop));
     art.append(layer, replay);
-    if (!giftAnimationMotion.matches) playGiftAnimation(art, gift, layer, dialog);
+    if (!giftAnimationMotion.matches) playGiftAnimation(art, gift, layer, dialog, backdrop);
 }

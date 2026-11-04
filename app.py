@@ -236,7 +236,11 @@ def create_app(config=None):
     @app.get('/api/market')
     @auth()
     def market():
-        if not app.config['PORTALS_API_KEY'] and not app.config['DEMO_MODE']:
+        collection_ids = list(dict.fromkeys(request.args.get('collection_id', '').split(',')))
+        multi_collection = len(collection_ids) > 1
+        if multi_collection and (len(collection_ids) > 20 or any(not item or len(item) > 100 for item in collection_ids)):
+            abort(400, description='Выберите до 20 коллекций')
+        if (not app.config['PORTALS_API_KEY'] or multi_collection) and not app.config['DEMO_MODE']:
             import thermos
             params={k:request.args[k][:150] for k in ('search','collection_id','filter_by_models','filter_by_backdrops','filter_by_symbols','sort_by','offset','min_price','max_price','price_unit') if request.args.get(k)}
             try:
@@ -246,16 +250,21 @@ def create_app(config=None):
                         if not val.is_finite() or val<0 or val>1000000000:raise ValueError()
                 if 'min_price' in params and 'max_price' in params and Decimal(params['min_price'])>Decimal(params['max_price']):raise ValueError()
             except Exception:abort(400,description='Недопустимый диапазон цены')
+            if multi_collection:
+                params['collection_id'] = ','.join(sorted(collection_ids))
             key='public:market:'+urlencode(sorted(params.items()))
             previous,updated=cached(key)
             if previous and time.time()-updated<60:return local_market_rows(previous)
             try:
                 rows,_=cached('thermos:collections',[])
-                try:
-                    import portals_public
-                    result=portals_public.listings(params,rows)
-                except Exception:
-                    result=thermos.gifts(params,rows)
+                if multi_collection:
+                    result = thermos.gifts(params, rows or public_catalog())
+                else:
+                    try:
+                        import portals_public
+                        result=portals_public.listings(params,rows)
+                    except Exception:
+                        result=thermos.gifts(params,rows)
                 result['next_offset']=max(0,int(params.get('offset',0)))+20
                 result['has_more']=len(result['gifts'])>=20
                 db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(key,json.dumps(result),int(time.time())));db().commit()

@@ -188,3 +188,27 @@ def test_lucky_craft_awards_exact_lot_and_rejects_other_quote(client, craft_inpu
     assert rejected.status_code == 409
     inventory = client.get('/api/inventory', headers=headers).json['gifts']
     assert craft_inputs[1] in {gift['id'] for gift in inventory}
+
+
+def test_market_requests_all_selected_collections(client, monkeypatch):
+    import thermos
+
+    now = int(time.time())
+    catalog = [{'id': 'snoop', 'name': 'Snoop Dogg'}, {'id': 'amulet', 'name': 'Faith Amulet'}]
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('INSERT INTO cache VALUES (?, ?, ?)', ('thermos:collections', json.dumps(catalog), now))
+
+    def request(path, body):
+        assert path == 'gifts'
+        assert set(body['collections']) == {'Snoop Dogg', 'Faith Amulet'}
+        assert body['page'] == 2
+        return {'count': 21, 'items': [
+            {'external_id': 'two', 'collection': 'Faith Amulet', 'number': 5, 'price': '1000000000',
+             'image_url': '', 'marketplace': 'PORTALS'},
+        ]}
+
+    monkeypatch.setattr(thermos, 'request', request)
+    result = client.get('/api/market?collection_id=snoop,amulet&offset=20', headers=signed())
+    assert result.status_code == 200
+    assert [gift['collection_id'] for gift in result.json['gifts']] == ['amulet']
+    assert result.json['next_offset'] == 40

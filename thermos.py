@@ -17,9 +17,12 @@ def collections():
     return [dict(id=str(c['id']),short_name=str(c['id']),name=c['name'],photo_url=c['image_url'],floor_price=ton(c.get('stats',{}).get('floor')),price_unit='TON') for c in request('collections')]
 
 def gifts(params, catalog):
-    collection=next((c for c in catalog if c['id']==params.get('collection_id')),None)
+    collection_ids = set(params['collection_id'].split(',')) if params.get('collection_id') else set()
+    collections = [item['name'] for item in catalog if str(item['id']) in collection_ids]
+    if collection_ids and len(collections) != len(collection_ids):
+        raise ValueError('Unknown collection')
     body={'markets':['PORTALS'],'per_page':20,'page':max(0,int(params.get('offset',0)))//20+1,'ordering':{'price asc':'PRICE_ASC','price desc':'PRICE_DESC','external_collection_number asc':'NUMBER_ASC','external_collection_number desc':'NUMBER_DESC','model_rarity asc':'MODEL_RARITY_ASC','model_rarity desc':'MODEL_RARITY_DESC'}.get(params.get('sort_by'),'PRICE_ASC')}
-    if collection:body['collections']=[collection['name']]
+    if collections:body['collections']=collections
     if params.get('search'):body['query']=params['search']
     for src,dst in [('filter_by_models','models'),('filter_by_backdrops','backdrops'),('filter_by_symbols','symbols')]:
         if params.get(src):body[dst]=[params[src]]

@@ -1,19 +1,40 @@
 // Searchable catalog sheets inspired by the mobile Portals interface.
-filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="state.sort=!state.sort;changedFilter()" aria-label="Сортировать">↕</button>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?'<span>1</span>':''}${icon('chevron')}</button>`).join('')}</div>`};
+filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="state.sort=!state.sort;changedFilter()" aria-label="Сортировать">↕</button>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?`<span>${k==='collection'?selectedCollections().length:1}</span>`:''}${icon('chevron')}</button>`).join('')}</div>`};
+function selectedCollections(value = state.collection) {
+    return value ? String(value).split(',') : [];
+}
+function resetCatalogDraft() {
+    state.sheetValue = '';
+    renderCatalogRows(document.querySelector('.catalog-search input').value);
+}
+
 const priorSheet=sheet;sheet=function(title,html){document.querySelector('#sheet').classList.remove('catalog-sheet');priorSheet(title,html)};
 const priorClose=closeSheet;closeSheet=function(){document.querySelector('#sheet').classList.remove('catalog-sheet');priorClose()};
 async function openCatalogSheet(kind){
  const titles={collection:'Коллекция',model:'Модель',backdrop:'Фон',symbol:'Символ',target:'Что скрафтить'};
  let rows=[];const collection=state.catalog.collections.find(c=>c.id===state.collection||c.short_name===state.collection);
  if(kind==='collection'||kind==='target') rows=state.catalog.collections.map(c=>({value:c.id,name:c.name,image:c.photo_url,price:c.floor_price,unit:['snapshot','thermos'].includes(state.catalog.source)?'TON':'GRAM'}));
+ else if(selectedCollections().length > 1) {toast('Для фильтра по атрибутам выберите одну коллекцию');return}
  else if(kind==='model'&&collection){try{const data=await api('collections/'+encodeURIComponent(collection.short_name||collection.id)+'/models');rows=data.models.map(m=>({value:m.name,name:m.name,image:m.image,price:m.price,unit:m.price_unit|| (m.price_source==='snapshot-estimate'?'TON':'GRAM')}))}catch(e){toast(e.message);return}}
  else if(collection){try{const attrs=await api('collections/'+encodeURIComponent(collection.id)+'/attributes');const group=attrs[kind==='backdrop'?'backdrops':'symbols']||[];rows=group.map(m=>({value:m.name,name:m.name,image:m.image_url,price:Number(m.stats?.floor||0)/1e9,unit:'TON'}))}catch(e){toast(e.message);return}}
  state.catalogRows=rows;state.sheetKind=kind;state.sheetValue=kind==='target'?'':state[kind]||'';
- sheet(titles[kind],`<label class="catalog-search search-box">${icon('search')}<input placeholder="Быстрый поиск" aria-label="Быстрый поиск" oninput="renderCatalogRows(this.value)"></label><div class="catalog-columns"><span>${kind==='target'?'КОЛЛЕКЦИЯ':titles[kind]}</span><span>Мин. цена</span></div><div id="catalog-rows" class="catalog-rows"></div>${kind==='target'?'':`<div class="catalog-footer"><button onclick="state.sheetValue='';renderCatalogRows(document.querySelector('.catalog-search input').value)">Сбросить</button><button class="apply" onclick="applyCatalogFilter()">Применить</button></div>`}`);
+ sheet(titles[kind],`<label class="catalog-search search-box">${icon('search')}<input placeholder="Быстрый поиск" aria-label="Быстрый поиск" oninput="renderCatalogRows(this.value)"></label><div class="catalog-columns"><span>${kind==='target'?'КОЛЛЕКЦИЯ':titles[kind]}</span><span>Мин. цена</span></div><div id="catalog-rows" class="catalog-rows"></div>${kind==='target'?'':`<div class="catalog-footer"><button onclick="resetCatalogDraft()">Сбросить</button><button class="apply" onclick="applyCatalogFilter()">Применить</button></div>`}`);
  document.querySelector('#sheet').classList.add('catalog-sheet');renderCatalogRows('');
 }
-function renderCatalogRows(query){const rows=state.catalogRows.filter(r=>r.name.toLowerCase().includes(query.toLowerCase()));document.querySelector('#catalog-rows').innerHTML=rows.length?rows.map(r=>`<button class="catalog-row" onclick="pickCatalogRow(${arg(r.value)})">${state.sheetKind==='target'?'':`<span class="catalog-check ${state.sheetValue===r.value?'checked':''}">${state.sheetValue===r.value?'✓':''}</span>`}<span class="catalog-thumb">${r.image?`<img loading="lazy" src="${esc(imageURL(r.image))}" alt="">`:''}</span><strong>${esc(r.name)}</strong><b>${r.price!=null&&Number(r.price)>0?money(r.price)+' '+esc(r.unit):'—'}</b></button>`).join(''):`<div class="catalog-empty">${state.sheetKind!=='collection'&&!state.collection?'Сначала выберите коллекцию':'Нет доступных данных'}</div>`}
-function pickCatalogRow(value){if(state.sheetKind==='target'){const c=state.catalog.collections.find(x=>x.id===value);if(c){state.target={id:c.id,name:c.name,image:c.photo_url};state.quote=null;closeSheet();renderCraft();updateCraftQuote()}return}state.sheetValue=state.sheetValue===value?'':value;renderCatalogRows(document.querySelector('.catalog-search input').value)}
+function renderCatalogRows(query){const rows=state.catalogRows.filter(r=>r.name.toLowerCase().includes(query.toLowerCase()));document.querySelector('#catalog-rows').innerHTML=rows.length?rows.map(r=>`<button class="catalog-row" onclick="pickCatalogRow(${arg(r.value)})">${state.sheetKind==='target'?'':`<span class="catalog-check ${catalogRowSelected(r.value)?'checked':''}">${catalogRowSelected(r.value)?'✓':''}</span>`}<span class="catalog-thumb">${r.image?`<img loading="lazy" src="${esc(imageURL(r.image))}" alt="">`:''}</span><strong>${esc(r.name)}</strong><b>${r.price!=null&&Number(r.price)>0?money(r.price)+' '+esc(r.unit):'—'}</b></button>`).join(''):`<div class="catalog-empty">${state.sheetKind!=='collection'&&!state.collection?'Сначала выберите коллекцию':'Нет доступных данных'}</div>`}
+function catalogRowSelected(value) {
+    return state.page === 'market' && state.sheetKind === 'collection'
+        ? selectedCollections(state.sheetValue).includes(String(value))
+        : state.sheetValue === value;
+}
+function pickCatalogRow(value){if(state.sheetKind==='target'){const c=state.catalog.collections.find(x=>x.id===value);if(c){state.target={id:c.id,name:c.name,image:c.photo_url};state.quote=null;closeSheet();renderCraft();updateCraftQuote()}return}if(state.page==='market' && state.sheetKind==='collection'){
+ const ids=new Set(selectedCollections(state.sheetValue));
+ if(ids.has(String(value)))ids.delete(String(value));
+ else if(ids.size<20)ids.add(String(value));
+ else return toast('Можно выбрать до 20 коллекций');
+ state.sheetValue=[...ids].sort().join(',');
+ }else state.sheetValue=state.sheetValue===value?'':value;
+ renderCatalogRows(document.querySelector('.catalog-search input').value)}
 function applyCatalogFilter(){const k=state.sheetKind;if(k==='collection'&&state.collection!==state.sheetValue){state.model='';state.backdrop='';state.symbol=''}state[k]=state.sheetValue;closeSheet();if(state.page==='market')renderMarket();else renderGifts();changedFilter()}
 function craftRules(){sheet('Как работает крафт',`<div class="attributes"><div><span>Оценка подарков</span><b>Флор коллекции в TON</b></div><div><span>Шанс</span><b>Сумма флоров / флор цели × 95%</b></div><div><span>Максимальный шанс</span><b>95%</b></div></div><p class="sub">Выбранные подарки списываются. При успехе результат появляется в инвентаре Crafter. Операция работает с подарками приложения; передачу NFT в Telegram она не выполняет.</p><button class="primary" onclick="closeSheet()">Понятно</button>`)}
 function renderCraft() {
@@ -161,7 +182,7 @@ const gramIcon=()=>'<img class="gram-icon" src="/static/assets/gram.svg" alt="GR
 const currencyHTML=g=>(g.price_unit==='TON'||g.catalog_only)?'TON':gramIcon();
 Object.assign(state,{order:'listed_at desc',minPrice:'',maxPrice:''});
 const sortOptions=[['listed_at desc','Сначала новые'],['price asc','Цена: по возрастанию'],['price desc','Цена: по убыванию'],['external_collection_number asc','ID подарка: ↑'],['external_collection_number desc','ID подарка: ↓'],['model_rarity asc','Редкость модели: ↑'],['model_rarity desc','Редкость модели: ↓']];
-filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="openPriceFilters()" aria-label="Диапазон цены">${icon('filter')}</button><button class="sort ${state.order!=='listed_at desc'?'enabled':''}" onclick="openSort()" aria-label="Сортировка">↕</button><span class="filter-divider"></span>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?'<span>1</span>':''}${icon('chevron')}</button>`).join('')}</div>`};
+filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="openPriceFilters()" aria-label="Диапазон цены">${icon('filter')}</button><button class="sort ${state.order!=='listed_at desc'?'enabled':''}" onclick="openSort()" aria-label="Сортировка">↕</button><span class="filter-divider"></span>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?`<span>${k==='collection'?selectedCollections().length:1}</span>`:''}${icon('chevron')}</button>`).join('')}</div>`};
 renderMarket=function(){document.querySelector('#main').innerHTML=`${filters()}<div id="gifts-grid" class="grid"></div><button class="load-more" onclick="loadMore()">Показать ещё</button>${demoNote()}`;filterGrid()};
 marketParams=function(offset=0){const p=new URLSearchParams({offset:String(offset),sort_by:state.order,price_unit:state.marketUnit||'GRAM'});for(const [key,value] of [['search',state.query],['collection_id',state.collection],['filter_by_models',state.model],['filter_by_backdrops',state.backdrop],['filter_by_symbols',state.symbol],['min_price',state.minPrice],['max_price',state.maxPrice]])if(value!==''&&value!=null)p.set(key,value);return p};
 function openSort(){state.draftOrder=state.order;sheet('Сортировка',`<div class="sort-options">${sortOptions.map(([v,n])=>`<button class="sort-option" onclick="chooseSort(${arg(v)})" data-order="${esc(v)}"><span class="sort-radio ${v===state.draftOrder?'checked':''}"></span>${n}</button>`).join('')}</div><button class="primary sort-apply" onclick="applySort()">Применить</button>`);document.querySelector('#sheet').classList.add('sort-sheet')}
@@ -218,11 +239,9 @@ function chooseLuckyGift(id) {
 }
 
 async function loadGiftAttributePrices(panel, gift, attributes) {
-    const collection = giftCollection(gift);
-    if (!collection) return;
     try {
-        const data = await api('collections/' + encodeURIComponent(collection.id) + '/attributes');
-        if (!panel.isConnected) return;
+        const data = await giftAttributes(gift);
+        if (!panel.isConnected || !data) return;
         for (const [key, , name] of attributes) {
             const group = {model:'models', symbol:'symbols', backdrop:'backdrops'}[key];
             const match = data[group]?.find(item => item.name === name);
@@ -266,7 +285,8 @@ detail = function (id) {
             <button class="primary" onclick="toast('Продажа пока недоступна')">Продать</button>
         </div>` : `<div class="market-gift-actions">
             ${gift.number && !gift.catalog_only ? `<button class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
-                <strong>Lucky Craft</strong><small>За свои подарки</small>
+                <span class="lucky-craft-copy"><strong>Lucky Craft</strong><small>За свои подарки</small></span>
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3c7-1 14 3 16 10l-1 1c-1-2-3-4-5-5L6 21a1.5 1.5 0 0 1-2-2L13 8C11 6 8 5 5 4Z" fill="currentColor"/></svg>
             </button>` : ''}
             <button id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
             <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>

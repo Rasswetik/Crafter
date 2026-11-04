@@ -8,10 +8,10 @@ function forgePanel(className) {
 function forgeGiftPanel(gift, sourceImage) {
     const panel = forgePanel('forge-gift-panel');
     panel.style.background = giftBackdrop(gift);
-    const image = sourceImage?.cloneNode() || new Image();
-    image.alt = '';
-    image.src = imageURL(gift.image);
-    panel.append(image);
+    panel.innerHTML = giftPattern(gift);
+    if (sourceImage?.complete && sourceImage.naturalWidth) panel.append(sourceImage.cloneNode());
+    else panel.insertAdjacentHTML('beforeend', `<img ${giftPicture(gift, true)} alt="">`);
+
     return panel;
 }
 
@@ -182,8 +182,7 @@ function showForgeResult(status, result, usedGifts = []) {
         </div>`;
     if (gift) {
         const art = status.querySelector('.forge-result-art');
-        art.style.background = giftBackdrop(gift);
-        mountGiftAnimation(art, gift);
+        mountGiftAnimation(art, gift, status.closest('.craft-page'));
     }
 }
 

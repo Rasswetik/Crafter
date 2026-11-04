@@ -13,6 +13,19 @@ async function api(path,body){const controller=new AbortController();const timer
 function toast(msg){let el=document.querySelector('#toast');el.textContent=msg;el.style.display='block';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>el.style.display='none',3500)}
 function sheet(title,html){document.querySelector('#sheet-title').textContent=title;document.querySelector('#sheet-body').innerHTML=html;document.querySelector('#sheet').showModal()}
 function closeSheet(){document.querySelector('#sheet').close()}
+const appSheet = document.querySelector('#sheet');
+let sheetBackdropPress = false;
+function isSheetBackdrop(event) {
+    if (event.target !== appSheet) return false;
+    const bounds = appSheet.getBoundingClientRect();
+    return event.clientX < bounds.left || event.clientX >= bounds.right ||
+        event.clientY < bounds.top || event.clientY >= bounds.bottom;
+}
+appSheet.addEventListener('pointerdown', event => { sheetBackdropPress = isSheetBackdrop(event); });
+appSheet.addEventListener('click', event => {
+    if (sheetBackdropPress && isSheetBackdrop(event)) closeSheet();
+    sheetBackdropPress = false;
+});
 function avatar(){const u=state.me?.user;return imageURL(u?.photo_url)?`<img src="${esc(imageURL(u.photo_url))}" alt="Аватар">`:esc((u?.first_name||'Г')[0])}
 function nav(){document.querySelector('#nav').innerHTML=[['market','market','Маркет'],['gifts','gift','Мои подарки'],['craft','craft','Крафт']].map(([page,i,label])=>`<button onclick="go('${page}')" class="${state.page===page?'active':''}">${icon(i)}${label}</button>`).join('')+`<button class="profile-nav ${['profile','admin'].includes(state.page)?'active':''}" onclick="go('profile')" aria-label="Профиль"><span class="avatar">${avatar()}</span></button>`}
 async function go(page){if(state.crafting)return;state.page=page;nav();const el=document.querySelector('#main');el.innerHTML='<div class="loader">Загрузка…</div>';try{if(page==='market'){const data=await api('market?'+marketParams());if(state.page!==page)return;state.marketCursor=data.next_offset||20;state.marketHasMore=data.has_more??data.gifts.length>=20;state.marketWarning=data.warning||'';state.marketUnit=data.price_unit||'TON';if(data.sort_by)state.order=data.sort_by;state.gifts=data.gifts;state.source=data.source||(data.demo?'demo':'portals');renderMarket()}if(page==='gifts'){state.inventory=(await api('inventory')).gifts;if(state.page!==page)return;renderGifts()}if(page==='craft'){state.inventory=(await api('inventory')).gifts;if(state.page!==page)return;renderCraft();updateCraftQuote()}if(page==='profile')renderProfile();if(page==='admin')await renderAdmin()}catch(e){el.innerHTML=`<div class="error">${esc(e.message)}</div><button class="secondary" onclick="go('${page}')">Повторить</button>`}}
