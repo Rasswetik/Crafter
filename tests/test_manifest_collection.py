@@ -17,7 +17,7 @@ def test_manifest_is_public_cors_safe_and_has_valid_png(client, monkeypatch):
         assert result.json['iconUrl']=='https://crafter-v3sb.onrender.com/static/assets/wallet-icon.png'
     asset=client.get('/static/assets/wallet-icon.png')
     assert asset.status_code==200
-    assert asset.data.startswith(b'\\x89PNG\\r\\n\\x1a\\n')
+    assert asset.data.startswith(b'\x89PNG\r\n\x1a\n')
 
 
 def test_manifest_ignores_stale_custom_origin_on_render(client,monkeypatch):
@@ -31,7 +31,7 @@ def test_manifest_ignores_stale_custom_origin_on_render(client,monkeypatch):
 
 def test_collection_thumbnail_is_strictly_validated_and_cached(client,monkeypatch):
     import collection_media
-    token=b'RIFF'+b'\\x00'*4+b'WEBP'+b'0123456789'
+    token=b'RIFF'+b'\x00'*4+b'WEBP'+b'0123456789'
     monkeypatch.setattr(collection_media,'load_collection_thumbnail',lambda slug:(token,'image/webp'))
     response=client.get('/media/collection/luckylocket')
     assert response.status_code==200
