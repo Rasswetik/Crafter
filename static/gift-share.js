@@ -12,12 +12,9 @@ function crafterLuckyActionSVG() {
     return '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" aria-hidden="true"><path d="M3 10h18l-2.7 4.6H16v3H8v-3H5.7L3 10Z" fill="currentColor" opacity=".95"/><path d="M2.5 7h19v3h-19V7Z" fill="currentColor"/><path d="m15 1 1.1 3L19 5l-2.9 1.1L15 9l-1.1-2.9L11 5l2.9-1L15 1Z" fill="currentColor"/><path d="m5 2 .5 1.5L7 4l-1.5.5L5 6l-.5-1.5L3 4l1.5-.5L5 2Z" fill="currentColor" opacity=".8"/></svg>';
 }
 function crafterShareBotBase() {
-    try {
-        const invite=new URL(state.me?.invite_link || '');
-        if (invite.protocol !== 'https:' || !['t.me','telegram.me'].includes(invite.hostname)) return '';
-        const bot=invite.pathname.replace(/^\/|\/$/g,'');
-        return /^[a-z][a-z0-9_]{4,31}$/i.test(bot) ? 'https://t.me/'+bot : '';
-    } catch { return ''; }
+    const invite=String(state.me?.invite_link || '');
+    const match=invite.match(/^https:\/\/(?:t\.me|telegram\.me)\/([a-z][a-z0-9_]{4,31})(?:[/?#]|$)/i);
+    return match ? 'https://t.me/'+match[1] : '';
 }
 function crafterGiftShareParam(gift) {
     const link=telegramGiftLink(gift);
