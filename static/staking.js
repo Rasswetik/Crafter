@@ -25,7 +25,10 @@ nav = function() {
 };
 const stakeGoBefore = go;
 go = async function(page) {
-    if (page !== 'games' && page !== 'staking') return stakeGoBefore(page);
+    if (page !== 'games' && page !== 'staking') {
+        document.querySelector('#app')?.classList.toggle('games-view',page === 'craft');
+        return stakeGoBefore(page);
+    }
     if (state.crafting) return;
     state.page = page;
     document.querySelector('#app')?.classList.remove('craft-view','cart-view');
