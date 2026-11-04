@@ -286,10 +286,11 @@ async function depositSelectedGifts() {
         if (state.page === 'staking') renderStaking();
         toast('Подарки добавлены в стейкинг');
     } catch (e) {
-        if (error.isConnected) {
+        if (error?.isConnected) {
             error.textContent = e.message;
             error.hidden = false;
         }
+        toast(e.message || 'Не удалось внести подарки. Проверьте оценку и лимит стейкинга.');
     } finally {
         stakeUi.pending = false;
         if (button.isConnected) button.disabled = !stakeUi.picked.size;
