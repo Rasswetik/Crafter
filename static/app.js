@@ -47,7 +47,22 @@ async function api(path, body) {
     }
 }
 
-function toast(msg){let el=document.querySelector('#toast');el.textContent=msg;el.style.display='block';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>el.style.display='none',3500)}
+function toast(msg) {
+    const el = document.querySelector('#toast');
+    if (!el) return;
+    // A modal <dialog> lives in the top layer. z-index on <body> cannot
+    // overtake it: mount the toast inside the topmost open dialog.
+    const dialogs = [...document.querySelectorAll('dialog[open]')];
+    const top = dialogs.at(-1) || document.body;
+    top.appendChild(el);
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(window.toastTimer);
+    window.toastTimer = setTimeout(() => {
+        el.style.display = 'none';
+        if (el.parentNode !== document.body) document.body.appendChild(el);
+    }, 3500);
+}
 const appSheet = document.querySelector('#sheet');
 let sheetCloseTimer;
 let sheetPressOutside = false;
@@ -93,6 +108,11 @@ appSheet.addEventListener('click', event => {
     if (event.target === appSheet && event.detail && outsideSheet(event)) closeSheet();
 });
 appSheet.addEventListener('cancel', event => {event.preventDefault(); closeSheet();});
+// Restore live messages when a modal closes before their timer completes.
+appSheet.addEventListener('close', () => {
+    const el = document.querySelector('#toast');
+    if (el && el.parentNode === appSheet) document.body.appendChild(el);
+});
 function avatar(){const u=state.me?.user;return imageURL(u?.photo_url)?`<img src="${esc(imageURL(u.photo_url))}" alt="Аватар">`:esc((u?.first_name||'Г')[0])}
 function nav(){document.querySelector('#nav').innerHTML=[['market','market','Маркет'],['gifts','gift','Мои подарки'],['craft','craft','Крафт']].map(([page,i,label])=>`<button onclick="go('${page}')" class="${state.page===page?'active':''}">${icon(i)}${label}</button>`).join('')+`<button class="profile-nav ${['profile','admin'].includes(state.page)?'active':''}" onclick="go('profile')" aria-label="Профиль"><span class="avatar">${avatar()}</span></button>`}
 function crafterLoading(page = '') {

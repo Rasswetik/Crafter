@@ -1,0 +1,37 @@
+name: Crafter regressions
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt pytest
+      - name: Validate Python modules
+        run: python -m compileall -q app.py wallet.py offers.py resale.py staking.py telegram_deposits.py banners.py
+      - name: Flask regression tests
+        run: python -m pytest tests -q
+      - name: Validate JavaScript syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in static/*.js; do node --check "$file"; done
+      - name: Craft renderer checks
+        run: node tests/test_cube.cjs

@@ -144,6 +144,11 @@ def test_preview_contains_real_cube_renderer(client):
     assert b'Rounded solid cube' in result.data
     assert b'CrafterCube.draw' in result.data
     assert b'window.fetch=async' in result.data
+    # Query-suffixed static paths must be embedded, not fetched from /static offline.
+    assert b'src="/static/app.js?' not in result.data
+    assert b'href="/static/staking.css?' not in result.data
+    assert b'function renderGamesHub()' in result.data
+    assert b'function renderOffersInbox(' in result.data
     assert result.headers['Cache-Control']=='no-cache, must-revalidate'
 
 def test_market_key_is_optional_and_failure_is_honest(client,monkeypatch):

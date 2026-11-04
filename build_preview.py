@@ -1,13 +1,19 @@
 """Build a self-contained preview with a persistent, browser-local test inventory."""
-import base64,json,gzip
+import base64,json,gzip,re
 from pathlib import Path
 from app import CRAFT_GIFT_LIMIT, DEMO_GIFTS
 root=Path(__file__).parent
 def build_preview():
     html=(root/'templates/index.html').read_text().replace('<script async src="https://telegram.org/js/telegram-web-app.js"></script>','')
     html = html.replace("{% include 'collection.html' %}", (root/'templates/collection.html').read_text())
-    html=html.replace('<link rel="stylesheet" href="/static/style.css">','<style>'+(root/'static/style.css').read_text()+'</style>')
-    html=html.replace('<link rel="stylesheet" href="/static/banners.css">','<style>'+(root/'static/banners.css').read_text()+'</style>')
+    # Include every stylesheet, including cache-busted URLs.
+    # Otherwise the self-contained HTML preview loads broken /static URLs offline.
+    def inline_style(match):
+        path = root / 'static' / match.group(1)
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        return '<style>' + path.read_text(encoding='utf-8') + '</style>'
+    html = re.sub(r'<link rel="stylesheet" href="/static/([^"?]+\.css)(?:\?[^"]*)?">', inline_style, html)
     mock=r'''
     const previewGifts=GIFTS;
 const previewCatalog=CATALOG_SEED;
@@ -138,9 +144,14 @@ const previewCatalog=CATALOG_SEED;
      persistDemo();return {ok,json:async()=>data};
     };
     '''.replace('GIFTS',json.dumps(DEMO_GIFTS,ensure_ascii=False)).replace('GIFT_LIMIT',str(CRAFT_GIFT_LIMIT)).replace('CATALOG_SEED',gzip.decompress((root/'data/catalog_seed.json.gz').read_bytes()).decode())
-    for script in (root/'static').glob('*.js'):
-        body = (mock + '\n' if script.name == 'app.js' else '') + script.read_text()
-        html = html.replace(f'<script src="/static/{script.name}"></script>', '<script>' + body + '</script>')
+    def inline_script(match):
+        path = root / 'static' / match.group(1)
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        body = (mock + '\n' if path.name == 'app.js' else '') + path.read_text(encoding='utf-8')
+        # Keep the exact order from the application's template.
+        return '<script>' + body + '</script>'
+    html = re.sub(r'<script src="/static/([^"?]+\.js)(?:\?[^"]*)?"></script>', inline_script, html)
     for file in (root/'static/assets').iterdir():
         if file.suffix in ('.webp', '.png') and '/static/assets/' + file.name in html:
             encoded = base64.b64encode(file.read_bytes()).decode()

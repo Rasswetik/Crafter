@@ -38,7 +38,18 @@ def test_banner_publication_and_image_survive_edit_and_restart(tmp_path):
 
     client = create_app(config).test_client()
     data = client.get('/api/banners').json
-    assert data['carousel'] == settings
+    assert {key:data['carousel'][key] for key in settings} == settings
+    assert data['carousel']['show_counter'] is False
+    assert data['carousel']['show_dots'] is True
+    assert data['carousel']['auto_rotate'] is True
+    # Dots and autoplay are independent. Swipes must still work when both are off.
+    assert client.post('/api/admin/banners/carousel', headers=headers, json={
+        'enabled': True, 'interval': 7, 'show_dots': False,
+        'show_counter': False, 'auto_rotate': False,
+    }).status_code == 200
+    updated = client.get('/api/banners').json['carousel']
+    assert updated['enabled'] is True and updated['interval'] == 7
+    assert updated['show_dots'] is False and updated['auto_rotate'] is False
     banner, = data['banners']
     assert (banner['target'], banner['focus_x'], banner['image_url']) == ('witchhat', 10, draft['image_url'])
     asset = client.get(banner['image_url'])
