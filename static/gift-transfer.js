@@ -79,8 +79,11 @@ function openGiftDeposit() {
             status.textContent = 'Убедитесь, что отправляете подарок именно этому аккаунту.';
             button.disabled = false;
         } else {
-            target.textContent = 'Relayer пока недоступен';
-            status.textContent = 'Приём NFT ещё не настроен. Администратору нужно проверить подключение Relayer и его username.';
+            const syncing = info.status === 'initial_sync';
+            target.textContent = syncing ? 'Подготовка Relayer' : 'Relayer пока недоступен';
+            status.textContent = syncing
+                ? 'Идёт первая синхронизация подарков. До её завершения отправка новых NFT временно недоступна.'
+                : 'Приём NFT ещё не настроен. Администратору нужно проверить подключение Relayer и его username.';
         }
     }).catch(() => {
         if (serial !== giftDepositRequest) return;
