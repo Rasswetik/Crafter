@@ -17,7 +17,7 @@ let sheetPressOutside = false;
 
 function sheet(title, html) {
     clearTimeout(sheetCloseTimer);
-    appSheet.classList.remove('sheet-closing');
+    appSheet.classList.remove('sheet-closing', 'transfer-picker-sheet');
     document.querySelector('#sheet-title').textContent = title;
     document.querySelector('#sheet-body').innerHTML = html;
     if (!appSheet.open) appSheet.showModal();

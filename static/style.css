@@ -265,8 +265,8 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
 .anvil-mark {
     display: block;
     background: currentColor;
-    -webkit-mask: url('/static/assets/anvil-mark.webp') center / contain no-repeat;
-    mask: url('/static/assets/anvil-mark.webp') center / contain no-repeat;
+    -webkit-mask: url('/static/assets/anvil-mark.png') center / contain no-repeat;
+    mask: url('/static/assets/anvil-mark.png') center / contain no-repeat;
 }
 .craft-icon { width: 23px; height: 23px; flex: none; }
 .card-craft .craft-icon { width: 15px; height: 15px; }
@@ -633,12 +633,9 @@ html { touch-action: pan-x pan-y; }
 .inventory-gift .price b { display:flex; align-items:center; gap:4px; white-space:nowrap }
 .inventory-gift .gram-icon { filter:brightness(0) saturate(100%) invert(63%) sepia(75%) saturate(1662%) hue-rotate(172deg) }
 .inventory-craft-dot { position:absolute; top:13px; left:13px; z-index:2; width:29px; height:29px; display:grid; place-items:center; border-radius:50%; background:#7358abd9 }
-.inventory-craft-dot svg { width:16px; height:16px }
 .inventory-actions { margin-top:12px }
 .gift-deposit-banner { display:flex; justify-content:center; align-items:center; gap:24px; padding:38px 12px; border-radius:20px; background:linear-gradient(160deg,#168bff,#75c6ef) }
 .gift-deposit-banner svg { width:42px; height:42px }
-.transfer-picker-list { display:grid; gap:9px; margin:12px 0; max-height:52dvh; overflow:auto }
-.transfer-option { display:grid; grid-template-columns:46px 1fr auto; align-items:center; gap:10px; padding:9px; border-radius:14px; background:#262626 }
 .transfer-option small,.transfer-match small { display:block; color:#a6a6a6; margin-top:4px }
 .transfer-option input,.transfer-anonymous input { accent-color:var(--blue) }
 .transfer-art { display:block; width:45px; aspect-ratio:1; overflow:hidden; border-radius:12px }
@@ -675,3 +672,63 @@ button.market-activity-row:hover { background:#ffffff0b }
 .bot-emoji-picker img { width:33px; height:33px; object-fit:contain }
 .gift-history-filters { display:flex; gap:8px; margin:10px 0 16px }
 .gift-history-filters select { min-width:0; border:1px solid #383838; border-radius:16px; padding:7px; background:#252525; color:inherit }
+
+.inventory-actions {
+    margin:12px 0 18px;padding:7px 4px;border-radius:23px;background:#202020;
+}
+.inventory-actions button {
+    min-width:0;min-height:44px;gap:5px;justify-content:center;
+    color:#f5f5f5;font-size:clamp(10px,2.65vw,13px);font-weight:600;
+}
+.inventory-actions button:disabled {opacity:.54}
+.inventory-actions svg,.inventory-anvil {width:18px;height:18px;flex:none}
+.inventory-actions svg {color:inherit}
+.inventory-craft-dot .inventory-anvil {width:16px;height:16px}
+.inventory-gift .basket svg {width:16px;height:16px}
+
+dialog.transfer-picker-sheet {
+    position:fixed;inset:0;margin:auto;width:min(100%,540px);height:min(100dvh,850px);max-height:100dvh;
+    max-width:none;padding:0;overflow:hidden;border:0;border-radius:0;background:#151515;
+}
+.transfer-picker-sheet[open] {display:flex;flex-direction:column}
+.transfer-picker-sheet .sheet-head {flex:none;margin:0;padding:25px 16px 22px;gap:8px}
+.transfer-picker-sheet .sheet-head h2 {font-size:clamp(18px,4.8vw,24px);line-height:1.25;font-weight:700;letter-spacing:-.025em}
+.transfer-picker-sheet .sheet-head .close {flex:none}
+.transfer-picker-sheet #sheet-body {display:flex;flex-direction:column;height:auto;flex:1;min-height:0;overflow:hidden}
+.transfer-picker-controls {flex:none;padding:0 16px}
+.transfer-picker-controls .search-box {height:42px}
+.transfer-filter-strip {gap:6px;margin:11px 0 14px;padding-bottom:2px}
+.transfer-filter-strip .sort[aria-pressed="true"] {color:#64b2ff;background:#213347}
+.transfer-filter-chip {position:relative;flex:none;padding:0;min-height:34px}
+.transfer-filter-chip select {appearance:none;max-width:162px;background:none;border:0;color:inherit;padding:7px 28px 7px 13px;font-size:12px;font-weight:700}
+.transfer-filter-chip select option {background:#252525;color:white}
+.transfer-filter-chip svg {position:absolute;right:8px;top:50%;transform:translateY(-50%);width:13px;height:13px;pointer-events:none}
+.transfer-select-tools {display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:36px;margin:2px 0 7px;font-size:13px;font-weight:700}
+.transfer-select-tools label {display:flex;align-items:center;gap:7px}
+.transfer-select-tools small {color:#919199}
+.transfer-select-tools button {padding:6px 0;color:#62b3ff;font-size:inherit;font-weight:700;text-align:right}
+.transfer-checkbox {
+    appearance:none;display:grid;place-items:center;flex:none;width:20px;height:20px;margin:0;
+    border:1px solid #45454a;border-radius:7px;background:transparent;color:#fff;cursor:pointer;
+}
+.transfer-checkbox:checked,.transfer-checkbox:indeterminate {border-color:#168aff;background:#168aff}
+.transfer-checkbox:checked::after {content:'';width:8px;height:4px;border:solid currentColor;border-width:0 0 2px 2px;transform:translateY(-1px) rotate(-45deg)}
+.transfer-checkbox:indeterminate::after {content:'';width:8px;height:2px;border-radius:1px;background:currentColor}
+.transfer-picker-list {display:flex;flex:1;flex-direction:column;gap:13px;min-height:0;overflow:auto;padding:2px 16px 14px;overscroll-behavior:contain;scrollbar-width:thin}
+.transfer-option {display:block;flex:none;padding:12px;border-radius:20px;background:#222;cursor:pointer}
+.transfer-option-top {display:grid;grid-template-columns:56px minmax(0,1fr) auto;align-items:center;gap:12px}
+.transfer-option-top .transfer-art {width:56px;border-radius:15px}
+.transfer-option-name {min-width:0}
+.transfer-option-name b {display:block;font-size:17px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transfer-option-name small {display:block;margin-top:4px;color:#9e9ea5;font-size:12px}
+.transfer-option-details {display:grid;gap:5px;margin-top:11px;padding-top:11px;border-top:1px solid #353535}
+.transfer-detail {display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12px}
+.transfer-detail>span {min-width:0;color:#a3a3ab}
+.transfer-detail>b {flex:none;color:#f6f6f8}
+.transfer-trait>span {color:#61afff;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.transfer-trait small:not([hidden]) {display:inline-block;padding:1px 3px;border-radius:4px;background:#18344d;color:#76c1ff;font-size:9px;vertical-align:1px}
+.transfer-picker-footer {
+    flex:none;display:flex;gap:8px;margin:0;padding:11px 12px calc(12px + env(safe-area-inset-bottom));
+    border-radius:14px 14px 0 0;background:#252525;
+}
+.transfer-picker-footer button {min-width:0;min-height:48px;border-radius:24px;padding:6px 10px;font-size:clamp(12px,3.7vw,16px);font-weight:700}

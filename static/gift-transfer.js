@@ -19,49 +19,169 @@ function transferArt(gift) {
     return `<span class="transfer-art" style="background:${giftBackdrop(gift)}"><img ${giftPicture(gift)} alt="" loading="lazy"></span>`;
 }
 
+const transferPickerTraits = [['name','Коллекция'], ['model','Модель'], ['backdrop','Фон'], ['symbol','Символ']];
+const TRANSFER_LIMIT = 100;
+
+function transferPickerRow(gift, index, checked) {
+    const traits = [['model', 'models', gift.model], ['backdrop', 'backdrops', gift.backdrop]];
+    return `<label class="transfer-option" data-picker-index="${index}">
+        <span class="transfer-option-top">
+            ${transferArt(gift)}
+            <span class="transfer-option-name"><b>${esc(gift.name)}</b><small>${gift.number ? '#' + esc(gift.number) : ''}</small></span>
+            <input class="transfer-checkbox" type="checkbox" value="${esc(gift.id)}" aria-label="Выбрать ${esc(gift.name)}" ${checked ? 'checked' : ''}>
+        </span>
+        <span class="transfer-option-details">
+            <span class="transfer-detail"><span>Мин. цена</span><b>${esc(productFloor(gift))}</b></span>
+            ${traits.filter(([, , name]) => name).map(([key, group, name]) => {
+                const rarity = Number(gift.rarity?.[key]);
+                return `<span class="transfer-detail transfer-trait" data-group="${group}" data-trait="${esc(name)}">
+                    <span>${esc(name)} <small data-picker-rarity ${rarity > 0 ? '' : 'hidden'}>${rarity > 0 ? money(rarity / 10) + '%' : ''}</small></span>
+                    <b data-picker-price>—</b>
+                </span>`;
+            }).join('')}
+        </span>
+    </label>`;
+}
+
 function renderTransferPicker(first = false) {
     const draft = transferDraft;
     if (!draft || draft.sending) return;
-    draft.picking = new Set(draft.ids);
     const inventory = state.inventory.filter(gift => gift.status === 'unlisted');
+    draft.picking = new Set(inventory.filter(gift => draft.ids.has(gift.id)).map(gift => gift.id));
     sheet('Выберите подарки для отправки', `
-        <label class="search-box">${icon('search')}<input placeholder="Быстрый поиск" aria-label="Поиск подарков"></label>
+        <div class="transfer-picker-controls">
+            <label class="search-box">${icon('search')}<input type="search" placeholder="Быстрый поиск" aria-label="Поиск подарков"></label>
+            <div class="filter-strip transfer-filter-strip">
+                <button type="button" class="sort" data-picker-reset aria-label="Сбросить фильтры">${icon('filter')}</button>
+                <button type="button" class="sort" data-picker-sort aria-label="Сортировать по цене" aria-pressed="false">${icon('sortOrder')}</button>
+                <span class="filter-divider"></span>
+                ${transferPickerTraits.map(([key, label]) => `<label class="filter-chip transfer-filter-chip">
+                    <select aria-label="${label}" data-picker-filter="${key}">
+                        <option value="">${label}</option>
+                        ${[...new Set(inventory.map(gift => gift[key]).filter(Boolean))].sort((a,b) => a.localeCompare(b)).map(value =>
+                            `<option value="${esc(value)}">${esc(value)}</option>`).join('')}
+                    </select>${icon('chevron')}
+                </label>`).join('')}
+            </div>
+            <div class="transfer-select-tools">
+                <label><input class="transfer-checkbox" type="checkbox" data-picker-all> Выбрать всё <small data-picker-count></small></label>
+                <button type="button" data-picker-clear>Снять выделение</button>
+            </div>
+        </div>
         <div class="transfer-picker-list"></div>
-        <div class="transfer-actions"><button class="secondary" onclick="${first ? 'closeSheet()' : 'renderTransferRecipient()'}">Отмена</button>
+        <div class="transfer-actions transfer-picker-footer"><button class="secondary" onclick="${first ? 'closeSheet()' : 'renderTransferRecipient()'}">Отмена</button>
         <button class="primary" id="transfer-picker-apply" onclick="applyTransferPicker()">Выбрать</button></div>`);
+    const dialog = document.querySelector('#sheet');
+    dialog.classList.add('transfer-picker-sheet');
     const panel = document.querySelector('#sheet-body');
-    const input = panel.querySelector('input');
+    const input = panel.querySelector('input[type=search]');
     const list = panel.querySelector('.transfer-picker-list');
+    const selects = [...panel.querySelectorAll('[data-picker-filter]')];
+    const all = panel.querySelector('[data-picker-all]');
+    const clear = panel.querySelector('[data-picker-clear]');
+    const sortButton = panel.querySelector('[data-picker-sort]');
+    const count = panel.querySelector('[data-picker-count]');
+    const apply = panel.querySelector('#transfer-picker-apply');
+    const attributes = new Map();
+    let observer, sort = false, visible = [];
+
+    const paintSelection = () => {
+        const selected = visible.filter(gift => draft.picking.has(gift.id)).length;
+        all.disabled = !visible.length;
+        all.checked = !!selected && selected === visible.length;
+        all.indeterminate = selected > 0 && !all.checked;
+        clear.disabled = !draft.picking.size;
+        clear.textContent = 'Снять выделение' + (draft.picking.size ? ' · ' + draft.picking.size : '');
+        count.textContent = '· ' + visible.length;
+        apply.disabled = !draft.picking.size;
+        apply.textContent = draft.picking.size ? 'Выбрать ' + draft.picking.size + ' ' + giftCountWord(draft.picking.size) : 'Выбрать подарки';
+    };
+
     const paint = () => {
         const query = input.value.trim().toLowerCase();
-        const visible = inventory.filter(gift => (gift.name + ' ' + gift.number + ' ' + (gift.model || '')).toLowerCase().includes(query));
-        list.innerHTML = visible.map(gift => `<label class="transfer-option">
-            ${transferArt(gift)}<span><b>${esc(gift.name)}</b><small>#${esc(gift.number)} · ${esc(productFloor(gift))}</small></span>
-            <input type="checkbox" value="${esc(gift.id)}" ${draft.picking.has(gift.id) ? 'checked' : ''}>
-        </label>`).join('') || '<p class="sub">Подходящих подарков нет</p>';
+        visible = inventory.filter(gift =>
+            selects.every(select => !select.value || gift[select.dataset.pickerFilter] === select.value) &&
+            [gift.name, gift.number, gift.model, gift.backdrop].some(value => String(value ?? '').toLowerCase().includes(query)));
+        if (sort) visible.sort((a,b) => Number(a.floor_price || a.price || 0) - Number(b.floor_price || b.price || 0));
+        list.innerHTML = visible.map((gift, index) => transferPickerRow(gift, index, draft.picking.has(gift.id))).join('') ||
+            '<p class="sub">Подходящих подарков нет</p>';
+        paintSelection();
+        observer?.disconnect();
+        const observedGifts = visible;
+        observer = new IntersectionObserver((entries, activeObserver) => {
+            for (const entry of entries) {
+                if (!entry.isIntersecting || !entry.target.isConnected) continue;
+                activeObserver.unobserve(entry.target);
+                const gift = observedGifts[Number(entry.target.dataset.pickerIndex)];
+                const key = gift.collection_id || gift.name;
+                if (!attributes.has(key)) {
+                    attributes.set(key, Promise.resolve(state.catalogReady).then(() => giftAttributes(gift)).catch(() => null));
+                }
+                attributes.get(key).then(data => paintTransferTraits(entry.target, data));
+            }
+        }, {root:list});
+        list.querySelectorAll('[data-picker-index]').forEach(row => observer.observe(row));
     };
+
     input.addEventListener('input', paint);
-    list.addEventListener('change', event => {
-        const input = event.target;
-        if (!input.matches('input[type=checkbox]')) return;
-        if (input.checked && draft.picking.size >= 100) {
-            input.checked = false;
-            toast('Можно выбрать до 100 подарков');
-            return;
+    selects.forEach(select => select.addEventListener('change', paint));
+    sortButton.onclick = () => {
+        sort = !sort;
+        sortButton.setAttribute('aria-pressed', String(sort));
+        paint();
+    };
+    panel.querySelector('[data-picker-reset]').onclick = () => {
+        input.value = '';
+        selects.forEach(select => { select.value = ''; });
+        paint();
+    };
+    all.onchange = () => {
+        if (all.checked) {
+            for (const gift of visible) {
+                if (draft.picking.size >= TRANSFER_LIMIT) break;
+                draft.picking.add(gift.id);
+            }
+            if (visible.some(gift => !draft.picking.has(gift.id))) toast('Можно выбрать до 100 подарков');
+        } else {
+            visible.forEach(gift => draft.picking.delete(gift.id));
         }
-        if (input.checked) draft.picking.add(input.value);
-        else draft.picking.delete(input.value);
-        paintTransferPickerButton();
+        list.querySelectorAll('input').forEach(box => { box.checked = draft.picking.has(box.value); });
+        paintSelection();
+    };
+    clear.onclick = () => {
+        draft.picking.clear();
+        list.querySelectorAll('input').forEach(box => { box.checked = false; });
+        paintSelection();
+    };
+    list.addEventListener('change', event => {
+        const box = event.target;
+        if (!box.matches('input[type=checkbox]')) return;
+        if (!box.checked) draft.picking.delete(box.value);
+        else if (draft.picking.size < TRANSFER_LIMIT) draft.picking.add(box.value);
+        else {
+            box.checked = false;
+            toast('Можно выбрать до 100 подарков');
+        }
+        paintSelection();
     });
+    dialog.addEventListener('close', () => observer?.disconnect(), {once:true});
     paint();
-    paintTransferPickerButton();
 }
 
-function paintTransferPickerButton() {
-    const count = transferDraft.picking.size;
-    const button = document.querySelector('#transfer-picker-apply');
-    button.disabled = !count;
-    button.textContent = count ? 'Выбрать ' + count + ' ' + giftCountWord(count) : 'Выбрать подарки';
+function paintTransferTraits(row, data) {
+    if (!row.isConnected || !data) return;
+    for (const trait of row.querySelectorAll('[data-group]')) {
+        const {group, trait:name} = trait.dataset;
+        const item = data[group]?.find(value => value.name === name);
+        const price = Number(item?.stats?.floor) / 1e9;
+        if (price > 0) trait.querySelector('[data-picker-price]').textContent = money(price) + ' TON';
+        const rarity = Number(item?.rarity_per_mille ?? item?.rarity_permille);
+        if (rarity > 0) {
+            const badge = trait.querySelector('[data-picker-rarity]');
+            badge.textContent = money(rarity / 10) + '%';
+            badge.hidden = false;
+        }
+    }
 }
 
 function applyTransferPicker() {
