@@ -10,15 +10,17 @@ nav = function() {
     const root = document.querySelector('#nav');
     if (!root) return;
     const inGames = Boolean(state.gamesMode || ['games','craft'].includes(state.page));
+    const sidePage = inGames ? 'market' : 'games';
+    const sideLabel = inGames ? 'Маркет' : 'Игры';
     const destinations = inGames ? [
-        ['market','market','Маркет'],['games','games','Hub']
+        ['games','games','Hub']
     ] : [
         ['market','market','Маркет'],['gifts','gift','Мои подарки'],
         ['staking','staking','Стейкинг']
     ];
     root.classList.toggle('games-nav', inGames);
-    root.innerHTML = `${inGames ? '' : `<button class="games-entry" type="button" onclick="go('games')" aria-label="Игры">
-        <span class="stake-nav-icon">${gamesHubIcon}</span><span>Игры</span></button>`}
+    root.innerHTML = `<button class="games-entry" type="button" onclick="go('${sidePage}')" aria-label="${sideLabel}">
+        <span class="stake-nav-icon">${gameNavIcons[sidePage] || icon(sidePage)}</span><span>${sideLabel}</span></button>
         <div class="nav-main">${destinations.map(([page,kind,title]) => `
         <button type="button" onclick="go('${page}')" class="${state.page === page || (page === 'games' && state.page === 'craft') ? 'active' : ''}"
             aria-label="${title}"><span class="stake-nav-icon">${gameNavIcons[kind] || icon(kind)}</span><span>${title}</span></button>`).join('')}</div>
