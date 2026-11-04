@@ -53,26 +53,43 @@ function catalogCollectionForArtwork(row) {
             String(c.id)===String(value) || String(c.name)===String(value))) || null;
 }
 function catalogArtworkURLs(row) {
-    const kind = state.sheetKind;
-    const collection = catalogCollectionForArtwork(row);
-    const collectionName = collection?.name ||
+    const kind=state.sheetKind;
+    const collection=catalogCollectionForArtwork(row);
+    const collectionName=collection?.name ||
         (kind==='collection'||kind==='target' ? row.name : '');
-    const chosen = kind==='collection'||kind==='target' ?
-        state.catalog?.collections?.find(c=>String(c.id)===String(row.value) ||
-            giftCollectionSlug(c.name)===giftCollectionSlug(row.name)) : collection;
-    const official = imageURL(chosen?.photo_url);
-    const fragment = fragmentCollectionImage(giftCollectionSlug(collectionName));
-    const listed = imageURL(row.image);
-    // Gift-specific art must never replace a collection thumbnail.
-    if (kind==='collection'||kind==='target') return [...new Set([official, fragment].filter(Boolean))];
-    const name = collectionName || (state.page==='gifts' ?
+    const collectionSlug=giftCollectionSlug(collectionName);
+    const proxy=fragmentCollectionImage(collectionSlug);
+    const direct=directFragmentCollectionImage(collectionSlug);
+    const official=imageURL(collection?.photo_url);
+    const listed=imageURL(row.image);
+    // Collection icons are separate assets. A random NFT model must never be
+    // shown as the collection icon (including in "My Gifts").
+    if(kind==='collection'||kind==='target'){
+        return [...new Set([proxy,direct,official].filter(Boolean))];
+    }
+    const trait=kind==='model'?'model':kind==='symbol'?'symbol':null;
+    let exactGift='';
+    if(trait){
+        const inventory=state.inventory||[];
+        const marketplace=state.gifts||[];
+        const all=state.page==='gifts' ? inventory : [...marketplace,...inventory];
+        const match=all.find(gift=>{
+            if(String(gift[trait]||'').toLocaleLowerCase()!==String(row.name).toLocaleLowerCase())
+                return false;
+            if(collectionName && giftCollectionSlug(gift.name)!==collectionSlug)
+                return false;
+            return Boolean(imageURL(gift.image));
+        });
+        exactGift=imageURL(match?.image);
+    }
+    const name=collectionName || (state.page==='gifts' ?
         (state.inventory||[]).find(g=>String(g[kind]||'')===String(row.name))?.name : '');
-    const part = value => encodeURIComponent(String(value||'').trim());
-    const exact = name && row.name && (kind==='model'||kind==='symbol') ?
-        'https://api.changes.tg/'+kind+'/'+part(name)+'/'+part(row.name)+'.png' : '';
-    // Fallback artwork must belong to this exact trait, or be the official
-    // collection thumbnail. Never show a random model from another gift.
-    if (kind==='model'||kind==='symbol') return [...new Set([exact,listed,official,fragment].filter(Boolean))];
+    const part=value=>encodeURIComponent(String(value||'').trim());
+    const exact=name && row.name && trait ?
+        'https://api.changes.tg/'+trait+'/'+part(name)+'/'+part(row.name)+'.png' : '';
+    // Start with an actual matching model/symbol, then verified provider art,
+    // then the official collection thumbnail as the last non-random fallback.
+    if(trait) return [...new Set([exactGift,listed,exact,proxy,direct,official].filter(Boolean))];
     return [];
 }
 function catalogRowArtwork(row) {
