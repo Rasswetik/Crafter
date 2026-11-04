@@ -22,7 +22,7 @@ const previewCatalog=CATALOG_SEED;
      const route=url.replace('/api/','').split('?')[0],body=JSON.parse(options.body||'{}');let data={},ok=true;
      if(route==='craft/targets')data={gifts:previewGifts,demo:true};
      else if(route==='me')data={user:{id:5257227756,first_name:'Гошан',username:'goshan_wow'},is_admin:true,demo:true,balance:String(demoState.balance),inventory_count:demoState.inventory.length,inventory_value:String(demoState.inventory.reduce((a,x)=>a+Number(x.price),0)),bought:demoState.history.filter(x=>x.kind==='buy').length,sold:0,volume:'0',referrals:0,referral_level:1,referral_progress:0,invite_link:null};
-     else if(route==='market')data={gifts:previewGifts,demo:true,source:'demo'};
+     else if(route==='market')data={gifts:previewGifts.filter(gift => !demoState.luckySold?.includes(gift.id)),demo:true,source:'demo'};
      else if(route==='inventory')data={gifts:demoState.inventory,demo:true};
      else if(route==='history')data={items:demoState.history};
      else if(route==='catalog')data={collections:previewCatalog.collections,attributes:{},source:'snapshot'};
@@ -33,17 +33,19 @@ const previewCatalog=CATALOG_SEED;
      else if (route === 'craft/quote') {
         const ids = body.gift_ids;
         const target = previewCatalog.collections.find(collection => collection.id === body.target_id);
+        const listing = body.listing_id && previewGifts.find(gift => gift.id === body.listing_id && gift.name === target?.name &&
+            !demoState.luckySold?.includes(gift.id));
         if (!Array.isArray(ids) || !ids.length || ids.length > GIFT_LIMIT || new Set(ids).size !== ids.length) {
             ok = false;
             data = {error: 'Выберите от 1 до 4 подарков'};
-        } else if (!target || !ids.every(id => demoState.inventory.some(gift => gift.id === id && gift.status === 'unlisted'))) {
+        } else if (!target || (body.listing_id && !listing) || !ids.every(id => demoState.inventory.some(gift => gift.id === id && gift.status === 'unlisted'))) {
             ok = false;
             data = {error: 'Подарок недоступен'};
         } else {
             const id = 'preview-' + Date.now() + '-' + nextPreviewQuote++;
             const expires = Date.now() / 1000 + 120;
             data = {quote_id: id, expires_at: expires, chance: ids.length * 20};
-            previewQuotes.set(id, {...data, ids, target});
+            previewQuotes.set(id, {...data, ids, target, listing});
         }
      }
      else if (route === 'craft') {
@@ -53,19 +55,23 @@ const previewCatalog=CATALOG_SEED;
         else if (!quote || quote.expires_at <= Date.now() / 1000) {
             ok = false;
             data = {error: 'Расчёт устарел. Повторите выбор.'};
-        } else if (!quote.ids.every(id => demoState.inventory.some(gift => gift.id === id && gift.status === 'unlisted'))) {
+        } else if (demoState.luckySold?.includes(quote.listing?.id) || !quote.ids.every(id => demoState.inventory.some(gift => gift.id === id && gift.status === 'unlisted'))) {
             ok = false;
             data = {error: 'Подарок недоступен'};
         } else {
-            const {ids, target, chance} = quote;
+            const {ids, target, chance, listing} = quote;
             const model = target.models?.[Math.floor(Math.random() * target.models.length)];
             const success = Math.random() * 100 < chance;
-            const gift = success ? {id: 'crafted-' + Date.now(), collection_id: target.id,
+            const gift = success ? listing ? {...listing, source_id:listing.id, source_number:listing.number,
+                id:'crafted-' + Date.now(), status:'unlisted', price_unit:'GRAM', crafted:true} : {id: 'crafted-' + Date.now(), collection_id: target.id,
                 name: target.name, image: model?.image || target.photo_url, model: model?.name || '',
                 price: target.floor_price, number: Math.floor(Math.random() * 999999) + 1,
                 status: 'unlisted', price_unit: 'GRAM', crafted: true} : null;
             demoState.inventory = demoState.inventory.filter(item => !ids.includes(item.id));
-            if (gift) demoState.inventory.push(gift);
+            if (gift) {
+                demoState.inventory.push(gift);
+                if (listing) (demoState.luckySold ??= []).push(listing.id);
+            }
             data = {demo: true, success, gift, consumed: ids};
             demoState.requests[body.request_id] = data;
             previewQuotes.delete(body.quote_id);

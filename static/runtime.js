@@ -32,6 +32,10 @@ function restoreCraftDraft() {
         if (target && (typeof target.id === 'string' || Number.isSafeInteger(target.id)) &&
                 typeof target.name === 'string') {
             state.target = { id: target.id, name: target.name, image: imageURL(target.image) };
+            if (typeof target.listingId === 'string' && /^[1-9]\d*$/.test(String(target.number))) {
+                state.target.listingId = target.listingId;
+                state.target.number = target.number;
+            }
         }
         return draft.resume === true;
     } catch {

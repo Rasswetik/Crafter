@@ -202,7 +202,7 @@ async function runCraft() {
     button.textContent = 'Изготовление…';
 
     try {
-        const quote = await getCraftQuote(ids, state.target.id);
+        const quote = await getCraftQuote(ids, state.target.id, state.target.listingId);
         state.quote = quote;
         const result = await api('craft', { quote_id: quote.quote_id, request_id: quote.quote_id });
         if (result.gift && !giftAnimationMotion.matches) prepareGiftAnimation(result.gift);
@@ -214,6 +214,7 @@ async function runCraft() {
         }
         if (result.gift?.source_id) {
             const won = result.gift;
+            if (state.target?.listingId === won.source_id) state.target = null;
             const isWon = item => item.id === won.source_id ||
                 (item.name === won.name && String(item.number) === String(won.source_number));
             state.gifts = state.gifts.filter(item => !isWon(item));

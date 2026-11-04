@@ -22,7 +22,7 @@ function renderCraft() {
     )).filter(Boolean).slice(0, CRAFT_GIFT_LIMIT);
     state.selected = gifts.map(gift => gift.id);
     saveCraftDraft();
-    const quote = state.quote?.key === craftQuoteKey(state.selected, state.target?.id) ? state.quote : null;
+    const quote = state.quote?.key === craftQuoteKey(state.selected, state.target?.id, state.target?.listingId) ? state.quote : null;
     const pending = !quote && gifts.length > 0 && Boolean(state.target);
     const chance = quote?.chance ?? (pending ? null : 0);
     document.querySelector('#main').innerHTML = `
@@ -44,7 +44,7 @@ function renderCraft() {
             </div>
             <div class="craft-caption">Добавьте до <b>${CRAFT_GIFT_LIMIT} подарков</b>, чтобы скрафтить</div>
             <button class="target" onclick="chooseTarget()">${state.target ?
-                `<img src="${esc(imageURL(state.target.image))}" alt="">${esc(state.target.name)}` :
+                `<img src="${esc(imageURL(state.target.image))}" alt="">${esc(state.target.name)}${state.target.number ? ` #${esc(state.target.number)}` : ''}` :
                 'Выберите подарок'}${icon('chevron')}</button>
             <div class="craft-warning">⚠ Если крафт не удастся,<br>подарки сгорят</div>
             <div class="craft-bottom">
@@ -71,18 +71,18 @@ function removeGift(id) {
     updateCraftQuote();
 }
 
-const craftQuoteKey = (ids, target) => JSON.stringify([target, ids]);
+const craftQuoteKey = (ids, target, listingId) => JSON.stringify([target, listingId ?? null, ids]);
 let pendingCraftQuote;
 
-function getCraftQuote(ids, target) {
-    const key = craftQuoteKey(ids, target);
+function getCraftQuote(ids, target, listingId) {
+    const key = craftQuoteKey(ids, target, listingId);
     if (state.quote?.key === key && state.quote.expires_at > Date.now() / 1000) {
         return Promise.resolve(state.quote);
     }
     if (pendingCraftQuote?.key === key) return pendingCraftQuote.promise;
 
     const pending = {key};
-    pending.promise = api('craft/quote', {gift_ids: ids, target_id: target})
+    pending.promise = api('craft/quote', {gift_ids: ids, target_id: target, listing_id: listingId})
         .then(quote => ({...quote, key}))
         .finally(() => {
             if (pendingCraftQuote === pending) pendingCraftQuote = null;
@@ -94,15 +94,16 @@ function getCraftQuote(ids, target) {
 async function updateCraftQuote() {
     const ids = state.selected;
     const target = state.target?.id;
+    const listingId = state.target?.listingId;
     if (!ids.length || !target) return;
     const isCurrent = () => !state.crafting && state.page === 'craft' &&
-        craftQuoteKey(ids, target) === craftQuoteKey(state.selected, state.target?.id);
-    const estimate = estimateCraftChance(ids, target);
-    if (estimate !== null && state.quote?.key !== craftQuoteKey(ids, target)) {
+        craftQuoteKey(ids, target, listingId) === craftQuoteKey(state.selected, state.target?.id, state.target?.listingId);
+    const estimate = listingId ? null : estimateCraftChance(ids, target);
+    if (estimate !== null && state.quote?.key !== craftQuoteKey(ids, target, listingId)) {
         showCraftChance(estimate, true);
     }
     try {
-        const quote = await getCraftQuote(ids, target);
+        const quote = await getCraftQuote(ids, target, listingId);
         if (!isCurrent()) return;
         state.quote = quote;
         showCraftChance(quote.chance);
@@ -202,13 +203,50 @@ function productFloor(gift) {
     return '—';
 }
 
+function giftCollection(gift) {
+    return state.catalog.collections.find(item => item.id === gift.collection_id || item.name === gift.name);
+}
+
+function chooseLuckyGift(id) {
+    const gift = state.gifts.find(item => item.id === id);
+    const collection = gift && giftCollection(gift);
+    if (!gift?.number || gift.catalog_only || !collection) return toast('Лот недоступен для Lucky Craft');
+    state.target = {id: collection.id, listingId: gift.id, number: gift.number, name: gift.name, image: gift.image};
+    state.quote = null;
+    closeSheet();
+    go('craft');
+}
+
+async function loadGiftAttributePrices(panel, gift, attributes) {
+    const collection = giftCollection(gift);
+    if (!collection) return;
+    try {
+        const data = await api('collections/' + encodeURIComponent(collection.id) + '/attributes');
+        if (!panel.isConnected) return;
+        for (const [key, , name] of attributes) {
+            const group = {model:'models', symbol:'symbols', backdrop:'backdrops'}[key];
+            const match = data[group]?.find(item => item.name === name);
+            const price = Number(match?.stats?.floor) / 1e9;
+            if (Number.isFinite(price) && price > 0) {
+                panel.querySelector('[data-trait-price="' + key + '"]').textContent = money(price) + ' TON';
+            }
+            const rarity = Number(match?.rarity_per_mille ?? match?.rarity_permille);
+            if (Number.isFinite(rarity) && rarity > 0) {
+                panel.querySelector('[data-trait-rarity="' + key + '"]').textContent = money(rarity / 10) + '%';
+            }
+        }
+    } catch {
+        // Keep unavailable estimates blank when the market data source is unavailable.
+    }
+}
+
 detail = function (id) {
     const own = state.page === 'gifts';
     const gift = (own ? state.inventory : state.gifts).find(item => item.id === id);
     if (!gift) return;
     state.detailGift = gift;
     const eyeLabel = telegramGiftLink(gift) ? 'Открыть подарок в Telegram' : 'У подарка пока нет ссылки в Telegram';
-    const attributes = [['Модель', gift.model], ['Символ', gift.symbol], ['Фон', gift.backdrop]];
+    const attributes = [['model', 'Модель', gift.model], ['symbol', 'Узор', gift.symbol], ['backdrop', 'Фон', gift.backdrop]];
     sheet('', `
         <div class="portal-product${own ? ' owned-gift-product' : ''}">
             ${giftPattern(gift)}<img ${giftPicture(gift, true)} alt="${esc(gift.name)}">
@@ -216,18 +254,26 @@ detail = function (id) {
             <div><h2>${esc(gift.name)}</h2>${gift.number ? `<span>#${esc(gift.number)}</span>` : ''}</div>
         </div>
         <div class="product-properties">
-            ${attributes.map(([label, value]) => `<div><span>${label}</span><b>${esc(value || '—')}</b></div>`).join('')}
+            ${attributes.map(([key, label, value]) => `<div class="trait-row">
+                <span>${label}</span><b>${esc(value || '—')}<small data-trait-rarity="${key}">${Number(gift.rarity?.[key]) > 0 ? money(Number(gift.rarity[key]) / 10) + '%' : ''}</small></b>
+                <strong data-trait-price="${key}">—</strong>
+            </div>`).join('')}
             <div><span>Мин. цена</span><strong>${esc(productFloor(gift))}</strong></div>
             ${own ? '<div><span>Лучшее предложение</span><strong></strong></div>' : ''}
         </div>
         ${own ? `<div class="product-actions owned-gift-actions">
             <button class="secondary" onclick="toast('Вывод пока недоступен')">Вывод</button>
             <button class="primary" onclick="toast('Продажа пока недоступна')">Продать</button>
-        </div>` : `<button id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
+        </div>` : `<div class="market-gift-actions">
+            ${gift.number && !gift.catalog_only ? `<button class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
+                <strong>Lucky Craft</strong><small>За свои подарки</small>
+            </button>` : ''}
+            <button id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
             <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
-        </button>`}`);
+        </button></div>`}`);
     document.querySelector('#sheet').classList.add('purchase-sheet');
     mountGiftAnimation(document.querySelector('.portal-product'), gift);
+    loadGiftAttributePrices(document.querySelector('.product-properties'), gift, attributes);
 };
 
 function refreshFilteredPage(){if(state.page==='gifts')renderGifts();else renderMarket()}

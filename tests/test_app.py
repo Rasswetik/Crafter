@@ -158,3 +158,33 @@ def test_craft_keeps_black_background_and_symbol_when_market_has_only_floor(clie
     assert (gift['backdrop'], gift['symbol']) == ('Black', 'Rain Drop')
     assert 'source_id' not in gift
     assert client.get('/api/market', headers=headers).json['gifts'][0]['id'] == listing['id']
+
+
+def test_lucky_craft_awards_exact_lot_and_rejects_other_quote(client, craft_inputs):
+    headers = signed()
+    first = {**DEMO_GIFTS[0], 'id': 'cheaper', 'number': 321, 'price': '1', 'price_unit': 'GRAM'}
+    target = {**first, 'id': 'lucky', 'number': 71904, 'price': '20',
+              'model': 'Radagast', 'symbol': 'Baphomet', 'backdrop': 'Silver Blue'}
+    alias = {**target, 'id': 'lucky-alias'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('INSERT INTO cache VALUES (?, ?, ?)',
+                   ('public:market:', json.dumps({'gifts': [first, target, alias]}), int(time.time())))
+
+    def quote(input_id):
+        result = client.post('/api/craft/quote', headers=headers, json={
+            'gift_ids': [input_id], 'target_id': 'snoop', 'listing_id': target['id'],
+        })
+        assert result.status_code == 200
+        assert result.json['chance'] == 47.5
+        return result.json['quote_id']
+
+    winning, stale = [quote(input_id) for input_id in craft_inputs[:2]]
+    result = client.post('/api/craft', headers=headers, json={'quote_id': winning, 'request_id': winning})
+    assert result.status_code == 200
+    reward = result.json['gift']
+    assert (reward['source_id'], reward['number'], reward['symbol']) == ('lucky', 71904, 'Baphomet')
+    assert [gift['id'] for gift in client.get('/api/market', headers=headers).json['gifts']] == ['cheaper']
+    rejected = client.post('/api/craft', headers=headers, json={'quote_id': stale, 'request_id': stale})
+    assert rejected.status_code == 409
+    inventory = client.get('/api/inventory', headers=headers).json['gifts']
+    assert craft_inputs[1] in {gift['id'] for gift in inventory}

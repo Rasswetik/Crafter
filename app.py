@@ -329,6 +329,15 @@ def create_app(config=None):
         if any(canonical_name(x['name']) not in floors for x in chosen):abort(409,description='Не удалось оценить коллекцию')
         value=sum(floors[canonical_name(x['name'])] for x in chosen);cost=Decimal(target['floor_price'])
         if value<=0 or cost<=0:abort(409,description='Нет актуальной оценки подарков')
+        listing_id = data.get('listing_id')
+        if listing_id is not None:
+            if not isinstance(listing_id, str) or not 1 <= len(listing_id) <= 150:
+                abort(400, description='Некорректный лот')
+            listing = lucky_listing(target, listing_id)
+            cost = Decimal(str(listing['price']))
+            return dict(gift_ids=ids, target_id=target['id'], target=target, listing_id=listing_id,
+                        listing_key=market_collectible_key(listing), target_value=str(cost), input_value=str(value),
+                        chance_bps=min(9500, int(value / cost * Decimal(9500))), scope='application')
         models=collection_models(target['id'])
         if not models:abort(409,description='Модели коллекции пока недоступны')
         allowed=db().execute("SELECT payload FROM settings WHERE key='selection'").fetchone()
@@ -354,44 +363,53 @@ def create_app(config=None):
         db().execute('INSERT INTO craft_quotes VALUES(?,?,?,?)',(qid,g.user['id'],json.dumps(q),int(time.time())));db().commit()
         return dict(quote_id=qid,chance=q['chance_bps']/100,input_value=q['input_value'],target_value=q['target_value'],price_unit='TON',expires_at=int(time.time())+120,scope='application')
 
-    def claim_craft_market_gift(target, model, backdrop, symbol):
-        # Use the same freshness window as local checkout and claim inside the craft transaction.
+    def craft_market_candidates(target):
         sold = {row[0] for row in db().execute('SELECT source_id FROM local_sold')}
-        pages = db().execute("""
-            SELECT payload FROM cache
-            WHERE (key LIKE 'public:market:%' OR key LIKE 'market:%') AND updated >= ?
-            ORDER BY updated DESC
-        """, (int(time.time()) - 300,))
+        reserved = {row[0] for row in db().execute(
+            'SELECT number FROM local_numbers WHERE collection_id=?', (target['id'],))}
+        pages = db().execute(
+            "SELECT payload FROM cache WHERE (key LIKE 'public:market:%' OR key LIKE 'market:%') "
+            "AND updated >= ? ORDER BY updated DESC", (int(time.time()) - 300,))
         collection_name = canonical_name(target['name'])
-        model_name = canonical_name(model['name'])
         for row in pages:
             for gift in json.loads(row['payload']).get('gifts', []):
                 source_id = gift.get('id')
                 key = market_collectible_key(gift)
                 if (not source_id or source_id in sold or not key or key in sold or
                         gift.get('catalog_only') or canonical_name(gift.get('name', '')) != collection_name or
-                        canonical_name(gift.get('model', '')) != model_name or
-                        (symbol and canonical_name(gift.get('backdrop', '')) != canonical_name(backdrop.get('name', ''))) or
-                        (symbol and not gift.get('symbol'))):
+                        int(gift['number']) in reserved or gift.get('price_unit', 'GRAM') not in ('GRAM', 'TON')):
                     continue
-                source_unit = gift.get('price_unit', 'GRAM')
                 try:
                     price = Decimal(str(gift.get('price'))).quantize(Decimal('0.01'))
                 except InvalidOperation:
                     continue
-                if source_unit not in ('GRAM', 'TON') or not price.is_finite() or price <= 0:
-                    continue
-                number = int(gift['number'])
-                reserved = db().execute('INSERT OR IGNORE INTO local_numbers VALUES (?, ?)',
-                                        (target['id'], number))
-                if not reserved.rowcount:
-                    continue
-                db().executemany('INSERT INTO local_sold VALUES (?)', [(source_id,), (key,)])
-                return {**gift, 'id': 'craft-' + uuid.uuid4().hex, 'collection_id': target['id'],
-                        'source_id': source_id, 'source_number': number, 'number': number,
-                        'source_price': gift['price'], 'source_price_unit': source_unit,
-                        'price': str(price), 'price_unit': 'GRAM',
-                        'origin': 'application-craft', 'crafted': True}
+                if price.is_finite() and price > 0:
+                    yield gift, price
+
+    def lucky_listing(target, listing_id):
+        gift = next((gift for gift, _ in craft_market_candidates(target) if gift['id'] == listing_id), None)
+        if gift is None:
+            abort(409, description='Лот Lucky Craft недоступен. Обновите маркет и выберите подарок.')
+        return gift
+
+    def award_market_gift(target, gift, price):
+        source_id = gift['id']
+        number = int(gift['number'])
+        db().execute('INSERT INTO local_numbers VALUES (?, ?)', (target['id'], number))
+        db().executemany('INSERT INTO local_sold VALUES (?)', [(source_id,), (market_collectible_key(gift),)])
+        return {**gift, 'id': 'craft-' + uuid.uuid4().hex, 'collection_id': target['id'],
+                'source_id': source_id, 'source_number': number, 'number': number,
+                'source_price': gift['price'], 'source_price_unit': gift.get('price_unit', 'GRAM'),
+                'price': str(price), 'price_unit': 'GRAM', 'origin': 'application-craft', 'crafted': True}
+
+    def claim_craft_market_gift(target, model, backdrop, symbol):
+        for gift, price in craft_market_candidates(target):
+            if canonical_name(gift.get('model', '')) != canonical_name(model['name']):
+                continue
+            if symbol and (canonical_name(gift.get('backdrop', '')) != canonical_name(backdrop.get('name', ''))
+                           or not gift.get('symbol')):
+                continue
+            return award_market_gift(target, gift, price)
         return None
 
     @app.post('/api/craft')
@@ -411,8 +429,16 @@ def create_app(config=None):
                 abort(400, description='Выберите от 1 до 4 подарков')
             eligible = {gift['id'] for gift in owned() if gift['status'] == 'unlisted'}
             if any(x not in eligible for x in ids):abort(409,description='Подарок уже использован или выставлен на продажу')
+            listing = None
+            if q.get('listing_id'):
+                listing = lucky_listing(q['target'], q['listing_id'])
+                if (market_collectible_key(listing) != q['listing_key'] or
+                        Decimal(str(listing['price'])) != Decimal(q['target_value'])):
+                    abort(409, description='Лот изменился. Обновите расчёт Lucky Craft.')
             success=secrets.randbelow(10000)<q['chance_bps'];reward=None
-            if success:
+            if success and listing:
+                reward = award_market_gift(q['target'], listing, Decimal(q['target_value']).quantize(Decimal('0.01')))
+            elif success:
                 t, m = q['target'], q['model']
                 backdrop = q.get('backdrop', {})
                 symbol = q.get('symbol', '')
@@ -489,10 +515,13 @@ def create_app(config=None):
                 except Exception:abort(400)
                 if expected!=price:abort(409,description='Цена подарка изменилась. Обновите маркет.')
             if price>balance:abort(409,description='Недостаточно GRAM на локальном балансе')
+            collectible_key = market_collectible_key(gift)
             gift={**gift,'source_price':gift['price'],'price':str(price),'source_price_unit':source_unit,'price_unit':'GRAM','id':'local-'+uuid.uuid4().hex,'source_id':source_id,'source_number':gift.get('number'),'number':gift_number(gift.get('collection_id') or gift['name'],gift.get('number')),'origin':'local-purchase'}
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-price),g.user['id']))
             db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],gift['id'],json.dumps(gift),'unlisted'))
             db().execute('INSERT INTO local_sold VALUES(?)',(source_id,))
+            if collectible_key:
+                db().execute('INSERT OR IGNORE INTO local_sold VALUES(?)',(collectible_key,))
             result=dict(ok=True,gift=gift,balance=str(balance-price),scope='application')
             record('buy',dict(gift=gift,price=str(price),scope='application'))
             db().execute('INSERT INTO local_purchases VALUES(?,?,?)',(g.user['id'],rid,json.dumps(result)))
@@ -516,7 +545,8 @@ def create_app(config=None):
                     if gift['id'] in ids and gift['id'] not in found:found[gift['id']]=gift
                 if len(found)==len(ids):break
             if len(found)!=len(ids):abort(409,description='Цены в корзине устарели. Обновите маркет.')
-            if any(market_collectible_key(gift) in sold for gift in found.values()):
+            keys = [key for gift in found.values() if (key := market_collectible_key(gift))]
+            if len(keys) != len(set(keys)) or any(key in sold for key in keys):
                 abort(409, description='Один из подарков уже недоступен на маркете')
             total=Decimal(0)
             for gift in found.values():
@@ -538,6 +568,7 @@ def create_app(config=None):
                 record('buy',dict(gift=reward,price=str(gift['price']),scope='application'))
                 rewards.append(reward)
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-total),g.user['id']))
+            db().executemany('INSERT OR IGNORE INTO local_sold VALUES(?)', [(key,) for key in keys])
             result=dict(ok=True,gifts=rewards,balance=str(balance-total),total=str(total),scope='application')
             db().execute('INSERT INTO local_purchases VALUES(?,?,?)',(g.user['id'],rid,json.dumps(result)))
         return result
