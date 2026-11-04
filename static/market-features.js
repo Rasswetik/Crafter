@@ -18,7 +18,7 @@ function offerRequest(collection) {
     for (const key of ['model','backdrop','symbol']) if (state[key]) params.set(key, state[key]);
     const key = params.toString();
     let entry = offerCache.get(key);
-    if (!entry || Date.now() - entry.started > 30000) {
+    if (!entry || Date.now() - entry.started > 10000) {
         entry = {started:Date.now(), data:null};
         entry.promise = api('market/offers?' + key).then(data => {
             entry.data = data;
@@ -86,7 +86,7 @@ async function openCollectionOffers(collection, entry) {
     const loading = appSheet.querySelector('.loader');
     const [data, inventory] = await Promise.all([entry.data || entry.promise, api('inventory').catch(() => null)]);
     if (!appSheet.open || !loading?.isConnected) return;
-    const ownedCount = (inventory?.gifts || state.inventory).filter(gift => gift.status === 'unlisted' &&
+    const ownedCount = (inventory?.gifts || state.inventory).filter(gift => ['unlisted','listed'].includes(gift.status) &&
         (String(gift.collection_id) === String(collection.id) || gift.name === collection.name)).length;
     sheet('Топ 10 офферов', `<div class="collection-offers">
         <div class="offers-summary"><b>${esc(collection.name)}</b><span>${ownedCount} ${giftCountWord(ownedCount)}</span></div>
