@@ -251,6 +251,7 @@ function openStakedGift(id) {
             <div><span>APR</span><b>${esc(entry.apr_percent)}%</b></div>
             <div><span>Разблокировка</span><b>${stakeDate(entry.unlock_at)}</b></div>
             <div><span>Начислено дней</span><b>${entry.settled_days}</b></div>
+            <div><span>Заработано</span><b>${stakeFormat(entry.earned_gram)} GRAM</b></div>
         </div>
         <button type="button" class="primary" onclick="withdrawStakedGift(${arg(entry.id)})" ${entry.can_unstake?'':'disabled'}>
             ${entry.can_unstake?'Вывести из стейкинга':'Вывод будет доступен '+stakeDate(entry.unlock_at)}
