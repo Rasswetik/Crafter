@@ -100,6 +100,7 @@ def test_collection_offer_partial_fill_and_withdraw(client):
     offer = create(client, collection='Snoop Dogg', model='Emerald', quantity=2).json['offer']
     display = client.get('/api/market/offers?collection=Snoop%20Dogg&model=Emerald', headers=signed(42)).json
     assert display['best']['quantity'] == 2 and display['best']['executable']
+    assert display['best']['eligible_ids'] == [gift['id']]
     assert action(client, offer['id'], 42, 'accept', gift_id=gift['id']).status_code == 200
     assert client.get('/api/offers', headers=signed(43)).json['collections'][0]['remaining'] == 1
     assert action(client, offer['id'], 43, 'withdraw').status_code == 200
@@ -120,6 +121,11 @@ def test_sell_now_prefers_a_funded_matching_offer_over_a_higher_ineligible_one(c
     assert display['count'] == 2
     assert display['best']['id'] == general.json['offer']['id']
     assert display['best']['executable'] == 1
+    assert gift['id'] in display['best']['eligible_ids']
+    # Several selected models are OR'd, not treated as one literal name.
+    filtered = client.get('/api/market/offers?collection=Snoop%20Dogg&model=Emerald,Other',
+                          headers=signed(42)).json
+    assert filtered['best']['id'] == general.json['offer']['id']
     assert action(client, general.json['offer']['id'], 42,
                   'accept', gift_id=gift['id']).status_code == 200
     assert client.get('/api/market/offers?collection=Snoop%20Dogg',
