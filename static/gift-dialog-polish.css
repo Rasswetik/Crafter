@@ -210,3 +210,14 @@
 #sheet.purchase-sheet .gift-detail-tools .gift-send-tool:disabled {
     background:#474b50;opacity:.45;
 }
+
+/* Oval send button, with the Telegram silhouette centered inside. */
+#sheet.purchase-sheet .gift-detail-tools .gift-send-tool {
+    flex:0 0 56px!important;width:56px!important;height:34px!important;
+    border-radius:999px!important; padding:0!important;
+    display:grid!important;place-items:center!important;
+}
+#sheet.purchase-sheet .gift-detail-tools .gift-send-tool svg {
+    display:block!important;width:20px!important;height:20px!important;
+    margin:auto!important;align-self:center!important;justify-self:center!important;
+}
