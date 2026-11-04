@@ -54,11 +54,46 @@ function sameWallet(a, b) {
     return !!a && !!b && a.address === b.address && a.network === b.network;
 }
 
+async function verifyTonManifest(manifestUrl) {
+    // Wallets retrieve the manifest without the Telegram session. Check the
+    // same public JSON and icon before opening the wallet chooser.
+    const url = new URL(manifestUrl);
+    if (url.protocol !== 'https:') {
+        throw Error('TON Connect: манифест должен быть доступен через HTTPS');
+    }
+    let response;
+    try {
+        response = await fetch(url.href, {cache:'no-store',credentials:'omit'});
+    } catch {
+        throw Error('TON Connect: манифест недоступен. Проверьте соединение.');
+    }
+    if (!response.ok) throw Error('TON Connect: ошибка загрузки манифеста (' + response.status + ')');
+    let manifest;
+    try { manifest=await response.json(); }
+    catch { throw Error('TON Connect: сервер вернул некорректный манифест'); }
+    if (!manifest || !manifest.name || !manifest.url || !manifest.iconUrl) {
+        throw Error('TON Connect: в манифесте не хватает данных приложения');
+    }
+    try {
+        const homepage=new URL(manifest.url), icon=new URL(manifest.iconUrl);
+        if (homepage.origin !== url.origin || icon.origin !== url.origin ||
+            icon.protocol !== 'https:' || !icon.pathname.toLowerCase().endsWith('.png')) {
+            throw Error('manifest fields');
+        }
+        const image=await fetch(icon.href,{method:'HEAD',cache:'no-store',credentials:'omit'});
+        if (!image.ok) throw Error('icon missing');
+    } catch {
+        throw Error('TON Connect: иконка или адрес приложения в манифесте недоступны');
+    }
+    return manifest;
+}
+
 async function walletSDK() {
     if (!tonInitialization) {
         tonInitialization = (async () => {
             const info = state.walletInfo || await api('wallet');
             if (!info.manifest_url) throw Error('Подключение кошелька доступно в Crafter');
+            await verifyTonManifest(info.manifest_url);
             const lib = await loadTonUI();
             const ui = new lib.TonConnectUI({manifestUrl:info.manifest_url, uiPreferences:{theme:'DARK'}});
             await ui.connectionRestored;

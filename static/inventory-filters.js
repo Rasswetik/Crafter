@@ -36,7 +36,11 @@ function ownedCatalogChoices(kind) {
             existing = {
                 value,
                 name: kind === 'collection' ? String(collection?.name || gift.name || value) : value,
-                image: imageURL(gift.image) || imageURL(collection?.photo_url) || '/static/assets/amulet.webp',
+                // The collection filter uses official collection artwork,
+                // never the first owned gift's randomly chosen model PNG.
+                image: kind === 'collection'
+                    ? imageURL(collection?.photo_url) || fragmentCollectionImage(giftCollectionSlug(gift.name))
+                    : kind === 'backdrop' ? '' : imageURL(gift.image),
                 background: kind === 'backdrop' ? giftBackdrop(gift) : '',
                 price,
                 unit: hasCatalogFloor

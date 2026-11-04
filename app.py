@@ -192,7 +192,9 @@ def create_app(config=None):
         return render_template('index.html')
 
     from fragment_media import serve_fragment_gift
+    from collection_media import serve_collection_thumbnail
     app.add_url_rule('/media/fragment/<slug>', view_func=serve_fragment_gift)
+    app.add_url_rule('/media/collection/<slug>', view_func=serve_collection_thumbnail)
 
     @app.get('/preview')
     def preview():
