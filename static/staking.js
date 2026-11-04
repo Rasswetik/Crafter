@@ -1,10 +1,11 @@
 /* Crafter Games Hub and gift staking. The existing craft mechanic is preserved. */
 const stakeUi = {status:null, picked:new Set(), tutorialStep:0, gifts:[], pending:false};
 const stakingMachinePNG = '<img class="staking-machine-png" src="/static/assets/staking-machine.png" alt="Стейкинг подарков" decoding="async">';
-const gameCraftIconSVG = '<svg viewBox="0 0 120 120" fill="none" aria-hidden="true"><circle cx="61" cy="61" r="50" fill="#2e416b" opacity=".54"/><path d="M18 59h86l-13 19H79v15l12 8H32l12-8V78H31L18 59Z" fill="#bfc7e4" stroke="#5d6b91" stroke-width="3"/><path d="M56 21h48v16H56V21Z" fill="#d9e3f7" stroke="#6b82b2" stroke-width="3"/><g transform="rotate(-31 59 42)"><path d="M52 12h16v37H52V12Z" fill="#9960da" stroke="#d6b7ff" stroke-width="3"/><path d="M44 11h32v12H44V11Z" fill="#e9d2ff"/><path d="M56 49h8v23h-8V49Z" fill="#e5b89b"/></g><path d="m28 29 4-11 4 11 11 4-11 4-4 11-4-11-11-4 11-4Z" fill="#f6c971"/><path d="m93 43 2-8 3 8 8 3-8 3-3 8-2-8-8-3 8-3Z" fill="#9bdcff"/></svg>';
-const stakingGiftPNG = '<img class="staking-gift-png" src="/static/assets/splash-watch-platinum.png" alt="" decoding="async">';
-const gamesHubIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 8-2.5 1.2A4 4 0 0 0 1 12.8L2 17a3 3 0 0 0 4.6 1.7L10 16h4l3.4 2.7A3 3 0 0 0 22 17l1-4.2a4 4 0 0 0-2.5-3.6L18 8H6Z"/><path d="M6 11v5M3.5 13.5h5M16.5 12h.1M19 14h.1"/></svg>';
-const stakeNavBefore = nav;
+const magnateArt = (className) => `<img class="${className}" src="/static/assets/craft-magnate.webp" alt="" decoding="async">`;
+const gamesHubIcon = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.71925 7.38372L1.12057 12.7718C0.90383 14.7224 2.43075 16.4284 4.39339 16.4284C5.64068 16.4284 6.78091 15.7237 7.33872 14.6081L7.85714 13.5713H12.1429L12.6613 14.6081C13.2191 15.7237 14.3593 16.4284 15.6066 16.4284C17.5693 16.4284 19.0962 14.7224 18.8794 12.7718L18.2807 7.38373C18.0396 5.2133 16.205 3.57129 14.0212 3.57129H5.97875C3.79497 3.57129 1.96041 5.2133 1.71925 7.38372ZM6.25001 6.24986C6.74312 6.24986 7.14287 6.6496 7.14287 7.14272V7.91665H7.91679C8.40991 7.91665 8.80965 8.31639 8.80965 8.8095C8.80965 9.30262 8.40991 9.70236 7.91679 9.70236H7.14287V10.476C7.14287 10.9692 6.74312 11.3689 6.25001 11.3689C5.75691 11.3689 5.35715 10.9692 5.35715 10.476V9.70236H4.58347C4.09035 9.70236 3.69061 9.30262 3.69061 8.8095C3.69061 8.31639 4.09035 7.91665 4.58347 7.91665H5.35715V7.14272C5.35715 6.6496 5.75691 6.24986 6.25001 6.24986ZM13.2366 10.5952C13.7297 10.5952 14.1295 10.1955 14.1295 9.70236C14.1295 9.20925 13.7297 8.8095 13.2366 8.8095C12.7435 8.8095 12.3438 9.20925 12.3438 9.70236C12.3438 10.1955 12.7435 10.5952 13.2366 10.5952ZM15.9152 7.4887C15.9152 7.98182 15.5154 8.38156 15.0223 8.38156C14.5293 8.38156 14.1295 7.98182 14.1295 7.4887C14.1295 6.99559 14.5293 6.59585 15.0223 6.59585C15.5154 6.59585 15.9152 6.99559 15.9152 7.4887Z"/></svg>';
+const stakingGiftIcon = '<svg viewBox="0 0 25 25" fill="currentColor" aria-hidden="true"><path d="M8.48261 1.07292C7.88291 0.692664 7.08851 0.870545 6.70827 1.47023C6.32801 2.06991 6.50588 2.86431 7.10557 3.24457L8.74748 4.28569H3.07143C1.83356 4.28569 0.5 5.12404 0.5 6.52388V8.95273C0.5 10.2588 1.66097 11.0761 2.82193 11.1797C2.81206 11.1827 2.80225 11.1859 2.79253 11.1892H11.4286V6.65879H13.5714V11.1892H22.2075C22.1977 11.1859 22.1879 11.1827 22.178 11.1797C23.3391 11.0761 24.5 10.2588 24.5 8.95273V6.52388C24.5 5.12404 23.1665 4.28569 21.9286 4.28569H16.2526L17.8945 3.24457C18.4942 2.86431 18.6721 2.06991 18.2919 1.47023C17.9115 0.870545 17.1172 0.692664 16.5175 1.07292L12.5 3.62036L8.48261 1.07292Z"/><path d="M2.5 13h8.93v10H5a2.5 2.5 0 0 1-2.5-2.5V13Zm11.07 0h8.93v7.5A2.5 2.5 0 0 1 20 23h-6.43V13Z"/></svg>';
+const stakingNavIcon = '<svg viewBox="0 0 18 18" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M9.44873 2.67537C10.3605 0.905475 12.2533 0.451782 13.245 0.496604C13.9563 0.528747 14.2767 1.16028 14.2767 1.64162V3.89603C15.1773 4.34879 15.7797 4.95236 16.1493 5.7046C16.5138 6.44632 16.6244 7.27936 16.6438 8.13332L17.5374 8.86729C17.686 8.9894 17.7721 9.17167 17.7721 9.36404V12.2167C17.7721 12.3103 17.7517 12.4028 17.7122 12.4877C17.008 14.0027 15.7595 14.8213 14.2767 15.4022V16.2213C14.2767 16.9313 13.7011 17.507 12.991 17.507H10.7411C10.031 17.507 9.45538 16.9313 9.45538 16.2213V15.5985H6.70314V16.1208C6.70314 16.8309 6.12751 17.4065 5.41742 17.4065H3.14729C2.43805 17.4065 1.86148 16.8324 1.86156 16.1213C1.86164 15.3975 1.86173 14.2756 1.86154 13.9137C1.85089 13.8774 1.83519 13.8272 1.81335 13.7585L1.78771 13.678C1.74212 13.5352 1.68262 13.3488 1.61739 13.1316L1.61166 13.1124C1.17024 11.6424 0.350539 8.91261 1.52519 6.3092C1.61266 6.11532 1.71095 5.9255 1.82082 5.74068C1.21353 5.26005 0.604741 4.58131 0.266993 3.67622C0.111834 3.26043 0.32312 2.79758 0.738913 2.64242C1.15471 2.48726 1.61756 2.69855 1.77272 3.11434C1.98382 3.68008 2.3835 4.1408 2.8376 4.49576C3.24205 4.12877 3.72169 3.80343 4.28639 3.53285C5.56834 2.91859 7.25677 2.60114 9.44873 2.67537ZM9.48288 6.30275C9.48288 6.74656 9.12311 7.10633 8.67931 7.10633H6.29433C5.85053 7.10633 5.49076 6.74656 5.49076 6.30275C5.49076 5.85895 5.85053 5.49918 6.29433 5.49918H8.67931C9.12311 5.49918 9.48288 5.85895 9.48288 6.30275ZM12.6432 8.89662C13.1868 8.89662 13.6275 8.4559 13.6275 7.91225C13.6275 7.3686 13.1868 6.92787 12.6432 6.92787C12.0995 6.92787 11.6588 7.3686 11.6588 7.91225C11.6588 8.4559 12.0995 8.89662 12.6432 8.89662Z"/></svg>';
+const gameNavIcons = {games: gamesHubIcon, gift: stakingGiftIcon, staking: stakingNavIcon};
 nav = function() {
     const root = document.querySelector('#nav');
     if (!root) return;
@@ -13,13 +14,14 @@ nav = function() {
         ['market','market','Маркет'],['games','games','Hub']
     ] : [
         ['market','market','Маркет'],['gifts','gift','Мои подарки'],
-        ['staking','staking','Стейкинг'],['games','games','Игры']
+        ['staking','staking','Стейкинг']
     ];
     root.classList.toggle('games-nav', inGames);
-    root.innerHTML = `<div class="nav-main">${destinations.map(([page,kind,title]) => `
+    root.innerHTML = `${inGames ? '' : `<button class="games-entry" type="button" onclick="go('games')" aria-label="Игры">
+        <span class="stake-nav-icon">${gamesHubIcon}</span><span>Игры</span></button>`}
+        <div class="nav-main">${destinations.map(([page,kind,title]) => `
         <button type="button" onclick="go('${page}')" class="${state.page === page || (page === 'games' && state.page === 'craft') ? 'active' : ''}"
-            aria-label="${title}"><span class="stake-nav-icon">${kind === 'games' ? gamesHubIcon :
-                kind === 'staking' ? stakingMachinePNG : icon(kind)}</span><span>${title}</span></button>`).join('')}</div>
+            aria-label="${title}"><span class="stake-nav-icon">${gameNavIcons[kind] || icon(kind)}</span><span>${title}</span></button>`).join('')}</div>
         <button class="profile-nav ${state.page === 'profile' ? 'active' : ''}" onclick="go('profile')" aria-label="Профиль">
             <span class="avatar">${avatar()}</span></button>`;
 };
@@ -39,6 +41,7 @@ go = async function(page) {
     document.querySelector('#app')?.classList.toggle('games-view',Boolean(state.gamesMode));
     document.querySelector('#cart-float')?.remove();
     nav();
+    updateBalance();
     const main = document.querySelector('#main');
     if (!main) return;
     if (page === 'games') {
@@ -51,7 +54,7 @@ go = async function(page) {
         if (state.page !== 'staking') return;
         stakeUi.status = info;
         state.inventory = inventory.gifts;
-        stakeUi.gifts = inventory.gifts.filter(g => g.status === 'unlisted');
+        stakeUi.gifts = inventory.gifts.filter(g => g.status === 'unlisted' && !g.catalog_only);
         renderStaking();
     } catch(error) {
         if (state.page === 'staking') {
@@ -62,12 +65,13 @@ go = async function(page) {
 };
 function renderGamesHub() {
     document.querySelector('#main').innerHTML = `<section class="crafter-games">
-        <div class="crafter-games-top"><span class="games-eyebrow">CRAFTER GAMES</span>
-            <h1>Игры</h1><p>Выбирайте игровой режим</p></div>
-        <button class="crafter-game-tile" onclick="go('craft')" type="button" aria-label="Открыть Крафты">
-            <span class="crafter-game-stars" aria-hidden="true"></span>
-            <span class="crafter-game-art">${gameCraftIconSVG}</span>
-            <span class="crafter-game-bottom"><strong>Крафты</strong><span>${icon('chevron')}</span></span>
+        <div class="crafter-games-top"><h1>Игры</h1></div>
+        <button class="crafter-game-tile" onclick="go('craft')" type="button">
+            <span class="crafter-game-label"><strong>Крафты</strong>
+                <span>Соберите подарки и выберите цель</span>
+                <span class="crafter-game-open">Играть</span></span>
+            <span class="crafter-game-emblem">${anvilArt('crafter-game-anvil')}</span>
+            ${magnateArt('crafter-game-art')}
         </button>
     </section>`;
 }
@@ -113,7 +117,6 @@ function renderStaking() {
             <button class="staking-rules-button" onclick="stakingRules()" aria-label="Правила стейкинга">
                 <span class="staking-rules-dot">i</span> Правила
             </button>
-            <span class="staking-gram-pill"><img src="/static/assets/gram.svg" alt="" class="gram-icon"> ${total} GRAM</span>
         </div>
         <div class="staking-highlight">
             <div class="staking-highlight-icon">${stakingMachinePNG}</div>
@@ -127,12 +130,12 @@ function renderStaking() {
              <div class="staking-section-header"><h2>Мои подарки</h2><span>${active.length}</span></div>
              <div class="staking-gift-grid">${active.map(stakeCard).join('')}</div>
          </section>` : `<div class="staking-empty">
-             <div class="staking-empty-symbol">${stakingGiftPNG}</div>
+             <div class="staking-empty-symbol">${stakingGiftIcon}</div>
              <h2>Добавьте подарки, чтобы начать зарабатывать</h2>
              <p>Замороженные подарки не получится продать, отправить или использовать в крафте.</p>
          </div>`}
         <button class="staking-deposit-button" type="button" onclick="openStakeGiftPicker()" ${d.enabled?'':'disabled'}>
-            ${stakingGiftPNG} Внести подарки
+            ${stakingGiftIcon} Внести подарки
         </button>
         <section class="staking-stats">
             <div class="staking-stat"><div><b>Ваш стейк</b><strong class="green">${total} GRAM</strong></div>
@@ -141,7 +144,7 @@ function renderStaking() {
             <div class="staking-stat"><div><b>Начисление за сутки</b><strong class="green">+${stakeFormat(d.estimated_daily_gram)} GRAM</strong></div></div>
         </section>
         <section class="staking-claim-card">
-            <span class="staking-claim-icon">${stakingGiftPNG}</span>
+            <span class="staking-claim-icon">${stakingGiftIcon}</span>
             <div><small>Всего заработано</small><strong>${stakeFormat(Number(d.earned_pending_gram)+Number(d.earned_claimed_gram))} GRAM</strong>
                 <small>Доступно: ${stakeFormat(d.earned_pending_gram)} GRAM</small></div>
             <button type="button" onclick="claimStakingRewards()" ${Number(d.earned_pending_gram)>=Number(d.settings.claim_minimum_gram)?'':'disabled'}>
@@ -163,7 +166,7 @@ function showStakingTutorial(step=0) {
     const art=slide.kind==='gift'?stakingMachinePNG:
         slide.kind==='activate'?'<span class="staking-tutorial-play">▶ Activate Staking</span>':
         slide.kind==='limit'?'<div class="staking-tutorial-limit">Ваш стейк <b>32/50 GRAM</b><hr>Лимит стейкинга <b>50 GRAM</b></div>':
-        '<div class="staking-tutorial-deposit">'+stakingGiftPNG+'</div>';
+        '<div class="staking-tutorial-deposit">'+stakingGiftIcon+'</div>';
     sheet('Стейкинг', `<div class="staking-tutorial">
         <div class="staking-tutorial-art ${esc(slide.kind)}">${art}</div>
         <h2>${esc(slide.title)}</h2>
@@ -195,24 +198,29 @@ function stakingRules() {
     </div>`);
 }
 function openStakeGiftPicker() {
-    const gifts=stakeUi.gifts;
-    if(!gifts.length)return toast('В инвентаре нет доступных подарков');
+    if (stakeUi.pending) return;
+    const gifts = stakeUi.gifts;
+    if (!gifts.length) {
+        sheet('Внести подарки', emptyGiftActions());
+        return;
+    }
     stakeUi.picked=new Set();
     sheet('Внести подарки', `<div class="staking-picker">
         <div class="staking-picker-header"><strong>Выберите подарки</strong>
             <p>Недоступны подарки с продажи и находящиеся в стейкинге.</p></div>
         <div class="staking-picker-list">
-            ${gifts.map(g=>`<button type="button" class="staking-picker-row" data-stake-gift="${esc(g.id)}"
+            ${gifts.map(g=>`<button type="button" class="staking-picker-row" data-stake-gift="${esc(g.id)}" aria-pressed="false"
                 onclick="toggleStakeGift(${arg(g.id)})">
                 <span class="staking-pick-check"></span>
                 <span class="staking-picker-art" style="background:${giftBackdrop(g)}">
-                    <img ${giftPicture(g)} alt="" loading="lazy">
+                    <img ${giftPicture(g)} alt="" loading="lazy" width="60" height="60">
                 </span>
                 <span class="staking-picker-info"><b>${esc(g.name)}</b>
                     <small>${g.number?'#'+esc(g.number):''}</small></span>
             </button>`).join('')}
         </div>
         <div class="staking-picker-bottom"><p id="staking-pick-count">Выбрано: 0</p>
+            <p id="staking-pick-error" class="staking-pick-error" role="alert" hidden></p>
             <button type="button" class="primary" id="staking-pick-submit" onclick="depositSelectedGifts()" disabled>
                 Отправить в стейкинг
             </button></div>
@@ -220,7 +228,8 @@ function openStakeGiftPicker() {
     document.querySelector('#sheet').classList.add('staking-picker-sheet');
 }
 function toggleStakeGift(id) {
-    if (!stakeUi.gifts.some(g=>g.id===id))return;
+    if (stakeUi.pending || !stakeUi.gifts.some(g => g.id === id)) return;
+    document.querySelector('#staking-pick-error').hidden = true;
     if (stakeUi.picked.has(id))stakeUi.picked.delete(id);
     else if (stakeUi.picked.size<30)stakeUi.picked.add(id);
     else return toast('Можно выбрать до 30 подарков за раз');
@@ -235,15 +244,28 @@ function toggleStakeGift(id) {
 async function depositSelectedGifts() {
     if(stakeUi.pending||!stakeUi.picked.size)return;
     stakeUi.pending=true;
-    const button=document.querySelector('#staking-pick-submit');
-    if(button)button.disabled=true;
+    const button = document.querySelector('#staking-pick-submit');
+    const error = document.querySelector('#staking-pick-error');
+    const ids = [...stakeUi.picked];
+    button.disabled = true;
+    error.hidden = true;
     try {
-        stakeUi.status=await api('staking/deposit',{gift_ids:[...stakeUi.picked]});
-        state.inventory=(await api('inventory')).gifts;
-        stakeUi.gifts=state.inventory.filter(g=>g.status==='unlisted');
-        closeSheet();renderStaking();toast('Подарки добавлены в стейкинг');
-    } catch(e){toast(e.message)}
-    finally{stakeUi.pending=false;if(button?.isConnected)button.disabled=false}
+        stakeUi.status = await api('staking/deposit', {gift_ids: ids});
+        stakeUi.gifts = stakeUi.gifts.filter(gift => !ids.includes(gift.id));
+        state.inventory = state.inventory.filter(gift => !ids.includes(gift.id));
+        stakeUi.picked.clear();
+        if (button.isConnected) closeSheet();
+        if (state.page === 'staking') renderStaking();
+        toast('Подарки добавлены в стейкинг');
+    } catch (e) {
+        if (error.isConnected) {
+            error.textContent = e.message;
+            error.hidden = false;
+        }
+    } finally {
+        stakeUi.pending = false;
+        if (button.isConnected) button.disabled = !stakeUi.picked.size;
+    }
 }
 function openStakedGift(id) {
     const entry=stakeUi.status?.gifts?.find(e=>e.id===id);
@@ -272,9 +294,11 @@ async function withdrawStakedGift(id) {
     stakeUi.pending=true;
     try {
         stakeUi.status=await api('staking/withdraw',{entry_id:id});
-        state.inventory=(await api('inventory')).gifts;
-        stakeUi.gifts=state.inventory.filter(g=>g.status==='unlisted');
-        closeSheet();renderStaking();toast('Подарок возвращён в инвентарь');
+        if (state.page === 'staking') {
+            closeSheet();
+            await go('staking');
+        }
+        toast('Подарок возвращён в инвентарь');
     }catch(e){toast(e.message)}finally{stakeUi.pending=false}
 }
 async function claimStakingRewards() {

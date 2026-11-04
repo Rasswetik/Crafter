@@ -32,6 +32,38 @@ function showFilterHelp(){sheet('Фильтры','<p class="sub">Выберит�
 function marketParams(offset=0){let p=new URLSearchParams({offset:String(offset)});if(state.query)p.set('search',state.query);if(state.collection)p.set('collection_id',state.collection);if(state.model)p.set('filter_by_models',state.model);if(state.backdrop)p.set('filter_by_backdrops',state.backdrop);if(state.symbol)p.set('filter_by_symbols',state.symbol);p.set('sort_by',state.sort?'price asc':'listed_at desc');return p}
 let filterTimer,filterRequest=0;
 function changedFilter(){if(state.page!=='market'||state.source==='demo'){filterGrid();return}clearTimeout(filterTimer);state.marketFilterPending=true;const ticket=++filterRequest;filterTimer=setTimeout(async()=>{try{let data=await api('market?'+marketParams());if(ticket!==filterRequest||state.page!=='market')return;state.gifts=data.gifts;state.marketCursor=data.next_offset||20;state.marketHasMore=data.has_more??data.gifts.length>=20;state.marketWarning=data.warning||'';state.marketUnit=data.price_unit||'TON';if(data.sort_by)state.order=data.sort_by;state.marketFilterPending=false;renderMarket()}catch(e){if(ticket===filterRequest&&state.page==='market')toast(e.message)}},300)}
+function emptyGiftActions() {
+    return `<section class="gifts-empty-guide">
+        <div class="gifts-empty-slides" onscroll="syncEmptyGiftSlide(this)">
+            <div class="gifts-empty-slide">
+                <img src="/static/assets/gifts-empty-deposit.webp" alt="" width="104" height="104">
+                <h2>Есть подарки в Telegram?</h2>
+                <p>Добавьте их через нашего бота</p>
+                <button type="button" onclick="openGiftDeposit()">Как добавить подарки?</button>
+            </div>
+            <div class="gifts-empty-slide">
+                <img src="/static/assets/gifts-empty-market.webp" alt="" width="104" height="104">
+                <h2>Если подарков нет</h2>
+                <p>Купите их на маркетплейсе</p>
+                <button type="button" onclick="closeSheet();go('market')">Перейти в маркет</button>
+            </div>
+        </div>
+        <div class="gifts-empty-dots" aria-label="Подсказки">
+            <button type="button" aria-label="Как добавить подарки" aria-current="true" onclick="showEmptyGiftSlide(this, 0)"></button>
+            <button type="button" aria-label="Перейти в маркет" aria-current="false" onclick="showEmptyGiftSlide(this, 1)"></button>
+        </div>
+    </section>`;
+}
+function showEmptyGiftSlide(button, index) {
+    const slides = button.closest('.gifts-empty-guide').querySelector('.gifts-empty-slides');
+    slides.scrollLeft = slides.clientWidth * index;
+}
+function syncEmptyGiftSlide(slides) {
+    const index = Math.round(slides.scrollLeft / slides.clientWidth);
+    slides.nextElementSibling.querySelectorAll('button').forEach((button, i) => {
+        button.setAttribute('aria-current', String(i === index));
+    });
+}
 function filterGrid() {
     const gifts = state.page === 'gifts' ? state.inventory.filter(gift => gift.status === state.inventoryStatus) : state.gifts;
     const collections = selectedCollections();
@@ -45,10 +77,11 @@ function filterGrid() {
     const grid = document.querySelector('#gifts-grid');
     if (!grid) return;
     grid.className = 'grid' + (state.list ? ' list' : '');
-    const empty = `<div class="inventory-empty">${icon('gift')}<h2>${state.page === 'gifts' ? 'Нет подарков' : 'Ничего не найдено'}</h2>
+    const showGiftGuide = state.page === 'gifts' && state.inventoryStatus === 'unlisted' && !gifts.length;
+    const empty = showGiftGuide ? emptyGiftActions() : `<div class="inventory-empty">${icon('gift')}<h2>${state.page === 'gifts' ? 'Нет подарков' : 'Ничего не найдено'}</h2>
         <p>${state.page === 'gifts' ? 'Добавьте подарки или выберите другую вкладку' : 'Попробуйте изменить фильтры'}</p></div>`;
     if (state.page === 'market' && filtered.length) updateMarketGrid(grid, filtered);
-    else if (filtered.length || !grid.firstElementChild?.classList.contains('inventory-empty')) {
+    else if (filtered.length || !grid.firstElementChild?.classList.contains(showGiftGuide ? 'gifts-empty-guide' : 'inventory-empty')) {
         grid.innerHTML = filtered.length ? filtered.map(gift => card(gift)).join('') : empty;
     }
 }
@@ -125,6 +158,10 @@ sheet=function(title,html){document.querySelector('#sheet').classList.remove('gi
 function pickGift() {
     if (state.crafting) return;
     state.pickerGifts = state.inventory.filter(gift => gift.status === 'unlisted');
+    if (!state.pickerGifts.length) {
+        sheet('Добавить подарки', emptyGiftActions());
+        return;
+    }
     state.pickerSelected = new Set(state.selected.slice(0, CRAFT_GIFT_LIMIT));
     sheet('Выберите до 4 подарков', `
         <div class="picker-content" id="picker-content"></div>

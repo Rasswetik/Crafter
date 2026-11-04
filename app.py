@@ -344,7 +344,7 @@ def create_app(config=None):
         multi_collection = len(collection_ids) > 1
         if multi_collection and (len(collection_ids) > 20 or any(not item or len(item) > 100 for item in collection_ids)):
             abort(400, description='Выберите до 20 коллекций')
-        if (not app.config['PORTALS_API_KEY'] or multi_collection) and not app.config['DEMO_MODE']:
+        if not app.config['DEMO_MODE']:
             import thermos
             params={k:request.args[k][:150] for k in ('search','collection_id','filter_by_models','filter_by_backdrops','filter_by_symbols','sort_by','offset','min_price','max_price','price_unit') if request.args.get(k)}
             try:
@@ -956,7 +956,16 @@ def create_app(config=None):
     from banners import install_banners
     install_banners(app, db, auth, audit)
     from staking import install_staking
-    install_staking(app, db, auth, record, audit, public_catalog)
+    def staking_catalog():
+        import thermos
+        rows, _ = cached('thermos:collections', [])
+        portals_rows, _ = cached('collections', [])
+        return [*portals_rows, *thermos.unique_collections(rows)]
+
+    demo_stake_prices = (
+        {gift['id']: gift['price'] for gift in DEMO_GIFTS} if app.config['DEMO_MODE'] else {}
+    )
+    install_staking(app, db, auth, record, audit, staking_catalog, canonical_name, demo_stake_prices)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     return app

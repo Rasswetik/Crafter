@@ -170,3 +170,17 @@ html[data-crafter-theme="light"] .gift-deposit-step.is-alert {background:#3e341f
 .gift-deposit-spawn {animation:gift-deposit-spawn .4s cubic-bezier(.18,.9,.26,1.12) both}
 @keyframes gift-deposit-spawn {from{opacity:.2;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
 @media(prefers-reduced-motion:reduce){.gift-deposit-spawn{animation:none}}
+
+.gifts-empty-guide {grid-column:1/-1;min-width:0;padding:18px 0 26px;text-align:center}
+.gifts-empty-slides {display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none}
+.gifts-empty-slide {display:grid;flex:0 0 100%;justify-items:center;align-content:start;scroll-snap-align:start;padding:6px 12px 8px}
+.gifts-empty-slide img {width:104px;height:104px;object-fit:contain;margin-bottom:13px}
+.gifts-empty-slide h2 {margin:0 0 7px;font-size:17px;color:inherit}
+.gifts-empty-slide p {margin:0 0 15px;font-size:13px;color:#92949b}
+.gifts-empty-slide button {padding:9px 16px;border-radius:22px;background:#fff;color:#161616;font-size:13px;font-weight:750}
+.gifts-empty-dots {display:flex;justify-content:center;gap:1px;margin-top:13px}
+.gifts-empty-dots button {display:grid;place-items:center;width:24px;height:26px;padding:0}
+.gifts-empty-dots button::after {content:'';width:14px;height:4px;border-radius:3px;background:#65656b}
+.gifts-empty-dots button[aria-current="true"]::after {background:#f5f5f8}
+html[data-crafter-theme="light"] .gifts-empty-slide button {background:#23262b;color:#fff}
+html[data-crafter-theme="light"] .gifts-empty-dots button[aria-current="true"]::after {background:#262832}

@@ -553,3 +553,47 @@ def test_gift_notification_template_preserves_only_supported_styles(client, monk
                                       'https://crafter.example', 'test-token', 'A&B')
     assert messages[0]['text'] == '<b>From &lt;someone&gt;</b>\n<i>A&amp;B</i> &lt;script&gt;'
     assert messages[0]['reply_markup']['inline_keyboard'][0][0]['text'] == 'Open gifts'
+
+
+def test_staking_deposits_telegram_gift_using_cached_floor(client, monkeypatch):
+    import thermos
+
+    def unavailable():
+        raise OSError('catalog temporarily unavailable')
+
+    monkeypatch.setattr(thermos, 'collections', unavailable)
+    gift = dict(DEMO_GIFTS[0], id='telegram-bdaycandle-123', name='B-Day Candle',
+                collection_id='bdaycandle', price='0', origin='telegram-deposit')
+    catalog = [{'id': '12345', 'name': 'B Day Candle', 'floor_price': '12.5'}]
+    headers = signed()
+    assert client.post('/api/staking/activate', headers=headers, json={}).status_code == 200
+
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO inventory VALUES (42, ?, ?, 'unlisted')",
+                   (gift['id'], json.dumps(gift)))
+        db.execute('INSERT INTO cache VALUES (?, ?, ?)',
+                   ('thermos:collections', json.dumps(catalog), int(time.time()) - 3600))
+
+    payload = {'gift_ids': [gift['id']]}
+    deposit = client.post('/api/staking/deposit', headers=headers, json=payload)
+    assert deposit.status_code == 200
+    assert deposit.json['total_staked_gram'] == '12.500000'
+    assert client.get('/api/inventory', headers=headers).json['gifts'] == []
+    assert client.post('/api/staking/deposit', headers=headers, json=payload).status_code == 409
+    assert len(client.get('/api/staking', headers=headers).json['gifts']) == 1
+
+
+def test_production_market_uses_public_listings_with_partner_key(client, monkeypatch):
+    import portals_public
+
+    lot = dict(DEMO_GIFTS[0], price_unit='GRAM')
+    monkeypatch.setitem(client.application.config, 'PORTALS_API_KEY', 'test-partner')
+    monkeypatch.setattr(portals_public, 'listings', lambda *_: {'gifts': [lot], 'source': 'portals'})
+
+    def unexpected_partner_request(*args, **kwargs):
+        pytest.fail('Market browsing spent a partner request')
+
+    monkeypatch.setattr('app.urlopen', unexpected_partner_request)
+    response = client.get('/api/market', headers=signed())
+    assert response.status_code == 200
+    assert response.json['gifts'][0]['id'] == lot['id']

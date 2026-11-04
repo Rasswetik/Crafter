@@ -28,7 +28,7 @@ def decimal_amount(value):
     return result
 
 
-def install_staking(app, db, auth, record, audit, public_catalog):
+def install_staking(app, db, auth, record, audit, staking_catalog, canonical_name, demo_prices):
     with app.app_context(), db():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS staking_accounts (
@@ -68,8 +68,8 @@ def install_staking(app, db, auth, record, audit, public_catalog):
         # Catalog floors are the application valuation; fallback only to purchase/grant
         # snapshots for gifts with no currently known collection floor.
         collection = str(gift.get('collection_id') or '').lower()
-        name = ' '.join(str(gift.get('name') or '').casefold().split())
-        price = floors.get(collection) or floors.get(name)
+        name = canonical_name(gift.get('name') or '')
+        price = floors.get(collection) or floors.get(name) or decimal_amount(demo_prices.get(gift.get('id')))
         if price is None and gift.get('origin') in ('admin-grant', 'application-craft', 'local-purchase'):
             price = decimal_amount(gift.get('source_price') or gift.get('floor_price') or gift.get('price'))
         if price is None or price <= 0 or price > 100000:
@@ -78,12 +78,15 @@ def install_staking(app, db, auth, record, audit, public_catalog):
 
     def floors_map():
         result = {}
-        for item in public_catalog():
+        for item in staking_catalog():
             price = decimal_amount(item.get('floor_price'))
             if price is None or price <= 0 or price > 100000:
                 continue
-            result[str(item.get('id') or '').lower()] = price
-            result[' '.join(str(item.get('name') or '').casefold().split())] = price
+            if item.get('id'):
+                result[str(item['id']).lower()] = price
+            name = canonical_name(item.get('name') or '')
+            if name:
+                result[name] = price
         return result
 
     def settle_locked(now=None, uid=None):
@@ -233,7 +236,7 @@ def install_staking(app, db, auth, record, audit, public_catalog):
                     abort(409, description='Нельзя заморозить каталоговую модель')
                 value = gift_value(item, floors)
                 if value is None:
-                    abort(409, description='Нет достоверной цены подарка для стейкинга')
+                    abort(409, description='Нет оценки для стейкинга: ' + str(item.get('name') or 'подарок'))
                 valued.append((i, item, value))
             incoming = sum((value for _,_,value in valued), Decimal('0'))
             if incoming + total_gifts(uid) > Decimal(s['limit_gram']):

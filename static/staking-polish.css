@@ -5,7 +5,11 @@
     display:grid;place-items:center;width:27px;height:27px;min-height:27px;margin:0 auto;
 }
 #nav .stake-nav-icon svg {display:block;width:24px;height:24px;stroke-width:1.9}
-#nav .stake-nav-icon .staking-machine-png {display:block;width:27px;height:27px;object-fit:contain}
+#nav .games-entry {
+    display:flex;flex:0 0 52px;width:52px;height:52px;flex-direction:column;align-items:center;
+    justify-content:center;gap:1px;border-radius:50%;padding:0;font-size:9px;
+    background:#282828e6;border:1px solid #454545;color:#d0d2d5;backdrop-filter:blur(20px);
+}
 #nav.games-nav .nav-main {
     display:grid!important;
     grid-template-columns:repeat(2,minmax(0,1fr));
@@ -22,7 +26,7 @@
 #nav.games-nav .profile-nav {flex:0 0 57px}
 #nav .nav-main > button span:last-child {font-size:10px;white-space:nowrap}
 @media(max-width:370px){
-    #nav .nav-main > button span:last-child {font-size:9px}
+    #nav .nav-main > button span:last-child {font-size:8.5px;letter-spacing:0}
     #nav .nav-main .stake-nav-icon {width:22px;height:25px;min-height:25px}
     #nav .stake-nav-icon .staking-machine-png {width:23px;height:23px}
 }
@@ -89,15 +93,6 @@
     font-size:12px;font-weight:900;
     border-radius:50%;background:#696e79;color:#18191d;
 }
-.staking-gram-pill {
-    display:flex;align-items:center;justify-content:center;gap:7px;
-    max-width:55%;min-width:88px;
-    padding:8px 10px;border-radius:21px;
-    background:#1a2b38;border:1px solid #284155;
-    color:#f7faff;font-weight:750;font-size:12px;
-    white-space:nowrap;
-}
-.staking-gram-pill .gram-icon {width:14px;height:14px}
 .staking-page .staking-highlight {
     padding:22px 8px 0;
     gap:2px;
@@ -139,9 +134,7 @@
     width:65px;height:65px;background:#303238;border-radius:19px;
     margin-bottom:2px;
 }
-.staking-page .staking-empty-symbol .staking-gift-png {
-    width:55px;height:55px;object-fit:contain;filter:drop-shadow(0 4px 5px #0004);
-}
+.staking-page .staking-empty-symbol svg {width:29px;height:29px;color:#d5e4ef}
 .staking-page .staking-empty h2 {font-size:18px;letter-spacing:-.02em}
 .staking-page .staking-empty p {color:#91949a}
 .staking-page .staking-deposit-button {
@@ -150,10 +143,7 @@
     padding:10px 18px;gap:8px;
     box-shadow:none;
 }
-.staking-page .staking-deposit-button .staking-gift-png {
-    width:27px;height:27px;object-fit:contain;
-    filter:drop-shadow(0 1px 3px #0002);
-}
+.staking-page .staking-deposit-button svg {width:19px;height:19px;color:#26313b}
 .staking-page .staking-stats {
     background:#232326;border:1px solid #303036;border-radius:26px;padding:4px 16px;
 }
@@ -166,9 +156,7 @@
 .staking-claim-icon {
     background:#273b31!important;border-radius:12px!important;
 }
-.staking-claim-icon .staking-gift-png {
-    width:33px;height:33px;object-fit:contain;
-}
+.staking-claim-icon svg {width:20px;height:20px;color:#a5e6bb}
 .staking-page .staking-gift-grid {gap:10px}
 .staking-page .stake-gift-card {background:#232326;border-color:#31323a}
 .staking-page .stake-gift-card .stake-gift-art img {object-fit:contain}
@@ -195,7 +183,7 @@
     background:transparent;border:0;border-radius:0;
     padding:0;box-shadow:none;
 }
-.staking-tutorial-art.deposit .staking-tutorial-deposit .staking-gift-png {
+.staking-tutorial-art.deposit .staking-tutorial-deposit svg {
     display:block;width:min(55%,210px);height:min(62%,220px);
     object-fit:contain;
     filter:drop-shadow(0 16px 13px #2b095047);
@@ -221,4 +209,4 @@ html[data-crafter-theme="light"] .staking-page .staking-stats {background:#fff;b
 html[data-crafter-theme="light"] .staking-page .staking-empty h2,
 html[data-crafter-theme="light"] .staking-page .staking-stat b {color:#252a33}
 html[data-crafter-theme="light"] .staking-page .staking-rules-button {background:#e9edf2;border-color:#d8dee6;color:#666c77}
-html[data-crafter-theme="light"] .staking-page .staking-gram-pill {background:#e6f3ff;color:#1c4975;border-color:#b9d9f2}
+html[data-crafter-theme="light"] #nav .games-entry {background:#fff;color:#414752;border-color:#d8dee6}
