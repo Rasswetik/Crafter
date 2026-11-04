@@ -177,6 +177,7 @@ def install_staking(app, db, auth, record, audit, staking_catalog, canonical_nam
                 'limit_gram': s['limit_gram'],
                 'claim_minimum_gram': str(CLAIM_MINIMUM),
             },
+            'server_time': now,
             'total_staked_gram': money(total),
             'estimated_daily_gram': money(daily),
             'earned_pending_gram': money(pending),

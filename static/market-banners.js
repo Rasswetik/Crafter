@@ -55,6 +55,26 @@ async function openMarketBanner(banner) {
         case 'lucky':
             await openBannerLuckyCraft();
             break;
+        case 'gift-deposit':
+            openGiftDeposit();
+            break;
+        case 'craft-rules':
+            craftRules();
+            break;
+        case 'settings':
+            crafterOpenSettings();
+            break;
+        case 'staking-rules':
+        case 'stake-gifts':
+            await go('staking');
+            if (state.page !== 'staking' || !stakeUi.status) break;
+            if (banner.action === 'staking-rules') stakingRules();
+            else if (!stakeUi.status.enabled) toast('Стейкинг временно отключён');
+            else if (stakeUi.status.activated) openStakeGiftPicker();
+            else showStakingTutorial();
+            break;
+        case 'games':
+        case 'staking':
         case 'market':
         case 'craft':
         case 'profile':

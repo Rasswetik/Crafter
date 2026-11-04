@@ -28,8 +28,12 @@ nav = function() {
             <span class="avatar">${avatar()}</span></button>`;
 };
 const stakeGoBefore = go;
+let stakeCountdownTimer;
+let stakeServerTimeOffset = 0;
 go = async function(page) {
     if (state.crafting) return;
+    document.querySelector('#app')?.classList.toggle('staking-view', page === 'staking');
+    clearTimeout(stakeCountdownTimer);
     // Games is a navigation context, not a permanent extra tab. Keep Hub available
     // while visiting the profile from a game; Market leaves Games mode.
     if (page === 'games' || page === 'craft') state.gamesMode = true;
@@ -50,6 +54,7 @@ go = async function(page) {
         renderGamesHub();
         return;
     }
+    stakeUi.status = null;
     main.innerHTML = '<div class="loader">Загрузка стейкинга…</div>';
     try {
         const [info,inventory] = await Promise.all([api('staking'),api('inventory')]);
@@ -87,6 +92,30 @@ function stakeDate(ts) {
         day:'2-digit',month:'long',year:'numeric'
     });
 }
+function stakeTimeLeft(unlockAt) {
+    return Math.max(0, Math.ceil(Number(unlockAt) - (Date.now() / 1000 + stakeServerTimeOffset)));
+}
+function stakeCountdownText(seconds) {
+    const days = Math.floor(seconds / 86400);
+    const clock = [Math.floor(seconds / 3600) % 24, Math.floor(seconds / 60) % 60, seconds % 60]
+        .map(part => String(part).padStart(2, '0')).join(':');
+    return days ? `${days}д ${clock}` : clock;
+}
+function updateStakeCountdowns() {
+    clearTimeout(stakeCountdownTimer);
+    if (state.page !== 'staking') return;
+    let running = false;
+    const selectors = '#main [data-stake-unlock], #sheet[open] [data-stake-unlock]';
+    for (const label of document.querySelectorAll(selectors)) {
+        const left = stakeTimeLeft(label.dataset.stakeUnlock);
+        const detail = label instanceof HTMLButtonElement;
+        label.textContent = left ? stakeCountdownText(left) : (detail ? 'Вывести из стейкинга' : 'Можно вывести');
+        if (detail) label.disabled = left > 0;
+        else label.classList.toggle('ready', !left);
+        running ||= left > 0;
+    }
+    if (running) stakeCountdownTimer = setTimeout(updateStakeCountdowns, 1000);
+}
 function stakeCard(entry) {
     const gift = entry.gift;
     return `<button type="button" class="stake-gift-card" onclick="openStakedGift(${arg(entry.id)})"
@@ -96,14 +125,13 @@ function stakeCard(entry) {
         </span>
         <strong>${esc(gift.name)}</strong>
         <small>${gift.number ? '#' + esc(gift.number) : ''}</small>
-        <span class="stake-gift-state ${entry.can_unstake ? 'ready' : ''}">
-            ${entry.can_unstake ? 'Можно вывести' : 'Заблокирован'}
-        </span>
+        <span class="stake-gift-state" data-stake-unlock="${esc(entry.unlock_at)}"></span>
     </button>`;
 }
 function renderStaking() {
     const d=stakeUi.status;
     if(!d)return;
+    stakeServerTimeOffset = Number.isFinite(d.server_time) ? d.server_time - Date.now() / 1000 : 0;
     const active=d.gifts||[];
     const total=stakeFormat(d.total_staked_gram);
     const limit=stakeFormat(d.settings.limit_gram);
@@ -115,12 +143,10 @@ function renderStaking() {
         <p>Замораживайте подарки и получайте внутренние GRAM-награды за полные сутки стейкинга.</p>
         <button class="staking-activate" type="button" onclick="showStakingTutorial()" ${d.enabled?'':'disabled'}>Activate Staking</button>
     </section>` : `<div class="staking-main">
-        <div class="staking-heading">
-            <button class="staking-rules-button" onclick="stakingRules()" aria-label="Правила стейкинга">
-                <span class="staking-rules-dot">i</span> Правила
-            </button>
-        </div>
-        <div class="staking-highlight">
+        ${active.length ? `<section class="staking-gift-section">
+             <div class="staking-section-header"><h2>Мои подарки</h2><span>${active.length}</span></div>
+             <div class="staking-gift-grid">${active.map(stakeCard).join('')}</div>
+         </section>` : `<div class="staking-highlight">
             <div class="staking-highlight-icon">${stakingMachinePNG}</div>
             <div><h1>Стейкинг подарков</h1>
                 <strong class="staking-apr-display">${esc(d.settings.apr_percent)}% APR
@@ -128,10 +154,7 @@ function renderStaking() {
                 </strong>
                 <p>Держите NFT-подарки в стейкинге и получайте ежедневные GRAM-награды</p></div>
         </div>
-        ${active.length ? `<section class="staking-gift-section">
-             <div class="staking-section-header"><h2>Мои подарки</h2><span>${active.length}</span></div>
-             <div class="staking-gift-grid">${active.map(stakeCard).join('')}</div>
-         </section>` : `<div class="staking-empty">
+        <div class="staking-empty">
              <div class="staking-empty-symbol">${stakingGiftIcon}</div>
              <h2>Добавьте подарки, чтобы начать зарабатывать</h2>
              <p>Замороженные подарки не получится продать, отправить или использовать в крафте.</p>
@@ -155,6 +178,7 @@ function renderStaking() {
         </section>
     </div>`;
     document.querySelector('#main').innerHTML = `<div class="staking-page">${intro}</div>`;
+    updateStakeCountdowns();
 }
 const stakingTutorialSlides = [
     {title:'Стейкинг подарков',description:'Храните подарки в инвентаре Crafter и получайте внутренние GRAM-награды за каждый полный день.',kind:'gift'},
@@ -192,6 +216,7 @@ async function stakeTutorialContinue() {
 }
 function stakingRules() {
     const d=stakeUi.status;
+    if (!d) return;
     sheet('Правила стейкинга', `<div class="staking-rules">
         <p>APR — годовая ставка: <b>${esc(d.settings.apr_percent)}%</b>. Награда за день рассчитывается как оценка подарка × APR / 365.</p>
         <p>Подарки блокируются на <b>${d.settings.lock_days} дн.</b> После истечения срока можно вернуть их в «Мои подарки».</p>
@@ -204,6 +229,7 @@ function openStakeGiftPicker() {
     const gifts = stakeUi.gifts;
     if (!gifts.length) {
         sheet('Внести подарки', emptyGiftActions());
+        startEmptyGiftCarousel(appSheet);
         return;
     }
     stakeUi.picked=new Set();
@@ -286,10 +312,10 @@ function openStakedGift(id) {
             <div><span>Начислено дней</span><b>${entry.settled_days}</b></div>
             <div><span>Заработано</span><b>${stakeFormat(entry.earned_gram)} GRAM</b></div>
         </div>
-        <button type="button" class="primary" onclick="withdrawStakedGift(${arg(entry.id)})" ${entry.can_unstake?'':'disabled'}>
-            ${entry.can_unstake?'Вывести из стейкинга':'Вывод будет доступен '+stakeDate(entry.unlock_at)}
-        </button>
+        <button type="button" class="primary" onclick="withdrawStakedGift(${arg(entry.id)})"
+            data-stake-unlock="${esc(entry.unlock_at)}" disabled></button>
     </div>`);
+    updateStakeCountdowns();
 }
 async function withdrawStakedGift(id) {
     if(stakeUi.pending)return;

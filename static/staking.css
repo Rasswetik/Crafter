@@ -9,7 +9,6 @@
   padding:6px 0 24px;
   width:100%;
 }
-.staking-heading {display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:14px}
 .staking-eyebrow {font-size:11px;color:#888a93;letter-spacing:.12em;font-weight:850}
 .staking-rules-button {font-size:12px;background:#26272b;color:#afb1bc;border-radius:15px;padding:8px 12px;border:1px solid #34363d}
 .staking-main {display:grid;gap:18px}
@@ -62,7 +61,7 @@
 .stake-gift-card .stake-gift-art img {display:block;width:100%;height:100%;object-fit:contain}
 .stake-gift-card strong {font-size:11px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:4px 3px 0}
 .stake-gift-card small {font-size:10px;color:#999ba8;margin:0 3px}
-.stake-gift-state {font-size:9px;text-align:center;margin-top:5px;padding:6px 2px;border-radius:10px;background:#33333b;color:#a9aab7}
+.stake-gift-state {font-size:10px;font-variant-numeric:tabular-nums;text-align:center;margin-top:5px;padding:6px 2px;border-radius:10px;background:#33333b;color:#a9aab7}
 .stake-gift-state.ready {background:#204932;color:#5ce995}
 .staking-claim-card {
   display:flex;align-items:center;gap:11px;background:#262629;border:1px solid #37373e;

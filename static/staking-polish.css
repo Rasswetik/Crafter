@@ -75,8 +75,9 @@
 }
 .staking-page .staking-activate:active {transform:scale(.97)}
 .staking-page .staking-main {gap:18px;padding-top:5px}
-.staking-page .staking-heading {margin:0 0 -2px;gap:12px}
-.staking-page .staking-rules-button {
+#app > header > .staking-rules-button {display:none}
+#app.staking-view > header {justify-content:space-between}
+#app.staking-view > header > .staking-rules-button {
     display:flex;gap:7px;align-items:center;
     background:#232529;color:#aeb0b8;
     border:1px solid #2b2e34;
@@ -203,5 +204,5 @@ html[data-crafter-theme="light"] .staking-page .staking-claim-card,
 html[data-crafter-theme="light"] .staking-page .staking-stats {background:#fff;border-color:#dfe2e8}
 html[data-crafter-theme="light"] .staking-page .staking-empty h2,
 html[data-crafter-theme="light"] .staking-page .staking-stat b {color:#252a33}
-html[data-crafter-theme="light"] .staking-page .staking-rules-button {background:#e9edf2;border-color:#d8dee6;color:#666c77}
+html[data-crafter-theme="light"] #app.staking-view > header > .staking-rules-button {background:#e9edf2;border-color:#d8dee6;color:#666c77}
 html[data-crafter-theme="light"] #nav .games-entry {background:#fff;color:#414752;border-color:#d8dee6}

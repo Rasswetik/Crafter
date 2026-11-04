@@ -59,10 +59,29 @@ function showEmptyGiftSlide(button, index) {
     slides.scrollLeft = slides.clientWidth * index;
 }
 function syncEmptyGiftSlide(slides) {
+    if (!slides.clientWidth) return;
     const index = Math.round(slides.scrollLeft / slides.clientWidth);
     slides.nextElementSibling.querySelectorAll('button').forEach((button, i) => {
         button.setAttribute('aria-current', String(i === index));
     });
+}
+function startEmptyGiftCarousel(container) {
+    const guide = container.querySelector('.gifts-empty-guide');
+    const slides = guide?.querySelector('.gifts-empty-slides');
+    if (!slides) return;
+    const inSheet = appSheet.contains(guide);
+    const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+    function advance() {
+        if (!guide.isConnected || (inSheet && !appSheet.open)) return;
+        if (!document.hidden && (inSheet || !appSheet.open) && !reducedMotion.matches &&
+            slides.clientWidth && !guide.matches(':hover, :focus-within, :active')) {
+            const current = Math.round(slides.scrollLeft / slides.clientWidth);
+            const next = (current + 1) % slides.children.length;
+            slides.scrollTo({left: slides.clientWidth * next, behavior: 'smooth'});
+        }
+        setTimeout(advance, 5000);
+    }
+    setTimeout(advance, 5000);
 }
 function filterGrid() {
     const gifts = state.page === 'gifts' ? state.inventory.filter(gift => gift.status === state.inventoryStatus) : state.gifts;
@@ -83,6 +102,7 @@ function filterGrid() {
     if (state.page === 'market' && filtered.length) updateMarketGrid(grid, filtered);
     else if (filtered.length || !grid.firstElementChild?.classList.contains(showGiftGuide ? 'gifts-empty-guide' : 'inventory-empty')) {
         grid.innerHTML = filtered.length ? filtered.map(gift => card(gift)).join('') : empty;
+        if (!filtered.length && showGiftGuide) startEmptyGiftCarousel(grid);
     }
 }
 
@@ -160,6 +180,7 @@ function pickGift() {
     state.pickerGifts = state.inventory.filter(gift => gift.status === 'unlisted');
     if (!state.pickerGifts.length) {
         sheet('Добавить подарки', emptyGiftActions());
+        startEmptyGiftCarousel(appSheet);
         return;
     }
     state.pickerSelected = new Set(state.selected.slice(0, CRAFT_GIFT_LIMIT));

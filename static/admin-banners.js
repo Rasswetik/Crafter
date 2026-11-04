@@ -3,6 +3,10 @@ const bannerActions = {
     gifts:'Мои подарки', offers:'Офферы', history:'История подарков', profile:'Профиль',
     referrals:'Рефералы', wallet:'Баланс', activity:'Активность маркета',
     collection:'Коллекция', link:'Внешняя ссылка',
+    games:'Игры · Hub', staking:'Стейкинг',
+    'staking-rules':'Окно правил стейкинга', 'stake-gifts':'Окно внесения в стейкинг',
+    'gift-deposit':'Окно пополнения подарками', 'craft-rules':'Окно правил крафта',
+    settings:'Окно настроек',
 };
 
 async function renderAdminBanners(content) {
