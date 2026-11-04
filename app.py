@@ -1067,6 +1067,8 @@ def create_app(config=None):
     install_telegram_deposits(app, db, auth, audit, record, bot_settings)
     from wallet import install_wallet
     install_wallet(app,db,auth,record,audit)
+    from gift_withdrawals import install_gift_withdrawals
+    install_gift_withdrawals(app,db,auth,record,audit)
     def notify_crafter_sale(seller, trade):
         try:
             notify_gift_sale(bot_settings(), seller, trade['gift'], trade['proceeds'], app.config['BOT_TOKEN'])
