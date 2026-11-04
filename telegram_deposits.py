@@ -94,7 +94,7 @@ async def fetch_received(api_id, api_hash, session):
             records.extend(result.gifts)
             next_offset = getattr(result, 'next_offset', None)
             if not next_offset or next_offset == offset:
-                return int(me.id), records
+                return int(me.id), (getattr(me, 'username', '') or ''), records
             offset = next_offset
         raise ValueError('Слишком много подарков для одной сверки (>10 000)')
     return await with_client(api_id, api_hash, session, read)
@@ -177,6 +177,7 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             session_key_configured=bool(os.getenv('TELEGRAM_SESSION_KEY')),
             notification_emoji=c.get('notification_emoji') or '🎁',
             account_id=c.get('account_id'), account_name=c.get('account_name', ''),
+            account_username=c.get('account_username', ''),
             baseline_done=bool(c.get('baseline_done')),
             phone_pending=bool(c.get('pending') and int(c['pending'].get('created', 0)) > time.time() - 600),
             last_scan=mon['last_scan'] if mon else 0,
@@ -212,9 +213,12 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         c = config()
         if not c.get('session'):
             raise ValueError('Подключите аккаунт Telegram')
-        account_id, received = asyncio.run(fetch_received(api_id, api_hash, decrypt(c['session'])))
+        account_id, account_username, received = asyncio.run(fetch_received(api_id, api_hash, decrypt(c['session'])))
         if int(account_id) != int(c['account_id']):
             raise ValueError('Telegram-сессия авторизована от другого аккаунта')
+        if c.get('account_username') != account_username:
+            c['account_username'] = account_username
+            save(c)
         # Baseline: items already owned when monitoring is first enabled are not deposits.
         baseline = not c.get('baseline_done')
         added = []
@@ -380,7 +384,8 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             me = await client.get_me()
             if not me or getattr(me, 'bot', False):
                 raise ValueError('Необходим пользовательский Telegram-аккаунт')
-            return dict(id=int(me.id), name=' '.join(filter(None, (me.first_name, me.last_name))))
+            return dict(id=int(me.id), name=' '.join(filter(None, (me.first_name, me.last_name))),
+                        username=str(me.username or ''))
         return result()
 
     @app.post('/api/admin/telegram-deposits/verify-code')
@@ -406,7 +411,8 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             save(c)
             return {'ok': True, 'step': 'password'}
         c.update(session=encrypt(session), account_id=profile['id'],
-                 account_name=profile['name'], baseline_done=False)
+                 account_name=profile['name'], account_username=profile['username'],
+                 baseline_done=False)
         c.pop('pending', None)
         save(c)
         audit('Telegram deposit account connected')
@@ -430,7 +436,8 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         except Exception:
             abort(400, description='Неверный пароль двухэтапной проверки')
         c.update(session=encrypt(session), account_id=profile['id'],
-                 account_name=profile['name'], baseline_done=False)
+                 account_name=profile['name'], account_username=profile['username'],
+                 baseline_done=False)
         c.pop('pending', None)
         save(c)
         audit('Telegram deposit account connected with 2FA')
@@ -446,8 +453,16 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         async def test(client):
             return await client.is_user_authorized(), await client.get_me()
         ok, me = asyncio.run(with_client(api_id, api_hash, decrypt(c['session']), test))
-        return {'connected': bool(ok and me and int(me.id) == int(c['account_id'])),
-                'account_id': c['account_id']}
+        connected = bool(ok and me and int(me.id) == int(c['account_id']))
+        if connected:
+            name = ' '.join(filter(None, (me.first_name, me.last_name)))
+            username = str(getattr(me, 'username', '') or '')
+            if c.get('account_name') != name or c.get('account_username') != username:
+                c['account_name'], c['account_username'] = name, username
+                save(c)
+        return {'connected': connected, 'account_id': c['account_id'],
+                'account_name': c.get('account_name', ''),
+                'account_username': c.get('account_username', '')}
 
     @app.post('/api/admin/telegram-deposits/sync')
     @auth(admin=True)
@@ -465,7 +480,7 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         c = config()
         c.pop('session', None)
         c.pop('pending', None)
-        c.update(baseline_done=False, account_id=None, account_name='')
+        c.update(baseline_done=False, account_id=None, account_name='', account_username='')
         save(c)
         audit('Telegram deposit session disconnected')
         return {'ok': True}
