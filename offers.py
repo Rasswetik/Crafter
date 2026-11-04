@@ -30,31 +30,49 @@ def install_offer_display(app, db, auth, canonical_name):
         model = request.args.get('model', '')[:150].casefold()
         backdrop = request.args.get('backdrop', '')[:150].casefold()
         symbol = request.args.get('symbol', '')[:150].casefold()
+        # The old quotes table contains *indicative* prices, not funded buyers.
+        # Showing those as executable "sell now" offers strands the seller.
+        # Only reserved, active crafter_offers are actionable.
+        key = canonical_name(collection)
+        owned = []
+        for owned_row in db().execute("""SELECT nft_id,payload FROM inventory
+                WHERE user_id=? AND status IN ('unlisted','listed')""", (g.user['id'],)):
+            gift = json.loads(owned_row['payload'])
+            if not gift.get('catalog_only') and canonical_name(gift.get('name', '')) == key:
+                owned.append((owned_row['nft_id'], gift))
         general, specific = [], []
-        for row in db().execute("""SELECT id,model,backdrop,symbol,price_gram,quantity,0 AS executable
-            FROM crafter_offer_quotes WHERE collection_key=? AND quantity>0
-            AND (expires_at IS NULL OR expires_at>?)
-            UNION ALL SELECT id,model,backdrop,symbol,price,remaining,CASE WHEN buyer_id<>? THEN 1 ELSE 0 END
-            FROM crafter_offers WHERE collection_key=? AND status='active' AND lot_id IS NULL
-            AND (expires_at IS NULL OR expires_at>?)""",
-            (canonical_name(collection), int(time.time()), g.user['id'], canonical_name(collection), int(time.time()))):
-            quote = dict(row)
-            keys = ('model', 'backdrop', 'symbol')
-            if not any(quote[key] for key in keys):
+        for row in db().execute("""SELECT id,model,backdrop,symbol,price,remaining,buyer_id
+            FROM crafter_offers WHERE collection_key=? AND status='active'
+            AND lot_id IS NULL AND remaining>0
+            AND (expires_at IS NULL OR expires_at>?)""", (key, int(time.time()))):
+            quote = {field: row[field] for field in ('id','model','backdrop','symbol')}
+            quote['price_gram'] = row['price']
+            quote['quantity'] = row['remaining']
+            quote['executable'] = int(row['buyer_id'] != g.user['id'] and any(
+                all(not row[trait] or str(gift.get(trait, '')).casefold() == row[trait].casefold()
+                    for trait in ('model','backdrop','symbol')) and not db().execute(
+                    'SELECT 1 FROM inventory WHERE user_id=? AND nft_id=?',
+                    (row['buyer_id'], gift_id)).fetchone()
+                for gift_id, gift in owned))
+            if not any(quote[trait] for trait in ('model','backdrop','symbol')):
                 general.append(quote)
             elif (not model or quote['model'].casefold() == model) and all(
-                not selected or not quote[key] or quote[key].casefold() == selected
-                for key, selected in (('backdrop', backdrop), ('symbol', symbol))
+                not selected or not quote[trait] or quote[trait].casefold() == selected
+                for trait, selected in (('backdrop', backdrop), ('symbol', symbol))
             ):
                 specific.append(quote)
         for group in (general, specific):
             group.sort(key=lambda offer: Decimal(offer['price_gram']), reverse=True)
-        matching = specific if model and specific else general
-        return {'best': matching[0] if matching else None, 'general': general[:10],
+        matching = specific + general if model else general + specific
+        best = next((offer for offer in matching if offer['executable']), None)
+        if not best:
+            best = matching[0] if matching else None
+        return {'best': best, 'general': general[:10],
                 'specific': specific[:10], 'count': len(general) + len(specific)}
 
 
-def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
+def install_trading_offers(app, db, auth, record, canonical_name, notify_sale,
+                           notify_offer=None, notify_purchase=None):
     with app.app_context():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS crafter_offers (
@@ -206,6 +224,8 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
                 if seller:
                     record('offer_received', {'offer_id':oid, 'gift':gift, 'price':str(price)}, uid=seller)
                 row = connection.execute('SELECT * FROM crafter_offers WHERE id=?', (oid,)).fetchone()
+            if seller and notify_offer:
+                notify_offer(seller, gift, price, 'received')
             return {'offer': public(row), 'balance': str(after_reserve)}
 
         @app.post('/api/offers/<offer_id>/action')
@@ -218,6 +238,7 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
             if action not in ('accept','decline','withdraw'):
                 abort(400)
             trade = None
+            withdrawn = None
             with db():
                 connection = db()
                 connection.execute('BEGIN IMMEDIATE')
@@ -229,6 +250,11 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
                     abort(409, description='Оффер уже закрыт')
                 if action == 'withdraw' and buyer == uid:
                     refund(row, 'withdrawn')
+                    if row['seller_id']:
+                        withdrawn = (row['seller_id'], json.loads(row['gift_json']), row['price'])
+                        record('offer_withdrawn', {
+                            'offer_id':row['id'], 'gift':withdrawn[1],
+                            'price':row['price']}, uid=row['seller_id'])
                 elif action == 'decline' and row['seller_id'] == uid:
                     refund(row, 'declined')
                 elif action == 'accept' and buyer != uid:
@@ -272,6 +298,10 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
                     abort(403, description='Это действие недоступно для вашего аккаунта')
             if trade:
                 notify_sale(uid, trade)
+                if notify_purchase:
+                    notify_purchase(buyer, trade)
+            if withdrawn and notify_offer:
+                notify_offer(*withdrawn, 'withdrawn')
             return {'ok':True, 'balance':str(balance(uid))}
 
     return close_lot_offers, expire_user_offers, register_resale_actions

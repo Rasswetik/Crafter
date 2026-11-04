@@ -20,7 +20,14 @@ async function openCatalogSheet(kind){
     } catch(e) {toast(e.message);return}
  }
  else if(state.page==='market' && state.marketSource==='crafter'){
-    rows=(state.marketFacets?.[kind] || []).map(row=>({...row,unit:'GRAM'}));
+    rows=(state.marketFacets?.[kind] || []).map(row => {
+        if (kind !== 'collection') return {...row,unit:'GRAM'};
+        const matched = state.catalog.collections.find(item =>
+            String(item.id) === String(row.value) ||
+            giftCollectionSlug(item.name) === giftCollectionSlug(row.name));
+        return {...row, unit:'GRAM', image:imageURL(matched?.photo_url) ||
+            fragmentCollectionImage(giftCollectionSlug(row.name))};
+    });
  }
  else if(kind==='collection') rows=state.catalog.collections.map(c=>({value:c.id,name:c.name,image:c.photo_url,price:c.floor_price,unit:['snapshot','thermos'].includes(state.catalog.source)?'TON':'GRAM'}));
  else if(selectedCollections().length > 1) {toast('Для фильтра по атрибутам выберите одну коллекцию');return}

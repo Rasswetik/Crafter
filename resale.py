@@ -41,7 +41,8 @@ def cap_funded_balance(connection, uid, balance):
     return backing
 
 
-def install_resale(app, db, auth, record, canonical_name, collection_keys, notify_sale, close_lot_offers):
+def install_resale(app, db, auth, record, canonical_name, collection_keys, notify_sale, close_lot_offers,
+                   notify_purchase=None):
     with app.app_context():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS crafter_listings (
@@ -268,6 +269,8 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
             connection.execute('INSERT INTO crafter_sale_receipts VALUES(?,?,?,?,?)',
                                (buyer, request_id, lot_id, str(price), json.dumps(result)))
         notify_sale(lot['seller_id'], trade)
+        if notify_purchase:
+            notify_purchase(buyer, trade)
         return result
 
     return market, activity_lots, available_lot, settle_lot

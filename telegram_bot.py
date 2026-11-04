@@ -162,6 +162,42 @@ def notify_gift_sale(config, seller, gift, proceeds, default_token):
             pass
 
 
+
+def notify_offer_event(config, seller, gift, price, event, default_token):
+    """Notify the actual seller of a backed offer creation/withdrawal."""
+    token = config.get('token') or default_token
+    if not token or event not in ('received', 'withdrawn'):
+        return
+    label = escape(str(gift.get('name') or 'Gift') +
+                   (f" #{gift['number']}" if gift.get('number') else ''))
+    url = str(gift.get('telegram_url') or '')
+    if re.fullmatch(r'https://(?:t\.me|telegram\.me)/nft/[a-z0-9]+-[1-9][0-9]*', url, re.I):
+        label = '<a href="' + escape(url, quote=True) + '">' + label + '</a>'
+    amount = str(price)
+    if '.' in amount:
+        amount = amount.rstrip('0').rstrip('.')
+    message = (f'🎁 New offer: {label} — {escape(amount)} GRAM. Open Crafter to accept it.'
+               if event == 'received' else
+               f'↩️ Offer withdrawn: {label} — {escape(amount)} GRAM.')
+    bot_api(token, 'sendMessage', {'chat_id': seller, 'parse_mode': 'HTML',
+                                  'link_preview_options': {'is_disabled': True},
+                                  'text': message})
+
+
+def notify_gift_purchase(config, buyer, gift, price, default_token):
+    token = config.get('token') or default_token
+    if not token:
+        return
+    label = escape(str(gift.get('name') or 'Gift') +
+                   (f" #{gift['number']}" if gift.get('number') else ''))
+    amount = str(price).rstrip('0').rstrip('.') if '.' in str(price) else str(price)
+    bot_api(token, 'sendMessage', {'chat_id': buyer, 'parse_mode': 'HTML',
+                                  'link_preview_options': {'is_disabled': True},
+                                  'text': f'✅ Successfully purchased {label} for {escape(amount)} GRAM. '
+                                          'The gift is now in your Crafter inventory.'})
+
+
+
 def install_telegram_bot(app, db, auth, audit):
     lock = threading.Lock()
     with app.app_context(), db():

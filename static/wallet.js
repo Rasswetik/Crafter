@@ -10,14 +10,14 @@ const walletHistoryFiltersState = {};
 const walletGroups = {
     balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment','stake_claim']},
     gifts: {label:'Подарки', kinds:['buy','sale','sell','listing_price','unlist','withdraw','transfer','craft','gift_granted','gift_received']},
-    offers: {label:'Офферы', kinds:['offer_received','offer_created','offer_cancelled','offer_accepted']},
+    offers: {label:'Офферы', kinds:['offer_received','offer_created','offer_cancelled','offer_withdrawn','offer_accepted']},
 };
 const walletEventNames = {
     deposit:'Пополнение', withdraw_funds:'Вывод', balance_adjustment:'Корректировка баланса', stake_claim:'Награда стейкинга',
     buy:'Покупка подарка', sale:'Продажа подарка', sell:'Выставление на продажу', listing_price:'Изменение цены',
     unlist:'Снятие с продажи', withdraw:'Вывод подарка', transfer:'Отправка подарка',
     gift_granted:'Получен подарок', gift_received:'Подарок получен', craft:'Крафт', offer_received:'Получен оффер',
-    offer_created:'Оффер создан', offer_cancelled:'Оффер отменён', offer_accepted:'Оффер принят',
+    offer_created:'Оффер создан', offer_cancelled:'Оффер отменён', offer_withdrawn:'Оффер отозван', offer_accepted:'Оффер принят',
 };
 const walletStatuses = {
     pending:'Ожидает подтверждения', confirmed:'Подтверждено', queued:'В очереди', processing:'Обрабатывается',
@@ -340,19 +340,38 @@ async function loadWalletHistory(append = false) {
 function walletHistoryRow(item) {
     const {kind, data, status} = item;
     const gift = data.gift || data.gifts?.[0] || (kind === 'buy' ? data : null);
-    const amount = Number(kind === 'buy' ? -(data.price ?? gift?.price) : kind === 'withdraw_funds' ? -data.gram : data.gram);
+    // Sales credit net proceeds, purchases debit the actual paid price.
+    // For listing and offer creation there is no additional wallet credit.
+    const amount = Number(kind === 'buy' ? -(data.price ?? gift?.price) :
+        kind === 'sale' ? data.proceeds :
+        kind === 'withdraw_funds' ? -data.gram :
+        kind === 'offer_cancelled' ? data.amount :
+        kind === 'offer_created' ? -(data.amount || 0) : data.gram);
     const showAmount = Number.isFinite(amount) && amount !== 0;
     const cancelled = kind === 'withdraw_funds' && status === 'cancelled';
-    const title = gift?.name || walletEventNames[kind] || 'Операция';
+    const sender = data.sender;
+    const recipient = data.recipient;
+    const person = who => who?.username ? '@' + who.username :
+        who?.name || (who ? 'Telegram user' : 'Anonymous');
+    const title = kind === 'gift_received' ? 'Receive from ' + person(sender) :
+        kind === 'transfer' ? 'Sent to ' + person(recipient) :
+        gift?.name || walletEventNames[kind] || 'Операция';
     const time = new Date(item.created * 1000).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
     const activity = kind === 'craft' && data.mode === 'lucky' ? 'Lucky Craft' : walletEventNames[kind];
-    const details = [gift && activity, data.gifts?.length > 1 && `${data.gifts.length} шт.`,
-        kind === 'craft' && (data.success ? 'Успешно' : 'Не удалось'), walletStatuses[status], time].filter(Boolean).join(' · ');
+    const details = [
+        gift && activity,
+        kind === 'sale' && data.price != null && 'Продано за ' + money(data.price) + ' GRAM',
+        kind === 'sale' && data.proceeds != null && 'После комиссии: ' + money(data.proceeds) + ' GRAM',
+        data.gifts?.length > 1 && `${data.gifts.length} шт.`,
+        kind === 'craft' && (data.success ? 'Успешно' : 'Не удалось'),
+        walletStatuses[status], time].filter(Boolean).join(' · ');
+    const balanceDetail = data.balance_after != null ? 'Баланс: ' + money(data.balance_after) + ' GRAM' : '';
     return `<div class="wallet-history-row">
         <span class="wallet-history-icon">${gift ? `<img ${giftPicture(gift)} alt="" loading="lazy">` :
             icon(kind === 'deposit' ? 'walletDown' : kind === 'withdraw_funds' ? 'walletUp' : kind === 'craft' ? 'craft' : 'gift')}</span>
         <div class="wallet-history-description"><b>${esc(title)}</b><small>${esc(details)}</small>
             ${kind === 'deposit' && status === 'pending' ? `<button class="wallet-check-deposit" onclick="checkDeposit(${arg(item.id)}, this)">Проверить перевод</button>` : ''}
+            ${balanceDetail ? `<small class="wallet-history-balance">${esc(balanceDetail)}</small>` : ''}
             ${kind === 'withdraw_funds' && status === 'queued' ? `<button class="wallet-cancel-withdraw" onclick="cancelQueuedWithdrawal(${arg(item.id)}, this)">Отменить заявку</button>` : ''}
         </div>
         ${showAmount ? `<strong class="${cancelled ? 'wallet-cancelled-amount' : status === 'pending' ? 'pending' : amount > 0 ? 'positive' : 'negative'}">${cancelled ? '' : status === 'pending' ? '' : amount > 0 ? '+' : '−'}${money(Math.abs(amount))} GRAM</strong>` : ''}

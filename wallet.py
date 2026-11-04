@@ -11,7 +11,7 @@ DEFAULTS=dict(enabled=False,network='testnet',receiver='',app_name='Crafter',pub
 HISTORY_GROUPS = {
     'balance': ('deposit', 'withdraw_funds', 'balance_adjustment', 'stake_claim'),
     'gifts': ('buy', 'sell', 'listing_price', 'unlist', 'withdraw', 'transfer', 'craft', 'gift_granted', 'gift_received', 'sale'),
-    'offers': ('offer_received', 'offer_created', 'offer_cancelled', 'offer_accepted'),
+    'offers': ('offer_received', 'offer_created', 'offer_cancelled', 'offer_withdrawn', 'offer_accepted'),
 }
 
 def address(raw):
