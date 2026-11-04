@@ -49,7 +49,6 @@ def install_staking(app, db, auth, record, audit, public_catalog):
                 PRIMARY KEY (entry_id,day_no)
             );
         """)
-        db().commit()
 
     def settings():
         row = db().execute("SELECT payload FROM settings WHERE key='staking_config'").fetchone()
