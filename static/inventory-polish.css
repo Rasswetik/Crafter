@@ -184,3 +184,28 @@ html[data-crafter-theme="light"] .gift-deposit-step.is-alert {background:#3e341f
 .gifts-empty-dots button[aria-current="true"]::after {background:#f5f5f8}
 html[data-crafter-theme="light"] .gifts-empty-slide button {background:#23262b;color:#fff}
 html[data-crafter-theme="light"] .gifts-empty-dots button[aria-current="true"]::after {background:#262832}
+
+
+/* The Telegram transfer action belongs to each owned NFT tile. */
+#main .inventory-gift .inventory-send-plane {
+    position:absolute; top:12px; right:12px; z-index:6;
+    display:grid; place-items:center; width:34px; height:34px;
+    padding:0; border:1px solid rgba(255,255,255,.26);
+    border-radius:11px; color:#fff; background:#168aff;
+    box-shadow:0 2px 12px rgba(0,0,0,.32);
+    cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+#main .inventory-gift .inventory-send-plane svg {
+    display:block; width:20px; height:20px; fill:currentColor;
+    stroke:none; pointer-events:none;
+}
+#main .inventory-gift .inventory-send-plane:not(:disabled):active {transform:scale(.94)}
+#main .inventory-gift .inventory-send-plane:focus-visible {outline:2px solid #fff;outline-offset:2px}
+#main .inventory-gift .inventory-send-plane:disabled {
+    color:#a0a6b4; background:#353b44; border-color:#ffffff20;
+    opacity:.68; cursor:not-allowed;
+}
+@media(max-width:370px){
+    #main .inventory-gift .inventory-send-plane {top:9px;right:9px;width:30px;height:30px;border-radius:10px}
+    #main .inventory-gift .inventory-send-plane svg {width:18px;height:18px}
+}
