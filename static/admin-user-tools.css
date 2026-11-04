@@ -1,0 +1,16 @@
+.admin-user-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:18px 0}
+.admin-user-tools .secondary{min-height:42px!important;margin:0!important;padding:7px 8px;font-size:12px;border-radius:14px;white-space:nowrap}
+.admin-user-tools .admin-ban{color:#ffaaa5;background:#472929}
+.admin-user-tools .admin-unban{color:#8ef0b6;background:#243d2f}
+.admin-gift-list,.admin-activity-list{display:grid;gap:8px}
+.admin-gift-row{display:grid;grid-template-columns:50px minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px;background:#28282b;border-radius:16px;min-width:0}
+.admin-gift-row img{width:50px;height:50px;object-fit:contain;border-radius:12px}
+.admin-gift-meta{min-width:0}
+.admin-gift-meta b,.admin-gift-meta small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.admin-gift-meta b{font-size:13px}
+.admin-gift-meta small,.admin-activity-row small{font-size:11px;color:#a8abb3}
+.admin-remove-gift{padding:8px 10px;border-radius:12px;background:#503037;color:#ffc8cd;font-size:11px;font-weight:750}
+.admin-remove-gift:disabled{opacity:.35}
+.admin-activity-row{display:grid;gap:4px;padding:12px;background:#252528;border:1px solid #33343a;border-radius:15px}
+.admin-activity-row b{font-size:13px;overflow-wrap:anywhere}
+.admin-activity-row small{overflow-wrap:anywhere}
