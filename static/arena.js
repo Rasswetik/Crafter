@@ -8,7 +8,11 @@ const arenaPalette = [
     ['#c16b30','#ffd359'], ['#9daf10','#d6ee3e'], ['#0b92a7','#42e6da'],
     ['#c62773','#fa79b1'], ['#2862c0','#60a3ff'],
 ];
-const arenaFormat = value => Number(value).toLocaleString('ru-RU', {maximumFractionDigits: 6});
+const arenaNumber = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 2});
+function arenaFormat(value) {
+    const decimal = /^-?\d+(?:\.\d{1,2})?/.exec(String(value));
+    return arenaNumber.format(decimal ? Number(decimal[0]) : 0);
+}
 const arenaGiftValue = gift => arenaFormat(gift.value / 1e6);
 const arenaBadge = player => (player.name.trim().split(/\s+/).slice(0, 2)
     .map(part => Array.from(part)[0]).join('') || 'И').toUpperCase();
@@ -35,6 +39,9 @@ function enterArena(main) {
     arena.giftLoad = null;
     arena.boardKey = '';
     arena.cells = [];
+    arena.visibleWeights = new Map();
+    arena.boardMotion = null;
+    arena.playback = null;
     arena.view++;
     main.innerHTML = `<section class="arena-page arena-loading" aria-label="Arena" aria-busy="true">
         <div class="arena-table">
@@ -44,12 +51,13 @@ function enterArena(main) {
                 <defs id="arena-colors"></defs>
                 <g id="arena-world">
                     <g id="arena-cells"></g>
+                    <g id="arena-avatars"></g>
                     <g id="arena-puck" visibility="hidden">
                         <circle r="3.8" fill="#e9ffe3" fill-opacity=".86" stroke="#fff" stroke-width=".5"/>
                         <circle r="2.5" fill="#27351e" fill-opacity=".58" stroke="#fff" stroke-width=".34"/>
                         <path d="M-1.8 0h3.6M0-1.8v3.6" stroke="#fff" stroke-width=".3"/>
                         <g id="arena-aim" fill="none" stroke="#fff" stroke-width=".55">
-                            <path d="M4.8 0h5.7m-2-1.5 2 1.5-2 1.5"/>
+                            <path d="M.2-6.1A6.1 6.1 0 0 1 6.1 0h4.1m-1.8-1.6 1.8 1.6-1.8 1.6" stroke-linecap="round" stroke-linejoin="round"/>
                         </g>
                         <text id="arena-puck-name" x="0" y="-5.5"></text>
                     </g>
@@ -66,7 +74,6 @@ function enterArena(main) {
                     <button type="button" data-mode="gifts" aria-label="NFT" onclick="arenaMode('gifts')">${stakingGiftIcon}</button>
                     <button type="button" data-mode="gram" aria-label="GRAM" onclick="arenaMode('gram')">${arenaGramIcon}</button>
                 </div>
-                <span class="arena-room">Комната 1</span>
             </div>
             <div id="arena-actions" class="arena-actions"></div>
             <button id="arena-cancel" type="button" hidden onclick="arenaCancel()">Вернуть ставку</button>
@@ -113,7 +120,7 @@ function arenaApply(data, sent) {
     const key = JSON.stringify([data.round_id, data.players]);
     if (key !== arena.boardKey) {
         arena.boardKey = key;
-        arenaRenderBoard(data);
+        arenaRenderBoard(data, old);
         arenaRenderPlayers(data);
     }
     if (!old || old.round_id !== data.round_id || old.phase !== data.phase || old.can_cancel !== data.can_cancel ||
@@ -148,11 +155,26 @@ function arenaClip(points, axis, offset, sign) {
     return result;
 }
 
-function arenaCells(players, seed) {
+function arenaCells(players, seed, weights) {
+    if (!players.length) return [];
     const cells = [];
-    function split(group, points, depth) {
-        if (group.length === 1) {
-            const player = group[0];
+    const root = {index: 0};
+    const leaves = [root];
+    // A new player subdivides an existing leaf. Earlier splits keep their axes.
+    for (let i = 1; i < players.length; i++) {
+        const branch = leaves.shift();
+        branch.left = {index: branch.index};
+        branch.right = {index: i};
+        branch.turn = i;
+        leaves.push(branch.left, branch.right);
+    }
+    function weight(node) {
+        node.weight = node.left ? weight(node.left) + weight(node.right) : weights[node.index];
+        return node.weight;
+    }
+    function split(node, points, depth) {
+        if (!node.weight || points.length < 3) return;
+        if (!node.left) {
             const center = {
                 x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
                 y: points.reduce((sum, p) => sum + p.y, 0) / points.length,
@@ -162,49 +184,81 @@ function arenaCells(players, seed) {
                 return Math.abs((b.x - a.x) * (center.y - a.y) - (b.y - a.y) * (center.x - a.x)) /
                     (Math.hypot(b.x - a.x, b.y - a.y) || 1);
             }));
-            cells.push({player, points, center, radius});
+            cells.push({player: players[node.index], index: node.index, points, center, radius});
             return;
         }
-        const mid = Math.ceil(group.length / 2);
-        const left = group.slice(0, mid), right = group.slice(mid);
-        const weight = list => list.reduce((sum, player) => sum + Number(player.value), 0);
-        const wanted = arenaArea(points) * weight(left) / weight(group);
-        const angle = (seed % 167) * .013 + depth * 1.37 + cells.length * .43;
+        if (!node.right.weight) return split(node.left, points, depth + 1);
+        if (!node.left.weight) return split(node.right, points, depth + 1);
+        const wanted = arenaArea(points) * node.left.weight / node.weight;
+        const angle = (seed % 167) * .013 + depth * 1.37 + (node.turn - 1) * .43;
         const axis = {x: Math.cos(angle), y: Math.sin(angle)};
         const dots = points.map(p => p.x * axis.x + p.y * axis.y);
         let low = Math.min(...dots), high = Math.max(...dots);
-        for (let i = 0; i < 48; i++) {
+        for (let i = 0; i < 38; i++) {
             const midline = (low + high) / 2;
             if (arenaArea(arenaClip(points, axis, midline, 1)) < wanted) low = midline;
             else high = midline;
         }
         const offset = (low + high) / 2;
-        split(left, arenaClip(points, axis, offset, 1), depth + 1);
-        split(right, arenaClip(points, axis, offset, -1), depth + 1);
+        split(node.left, arenaClip(points, axis, offset, 1), depth + 1);
+        split(node.right, arenaClip(points, axis, offset, -1), depth + 1);
     }
-    if (players.length) split(players, [{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}], 0);
+    weight(root);
+    split(root, [{x:0,y:0},{x:100,y:0},{x:100,y:100},{x:0,y:100}], 0);
     return cells;
 }
 
-function arenaRenderBoard(data) {
-    arena.cells = arenaCells(data.players, data.seed);
-    document.querySelector('#arena-colors').innerHTML = arena.cells.map(({player, center, radius}, i) => {
+function arenaPaintBoard(cells) {
+    const visible = new Map(cells.map(cell => [cell.index, cell]));
+    arena.tiles.forEach(({polygon, avatar}, index) => {
+        const cell = visible.get(index);
+        polygon.setAttribute('points', cell ? cell.points.map(p => p.x + ',' + p.y).join(' ') : '');
+        avatar.setAttribute('visibility', cell && cell.radius >= 1.2 ? 'visible' : 'hidden');
+        if (cell) avatar.setAttribute('transform', `translate(${cell.center.x} ${cell.center.y}) scale(${cell.radius})`);
+    });
+}
+
+function arenaRenderBoard(data, previous) {
+    const players = data.players;
+    const weights = players.map(player => Number(player.value));
+    const from = players.map(player => arena.visibleWeights.get(player.id) || 0);
+    const open = data.phase === 'waiting' || data.phase === 'betting';
+    const animate = open && previous?.round_id === data.round_id && from.some(Boolean) &&
+        weights.some((value, i) => value !== from[i]) && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+    arena.cells = arenaCells(players, data.seed, weights);
+    const colors = document.querySelector('#arena-colors');
+    const layer = document.querySelector('#arena-cells');
+    const avatars = document.querySelector('#arena-avatars');
+    colors.innerHTML = '<clipPath id="arena-avatar-clip"><circle r="1"/></clipPath>' + players.map((_, i) => {
         const [dark, light] = arenaPalette[i % arenaPalette.length];
-        return `<linearGradient id="arena-color-${i}" x2="100%" y2="100%"><stop stop-color="${dark}"/>
-            <stop offset="1" stop-color="${light}"/></linearGradient>
-            <clipPath id="arena-avatar-${i}"><circle cx="${center.x}" cy="${center.y}" r="${radius}"/></clipPath>`;
+        return `<linearGradient id="arena-color-${i}" gradientUnits="userSpaceOnUse" x2="100" y2="100">
+            <stop stop-color="${dark}"/><stop offset="1" stop-color="${light}"/></linearGradient>`;
     }).join('');
-    document.querySelector('#arena-cells').innerHTML = arena.cells.map(({player, points, center, radius}, i) => {
-        const {x, y} = center;
+    layer.innerHTML = players.map((_, i) => `<polygon fill="url(#arena-color-${i})"/>`).join('') ||
+        '<text class="arena-empty-field" x="50" y="50">Ожидаем ставки</text>';
+    avatars.innerHTML = players.map(player => {
         const photo = imageURL(player.photo);
-        return `<polygon points="${points.map(p => p.x + ',' + p.y).join(' ')}" fill="url(#arena-color-${i})"/>
-            <circle cx="${x}" cy="${y}" r="${radius}" fill="#252447" fill-opacity=".58"/>
-            ${photo && radius >= 1.2 ? `<image href="${esc(photo)}" x="${x-radius}" y="${y-radius}"
-                width="${2*radius}" height="${2*radius}" preserveAspectRatio="xMidYMid slice"
-                clip-path="url(#arena-avatar-${i})"/>` : ''}
-            <text class="arena-avatar-letters" x="${x}" y="${y}" font-size="${radius*.85}"
-                ${photo ? 'visibility="hidden"' : ''}>${esc(arenaBadge(player))}</text>`;
-    }).join('') || '<text class="arena-empty-field" x="50" y="50">Ожидаем ставки</text>';
+        return `<g><circle r="1" fill="#252447" fill-opacity=".58"/>
+            ${photo ? `<image href="${esc(photo)}" x="-1" y="-1" width="2" height="2"
+                preserveAspectRatio="xMidYMid slice" clip-path="url(#arena-avatar-clip)"/>` :
+                `<text class="arena-avatar-letters" font-size=".85">${esc(arenaBadge(player))}</text>`}</g>`;
+    }).join('');
+    arena.tiles = players.map((_, i) => ({polygon: layer.children[i], avatar: avatars.children[i]}));
+    arena.boardMotion = animate ? {from, weights, started: performance.now()} : null;
+    arena.visibleWeights = new Map(players.map((player, i) => [player.id, animate ? from[i] : weights[i]]));
+    arenaPaintBoard(animate ? arenaCells(players, data.seed, from) : arena.cells);
+}
+
+function arenaAnimateBoard(now, data) {
+    const motion = arena.boardMotion;
+    if (!motion) return;
+    const done = !arenaBetOpen(data) || now >= motion.started + 360;
+    const t = done ? 1 : Math.max(0, (now - motion.started) / 360);
+    const eased = t * t * (3 - 2 * t);
+    const weights = motion.weights.map((value, i) => motion.from[i] + (value - motion.from[i]) * eased);
+    arena.visibleWeights = new Map(data.players.map((player, i) => [player.id, weights[i]]));
+    arenaPaintBoard(done ? arena.cells : arenaCells(data.players, data.seed, weights));
+    if (done) arena.boardMotion = null;
 }
 
 function arenaAvatar(player) {
@@ -277,13 +331,78 @@ function arenaGiftInfo(index) {
         <button class="secondary" type="button" onclick="arenaShowPrizes(arena.detail.title,arena.detail.total,arena.detail.gram,arena.detail.gifts,arena.detail.winner)">Назад</button>`);
 }
 
-function arenaPosition(time, angle) {
-    const reflect = n => {
-        const phase = ((n - 4) % 184 + 184) % 184;
-        return 4 + (phase <= 92 ? phase : 184 - phase);
+const arenaWall = 4;
+const arenaSpan = 100 - 2 * arenaWall;
+const arenaSpeed = .22;
+const arenaClamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+function arenaReflect(value) {
+    const period = arenaSpan * 2;
+    const phase = ((value - arenaWall) % period + period) % period;
+    return arenaWall + Math.min(phase, period - phase);
+}
+
+function arenaFlight(travel, duration, direction) {
+    const accelerationTime = Math.min(travel, duration);
+    const distance = arenaSpeed * (accelerationTime ** 2 / (2 * duration) + Math.max(0, travel - duration));
+    return {x: 50 + direction.x * distance, y: 50 + direction.y * distance};
+}
+
+function arenaBrakePlan(start, duration, direction, target) {
+    const unfolded = axis => {
+        const stop = arenaClamp(target[axis], arenaWall, 100 - arenaWall);
+        const ideal = start[axis] + direction[axis] * arenaSpeed * duration / 2;
+        // Either reflection of the endpoint repeats every two board widths.
+        const closest = base => base + Math.round((ideal - base) / (2 * arenaSpan)) * 2 * arenaSpan;
+        const a = closest(stop), b = closest(2 * arenaWall - stop);
+        return Math.abs(a - ideal) <= Math.abs(b - ideal) ? a : b;
     };
-    const distance = time * .14;
-    return {x: reflect(50 + Math.cos(angle) * distance), y: reflect(50 + Math.sin(angle) * distance)};
+    return {duration, start, direction, target, end: {x: unfolded('x'), y: unfolded('y')}};
+}
+
+function arenaBrakePosition(plan, elapsed) {
+    const t = arenaClamp(elapsed / plan.duration, 0, 1);
+    const u = 1 - t;
+    const position = axis => {
+        // Cubic Hermite path: starts at flight velocity and ends at rest.
+        const velocity = plan.direction[axis] * arenaSpeed;
+        const path = u * u * (1 + 2*t) * plan.start[axis] + u * u * t * velocity * plan.duration +
+            t * t * (3 - 2*t) * plan.end[axis];
+        const stop = arenaClamp(plan.target[axis], arenaWall, 100 - arenaWall);
+        const edge = arenaClamp((t - .8) / .2, 0, 1);
+        return arenaReflect(path) + (plan.target[axis] - stop) * edge * edge * (3 - 2*edge);
+    };
+    return {x: position('x'), y: position('y'), zoom: 1 + .75 * t * t * (3 - 2*t)};
+}
+
+function arenaPuckFrame(data, now) {
+    if (!arena.playback || arena.playback.round !== data.round_id) {
+        arena.playback = {round: data.round_id, start: data.bet_until + arena.serverOrigin};
+    }
+    const play = arena.playback;
+    const elapsed = Math.max(0, now - play.start);
+    const angle = data.seed / 2**32 * Math.PI * 2;
+    const travel = Math.max(0, elapsed - data.aim_ms);
+    const direction = {x: Math.cos(angle), y: Math.sin(angle)};
+    const target = arena.cells.find(cell => cell.player.id === data.target);
+    if (target && !play.brake) {
+        // On a delayed result packet, continue from the last moving trajectory.
+        const at = play.hasMoved ? Math.max(data.flight_ms, play.travel) : data.flight_ms;
+        const duration = Math.max(700, data.flight_ms + data.finish_ms - at);
+        play.brake = {at, plan: arenaBrakePlan(arenaFlight(at, data.flight_ms, direction), duration, direction, target.center)};
+    }
+    const aiming = elapsed < data.aim_ms;
+    if (aiming) {
+        const turn = elapsed / data.aim_ms;
+        return {x:50, y:50, zoom:1, aiming, angle:angle - 2 * Math.PI * (1 - turn) ** 2};
+    }
+    play.hasMoved = true;
+    play.travel = travel;
+    if (play.brake && travel >= play.brake.at) {
+        return {...arenaBrakePosition(play.brake.plan, travel - play.brake.at), aiming, angle};
+    }
+    const flight = arenaFlight(travel, data.flight_ms, direction);
+    return {x:arenaReflect(flight.x), y:arenaReflect(flight.y), zoom:1, aiming, angle};
 }
 
 function arenaInside(point, points) {
@@ -298,6 +417,7 @@ function arenaFrame(now) {
     if (data) {
         const serverNow = now - arena.serverOrigin;
         const elapsed = serverNow - data.bet_until;
+        arenaAnimateBoard(now, data);
         const phase = document.querySelector('#arena-phase');
         const puck = document.querySelector('#arena-puck');
         const world = document.querySelector('#arena-world');
@@ -312,25 +432,12 @@ function arenaFrame(now) {
         }
         if (data.phase === 'playing' || data.phase === 'result') {
             show = true;
-            aim = elapsed < data.aim_ms;
+            const motion = arenaPuckFrame(data, now);
+            position = motion;
+            zoom = motion.zoom;
+            aim = motion.aiming;
             label = aim ? 'Прицеливание' : '● LIVE';
-            const angle = data.seed / 2**32 * Math.PI * 2;
-            const travel = Math.max(0, elapsed - data.aim_ms);
-            position = arenaPosition(Math.min(travel, data.flight_ms), angle);
-            if (aim) position = {x: 50, y: 50};
-            document.querySelector('#arena-aim').setAttribute('transform', `rotate(${angle * 180 / Math.PI})`);
-            const target = arena.cells.find(cell => cell.player.id === data.target);
-            if (target && travel >= data.flight_ms) {
-                const start = arenaPosition(data.flight_ms, angle);
-                const after = arenaPosition(data.flight_ms + 5, angle);
-                const end = target.center;
-                const t = Math.min(1, (travel - data.flight_ms) / data.finish_ms);
-                const u = 1 - t;
-                const control = axis => Math.max(4, Math.min(96, start[axis] + (after[axis] - start[axis]) * 22));
-                position = {x: u**3*start.x + 3*u*u*t*control('x') + (3*u*t*t+t**3)*end.x,
-                            y: u**3*start.y + 3*u*u*t*control('y') + (3*u*t*t+t**3)*end.y};
-                zoom = 1 + t*t*.75;
-            }
+            document.querySelector('#arena-aim').setAttribute('transform', `rotate(${motion.angle * 180 / Math.PI})`);
             player = aim ? null : arena.cells.find(cell => arenaInside(position, cell.points))?.player;
             if (data.phase === 'result') label = 'Раунд завершён';
         }
@@ -369,6 +476,9 @@ function arenaGiftSlots() {
 
 const arenaGramIcon = '<img class="arena-gram-icon" src="/static/assets/gram.svg" alt="">';
 
+const arenaStakeGem = '<svg class="arena-gram-icon" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.5 1.5h7a1.7 1.7 0 0 1 1.43.78l2.62 4.1a.85.85 0 0 1-.11 1.06l-6.86 6.8a.82.82 0 0 1-1.16 0L.56 7.44a.85.85 0 0 1-.11-1.06l2.62-4.1A1.7 1.7 0 0 1 4.5 1.5Zm5.32 1.98L9.15 5.3l-1.82.68a.24.24 0 0 0 0 .45l1.82.68.67 1.82a.24.24 0 0 0 .45 0l.68-1.82 1.82-.68a.24.24 0 0 0 0-.45l-1.82-.68-.68-1.82a.24.24 0 0 0-.45 0Z"/></svg>';
+const arenaPencilIcon = '<svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12.5 3.8 3.7 3.7M3.4 16.6l1.1-4.1 9.8-9.8a1.3 1.3 0 0 1 1.8 0l1.2 1.2a1.3 1.3 0 0 1 0 1.8l-9.8 9.8-4.1 1.1Z"/></svg>';
+
 function arenaRenderControls() {
     const root = document.querySelector('#arena-actions');
     const data = arena.data;
@@ -383,6 +493,7 @@ function arenaRenderControls() {
     const cheapest = arena.gifts[0];
     const giftsOpen = open && arenaGiftSlots() > 0;
     root.classList.toggle('arena-gift-actions', arena.mode === 'gifts');
+    root.classList.toggle('arena-cash-actions', arena.mode === 'gram' && !arena.retry);
     root.innerHTML = arena.mode === 'gifts' ? `
         <button type="button" class="arena-choose-gifts" ${giftsOpen ? '' : 'disabled'} onclick="arenaGiftPicker()">Выбрать гифты</button>
         <button type="button" class="arena-quick-gift" aria-label="Быстрая ставка подарком"
@@ -390,10 +501,10 @@ function arenaRenderControls() {
             <span>Добавить<small>${cheapest ? arenaGiftValue(cheapest) + ' GRAM' : 'Нет гифтов'}</small></span>
             ${cheapest ? `<span class="arena-quick-art" style="background:${giftBackdrop(cheapest)}">
                 <img ${giftPicture(cheapest)} alt=""></span>` : ''}</button>` : `
-        <button type="button" class="arena-pencil" aria-label="Настроить кнопки" onclick="arenaOpenSettings()">✎</button>
-        ${settings.amounts.map(amount => `<button type="button" ${open && Number(data.balance) >= Number(amount) ? '' : 'disabled'}
-            onclick="arenaStake(${arg(amount)})">${arenaFormat(amount)} <span>◆</span></button>`).join('')}
-        ${settings.all ? `<button type="button" ${open && Number(data.balance) > 0 ? '' : 'disabled'} onclick="arenaAllIn()">Ва-банк</button>` : ''}`;
+        <button type="button" class="arena-pencil" aria-label="Настроить кнопки" onclick="arenaOpenSettings()">${arenaPencilIcon}</button>
+        ${settings.amounts.map(amount => `<button type="button" class="arena-stake-amount" ${open && Number(data.balance) >= Number(amount) ? '' : 'disabled'}
+            onclick="arenaStake(${arg(amount)})">${arenaStakeGem}<span>${arenaFormat(amount)}</span></button>`).join('')}
+        ${settings.all ? `<button type="button" class="arena-all-in" ${open && Number(data.balance) > 0 ? '' : 'disabled'} onclick="arenaAllIn()">Ва-банк</button>` : ''}`;
     if (arena.retry) root.innerHTML = `<button type="button" ${arena.pending ? 'disabled' : ''}
         onclick="arenaStake(...arena.retry.args)">Проверить предыдущую ставку</button>`;
 }
@@ -433,7 +544,9 @@ function arenaSelectSetting(index) {
 function arenaEditSetting(value) {
     arena.settingsDraft.amounts[arena.settingsSlot] = value;
     const input = document.querySelector('#arena-amount');
-    input.style.setProperty('--amount-length', Math.max(2, value.length));
+    const length = Math.max(2, value.length);
+    input.style.setProperty('--amount-length', length);
+    input.style.setProperty('--amount-size', Math.max(26, 56 - Math.max(0, length - 4) * 4) + 'px');
     document.querySelectorAll('.arena-settings-tabs button').forEach((button, i) => {
         button.setAttribute('aria-pressed', String(i === arena.settingsSlot));
         button.querySelector('span').textContent = arena.settingsDraft.amounts[i] || '—';

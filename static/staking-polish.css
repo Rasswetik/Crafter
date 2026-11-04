@@ -332,12 +332,31 @@ html[data-crafter-theme="light"] #nav .games-entry {background:#fff;color:#41475
   height:clamp(46px,14vw,57px)!important;
   min-width:0;
 }
-/* Remove the previous giant blue rectangular active background. */
+/* Keep the two game tabs together and give Market and profile their own space. */
+#nav.games-nav {
+  justify-content:space-between;
+  gap:clamp(8px, 3vw, 20px);
+}
+#nav.games-nav .nav-main {
+  flex:0 1 clamp(132px, 43vw, 210px);
+  gap:2px;
+}
+#nav.games-nav > .games-entry,
+#nav.games-nav > .profile-nav {
+  --games-side-size:clamp(49px, 15.5vw, 62px);
+  flex:0 0 var(--games-side-size)!important;
+  width:var(--games-side-size)!important;
+  height:var(--games-side-size)!important;
+}
+#nav.games-nav > .games-entry .nav-label {
+  font-size:clamp(9px, 2.75vw, 11px);
+}
+/* Highlight the active game inside its own tab. */
 #nav.games-nav .nav-main > button.active {
   color:#58b5ff!important;
-  background:transparent!important;
-  border:1px solid transparent!important;
-  border-radius:23px!important;
+  background:#1119!important;
+  border:1px solid #ffffff24!important;
+  border-radius:26px!important;
   box-shadow:none!important;
 }
 #nav.games-nav .nav-main > button.active .stake-nav-icon {
@@ -382,7 +401,7 @@ html[data-crafter-theme="light"] #nav .games-entry {background:#fff;color:#41475
   #nav .nav-main > button .nav-label {font-size:8px!important}
 }
 html[data-crafter-theme="light"] #nav.games-nav .nav-main > button.active {
-  background:transparent!important;border-color:transparent!important;
+  background:#dce6f0!important;border-color:#becddd!important;
 }
 html[data-crafter-theme="light"] #nav.games-nav .nav-main > button.active .stake-nav-icon {
   background:#d7ebff;color:#1174c5;border-color:#8dc9f5;

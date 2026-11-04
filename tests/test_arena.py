@@ -67,8 +67,9 @@ def test_round_draw_and_concurrent_settlement(client, monkeypatch):
     assert stake(client, 42, round_id, 'late', '1').status_code == 409
     playing = status(client, 42)
     assert playing['phase'] == 'playing' and playing['target'] is None
-    now += arena.AIM_MS + arena.FLIGHT_MS
+    now += arena.AIM_MS
     assert status(client, 42)['target'] == '43'
+    now += arena.FLIGHT_MS
     assert Decimal(status(client, 43)['balance']) == 0
 
     now += arena.FINISH_MS

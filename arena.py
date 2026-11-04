@@ -203,7 +203,7 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         return {'round_id': round_row['id'], 'server_time': now, 'phase': phase, 'seed': round_row['seed'],
                 'wait_until': round_row['wait_until'], 'bet_until': end,
                 'aim_ms': AIM_MS, 'flight_ms': FLIGHT_MS, 'finish_ms': FINISH_MS,
-                'target': str(round_row['winner_id']) if end is not None and now >= end + AIM_MS + FLIGHT_MS else None,
+                'target': str(round_row['winner_id']) if end is not None and now >= end + AIM_MS else None,
                 'players': players_public(players), 'bank': gram(sum(p['value'] for p in players.values())),
                 'last_result': json.loads(previous['result']) if previous else None,
                 'balance': str(balance(uid)), 'viewer': str(uid), 'gift_limit': MAX_GIFTS,
