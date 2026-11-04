@@ -417,12 +417,16 @@ def create_app(config=None):
             except Exception:abort(400,description='Недопустимый диапазон цены')
             if multi_collection:
                 params['collection_id'] = ','.join(sorted(collection_ids))
+            # Native Portals public search accepts individual string facets.
+            # Thermos accepts arrays: use its read-only market endpoint for OR filters.
+            multi_trait = any(len([v for v in params.get(field,'').split(',') if v]) > 1
+                              for field in ('filter_by_models','filter_by_backdrops','filter_by_symbols'))
             key='public:market:'+urlencode(sorted(params.items()))
             previous,updated=cached(key)
             if previous and time.time()-updated<60:return local_market_rows(previous)
             try:
                 rows,_=cached('thermos:collections',[])
-                if multi_collection:
+                if multi_collection or multi_trait:
                     result = thermos.gifts(params, rows or public_catalog())
                 else:
                     try:
