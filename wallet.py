@@ -1,7 +1,7 @@
 """TON Connect funding: wallet signatures stay client-side; credit only verified chain messages."""
 import os,json,time,uuid,base64
 from decimal import Decimal,InvalidOperation,ROUND_DOWN,ROUND_UP
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from urllib.request import Request,urlopen
 from urllib.error import URLError
 from pathlib import Path
@@ -81,7 +81,21 @@ def install_wallet(app,db,auth,record,audit):
         if not c['enabled'] or not c['receiver']:abort(409,description='TON Connect не настроен администратором')
         if c['network']=='mainnet' and not storage()['durable']:abort(409,description='Для mainnet требуется постоянное хранилище базы')
     def public(c):return {k:v for k,v in c.items() if k!='rpc_key'}
-    def origin(c):return (c.get('public_url') or os.getenv('RENDER_EXTERNAL_URL') or request.url_root).rstrip('/')
+    def origin(c):
+        # The wallet fetches this manifest outside Telegram, with no cookies.
+        # On Render, always use the deployed public origin. A stale admin-set
+        # public_url must never direct wallets to a different app/domain.
+        rendered = os.getenv('RENDER_EXTERNAL_URL', '').strip()
+        configured = str(c.get('public_url') or '').strip()
+        host = rendered or configured or request.url_root
+        url = urlsplit(host)
+        if url.scheme not in ('http', 'https') or not url.netloc or url.username or url.password:
+            abort(503, description='Публичный адрес Crafter для TON Connect указан неверно')
+        if os.getenv('RENDER') and url.scheme != 'https':
+            abort(503, description='TON Connect требует публичный HTTPS адрес')
+        return url.scheme + '://' + url.netloc
+    # Use a new public path to invalidate bad manifest copies cached by wallets.
+    MANIFEST_PATH = '/tonconnect-manifest-v2.json'
     def verified_balance(network):
         row=db().execute('SELECT gram FROM wallet_balances WHERE user_id=? AND network=?',(g.user['id'],network)).fetchone()
         return Decimal(row[0]) if row else Decimal(0)
@@ -105,10 +119,14 @@ def install_wallet(app,db,auth,record,audit):
         daily_left=max(Decimal(0),Decimal(config['withdraw_daily'])-used_withdrawal_quota(uid))
         return deposit_metric,daily_left,max(Decimal(0),min(balance,daily_left))
     @app.get('/tonconnect-manifest.json')
+    @app.get(MANIFEST_PATH)
     def ton_manifest():
         c=config();root=origin(c)
         response=jsonify(url=root,name=c['app_name'],iconUrl=root+'/static/assets/wallet-icon.png')
         response.headers['Access-Control-Allow-Origin']='*'
+        response.headers['Access-Control-Allow-Methods']='GET, HEAD, OPTIONS'
+        response.headers['Cache-Control']='no-cache, no-store, must-revalidate'
+        response.headers['X-Content-Type-Options']='nosniff'
         return response
     @app.get('/api/wallet')
     @auth()
@@ -123,7 +141,7 @@ def install_wallet(app,db,auth,record,audit):
                     withdrawable=str(paid),funded_balance=str(backed),
                     withdraw_daily_remaining=str(daily_left),
                     deposits=dep,withdrawals=withdrawals,
-                    manifest_url=origin(c)+'/tonconnect-manifest.json')
+                    manifest_url=origin(c)+MANIFEST_PATH)
     @app.get('/api/wallet/balance')
     @auth()
     def connected_balance():
