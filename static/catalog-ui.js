@@ -87,9 +87,9 @@ function catalogArtworkURLs(row) {
     const part=value=>encodeURIComponent(String(value||'').trim());
     const exact=name && row.name && trait ?
         'https://api.changes.tg/'+trait+'/'+part(name)+'/'+part(row.name)+'.png' : '';
-    // Start with an actual matching model/symbol, then verified provider art,
-    // then the official collection thumbnail as the last non-random fallback.
-    if(trait) return [...new Set([exactGift,listed,exact,proxy,direct,official].filter(Boolean))];
+    // Start with a model/symbol matching this exact trait, not collection art.
+    // Model / symbol rows must never silently become an unrelated collection image.
+    if(trait) return [...new Set([exactGift,listed,exact].filter(Boolean))];
     return [];
 }
 function catalogRowArtwork(row) {
