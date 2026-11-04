@@ -125,6 +125,13 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
         collections = collection_keys(selection)
         query = args.get('search', '').strip().casefold()[:150]
         traits = {'model': 'filter_by_models', 'backdrop': 'filter_by_backdrops', 'symbol': 'filter_by_symbols'}
+        selected_traits = {}
+        for name, field in traits.items():
+            raw = args.get(field, '')
+            values = {part.strip().casefold() for part in raw.split(',') if part.strip()}
+            if len(raw) > 1000 or len(values) > 20 or any(len(v) > 150 for v in values):
+                abort(400, description='Выберите до 20 значений атрибута')
+            selected_traits[name] = values
         order = args.get('sort_by', 'price asc')
         limits = []
         for field in ('min_price', 'max_price'):
@@ -162,7 +169,8 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
                 continue
             if query and query not in ' '.join(str(gift.get(k, '')) for k in ('name', 'model', 'number')).casefold():
                 continue
-            if any(args.get(field) and args[field] != gift.get(trait) for trait, field in traits.items()):
+            if any(values and str(gift.get(trait,'')).casefold() not in values
+                   for trait, values in selected_traits.items()):
                 continue
             lots.append(gift)
         field, _, direction = order.partition(' ')

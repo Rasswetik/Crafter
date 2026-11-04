@@ -183,3 +183,10 @@
 @media (prefers-reduced-motion:reduce) {
   #sheet.purchase-sheet .gift-detail-tool {transition:none}
 }
+
+/* Product and offer windows close by tapping outside, swiping down or Escape.
+   Keep the X in collection filters, where explicit dismissal is useful. */
+#sheet.purchase-sheet .sheet-head > .close,
+#sheet.offer-sheet .sheet-head > .close {display:none!important;}
+#sheet.purchase-sheet .sheet-head,
+#sheet.offer-sheet .sheet-head {min-height:0;}

@@ -93,8 +93,9 @@ function filterGrid() {
     const filtered = gifts.filter(gift =>
         (gift.name + ' ' + gift.number + ' ' + (gift.model || '')).toLowerCase().includes(query) &&
         (!collections.length || collections.includes(gift.name) || collections.includes(String(gift.collection_id)) || collectionNames.has(giftCollectionSlug(gift.name))) &&
-        (!state.model || gift.model === state.model) && (!state.backdrop || gift.backdrop === state.backdrop) &&
-        (!state.symbol || gift.symbol === state.symbol));
+        matchesSelectedTrait(state.model,gift.model) &&
+        matchesSelectedTrait(state.backdrop,gift.backdrop) &&
+        matchesSelectedTrait(state.symbol,gift.symbol));
     if (state.sort) filtered.sort((a, b) => Number(a.price) - Number(b.price));
     const grid = document.querySelector('#gifts-grid');
     if (!grid) return;

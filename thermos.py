@@ -40,7 +40,7 @@ def gifts(params, catalog):
     if collections:body['collections']=collections
     if params.get('search'):body['query']=params['search']
     for src,dst in [('filter_by_models','models'),('filter_by_backdrops','backdrops'),('filter_by_symbols','symbols')]:
-        if params.get(src):body[dst]=[params[src]]
+        if params.get(src):body[dst]=[name.strip() for name in params[src].split(',') if name.strip()]
     price_range={}
     for key,out in [('min_price','min'),('max_price','max')]:
         if params.get(key):price_range[out]=str(int(Decimal(params[key])*1000000000))

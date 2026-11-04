@@ -407,7 +407,9 @@ def create_app(config=None):
             abort(400, description='Выберите до 20 коллекций')
         if not app.config['DEMO_MODE']:
             import thermos
-            params={k:request.args[k][:150] for k in ('search','collection_id','filter_by_models','filter_by_backdrops','filter_by_symbols','sort_by','offset','min_price','max_price','price_unit') if request.args.get(k)}
+            facet_fields={'filter_by_models','filter_by_backdrops','filter_by_symbols'}
+            params={k:request.args[k][:1000 if k in facet_fields else 150] for k in ('search','collection_id','filter_by_models','filter_by_backdrops','filter_by_symbols','sort_by','offset','min_price','max_price','price_unit') if request.args.get(k)}
+            multi_trait=any(len([value for value in params.get(field,'').split(',') if value])>1 for field in facet_fields)
             try:
                 for price_key in ('min_price','max_price'):
                     if price_key in params:
@@ -422,7 +424,7 @@ def create_app(config=None):
             if previous and time.time()-updated<60:return local_market_rows(previous)
             try:
                 rows,_=cached('thermos:collections',[])
-                if multi_collection:
+                if multi_collection or multi_trait:
                     result = thermos.gifts(params, rows or public_catalog())
                 else:
                     try:
@@ -1067,6 +1069,8 @@ def create_app(config=None):
     install_telegram_deposits(app, db, auth, audit, record, bot_settings)
     from wallet import install_wallet
     install_wallet(app,db,auth,record,audit)
+    from gift_withdrawals import install_gift_withdrawals
+    install_gift_withdrawals(app,db,auth,record,audit)
     def notify_crafter_sale(seller, trade):
         try:
             notify_gift_sale(bot_settings(), seller, trade['gift'], trade['proceeds'], app.config['BOT_TOKEN'])

@@ -6,6 +6,7 @@ const adminSections = {
     staking: ['Стейкинг', 'Годовой APR, срок и лимит', 'gift', renderAdminStaking],
     relayer: ['Relayer', 'Telegram NFT · подключение и пополнения', 'send', renderTelegramDeposits],
     tonconnect: ['TON Connect', 'Подключение кошельков и операции', 'wallet', renderTonAdmin],
+    withdrawals: ['Выводы', 'Заявки GRAM / TON и ручная выдача NFT', 'wallet', renderAdminWithdrawals],
 };
 
 async function renderAdmin() {

@@ -222,9 +222,11 @@ async function acceptCollectionOffer(collection, offer) {
     if (!offer?.executable) return;
     try {
         const {gifts} = await api('inventory');
-        const matching = gifts.filter(gift => ['unlisted','listed'].includes(gift.status) && !gift.catalog_only &&
-            giftCollectionSlug(gift.name) === giftCollectionSlug(collection.name) &&
-            offerTraits.every(([key]) => !offer[key] || offer[key].toLowerCase() === String(gift[key] || '').toLowerCase()));
+        // The server already matched exact inventory identifiers and all offer
+        // traits. Do not second-guess it using differently normalized slugs.
+        const eligibleIds = new Set(offer.eligible_ids || []);
+        const matching = gifts.filter(gift => eligibleIds.has(gift.id) &&
+            ['unlisted','listed'].includes(gift.status) && !gift.catalog_only);
         if (!matching.length) return toast('У вас нет подходящего подарка');
         renderInventoryPicker({title:'Выберите подарок для продажи', inventory:matching, ids:new Set(), limit:1,
             onCancel:closeSheet, onApply:ids => {

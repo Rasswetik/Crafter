@@ -8,9 +8,11 @@ function collectionMarketContext() {
         [item.id, item.short_name, item.name].some(value => String(value) === id));
     if (collection) return collection;
     const facet = state.marketFacets?.collection?.find(item => item.value === id || item.name === id);
-    if (facet) return {id, name:facet.name, photo_url:facet.image};
+    // Facet pictures and arbitrary gift thumbnails are *model artwork*, not
+    // official collection preview images. Never put those into the Craft CTA.
+    if (facet) return {id,name:facet.name,photo_url:''};
     const gift = state.gifts.find(item => [item.collection_id, item.name].some(value => String(value) === id));
-    return gift ? {id, name:gift.name, photo_url:gift.image} : null;
+    return gift ? {id,name:gift.name,photo_url:''} : null;
 }
 
 function offerRequest(collection) {
@@ -18,7 +20,7 @@ function offerRequest(collection) {
     for (const key of ['model','backdrop','symbol']) if (state[key]) params.set(key, state[key]);
     const key = params.toString();
     let entry = offerCache.get(key);
-    if (!entry || Date.now() - entry.started > 30000) {
+    if (!entry || Date.now() - entry.started > 10000) {
         entry = {started:Date.now(), data:null};
         entry.promise = api('market/offers?' + key).then(data => {
             entry.data = data;
@@ -86,7 +88,7 @@ async function openCollectionOffers(collection, entry) {
     const loading = appSheet.querySelector('.loader');
     const [data, inventory] = await Promise.all([entry.data || entry.promise, api('inventory').catch(() => null)]);
     if (!appSheet.open || !loading?.isConnected) return;
-    const ownedCount = (inventory?.gifts || state.inventory).filter(gift => gift.status === 'unlisted' &&
+    const ownedCount = (inventory?.gifts || state.inventory).filter(gift => ['unlisted','listed'].includes(gift.status) &&
         (String(gift.collection_id) === String(collection.id) || gift.name === collection.name)).length;
     sheet('Топ 10 офферов', `<div class="collection-offers">
         <div class="offers-summary"><b>${esc(collection.name)}</b><span>${ownedCount} ${giftCountWord(ownedCount)}</span></div>

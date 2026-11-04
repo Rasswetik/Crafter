@@ -10,7 +10,7 @@ from flask import request,g,abort,jsonify
 DEFAULTS=dict(enabled=False,network='testnet',receiver='',app_name='Crafter',public_url='',gram_per_ton='1',min_deposit='0.1',max_deposit='100',withdraw_enabled=False,withdraw_max='2500',withdraw_daily='20000',rpc_key='')
 HISTORY_GROUPS = {
     'balance': ('deposit', 'withdraw_funds', 'balance_adjustment', 'stake_claim'),
-    'gifts': ('buy', 'sell', 'listing_price', 'unlist', 'withdraw', 'transfer', 'craft', 'gift_granted', 'gift_received', 'sale'),
+    'gifts': ('buy', 'sell', 'listing_price', 'unlist', 'withdraw', 'transfer', 'craft', 'gift_granted', 'gift_received', 'sale', 'gift_withdraw_requested', 'gift_withdraw_failed'),
     'offers': ('offer_received', 'offer_created', 'offer_cancelled', 'offer_withdrawn', 'offer_accepted'),
 }
 
@@ -353,6 +353,20 @@ def install_wallet(app,db,auth,record,audit):
     def admin_config():
         c=config();pending=[dict(id=r['id'],user_id=r['user_id'],status=r['status'],created=r['created'],**json.loads(r['payload'])) for r in db().execute("SELECT * FROM ton_withdrawals WHERE status IN ('queued','processing') ORDER BY created LIMIT 100")]
         return dict(config=public(c),rpc_key_configured=bool(c['rpc_key']),storage=storage(),withdrawals=pending)
+    @app.get('/api/admin/tonconnect/receiver/balance')
+    @auth(admin=True)
+    def admin_receiver_balance():
+        c = config()
+        if not c['receiver']:
+            abort(409, description='Укажите кошелёк приёма TON в настройках TON Connect')
+        receiver = address(c['receiver'])
+        nano = str(rpc(c['network'], 'getAddressBalance',
+                       {'address': receiver}, c['rpc_key']))
+        if not nano.isascii() or not nano.isdecimal() or len(nano) > 30:
+            abort(502, description='Не удалось получить баланс TON')
+        return {'receiver': receiver, 'network': c['network'],
+                'balance_ton': format(Decimal(nano).scaleb(-9), 'f')}
+
     @app.post('/api/admin/tonconnect')
     @auth(admin=True)
     def set_config():
