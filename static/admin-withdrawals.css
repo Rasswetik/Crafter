@@ -1,0 +1,34 @@
+/* Dedicated payouts queue, safe-area-friendly admin controls */
+.admin-withdrawals{display:grid;gap:14px;width:100%;min-width:0}
+.admin-withdrawals .panel{margin:0;min-width:0;padding:16px 14px;border-radius:22px}
+.admin-withdrawals .panel h3{font-size:18px;margin:0 0 12px}
+.admin-withdrawals .withdrawals-hero{background:linear-gradient(140deg,#1c2b35,#1e2228)}
+.admin-withdrawals .withdrawals-hero button{min-height:40px;border-radius:19px}
+.admin-withdrawals .withdrawals-address{font-size:11px;color:#8fa3b0;overflow-wrap:anywhere}
+.admin-withdrawals .withdrawals-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;padding:4px;border-radius:23px;background:#313234}
+.admin-withdrawals .withdrawals-tabs button{padding:11px 6px;border-radius:19px;font-size:13px;font-weight:800}
+.admin-withdrawals .withdrawals-tabs button.active{background:#e9eef4;color:#1a2027}
+.admin-withdrawals .withdrawals-entry{display:grid;gap:9px;margin:10px 0;padding:13px;border-radius:17px;border:1px solid #ffffff19;background:#242526;min-width:0}
+.admin-withdrawals .withdrawals-entry h4{font-size:16px;font-weight:800;margin:0;overflow-wrap:anywhere}
+.admin-withdrawals .withdrawals-entry h4 small{color:#7eabec;font-size:12px}
+.admin-withdrawals .withdrawals-entry-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.admin-withdrawals .withdrawals-entry-top strong{font-size:14px;overflow-wrap:anywhere;min-width:0}
+.admin-withdrawals .withdrawals-pill{font-size:10px;line-height:1;white-space:nowrap;color:#a9b5bf;background:#47525f55;border-radius:14px;padding:7px 9px}
+.admin-withdrawals .withdrawals-pill[data-status="confirmed"]{color:#65dca1;background:#1b4b3860}
+.admin-withdrawals .withdrawals-pill[data-status="failed"],
+.admin-withdrawals .withdrawals-pill[data-status="cancelled"]{color:#e6a3a3;background:#6c2a2a55}
+.admin-withdrawals .withdrawals-meta{color:#a1a1a6;font-size:11px;margin:0;overflow-wrap:anywhere}
+.admin-withdrawals .withdrawals-gift{display:flex;gap:12px;align-items:center;min-width:0}
+.admin-withdrawals .withdrawals-gift img{width:62px;height:62px;object-fit:contain;border-radius:17px;background:#39393d}
+.admin-withdrawals .withdrawals-gift span{display:grid;gap:4px;min-width:0}
+.admin-withdrawals .withdrawals-gift b{font-size:14px;overflow-wrap:anywhere}
+.admin-withdrawals .withdrawals-gift small{color:#98a3af;font-size:11px;overflow-wrap:anywhere}
+.admin-withdrawals .withdrawals-entry a{font-size:12px;color:#6dbaff}
+.admin-withdrawals .withdrawals-entry button{border-radius:17px;min-height:39px;font-weight:800;font-size:12px}
+.admin-withdrawals .withdrawals-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;min-width:0}
+.admin-withdrawals .withdrawals-actions button{width:100%;min-width:0;padding:8px 5px}
+@media(max-width:355px){
+ .admin-withdrawals .panel{padding:12px 10px}
+ .admin-withdrawals .withdrawals-entry{padding:10px}
+ .admin-withdrawals .withdrawals-actions button{font-size:11px}
+}
