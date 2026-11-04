@@ -1,8 +1,15 @@
 // Searchable catalog sheets inspired by the mobile Portals interface.
 Object.assign(paths, {sortOrder:'M8 19V5m-4 4 4-4 4 4m4-4v14m-4-4 4 4 4-4'});
-filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="state.sort=!state.sort;changedFilter()" aria-label="Сортировать">${icon('sortOrder')}</button>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].filter(([key])=>!state.collectionPage||key!=='collection').map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?`<span>${k==='collection'?selectedCollections().length:1}</span>`:''}${icon('chevron')}</button>`).join('')}</div>`};
+filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="state.sort=!state.sort;changedFilter()" aria-label="Сортировать">${icon('sortOrder')}</button>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].filter(([key])=>!state.collectionPage||key!=='collection').map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?`<span>${k==='collection'?selectedCollections().length:selectedTraits(state[k]).length}</span>`:''}${icon('chevron')}</button>`).join('')}</div>`};
 function selectedCollections(value = state.collection) {
-    return value ? String(value).split(',') : [];
+    return value ? String(value).split(',').filter(Boolean) : [];
+}
+function selectedTraits(value='') {
+    return value ? String(value).split(',').map(v=>v.trim()).filter(Boolean) : [];
+}
+function matchesSelectedTrait(filter,actual) {
+    return !filter || selectedTraits(filter).some(value=>
+        value.toLocaleLowerCase()===String(actual||'').toLocaleLowerCase());
 }
 function resetCatalogDraft() {
     state.sheetValue = '';
@@ -83,18 +90,29 @@ function renderCatalogRows(query){
             'Сначала выберите коллекцию':'Нет доступных данных')+'</div>';
 }
 function catalogRowSelected(value) {
-    return state.page === 'market' && state.sheetKind === 'collection'
-        ? selectedCollections(state.sheetValue).includes(String(value))
-        : state.sheetValue === value;
+    const choices=state.sheetKind==='collection' ?
+        selectedCollections(state.sheetValue) : selectedTraits(state.sheetValue);
+    return choices.includes(String(value));
 }
-function pickCatalogRow(value){if(state.sheetKind==='target'){const c=state.catalogRows.find(x=>x.value===value);if(c){state.target={id:c.value,name:c.name,image:c.image};state.quote=null;closeSheet();renderCraft();updateCraftQuote()}return}if(state.page==='market' && state.sheetKind==='collection'){
- const ids=new Set(selectedCollections(state.sheetValue));
- if(ids.has(String(value)))ids.delete(String(value));
- else if(ids.size<20)ids.add(String(value));
- else return toast('Можно выбрать до 20 коллекций');
- state.sheetValue=[...ids].sort().join(',');
- }else state.sheetValue=state.sheetValue===value?'':value;
- renderCatalogRows(document.querySelector('.catalog-search input').value)}
+function pickCatalogRow(value) {
+    if (state.sheetKind==='target') {
+        const row=state.catalogRows.find(item=>item.value===value);
+        if(row){
+            state.target={id:row.value,name:row.name,image:row.image};
+            state.quote=null;
+            closeSheet();renderCraft();updateCraftQuote();
+        }
+        return;
+    }
+    const values=state.sheetKind==='collection' ?
+        selectedCollections(state.sheetValue) : selectedTraits(state.sheetValue);
+    const chosen=new Set(values);
+    if(chosen.has(String(value)))chosen.delete(String(value));
+    else if(chosen.size<20)chosen.add(String(value));
+    else return toast('Можно выбрать до 20 значений');
+    state.sheetValue=[...chosen].sort((a,b)=>a.localeCompare(b,'ru')).join(',');
+    renderCatalogRows(document.querySelector('.catalog-search input')?.value||'');
+}
 function applyCatalogFilter(){const k=state.sheetKind;if(k==='collection'&&state.collection!==state.sheetValue){state.model='';state.backdrop='';state.symbol=''}state[k]=state.sheetValue;closeSheet();if(state.page==='market')renderMarket();else renderGifts();changedFilter()}
 function craftRules(){const internal=state.target?.listingId?.startsWith('crafter-');sheet('Как работает крафт',`<div class="attributes"><div><span>Оценка подарков</span><b>${internal ? 'Оценка в GRAM' : 'Флор коллекции в TON'}</b></div><div><span>Шанс</span><b>${internal ? 'Оценка подарков / цена лота × 95%' : 'Сумма флоров / флор цели × 95%'}</b></div><div><span>Максимальный шанс</span><b>95%</b></div></div><p class="sub">Выбранные подарки списываются. При успехе результат появляется в инвентаре Crafter. Операция работает с подарками приложения; передачу NFT в Telegram она не выполняет.</p><button class="primary" onclick="closeSheet()">Понятно</button>`)}
 function renderCraft() {
@@ -242,7 +260,7 @@ const gramIcon=()=>'<img class="gram-icon" src="/static/assets/gram.svg" alt="GR
 const currencyHTML=g=>(g.price_unit==='TON'||g.catalog_only)?'TON':gramIcon();
 Object.assign(state,{order:'listed_at desc',minPrice:'',maxPrice:''});
 const sortOptions=[['listed_at desc','Сначала новые'],['price asc','Цена: по возрастанию'],['price desc','Цена: по убыванию'],['external_collection_number asc','ID подарка: ↑'],['external_collection_number desc','ID подарка: ↓'],['model_rarity asc','Редкость модели: ↑'],['model_rarity desc','Редкость модели: ↓']];
-filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="openPriceFilters()" aria-label="Диапазон цены">${icon('filter')}</button><button class="sort ${state.order!=='listed_at desc'?'enabled':''}" onclick="openSort()" aria-label="Сортировка">${icon('sortOrder')}</button><span class="filter-divider"></span>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].filter(([key])=>!state.collectionPage||key!=='collection').map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?`<span>${k==='collection'?selectedCollections().length:1}</span>`:''}${icon('chevron')}</button>`).join('')}</div>`};
+filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="openPriceFilters()" aria-label="Диапазон цены">${icon('filter')}</button><button class="sort ${state.order!=='listed_at desc'?'enabled':''}" onclick="openSort()" aria-label="Сортировка">${icon('sortOrder')}</button><span class="filter-divider"></span>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].filter(([key])=>!state.collectionPage||key!=='collection').map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?`<span>${k==='collection'?selectedCollections().length:selectedTraits(state[k]).length}</span>`:''}${icon('chevron')}</button>`).join('')}</div>`};
 renderMarket=function(){document.querySelector('#main').innerHTML=`${resaleMarketTabs()}${filters()}<div id="gifts-grid" class="grid"></div><button class="load-more" onclick="loadMore()">Показать ещё</button>${demoNote()}`;filterGrid()};
 marketParams=function(offset=0){const p=new URLSearchParams({offset:String(offset),sort_by:state.order,price_unit:state.marketUnit||'GRAM'});if(state.marketSource==='crafter')p.set('source','crafter');for(const [key,value] of [['search',state.query],['collection_id',state.collection],['filter_by_models',state.model],['filter_by_backdrops',state.backdrop],['filter_by_symbols',state.symbol],['min_price',state.minPrice],['max_price',state.maxPrice]])if(value!==''&&value!=null)p.set(key,value);return p};
 function openSort(){state.draftOrder=state.order;sheet('Сортировка',`<div class="sort-options">${sortOptions.map(([v,n])=>`<button class="sort-option" onclick="chooseSort(${arg(v)})" data-order="${esc(v)}"><span class="sort-radio ${v===state.draftOrder?'checked':''}"></span>${n}</button>`).join('')}</div><button class="primary sort-apply" onclick="applySort()">Применить</button>`);document.querySelector('#sheet').classList.add('sort-sheet')}
