@@ -265,7 +265,7 @@ def create_app(config=None):
             if canonical_name(gift.get('name', '')) != name:
                 continue
             try:
-                paid = Decimal(str(entry.get('price', gift.get('price'))))
+                paid = Decimal(str(gift.get('price') if gift.get('origin') == 'local-purchase' else entry.get('price', gift.get('price'))))
             except InvalidOperation:
                 continue
             if paid.is_finite() and paid > 0:
@@ -356,6 +356,64 @@ def create_app(config=None):
             return {'gifts':rows[offset:offset+40],'total':len(rows),'next_offset':offset+40,'has_more':offset+40<len(rows),'demo':False,'source':'snapshot','warning':'Сохранённый каталог · оценочные цены TON. Обновление Portal пока недоступно.'}
 
 
+    @app.get('/api/market/activity')
+    @auth()
+    def market_activity():
+        collections = {canonical_name(value) for value in request.args.get('collections', '')[:2000].split(',') if value}
+        for item in (cached('thermos:collections', [])[0] + cached('collections', [])[0] + catalog_seed['collections']):
+            if canonical_name(item['id']) in collections:
+                collections.add(canonical_name(item['name']))
+        kinds = set(request.args.get('types', '').split(',')) - {''}
+        query = request.args.get('search', '').strip().casefold()[:100]
+        offset = request.args.get('offset', 0, type=int)
+        offset = max(0, offset)
+        traits = {key: request.args.get(key, '')[:150] for key in ('model', 'backdrop', 'symbol')}
+        model_names = set()
+        items = []
+        total = 0
+        turnover = Decimal(0)
+        purchases = 0
+        for row in db().execute("SELECT kind,payload,created FROM history WHERE kind IN ('buy','sell','craft') ORDER BY created DESC,rowid DESC"):
+            entry = json.loads(row['payload'])
+            kind = row['kind']
+            if kind == 'craft':
+                if not entry.get('success') or not entry.get('gift', {}).get('source_id'):
+                    continue
+                kind = 'lucky_craft' if entry.get('mode') == 'lucky' else 'craft'
+            gifts = entry.get('gifts', []) if kind == 'sell' else [entry.get('gift') or entry]
+            for gift in gifts:
+                if collections and not collections.intersection(map(canonical_name, (gift.get('collection_id', ''), gift.get('name', '')))):
+                    continue
+                if query and query not in ' '.join(str(gift.get(k, '')) for k in ('name','model','number')).casefold():
+                    continue
+                if any(traits[key] and traits[key] != gift.get(key) for key in ('backdrop', 'symbol')):
+                    continue
+                if gift.get('model'):
+                    model_names.add(gift['model'])
+                if (traits['model'] and traits['model'] != gift.get('model')) or (kinds and kind not in kinds):
+                    continue
+                price = None
+                if kind == 'buy':
+                    try:
+                        paid = Decimal(str(gift.get('price') if gift.get('origin') == 'local-purchase' else entry.get('price', gift.get('price'))))
+                    except InvalidOperation:
+                        continue
+                    if not paid.is_finite() or paid <= 0:
+                        continue
+                    turnover += paid
+                    purchases += 1
+                    price = str(paid)
+                elif kind == 'sell':
+                    price = gift.get('price')
+                if offset <= total < offset + 35:
+                    public_gift = {key: gift[key] for key in (
+                        'name','number','model','image','background','backdrop','symbol','origin','source_number'
+                    ) if key in gift}
+                    items.append(dict(kind=kind, gift=public_gift, created=row['created'], price=price))
+                total += 1
+        return dict(items=items, has_more=total > offset + 35,
+                    total=total, purchases=purchases, turnover=str(turnover), models=sorted(model_names))
+
     @app.get('/api/inventory')
     @auth()
     def inventory():
@@ -396,24 +454,55 @@ def create_app(config=None):
         value=sum(floors[canonical_name(x['name'])] for x in chosen);cost=Decimal(target['floor_price'])
         if value<=0 or cost<=0:abort(409,description='Нет актуальной оценки подарков')
         listing_id = data.get('listing_id')
-        if listing_id is not None:
+        mode = 'lucky' if listing_id is not None else 'collection'
+        if mode == 'lucky':
             if not isinstance(listing_id, str) or not 1 <= len(listing_id) <= 150:
                 abort(400, description='Некорректный лот')
             listing = lucky_listing(target, listing_id)
             cost = Decimal(str(listing['price']))
-            return dict(gift_ids=ids, target_id=target['id'], target=target, listing_id=listing_id,
-                        listing_key=market_collectible_key(listing), target_value=str(cost), input_value=str(value),
-                        chance_bps=min(9500, int(value / cost * Decimal(9500))), scope='application')
-        models=collection_models(target['id'])
-        if not models:abort(409,description='Модели коллекции пока недоступны')
-        allowed=db().execute("SELECT payload FROM settings WHERE key='selection'").fetchone()
-        permitted=json.loads(allowed[0]).get(target['id']) if allowed else None
-        if permitted is not None:models=[m for m in models if m['name'] in permitted]
-        if not models:abort(409,description='Администратор не выбрал модели результата')
-        chance=min(9500,int(value/cost*Decimal(9500)))
-        reward_model=secrets.choice(models)
-        backdrop, symbol = reward_attributes(target['id'])
-        return dict(gift_ids=ids,target_id=target['id'],chance_bps=chance,input_value=str(value),target_value=str(cost),target=target,model=reward_model,backdrop=backdrop,symbol=symbol,scope='application')
+        else:
+            row = db().execute("SELECT payload FROM settings WHERE key='selection'").fetchone()
+            permitted = json.loads(row[0]).get(target['id']) if row else None
+            listing = collection_craft_listing(target, catalog, permitted)
+        return dict(gift_ids=ids, target_id=target['id'], target=target, listing_id=listing['id'],
+                    listing_key=market_collectible_key(listing), listing_price=str(listing['price']),
+                    target_value=str(cost), input_value=str(value), mode=mode,
+                    chance_bps=min(9500, int(value / cost * Decimal(9500))), scope='application')
+
+    def collection_craft_listing(target, catalog, permitted):
+        def available_listing():
+            candidates = {}
+            for gift, _ in craft_market_candidates(target):
+                if gift.get('model') and gift.get('image') and (permitted is None or gift['model'] in permitted):
+                    candidates.setdefault(market_collectible_key(gift), gift)
+            return secrets.choice(list(candidates.values())) if candidates else None
+
+        listing = available_listing()
+        if listing:
+            return listing
+        if permitted == []:
+            abort(409, description='Администратор не выбрал модели результата')
+        import portals_public
+        import thermos
+        params = {'collection_id': target['id'], 'sort_by': 'price asc'}
+        if permitted:
+            params['filter_by_models'] = permitted[0]
+        try:
+            try:
+                offers = portals_public.listings(params, catalog)
+            except (OSError, ValueError, StopIteration, KeyError):
+                offers = thermos.gifts(params, catalog)
+            key = 'public:market:craft:' + str(target['id'])
+            with db():
+                db().execute('INSERT OR REPLACE INTO cache VALUES (?,?,?)',
+                             (key, json.dumps(offers), int(time.time())))
+        except (OSError, ValueError, KeyError):
+            abort(503, description='Не удалось обновить лоты для крафта. Попробуйте ещё раз.')
+        listing = available_listing()
+        if listing is None:
+            abort(409, description='В маркете пока нет доступного лота этой коллекции с изображением')
+        return listing
+
     def reward_attributes(collection_id):
         attrs = collection_attributes(collection_id)
         backdrops = {item['name']: item for item in attrs.get('backdrops', []) if item.get('name')}
@@ -468,16 +557,6 @@ def create_app(config=None):
                 'source_price': gift['price'], 'source_price_unit': gift.get('price_unit', 'GRAM'),
                 'price': str(price), 'price_unit': 'GRAM', 'origin': 'application-craft', 'crafted': True}
 
-    def claim_craft_market_gift(target, model, backdrop, symbol):
-        for gift, price in craft_market_candidates(target):
-            if canonical_name(gift.get('model', '')) != canonical_name(model['name']):
-                continue
-            if symbol and (canonical_name(gift.get('backdrop', '')) != canonical_name(backdrop.get('name', ''))
-                           or not gift.get('symbol')):
-                continue
-            return award_market_gift(target, gift, price)
-        return None
-
     @app.post('/api/craft')
     @auth()
     def craft():
@@ -495,29 +574,18 @@ def create_app(config=None):
                 abort(400, description='Выберите от 1 до 4 подарков')
             eligible = {gift['id'] for gift in owned() if gift['status'] == 'unlisted'}
             if any(x not in eligible for x in ids):abort(409,description='Подарок уже использован или выставлен на продажу')
-            listing = None
-            if q.get('listing_id'):
-                listing = lucky_listing(q['target'], q['listing_id'])
-                if (market_collectible_key(listing) != q['listing_key'] or
-                        Decimal(str(listing['price'])) != Decimal(q['target_value'])):
-                    abort(409, description='Лот изменился. Обновите расчёт Lucky Craft.')
-            success=secrets.randbelow(10000)<q['chance_bps'];reward=None
-            if success and listing:
-                reward = award_market_gift(q['target'], listing, Decimal(q['target_value']).quantize(Decimal('0.01')))
-            elif success:
-                t, m = q['target'], q['model']
-                backdrop = q.get('backdrop', {})
-                symbol = q.get('symbol', '')
-                reward = claim_craft_market_gift(t, m, backdrop, symbol)
-                if reward is None:
-                    reward = dict(id='craft-'+uuid.uuid4().hex, name=t['name'], collection_id=t['id'],
-                                  model=m['name'], backdrop=backdrop.get('name', ''), background=backdrop, symbol=symbol,
-                                  price=t['floor_price'], source_price_unit=t.get('price_unit', 'TON'),
-                                  price_unit='GRAM', image=m.get('image') or t['photo_url'],
-                                  number=gift_number(t['id']), origin='application-craft', crafted=True)
+            if not q.get('listing_id'):
+                abort(409, description='Расчёт устарел. Выберите цель крафта заново.')
+            listing = lucky_listing(q['target'], q['listing_id'])
+            expected_price = q.get('listing_price', q['target_value'])
+            if (market_collectible_key(listing) != q['listing_key'] or
+                    Decimal(str(listing['price'])) != Decimal(expected_price)):
+                abort(409, description='Лот изменился. Обновите расчёт крафта.')
+            success = secrets.randbelow(10000) < q['chance_bps']
+            reward = award_market_gift(q['target'], listing, Decimal(expected_price).quantize(Decimal('0.01'))) if success else None
             for nft in ids:db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?',(g.user['id'],nft))
             if reward:db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
-            result=dict(success=success,chance=q['chance_bps']/100,gift=reward,consumed=ids,scope='application')
+            result=dict(success=success,chance=q['chance_bps']/100,gift=reward,consumed=ids,scope='application',mode=q.get('mode','lucky'))
             record('craft',result)
             db().execute('INSERT INTO craft_requests VALUES(?,?,?)',(g.user['id'],request_id,json.dumps(result)))
             db().execute('DELETE FROM craft_quotes WHERE id=?',(qid,))
@@ -631,7 +699,7 @@ def create_app(config=None):
                 reward={**gift,'source_price':gift['price'],'price':str(Decimal(gift['price']).quantize(Decimal('0.01'))),'id':'local-'+uuid.uuid4().hex,'source_id':source_id,'source_number':gift.get('number'),'source_price_unit':gift.get('price_unit'),'price_unit':'GRAM','number':gift_number(gift.get('collection_id') or gift['name'],gift.get('number')),'origin':'local-purchase'}
                 db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
                 db().execute('INSERT INTO local_sold VALUES(?)',(source_id,))
-                record('buy',dict(gift=reward,price=str(gift['price']),scope='application'))
+                record('buy',dict(gift=reward,price=reward['price'],scope='application'))
                 rewards.append(reward)
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-total),g.user['id']))
             db().executemany('INSERT OR IGNORE INTO local_sold VALUES(?)', [(key,) for key in keys])

@@ -22,8 +22,9 @@ function giftPicture(gift, large = false) {
     const exact = fragment ? [fragment + '.webp', fragment + (large ? '.large.jpg' : '.medium.jpg')] : [];
     const proxy = fragment ? '/media/fragment/' + fragment.split('/').pop() : '';
     const scalable = model ? model + '.svg' : '';
+    const awarded = gift.origin === 'application-craft' && gift.source_id ? original : '';
     const sharp = large ? (fragment ? [proxy, original, fragment + '.large.jpg', ...exact] : [scalable, model && model + '.png']) : [];
-    const urls = [...new Set([...sharp, original, ...exact, proxy, scalable, model && model + '.png', fragmentCollectionImage(giftCollectionSlug(gift.name))].filter(Boolean))];
+    const urls = [...new Set([awarded, ...sharp, original, ...exact, proxy, scalable, model && model + '.png', fragmentCollectionImage(giftCollectionSlug(gift.name))].filter(Boolean))];
     return `src="${esc(urls.shift() || '')}" data-gift-fallback="${esc(JSON.stringify(urls))}" onerror="nextGiftPicture(this)"`;
 }
 

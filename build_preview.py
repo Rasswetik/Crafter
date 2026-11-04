@@ -23,6 +23,19 @@ const previewCatalog=CATALOG_SEED;
      const route=url.replace('/api/','').split('?')[0],body=JSON.parse(options.body||'{}');let data={},ok=true;
      if(route==='craft/targets')data={gifts:previewGifts,demo:true};
      else if(route==='me')data={user:{id:5257227756,first_name:'Гошан',username:'goshan_wow'},is_admin:true,demo:true,balance:String(demoState.balance),inventory_count:demoState.inventory.length,inventory_value:String(demoState.inventory.reduce((a,x)=>a+Number(x.price),0)),bought:demoState.history.filter(x=>x.kind==='buy').length,sold:0,volume:'0',referrals:0,referral_level:1,referral_progress:0,invite_link:null};
+     else if(route==='market/activity'){
+        const params=new URLSearchParams(url.split('?')[1]||''), collectionIds=params.get('collections')?.split(',').filter(Boolean)||[];
+        const items=demoState.history.filter(h=>['buy','sell','craft'].includes(h.kind)).flatMap(h=>{
+          const gifts=h.kind==='sell'?h.data.gifts||[]:[h.data.gift||h.data];
+          return gifts.filter(gift=>gift.name&&(!collectionIds.length||collectionIds.includes(gift.collection_id)))
+              .map(gift=>({kind:h.kind,created:h.created,gift,price:h.kind==='buy'?h.data.price??gift.price:null}));
+        });
+        const models=[...new Set(items.map(item=>item.gift.model).filter(Boolean))],model=params.get('model');
+        const filtered=model?items.filter(item=>item.gift.model===model):items;
+        const buys=filtered.filter(item=>item.kind==='buy'),offset=Number(params.get('offset')||0);
+        data={items:filtered.slice(offset,offset+35),models,purchases:buys.length,
+          turnover:buys.reduce((total,item)=>total+Number(item.price||0),0),has_more:filtered.length>offset+35};
+     }
      else if(route==='market')data={gifts:previewGifts.filter(gift => !demoState.luckySold?.includes(gift.id)),demo:true,source:'demo'};
      else if(route==='inventory')data={gifts:demoState.inventory,demo:true};
      else if(route==='history')data={items:demoState.history};

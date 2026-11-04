@@ -39,6 +39,7 @@ def craft_inputs(client, monkeypatch):
         'Snoop Dogg': {'models': [{'name': 'Emerald', 'image_url': '/static/assets/snoop.webp'}]}
     })
     monkeypatch.setattr('app.secrets.randbelow', lambda _: 0)
+    monkeypatch.setattr('app.secrets.choice', lambda items: items[0])
     client.get('/api/me', headers=signed())
     gifts = [{**DEMO_GIFTS[0], 'id': f'input-{i}', 'number': 100+i, 'origin': 'admin-grant'}
              for i in range(5)]
@@ -77,6 +78,11 @@ def test_demo_listing_and_purchase(tmp_path):
 
 def test_four_gift_craft_awards_numbered_result_once(client, craft_inputs):
     headers = signed()
+    listing = {**DEMO_GIFTS[0], 'id': 'real-lot', 'number': 333,
+               'background': {'center_color': 10}, 'price_unit': 'GRAM'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('INSERT INTO cache VALUES (?, ?, ?)',
+                   ('public:market:', json.dumps({'gifts': [listing]}), int(time.time())))
     quote = client.post('/api/craft/quote', headers=headers,
                         json={'gift_ids': craft_inputs[:4], 'target_id': 'snoop'})
     assert quote.status_code == 200
@@ -85,7 +91,7 @@ def test_four_gift_craft_awards_numbered_result_once(client, craft_inputs):
     assert result.status_code == 200 and result.json['success']
     assert result.json['consumed'] == craft_inputs[:4]
     gift = result.json['gift']
-    assert gift['number'] > 0 and gift['background'] and gift['image']
+    assert (gift['number'], gift['source_id'], gift['image']) == (333, 'real-lot', listing['image'])
     assert client.post('/api/craft', headers=headers, json=payload).json == result.json
     assert len(client.get('/api/history', headers=headers).json['items']) == 1
     assert {gift['id'], craft_inputs[4]} == {
@@ -135,16 +141,9 @@ def test_market_key_is_optional_and_failure_is_honest(client,monkeypatch):
     assert r.status_code == 502 and r.json['error']
 
 
-def test_craft_keeps_black_background_and_symbol_when_market_has_only_floor(client, craft_inputs, monkeypatch):
-    import thermos
-    from app import DEMO_GIFTS
-    monkeypatch.setattr(thermos, 'request', lambda *_: {'Snoop Dogg': {
-        'models': [{'name': 'Emerald', 'image_url': '/static/assets/snoop.webp'}],
-        'backdrops': [{'name': 'Gold'}],
-        'symbols': [{'name': 'Rain Drop'}],
-    }})
-    monkeypatch.setattr('app.secrets.choice', lambda items: items[-1])
-    listing = {**DEMO_GIFTS[0], 'id': 'floor-listing', 'symbol': 'Rain Drop', 'price_unit': 'GRAM'}
+def test_craft_keeps_actual_listing_attributes_and_image(client, craft_inputs):
+    listing = {**DEMO_GIFTS[0], 'id': 'listed-black', 'backdrop': 'Black',
+               'symbol': 'Rain Drop', 'price_unit': 'GRAM', 'image': 'https://example.test/exact.png'}
     with sqlite3.connect(client.application.config['DATABASE']) as db:
         db.execute('INSERT INTO cache VALUES (?, ?, ?)',
                    ('public:market:', json.dumps({'gifts': [listing]}), int(time.time())))
@@ -155,9 +154,19 @@ def test_craft_keeps_black_background_and_symbol_when_market_has_only_floor(clie
                          json={'quote_id': quote['quote_id'], 'request_id': 'black-craft'})
     assert result.status_code == 200
     gift = result.json['gift']
-    assert (gift['backdrop'], gift['symbol']) == ('Black', 'Rain Drop')
-    assert 'source_id' not in gift
-    assert client.get('/api/market', headers=headers).json['gifts'][0]['id'] == listing['id']
+    assert (gift['backdrop'], gift['symbol'], gift['image']) == ('Black', 'Rain Drop', listing['image'])
+    assert gift['source_id'] == listing['id']
+    assert not client.get('/api/market', headers=headers).json['gifts']
+
+
+def test_craft_without_available_listing_keeps_materials(client, craft_inputs, monkeypatch):
+    import portals_public
+    monkeypatch.setattr(portals_public, 'listings', lambda *_: {'gifts': []})
+    headers = signed()
+    result = client.post('/api/craft/quote', headers=headers,
+                         json={'gift_ids': craft_inputs[:1], 'target_id': 'snoop'})
+    assert result.status_code == 409
+    assert len(client.get('/api/inventory', headers=headers).json['gifts']) == len(craft_inputs)
 
 
 def test_lucky_craft_awards_exact_lot_and_rejects_other_quote(client, craft_inputs):
@@ -303,3 +312,23 @@ def test_fragment_media_validates_numbered_slug_and_serves_image(client, monkeyp
     assert result.status_code == 200 and result.content_type == 'image/jpeg'
     assert result.headers['Cache-Control'] == 'public, max-age=86400'
     assert client.get('/media/fragment/127.0.0.1').status_code == 404
+
+
+def test_market_activity_filters_collection_model_and_type(client):
+    now = int(time.time())
+    gift = {'name': 'Witch Hat', 'collection_id': 'hat', 'model': 'Arcade',
+            'image': '/static/assets/hat.webp', 'number': 10}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        for i, (kind, payload) in enumerate([
+            ('buy', {'gift': gift, 'price': '5.75', 'private': 42}),
+            ('buy', {'gift': {**gift, 'model': 'Another'}, 'price': '9'}),
+            ('buy', {'gift': {**gift, 'name': 'Other', 'collection_id': 'other'}, 'price': '50'}),
+            ('craft', {'success': True, 'gift': {**gift, 'source_id': 'lot'}, 'mode': 'lucky'}),
+        ]):
+            db.execute('INSERT INTO history VALUES (?,?,?,?,?)', (str(i), 42, kind, json.dumps(payload), now))
+    result = client.get('/api/market/activity?collections=hat&model=Arcade&types=buy', headers=signed())
+    assert result.status_code == 200
+    assert result.json['turnover'] == '5.75' and result.json['purchases'] == 1
+    assert result.json['models'] == ['Another', 'Arcade']
+    assert result.json['items'][0]['gift']['name'] == 'Witch Hat'
+    assert b'private' not in result.data
