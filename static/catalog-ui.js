@@ -44,37 +44,48 @@ async function openCatalogSheet(kind){
  sheet(titles[kind],`<label class="catalog-search search-box">${icon('search')}<input placeholder="Быстрый поиск" aria-label="Быстрый поиск" oninput="renderCatalogRows(this.value)"></label><div class="catalog-columns"><span>${kind==='target'?'КОЛЛЕКЦИЯ':titles[kind]}</span><span>Мин. цена</span></div><div id="catalog-rows" class="catalog-rows"></div>${kind==='target'?'':`<div class="catalog-footer"><button onclick="resetCatalogDraft()">Сбросить</button><button class="apply" onclick="applyCatalogFilter()">Применить</button></div>`}`);
  document.querySelector('#sheet').classList.add('catalog-sheet');renderCatalogRows('');
 }
+function catalogCollectionForArtwork(row) {
+    const selected = selectedCollections();
+    const candidates = state.catalog?.collections || [];
+    return candidates.find(c => String(c.id)===String(row.value) ||
+        giftCollectionSlug(c.name)===giftCollectionSlug(row.name)) ||
+        candidates.find(c => selected.some(value =>
+            String(c.id)===String(value) || String(c.name)===String(value))) || null;
+}
+function catalogArtworkURLs(row) {
+    const kind = state.sheetKind;
+    const collection = catalogCollectionForArtwork(row);
+    const collectionName = collection?.name ||
+        (kind==='collection'||kind==='target' ? row.name : '');
+    const chosen = kind==='collection'||kind==='target' ?
+        state.catalog?.collections?.find(c=>String(c.id)===String(row.value) ||
+            giftCollectionSlug(c.name)===giftCollectionSlug(row.name)) : collection;
+    const official = imageURL(chosen?.photo_url);
+    const fragment = fragmentCollectionImage(giftCollectionSlug(collectionName));
+    const listed = imageURL(row.image);
+    // Gift-specific art must never replace a collection thumbnail.
+    if (kind==='collection'||kind==='target') return [...new Set([official, fragment].filter(Boolean))];
+    const name = collectionName || (state.page==='gifts' ?
+        (state.inventory||[]).find(g=>String(g[kind]||'')===String(row.name))?.name : '');
+    const part = value => encodeURIComponent(String(value||'').trim());
+    const exact = name && row.name && (kind==='model'||kind==='symbol') ?
+        'https://api.changes.tg/'+kind+'/'+part(name)+'/'+part(row.name)+'.png' : '';
+    // Fallback artwork must belong to this exact trait, or be the official
+    // collection thumbnail. Never show a random model from another gift.
+    if (kind==='model'||kind==='symbol') return [...new Set([listed,exact,official,fragment].filter(Boolean))];
+    return [];
+}
 function catalogRowArtwork(row) {
-    const kind=state.sheetKind;
-    const selected=selectedCollections();
-    const matchingCollection=gift=>!selected.length||selected.some(key=>
-        String(gift.collection_id)===key||String(gift.name)===key);
-    let src=imageURL(row.image);
-    // Catalog attribute imagery may be omitted by the public provider:
-    // prefer a real gift with EXACT matching collection/model/symbol, never
-    // a random gift or an illustration from a different collection.
-    if (!src && (kind==='model'||kind==='symbol')) {
-        const pool=state.page==='gifts' ? state.inventory : state.gifts;
-        const gift=(pool||[]).find(gift=>matchingCollection(gift)&&
-            String(gift[kind]||'').toLocaleLowerCase()===String(row.name).toLocaleLowerCase()&&imageURL(gift.image));
-        if(gift)src=imageURL(gift.image);
-    }
-    let fallback='';
-    if(kind==='collection') {
-        const collection=state.catalog.collections.find(c=>String(c.id)===String(row.value)||
-            String(c.name)===String(row.name));
-        src=src||imageURL(collection?.photo_url);
-        fallback=fragmentCollectionImage(giftCollectionSlug(row.name))||'';
-        src=src||fallback;
-    } else if(kind==='model' && !src) {
-        const collection=state.catalog.collections.find(c=>selected.some(k=>String(c.id)===k));
-        src=imageURL(collection?.photo_url);
-    }
-    const bg=row.background ? ' style="background:'+esc(row.background)+'"' : '';
-    const fallbackAttr=fallback&&src!==fallback?' data-fallback="'+esc(fallback)+'"':'';
-    const img=src?'<img loading="lazy" src="'+esc(src)+'"'+fallbackAttr+
-        ' alt="" onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback}else{this.hidden=true}">':'';
-    return '<span class="catalog-thumb catalog-thumb-'+kind+'"'+bg+'>'+img+'</span>';
+    const kind = state.sheetKind;
+    const urls = catalogArtworkURLs(row);
+    const background = kind==='backdrop' && row.background &&
+        /^(?:linear-gradient|radial-gradient|#[0-9a-f]{3,8}|rgb|hsl)/i.test(row.background) ?
+        ' style="background:'+esc(row.background)+'"' : '';
+    const img = urls.length ?
+        '<img loading="lazy" src="'+esc(urls[0])+'" data-fallback="'+
+            esc(JSON.stringify(urls.slice(1)))+
+            '" alt="" onerror="nextGiftPicture(this)">' : '';
+    return '<span class="catalog-thumb catalog-thumb-'+esc(kind)+'"'+background+'>'+img+'</span>';
 }
 function renderCatalogRows(query){
     const target=document.querySelector('#catalog-rows');if(!target)return;
@@ -352,7 +363,7 @@ function showGiftDetail(gift, source) {
             <div class="gift-detail-tools" role="group" aria-label="Действия с подарком">
                 ${own && gift.status === 'unlisted' ? `<button type="button" class="gift-detail-tool gift-send-tool"
                     onclick="startGiftTransfer(${arg(gift.id)})" aria-label="Отправить подарок" title="Отправить подарок">
-                    ${inventoryToolbarIcon('transfer')}
+                    ${crafterTelegramPlaneSVG()}
                 </button>` : ''}
                 <button type="button" class="gift-detail-tool gift-eye-tool"
                     onclick="openGiftTelegramView()" aria-label="Посмотреть NFT в Telegram"
