@@ -460,7 +460,8 @@ def test_wallet_deposit_checks_sender_balance_and_confirms_after_unlink(client, 
         ('withdraw_funds', 'queued', '1.25'), ('deposit', 'confirmed', '3.25')]
 
     available_after_request = client.get('/api/wallet', headers=headers).json
-    assert available_after_request['funded_balance'] == '2.00'
+    # The deposit provenance metric is unchanged by new withdrawal requests.
+    assert available_after_request['funded_balance'] == '3.25'
     assert available_after_request['withdrawable'] == '2.00'
     wid = withdrawal.json['id']
     assert post('withdraw/' + wid + '/cancel', {}).status_code == 200
