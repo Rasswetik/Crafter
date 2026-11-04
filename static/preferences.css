@@ -1,0 +1,148 @@
+/* Crafter preferences & shared SVG controls. Loaded after the main theme. */
+.crafter-profile-heading {
+    display:flex;align-items:center;justify-content:space-between;
+    gap:12px;margin:0 0 13px;
+}
+.crafter-profile-heading h1 {margin:8px 0 10px}
+.crafter-open-settings {
+    width:43px;height:43px;flex:0 0 43px;
+    display:grid;place-items:center;
+    border-radius:15px;background:#262626;border:1px solid #ffffff1c;
+    color:inherit;transition:background .18s,transform .18s;
+}
+.crafter-open-settings svg {width:21px;height:21px;stroke-width:1.7}
+.crafter-open-settings:active {transform:scale(.96)}
+.crafter-svg-close {
+    display:grid!important;place-items:center!important;
+    padding:0!important;line-height:1!important;
+    border-radius:12px!important;width:36px!important;height:36px!important;
+    min-width:36px!important;min-height:36px!important;
+    background:#333!important;color:#dedee1!important;
+}
+.crafter-svg-close svg {width:19px!important;height:19px!important;flex:none;display:block}
+.crafter-settings {display:grid;gap:17px;padding:4px 0 8px}
+.crafter-settings-section {padding:14px;border:1px solid #ffffff16;border-radius:21px;background:#252525}
+.crafter-settings-section h3 {font-size:14px;font-weight:700;margin:0 0 14px;display:flex;align-items:center;gap:9px}
+.crafter-settings-section h3 svg {width:20px;height:20px;flex:none;color:#bfc3cc}
+.crafter-options {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+.crafter-settings-section:last-child .crafter-options {grid-template-columns:repeat(2,minmax(0,1fr))}
+.crafter-option {
+    background:#353535;border:1px solid #ffffff14;color:#e2e2e4;
+    font-size:13px;font-weight:650;border-radius:15px;padding:12px 5px;
+    min-height:42px;transition:background .15s,border-color .15s;
+}
+.crafter-option.selected {background:#193952;border-color:#2e92e7;color:#fff;box-shadow:inset 0 0 0 1px #2e92e740}
+.crafter-option:focus-visible,.crafter-svg-close:focus-visible,.crafter-open-settings:focus-visible {
+    outline:2px solid var(--blue);outline-offset:3px;
+}
+/* Theme values. Keep colored NFT artwork, collection gradients and product badges intact. */
+html[data-crafter-theme="light"] {
+    color-scheme:light;
+    --bg:#f6f7fa;--panel:#fff;--muted:#6c7481;--line:#e2e5ea;
+    --blue:#1383ed;--purple:#8654d5;
+}
+html[data-crafter-theme="light"] body {background:#e9ecf2!important;color:#171b23!important}
+html[data-crafter-theme="light"] #app {background:#f6f7fa!important;color:#171b23}
+html[data-crafter-theme="light"] header:not(.craft-result-heading) {background:#f6f7fa;color:#171b23}
+html[data-crafter-theme="light"] #main {color:#171b23}
+html[data-crafter-theme="light"] nav,html[data-crafter-theme="light"] #nav {
+    background:#ffffffed!important;border-color:#e0e4ea!important;
+    box-shadow:0 12px 30px #2732471a;
+}
+html[data-crafter-theme="light"] nav button {color:#707988}
+html[data-crafter-theme="light"] nav button.active {color:#0e77d4;background:#eaf4ff;border-color:#d0e4fa}
+html[data-crafter-theme="light"] nav .profile-nav {background:#f2f5f9!important}
+html[data-crafter-theme="light"] .panel,
+html[data-crafter-theme="light"] .profile-card,
+html[data-crafter-theme="light"] .portal-profile,
+html[data-crafter-theme="light"] .gift,
+html[data-crafter-theme="light"] .admin-entry,
+html[data-crafter-theme="light"] .collection-card,
+html[data-crafter-theme="light"] .cart-row,
+html[data-crafter-theme="light"] .wallet-panel,
+html[data-crafter-theme="light"] .gift-row,
+html[data-crafter-theme="light"] .inventory-empty,
+html[data-crafter-theme="light"] .market-tool,
+html[data-crafter-theme="light"] .admin-section-card {
+    background:#fff!important;border-color:#e0e4ea!important;color:#171b23!important;
+}
+html[data-crafter-theme="light"] .panel p,
+html[data-crafter-theme="light"] .sub,
+html[data-crafter-theme="light"] .stats span,
+html[data-crafter-theme="light"] .gift .number,
+html[data-crafter-theme="light"] .section-label,
+html[data-crafter-theme="light"] .ref-stats small,
+html[data-crafter-theme="light"] .form-label,
+html[data-crafter-theme="light"] .wallet-sub,
+html[data-crafter-theme="light"] .market-categories button {
+    color:#697380!important;
+}
+html[data-crafter-theme="light"] .market-categories .selected {color:#147cdb!important}
+html[data-crafter-theme="light"] .market-categories button span,
+html[data-crafter-theme="light"] .pill,
+html[data-crafter-theme="light"] .ref-stats div,
+html[data-crafter-theme="light"] .segment,
+html[data-crafter-theme="light"] .inventory-actions,
+html[data-crafter-theme="light"] .inventory-tabs,
+html[data-crafter-theme="light"] .circle,
+html[data-crafter-theme="light"] .sort,
+html[data-crafter-theme="light"] .balance,
+html[data-crafter-theme="light"] .secondary,
+html[data-crafter-theme="light"] .crafter-open-settings {
+    background:#e9edf3!important;color:#25303b!important;border-color:#dce1e8!important;
+}
+html[data-crafter-theme="light"] .pill b {color:#171b23!important}
+html[data-crafter-theme="light"] .segment .selected,
+html[data-crafter-theme="light"] .inventory-tabs .selected {background:#fff!important;color:#1177cf!important}
+html[data-crafter-theme="light"] .search-box,
+html[data-crafter-theme="light"] input.field,
+html[data-crafter-theme="light"] textarea.field,
+html[data-crafter-theme="light"] select.field,
+html[data-crafter-theme="light"] .filters select,
+html[data-crafter-theme="light"] .price-fields input,
+html[data-crafter-theme="light"] .gift-history-filters select {
+    background-color:#fff!important;color:#171b23!important;border:1px solid #dbe0e7!important;
+}
+html[data-crafter-theme="light"] .search-box input,
+html[data-crafter-theme="light"] .field,
+html[data-crafter-theme="light"] input,
+html[data-crafter-theme="light"] textarea,
+html[data-crafter-theme="light"] select {
+    color:#171b23;
+}
+html[data-crafter-theme="light"] .search-box input::placeholder,
+html[data-crafter-theme="light"] .field::placeholder {color:#858d99}
+html[data-crafter-theme="light"] .search-box {background:#fff;color:#77818d;border-color:#dce1e8}
+html[data-crafter-theme="light"] dialog,
+html[data-crafter-theme="light"] #sheet {
+    background:#fff!important;color:#171b23!important;border-color:#e0e4ea!important;
+}
+html[data-crafter-theme="light"] .crafter-svg-close {background:#e8edf3!important;color:#313d4b!important}
+html[data-crafter-theme="light"] .crafter-settings-section {background:#f4f6f9;border-color:#e0e4ea}
+html[data-crafter-theme="light"] .crafter-settings-section h3 svg {color:#657282}
+html[data-crafter-theme="light"] .crafter-option {background:#e9edf3;color:#283747;border-color:#dce1e8}
+html[data-crafter-theme="light"] .crafter-option.selected {background:#e0f0ff;color:#0865b8;border-color:#228fe8}
+html[data-crafter-theme="light"] .detail-row b,
+html[data-crafter-theme="light"] .detail-row,
+html[data-crafter-theme="light"] .stats b,
+html[data-crafter-theme="light"] .identity h2,
+html[data-crafter-theme="light"] .admin-entry small {color:#1d2835}
+html[data-crafter-theme="light"] .craft-page:not(.craft-finished) {
+    background:radial-gradient(ellipse at 50% 28%,#e2e7f0,#f6f7fa 70%)!important;color:#171b23;
+}
+html[data-crafter-theme="light"] .craft-page:not(.craft-finished) .craft-caption,
+html[data-crafter-theme="light"] .craft-page:not(.craft-finished) .craft-warning {color:#606d7d!important}
+html[data-crafter-theme="light"] .craft-page:not(.craft-finished) .craft-caption b {color:#171b23!important}
+html[data-crafter-theme="light"] .craft-page:not(.craft-finished) .target,
+html[data-crafter-theme="light"] .craft-page:not(.craft-finished) .anvil,
+html[data-crafter-theme="light"] .craft-page:not(.craft-finished) .craft-slot {
+    background:#f1f3f7!important;border-color:#d4dae5!important;color:#172336!important;
+}
+html[data-crafter-theme="light"] .craft-page:not(.craft-finished) .craft-chance {color:#172336}
+html[data-crafter-theme="light"] .craft-page.craft-finished {color:#fff}
+html[data-crafter-theme="light"] .craft-page.craft-finished .craft-result-heading h2,
+html[data-crafter-theme="light"] .craft-page.craft-finished .craft-result-name {color:#fff}
+html[data-crafter-theme="light"] .craft-page.craft-finished .forge-result-actions button {color:#fff!important}
+@media(prefers-reduced-motion:reduce) {
+ .crafter-option,.crafter-svg-close,.crafter-open-settings {transition:none}
+}
