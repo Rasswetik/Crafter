@@ -127,11 +127,18 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         db().commit()
 
     def credentials():
-        value = os.getenv('TELEGRAM_API_ID', '').strip()
-        secret = os.getenv('TELEGRAM_API_HASH', '').strip()
-        if not value.isdecimal() or not secret:
-            raise ValueError('Задайте TELEGRAM_API_ID и TELEGRAM_API_HASH в Render')
-        return int(value), secret
+        # Operator-supplied credentials override legacy Render environment variables.
+        # Both are encrypted in the existing persistent settings database.
+        c = config()
+        if c.get('api_id_encrypted') and c.get('api_hash_encrypted'):
+            value = decrypt(c['api_id_encrypted'])
+            secret = decrypt(c['api_hash_encrypted'])
+        else:
+            value = os.getenv('TELEGRAM_API_ID', '').strip()
+            secret = os.getenv('TELEGRAM_API_HASH', '').strip()
+        if not re.fullmatch(r'[1-9][0-9]{0,15}', value) or not re.fullmatch(r'[a-fA-F0-9]{32}', secret):
+            raise ValueError('Укажите API ID и API Hash в разделе Relayer')
+        return int(value), secret.lower()
 
     def cipher():
         key = os.getenv('TELEGRAM_SESSION_KEY', '').strip()
@@ -152,7 +159,10 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             raise ValueError('Не удалось расшифровать сессию. Проверьте TELEGRAM_SESSION_KEY')
 
     def available():
-        return all(os.getenv(key) for key in ('TELEGRAM_API_ID', 'TELEGRAM_API_HASH', 'TELEGRAM_SESSION_KEY'))
+        c = config()
+        stored = bool(c.get('api_id_encrypted') and c.get('api_hash_encrypted'))
+        env = bool(os.getenv('TELEGRAM_API_ID') and os.getenv('TELEGRAM_API_HASH'))
+        return bool(os.getenv('TELEGRAM_SESSION_KEY')) and (stored or env)
 
     def status():
         c = config()
@@ -161,6 +171,11 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             'SELECT status,count(*) count FROM telegram_gift_receipts GROUP BY status')}
         return dict(
             configured=available(), connected=bool(c.get('session')),
+            api_credentials_source=('relayer' if c.get('api_id_encrypted') and c.get('api_hash_encrypted')
+                                    else 'render' if os.getenv('TELEGRAM_API_ID') and os.getenv('TELEGRAM_API_HASH')
+                                    else 'missing'),
+            session_key_configured=bool(os.getenv('TELEGRAM_SESSION_KEY')),
+            notification_emoji=c.get('notification_emoji') or '🎁',
             account_id=c.get('account_id'), account_name=c.get('account_name', ''),
             baseline_done=bool(c.get('baseline_done')),
             phone_pending=bool(c.get('pending') and int(c['pending'].get('created', 0)) > time.time() - 600),
@@ -177,8 +192,9 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             return
         url = escape(gift['telegram_url'], quote=True)
         label = escape(gift['name'] + ' #' + str(gift['number']))
+        emoji = escape(config().get('notification_emoji') or '🎁')
         msg = dict(chat_id=uid, parse_mode='HTML', disable_web_page_preview=True,
-                   text=f"🎁 <a href=\"{url}\">{label}</a> just passed through the crafter.\n\n"
+                   text=f"{emoji} <a href=\"{url}\">{label}</a> just passed through the crafter.\n\n"
                         "It's now in your inventory — go take a look.")
         app_url = settings.get('app_url') or os.getenv('RENDER_EXTERNAL_URL', '')
         if app_url.startswith('https://'):
@@ -291,6 +307,40 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             dict(slug=r['slug'], sender_id=r['sender_id'], recipient_id=r['recipient_id'],
                  status=r['status'], gift=json.loads(r['payload']),
                  received=r['received'], processed=r['processed']) for r in rows]}
+
+    @app.post('/api/admin/telegram-deposits/credentials')
+    @auth(admin=True)
+    def save_credentials():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description='Некорректные настройки Relayer')
+        api_id = str(data.get('api_id') or '').strip()
+        api_hash = str(data.get('api_hash') or '').strip()
+        emoji = data.get('emoji')
+        if (api_id or api_hash) and (not re.fullmatch(r'[1-9][0-9]{0,15}', api_id)
+                                    or not re.fullmatch(r'[a-fA-F0-9]{32}', api_hash)):
+            abort(400, description='Для подключения укажите API ID (число) и API Hash (32 символа)')
+        if emoji is not None:
+            if (not isinstance(emoji, str) or not 1 <= len(emoji.strip()) <= 16
+                    or any(ord(char) < 32 or char in '<>' for char in emoji)):
+                abort(400, description='Эмодзи должно быть не длиннее 16 символов, без разметки')
+        if not api_id and not api_hash and emoji is None:
+            abort(400, description='Заполните поля для сохранения')
+        c = config()
+        if api_id and api_hash:
+            pending_login = c.get('pending') or {}
+            if c.get('session') or int(pending_login.get('created', 0)) > time.time() - 600:
+                abort(409, description='Перед изменением API ID и API Hash отключите Telegram или завершите вход')
+            try:
+                c['api_id_encrypted'] = encrypt(api_id)
+                c['api_hash_encrypted'] = encrypt(api_hash.lower())
+            except ValueError:
+                abort(409, description='На сервере не задан корректный TELEGRAM_SESSION_KEY')
+        if emoji is not None:
+            c['notification_emoji'] = emoji.strip()
+        save(c)
+        audit('Telegram relayer credentials or notification settings updated')
+        return {'ok': True, **status()}
 
     @app.post('/api/admin/telegram-deposits/send-code')
     @auth(admin=True)
