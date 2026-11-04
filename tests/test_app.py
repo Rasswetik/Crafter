@@ -148,7 +148,7 @@ def test_preview_contains_real_cube_renderer(client):
     assert b'src="/static/app.js?' not in result.data
     assert b'href="/static/staking.css?' not in result.data
     assert b'function renderGamesHub()' in result.data
-    assert b'function renderAdminBanners(' in result.data
+    assert b'function renderOffersInbox(' in result.data
     assert result.headers['Cache-Control']=='no-cache, must-revalidate'
 
 def test_market_key_is_optional_and_failure_is_honest(client,monkeypatch):
