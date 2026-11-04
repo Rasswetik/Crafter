@@ -6,6 +6,7 @@ const crafterStoredPrefs = (() => {
     catch { return {}; }
 })();
 const crafterPrefs = {
+    animations: crafterStoredPrefs.animations !== false,
     language: crafterStoredPrefs.language === 'en' ? 'en' : 'ru',
     theme: ['dark','light','system'].includes(crafterStoredPrefs.theme) ? crafterStoredPrefs.theme : 'dark'
 };
@@ -35,6 +36,14 @@ function craftText(key) {
 }
 /* Source UI copy is Russian; reversing the dictionary restores it without a page reload. */
 const crafterTranslationPairs = [
+    ['Анимации','Animations'], ['Поддержка','Support'], ['Общий банк','Inventory bank'],
+    ['Лучший выигрыш','Best win'], ['Топ 10 офферов','Top 10 offers'],
+    ['Продай сейчас','Sell now'], ['Лучшее предложение','Best offer'],
+    ['По коллекции','Collection offers'], ['По атрибутам','Attribute offers'],
+    ['Офферов пока нет','No offers yet'], ['Создать оффер','Create offer'],
+    ['Атрибуты','Attributes'], ['Количество','Quantity'], ['Окончание оффера','Offer expiry'],
+    ['Бессрочно','No expiry'], ['24 часа','24 hours'], ['7 дней','7 days'],
+    ['Доступный баланс','Available balance'], ['Общая цена','Total price'],
     ['Маркет','Market'],['Мои подарки','My gifts'],['Крафт','Craft'],
     ['Профиль','Profile'],['Настройки','Settings'],['Выберите раздел','Choose a section'],
     ['Светлая','Light'],['Тёмная','Dark'],['Системная','System'],
@@ -187,8 +196,6 @@ function crafterTranslateAttrs(element) {
 }
 const crafterCrossSVG = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
 const crafterSettingsSVG = '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10.45 2.55h3.1l.57 2.15c.56.19 1.09.49 1.57.86l2.12-.68 2.19 2.19-.68 2.12c.37.48.67 1.01.86 1.57l2.15.57v3.1l-2.15.57c-.19.56-.49 1.09-.86 1.57l.68 2.12-2.19 2.19-2.12-.68c-.48.37-1.01.67-1.57.86l-.57 2.15h-3.1l-.57-2.15c-.56-.19-1.09-.49-1.57-.86l-2.12.68-2.19-2.19.68-2.12c-.37-.48-.67-1.01-.86-1.57L2 13.55v-3.1l2.15-.57c.19-.56.49-1.09.86-1.57l-.68-2.12 2.19-2.19 2.12.68c.48-.37 1.01-.67 1.57-.86l.24-.92Z"/><circle cx="12" cy="12" r="3.3"/></svg>';
-const crafterSunSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M19.07 4.93l-1.41 1.41M6.34 17.66l-1.41 1.41"/></svg>';
-const crafterLanguageSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-5 5-5 13 0 18M12 3c5 5 5 13 0 18"/></svg>';
 function crafterReplaceClose(el) {
     if (!(el instanceof Element)) return;
     const candidates = el.matches?.('button.close, button[aria-label="Закрыть"], button[aria-label="Close"]') ?
@@ -215,6 +222,7 @@ function crafterApplyTheme() {
     const systemLight = matchMedia('(prefers-color-scheme: light)').matches;
     const effective = crafterPrefs.theme === 'system' ? (systemLight ? 'light' : 'dark') : crafterPrefs.theme;
     document.documentElement.dataset.crafterTheme = effective;
+    document.documentElement.dataset.crafterAnimations = crafterPrefs.animations ? 'on' : 'off';
     document.documentElement.style.colorScheme = effective;
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', effective === 'light' ? '#f6f7fa' : '#131313');
 }
@@ -244,41 +252,40 @@ function crafterSettingsOption(key, value, title) {
         onclick="crafterSetPreference('${key}','${value}')">${title}</button>`;
 }
 function crafterOpenSettings() {
-    const html = `<div id="crafter-settings" class="crafter-settings">
+    sheet(craftText('settings'), `<div id="crafter-settings" class="crafter-settings crafter-settings-compact">
         <section class="crafter-settings-section">
-            <h3>${crafterSunSVG} ${craftText('theme')}</h3>
-            <div class="crafter-options" role="group" aria-label="${craftText('appearance')}">
-                ${crafterSettingsOption('theme','dark',craftText('dark'))}
-                ${crafterSettingsOption('theme','light',craftText('light'))}
-                ${crafterSettingsOption('theme','system',craftText('system'))}
+            <h3>Язык</h3>
+            <div class="crafter-options" role="group" aria-label="Язык">
+                ${crafterSettingsOption('language','en','🇺🇸 EN')}
+                ${crafterSettingsOption('language','ru','🇷🇺 RU')}
             </div>
         </section>
         <section class="crafter-settings-section">
-            <h3>${crafterLanguageSVG} ${craftText('language')}</h3>
-            <div class="crafter-options" role="group" aria-label="${craftText('language')}">
-                ${crafterSettingsOption('language','ru','Русский')}
-                ${crafterSettingsOption('language','en','English')}
-            </div>
+            <label class="crafter-animation-setting"><span>Анимации</span>
+                <input type="checkbox" role="switch" ${crafterPrefs.animations ? 'checked' : ''}>
+            </label>
         </section>
-    </div>`;
-    sheet(craftText('settings'), html);
-    crafterLocalizeTree(document.querySelector('#sheet'));
+        <button type="button" class="primary crafter-support" disabled>Поддержка</button>
+    </div>`);
+    const root = document.querySelector('#crafter-settings');
+    root.querySelector('input[role="switch"]').onchange = event => {
+        crafterPrefs.animations = event.target.checked;
+        crafterStorePrefs();
+        crafterApplyTheme();
+    };
+    crafterLocalizeTree(appSheet);
 }
 function crafterAddProfileSettings() {
     const root = document.querySelector('#main');
-    const heading = root?.querySelector('h1');
-    if (!heading || root.querySelector('.crafter-open-settings')) return;
-    const header = document.createElement('div');
-    header.className = 'crafter-profile-heading';
-    heading.before(header);
-    header.append(heading);
+    const identity = root?.querySelector('.profile-identity');
+    if (!identity || state.gamesMode || root.querySelector('.crafter-open-settings')) return;
     const control = document.createElement('button');
     control.type = 'button';
     control.className = 'crafter-open-settings';
     control.setAttribute('aria-label', craftText('settings'));
     control.innerHTML = crafterSettingsSVG;
     control.onclick = crafterOpenSettings;
-    header.append(control);
+    identity.append(control);
 }
 const crafterRenderProfileBeforeSettings = renderProfile;
 renderProfile = function(...args) {

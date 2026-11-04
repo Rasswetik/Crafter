@@ -23,7 +23,10 @@ renderMarket = function () {
         const {collection, volume_24h, volume_total} = page.overview;
         section.querySelector('[data-volume="24h"]').textContent = money(volume_24h) + ' GRAM';
         section.querySelector('[data-volume="total"]').textContent = money(volume_total) + ' GRAM';
-        if (Number(collection.floor_price) > 0) {
+        if (state.marketSource === 'crafter') {
+            section.querySelector('[data-collection-floor]').textContent =
+                Number(state.marketFloorGram) > 0 ? money(state.marketFloorGram) + ' GRAM' : '—';
+        } else if (Number(collection.floor_price) > 0) {
             section.querySelector('[data-collection-floor]').textContent =
                 money(collection.floor_price) + ' ' + (collection.price_unit || 'TON');
         }
@@ -48,7 +51,7 @@ renderMarket = function () {
 const goWithoutCollection = go;
 go = async function (page) {
     if (state.crafting) return;
-    if (state.page === 'profile' && page !== 'profile' && !giftAnimationMotion.matches) {
+    if (state.page === 'profile' && page !== 'profile' && !giftAnimationMotion.matches && document.documentElement.dataset.crafterAnimations !== 'off') {
         const main = document.querySelector('#main');
         main.classList.add('profile-leaving');
         await new Promise(resolve => setTimeout(resolve, 170));
@@ -90,6 +93,7 @@ async function openCollectionPage(collection, updateUrl = true) {
     const page = {...collection, marketView, overview: null, banner: []};
     const filter = {
         ...marketView, collection: collection.id, query:'', model:'', backdrop:'', symbol:'', minPrice:'', maxPrice:'',
+        order: state.marketSource === 'crafter' ? 'price asc' : marketView.order,
     };
     state.collectionPage = page;
     views.market = filter;

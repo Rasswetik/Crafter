@@ -1,8 +1,31 @@
 /* Persist each section's filters and load market pages as they approach the viewport. */
 const viewFields=['query','collection','model','backdrop','symbol','order','minPrice','maxPrice','list'];let viewUser,views={},marketObserver,viewHydrated=false;
 function restoreViews(){if(!state.me||viewUser===state.me.user.id)return;viewUser=state.me.user.id;try{views=JSON.parse(localStorage.getItem('crafter-views:'+viewUser)||'{}')}catch{views={}}}
-function saveView(){restoreViews();if(!['market','gifts'].includes(state.page))return;views[state.page]=Object.fromEntries(viewFields.map(k=>[k,state[k]]));try{localStorage.setItem('crafter-views:'+viewUser,JSON.stringify(views))}catch{}}
-const viewsGo=go;go=async function(page){if(state.crafting)return;const oldUser=viewUser;restoreViews();if(viewHydrated&&oldUser===viewUser)saveView();viewHydrated=true;if(state.page==='craft'||page==='craft')saveCraftDraft(page==='craft');marketObserver?.disconnect();if(['market','gifts'].includes(page)){const values=views[page]||{query:'',collection:'',model:'',backdrop:'',symbol:'',order:'listed_at desc',minPrice:'',maxPrice:'',list:false};for(const key of viewFields)state[key]=values[key]??(key==='list'?false:key==='order'?'listed_at desc':'')}await viewsGo(page)};
+function saveView() {
+    restoreViews();
+    if (!['market', 'gifts'].includes(state.page)) return;
+    views[state.page] = Object.fromEntries(viewFields.map(key => [key, state[key]]));
+    if (state.page === 'market') views.marketSource = state.marketSource;
+    try { localStorage.setItem('crafter-views:' + viewUser, JSON.stringify(views)); } catch {}
+}
+const viewsGo = go;
+go = async function(page) {
+    if (state.crafting) return;
+    const oldUser = viewUser;
+    restoreViews();
+    if (viewHydrated && oldUser === viewUser) saveView();
+    viewHydrated = true;
+    if (state.page === 'craft' || page === 'craft') saveCraftDraft(page === 'craft');
+    marketObserver?.disconnect();
+    if (['market', 'gifts'].includes(page)) {
+        const values = views[page] || {};
+        for (const key of viewFields) state[key] = values[key] ?? (key === 'list' ? false : '');
+        if (!state.order || (page === 'market' && views.marketSource !== state.marketSource)) {
+            state.order = page === 'market' && state.marketSource === 'crafter' ? 'price asc' : 'listed_at desc';
+        }
+    }
+    await viewsGo(page);
+};
 async function filterMarketByGiftTrait(key) {
     const gift = state.detailGift;
     if (!['model', 'backdrop', 'symbol'].includes(key) || !gift?.[key]) return;

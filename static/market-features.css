@@ -1,0 +1,70 @@
+.collection-craft-cta {display:flex;align-items:center;gap:10px;margin:0 0 13px;padding:8px 10px;border:1px solid #7773;border-radius:27px;background:#80808010}
+.collection-craft-cta img {width:34px;height:34px;object-fit:contain;border-radius:10px}
+.collection-craft-cta strong {flex:1;min-width:0;font-size:14px;overflow-wrap:anywhere}
+.collection-craft-cta button {white-space:nowrap;border-radius:22px;background:#a84dd4;color:white;font-size:12px;font-weight:750;padding:9px 12px}
+.collection-offer-card {display:flex;flex-direction:column;justify-content:flex-end;align-items:center;min-width:0;gap:7px;padding:10px;
+    background:radial-gradient(ellipse at 50% 4%,#6c727d 0,#34363b 40%,#222225 74%);border:1px solid #6f707741;border-radius:24px;color:#fff}
+.collection-offer-card > img {width:min(100%,120px);height:auto;aspect-ratio:1;object-fit:contain;margin:auto 0}
+.collection-offer-card > strong {font-size:22px;line-height:1}
+.collection-offer-card > small {color:#b5b7bf;font-size:11px;text-align:center}
+.collection-offer-card button {width:100%;min-height:30px;border-radius:18px;font-size:11px;font-weight:750}
+.collection-offer-card .offer-sell {color:#c8c9cf;background:#a6a6af39}
+.collection-offer-card .offer-open {color:#fff;background:#ffffff1a}
+.collection-offer-card .offer-open span {opacity:.65;margin-left:3px}
+.grid.list .collection-offer-card {grid-column:1/-1}
+.collection-offers {display:grid;gap:12px}
+.offers-summary,.offer-row {display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #80808833;border-radius:17px;padding:12px;background:#80808010}
+.offers-summary span,.offer-row small,.offer-empty {color:#999ba7}
+.offer-row {margin-bottom:6px;font-size:12px}
+.offer-row button {padding:5px 8px;border-radius:14px;background:#168aff40;color:#b4c5d6}
+.offer-empty {padding:28px 10px;text-align:center;font-size:14px}
+.offer-draft {display:grid;gap:10px}
+.offer-draft > label,.offer-draft > div {display:grid;gap:8px;padding:12px;border-radius:16px;background:#80808016;font-size:13px}
+.offer-draft > .offer-draft-summary,.offer-draft-attributes label {display:flex;justify-content:space-between;align-items:center;gap:10px}
+.offer-draft input,.offer-draft select {border:1px solid #81838c38;background:#80808016;color:inherit;border-radius:15px;min-height:36px;padding:7px 10px}
+.offer-draft select {max-width:65%}
+.offer-draft p {margin:0;color:#a6a9b4}
+.offer-draft button:disabled {opacity:.48}
+.inventory-bank-float {position:fixed;z-index:6;right:max(15px,calc((100vw - 510px)/2 + 15px));bottom:calc(82px + env(safe-area-inset-bottom));
+    pointer-events:none;backdrop-filter:blur(16px) saturate(135%);-webkit-backdrop-filter:blur(16px) saturate(135%);
+    background:linear-gradient(145deg,#3e507ac9,#1c1e2bd9);color:#fff}
+#inventory-body:has(.inventory-bank-float) {padding-bottom:38px}
+.games-profile-settings {display:none}
+#app:has(.games-profile) > header {justify-content:space-between}
+#app:has(.games-profile) > header > .games-profile-settings {display:grid;place-items:center;width:42px;height:33px;border:1px solid #8884;border-radius:20px;background:#8882;font-size:18px}
+.games-profile {display:grid;gap:14px}
+.games-profile-hero {display:grid;justify-items:center;gap:9px;padding:16px 13px 13px;border:1px solid #8e5a9e3b;border-radius:27px;
+    color:#fff;background:radial-gradient(ellipse at 52% 0%,#8f438d,#402243 57%,#201825)}
+.games-profile-hero .avatar {width:62px;height:62px;border-radius:18px}
+.games-profile-hero h1 {margin:0;font-size:21px}
+.games-profile-stats {display:grid;grid-template-columns:1fr 1fr;gap:5px;width:100%}
+.games-profile-stats span {display:grid;justify-items:center;gap:3px;padding:10px 5px;background:#19141b55;border-radius:23px;font-size:13px}
+.games-profile-stats small,.games-inventory-row small {color:#b6a7bc;font-size:11px}
+.games-inventory-row {display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid #8883;border-radius:24px;padding:8px 10px;background:#8881}
+.games-inventory-row button {font-size:13px;font-weight:700}
+.games-inventory-row .games-top-up {border-radius:18px;background:#a84dd4;color:white;padding:7px 12px}
+.crafter-settings-compact .crafter-options {display:flex}
+.crafter-settings-compact .crafter-option {flex:0 0 auto;min-width:72px;border-radius:26px}
+.crafter-animation-setting {display:grid;justify-items:start;gap:9px;font-weight:700}
+.crafter-animation-setting input {appearance:none;width:52px;height:28px;background:#757782;border-radius:18px;position:relative;margin:0}
+.crafter-animation-setting input::after {content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:white;transition:transform .16s}
+.crafter-animation-setting input:checked {background:#168aff}
+.crafter-animation-setting input:checked::after {transform:translateX(24px)}
+.crafter-settings-compact .crafter-support:disabled {background:#7777804d;color:#b2b2ba;border-radius:24px;opacity:1}
+.wallet-glass-summary {padding:5px;border:1px solid #8882;border-radius:26px;background:#8882}
+.wallet-glass-summary .wallet-balance-card {margin:0;border-radius:22px}
+.wallet-history-title h2 {margin:5px 0 11px}
+.wallet-history-filters {display:flex;flex-wrap:nowrap;overflow-x:auto;gap:7px;align-items:center;margin:13px 0 9px;scrollbar-width:none}
+.wallet-history-filters button {flex:none;gap:6px;padding:0 12px;min-height:33px;border:1px solid #8883;border-radius:22px;background:#8881;white-space:nowrap}
+.wallet-history-filters button.circle {width:34px;border-radius:50%;padding:0;margin-right:4px}
+#sheet.wallet-filter-sheet[open] {max-height:88dvh;overflow:hidden}
+#sheet.wallet-filter-sheet #sheet-body {display:flex;flex-direction:column;max-height:calc(88dvh - 76px);min-height:0}
+.wallet-filter-options {overflow-y:auto;min-height:0;margin:0 0 7px;padding:0 2px}
+.wallet-filter-options label {min-height:49px;font-size:14px;font-weight:700}
+.wallet-filter-options input {appearance:none;width:20px;height:20px;margin:0;flex:none;border:1px solid #8886;border-radius:8px}
+.wallet-filter-options input:checked {appearance:auto;accent-color:#168aff}
+.wallet-filter-actions {flex:none;padding:9px 0 0}
+.wallet-filter-actions button,.catalog-sheet .catalog-footer button {border-radius:25px;min-height:44px}
+.catalog-sheet .catalog-check {border-radius:7px}
+html[data-crafter-animations="off"] .collection-banner-enter,html[data-crafter-animations="off"] .collection-model-enter,
+html[data-crafter-animations="off"] #main.profile-entered,html[data-crafter-animations="off"] #main.profile-leaving {animation:none}

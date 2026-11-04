@@ -42,7 +42,7 @@ function pickCatalogRow(value){if(state.sheetKind==='target'){const c=state.cata
  }else state.sheetValue=state.sheetValue===value?'':value;
  renderCatalogRows(document.querySelector('.catalog-search input').value)}
 function applyCatalogFilter(){const k=state.sheetKind;if(k==='collection'&&state.collection!==state.sheetValue){state.model='';state.backdrop='';state.symbol=''}state[k]=state.sheetValue;closeSheet();if(state.page==='market')renderMarket();else renderGifts();changedFilter()}
-function craftRules(){sheet('Как работает крафт',`<div class="attributes"><div><span>Оценка подарков</span><b>Флор коллекции в TON</b></div><div><span>Шанс</span><b>Сумма флоров / флор цели × 95%</b></div><div><span>Максимальный шанс</span><b>95%</b></div></div><p class="sub">Выбранные подарки списываются. При успехе результат появляется в инвентаре Crafter. Операция работает с подарками приложения; передачу NFT в Telegram она не выполняет.</p><button class="primary" onclick="closeSheet()">Понятно</button>`)}
+function craftRules(){const internal=state.target?.listingId?.startsWith('crafter-');sheet('Как работает крафт',`<div class="attributes"><div><span>Оценка подарков</span><b>${internal ? 'Оценка в GRAM' : 'Флор коллекции в TON'}</b></div><div><span>Шанс</span><b>${internal ? 'Оценка подарков / цена лота × 95%' : 'Сумма флоров / флор цели × 95%'}</b></div><div><span>Максимальный шанс</span><b>95%</b></div></div><p class="sub">Выбранные подарки списываются. При успехе результат появляется в инвентаре Crafter. Операция работает с подарками приложения; передачу NFT в Telegram она не выполняет.</p><button class="primary" onclick="closeSheet()">Понятно</button>`)}
 function renderCraft() {
     const gifts = state.selected.map(id => state.inventory.find(gift =>
         gift.id === id && gift.status === 'unlisted'
@@ -213,14 +213,8 @@ function telegramGiftLink(gift) {
     return slug && /^[1-9]\d*$/.test(number) ? 'https://t.me/nft/' + slug + '-' + number : '';
 }
 
-function openTelegramGift() {
-    const url = state.detailGift && telegramGiftLink(state.detailGift);
-    if (!url) return toast('У этого подарка пока нет ссылки в Telegram');
-    if (tg?.openTelegramLink) tg.openTelegramLink(url);
-    else window.open(url, '_blank', 'noopener,noreferrer');
-}
-
 function productFloor(gift) {
+    if (Number(gift.crafter_floor_gram) > 0) return money(gift.crafter_floor_gram) + ' GRAM';
     const collection = state.catalog.collections.find(item =>
         item.id === gift.collection_id || item.name === gift.name
     );
@@ -238,10 +232,11 @@ function giftCollection(gift) {
 }
 
 function chooseLuckyGift(id) {
-    const gift = state.gifts.find(item => item.id === id && !item.resale);
-    const collection = gift && giftCollection(gift);
-    if (!gift?.number || gift.catalog_only || !collection) return toast('Лот недоступен для Lucky Craft');
-    state.target = {id: collection.id, listingId: gift.id, number: gift.number, name: gift.name, image: gift.image};
+    const gift = state.gifts.find(item => item.id === id) || (state.detailGift?.id === id ? state.detailGift : null);
+    if (!gift?.number || gift.catalog_only || gift.own_listing) return toast('Лот недоступен для Lucky Craft');
+    const targetId = gift.resale ? String(gift.collection_id || giftCollectionSlug(gift.name)) : giftCollection(gift)?.id;
+    if (!targetId) return toast('Лот недоступен для Lucky Craft');
+    state.target = {id:targetId, listingId:gift.id, number:gift.number, name:gift.name, image:gift.image};
     state.quote = null;
     closeSheet();
     go('craft');
@@ -278,8 +273,6 @@ function showGiftDetail(gift, source) {
     const own = source === 'inventory';
     const listed = own && gift.status === 'listed';
     state.detailGift = gift;
-    const canOpenTelegram = Boolean(telegramGiftLink(gift));
-    const eyeLabel = canOpenTelegram ? 'Открыть подарок в Telegram' : 'Нет ссылки на подарок в Telegram';
     const attributes = [['model', 'Модель', gift.model], ['symbol', 'Узор', gift.symbol], ['backdrop', 'Фон', gift.backdrop]];
     sheet('', `
         <div class="portal-product${own ? ' owned-gift-product' : ''}">
@@ -289,15 +282,7 @@ function showGiftDetail(gift, source) {
                     onclick="startGiftTransfer(${arg(gift.id)})" aria-label="Отправить подарок" title="Отправить подарок">
                     ${inventoryToolbarIcon('transfer')}
                 </button>` : ''}
-                <button type="button" class="gift-detail-tool gift-telegram-eye"
-                    onclick="openTelegramGift()" aria-label="${eyeLabel}" title="${eyeLabel}"
-                    ${canOpenTelegram ? '' : 'disabled'}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85"
-                         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M2.4 12S6.1 5.8 12 5.8s9.6 6.2 9.6 6.2S17.9 18.2 12 18.2 2.4 12 2.4 12Z"/>
-                        <circle cx="12" cy="12" r="2.8"/>
-                    </svg>
-                </button>
+
             </div>
             <div><h2><button type="button" class="gift-collection-link" onclick="openGiftCollection()" aria-label="Открыть коллекцию ${esc(gift.name)}">${esc(gift.name)}${icon('chevron')}</button></h2>${gift.number ? `<span>#${esc(gift.number)}</span>` : ''}</div>
         </div>
@@ -310,13 +295,13 @@ function showGiftDetail(gift, source) {
             <div><span>Мин. цена</span><strong>${esc(productFloor(gift))}</strong></div>
             ${listed ? `<div class="owned-listing-price"><span>Цена продажи</span><strong>${money(gift.listing_price ?? gift.price)} GRAM</strong>
                 <button type="button" onclick="startResale('edit', ${arg(gift.id)})">Редактировать</button></div>` : ''}
-            ${gift.resale ? '<div><span>Источник</span><strong>Своя продажа</strong></div>' : ''}
+            ${gift.resale ? '<div><span>Источник</span><strong>Craft Market</strong></div>' : ''}
         </div>
         ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` : own ? `<div class="product-actions owned-gift-actions">
             <button class="secondary" onclick="toast('Вывод пока недоступен')">Вывод</button>
             <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>
         </div>` : source === 'market' ? `<div class="market-gift-actions">
-            ${gift.number && !gift.catalog_only && !gift.resale ? `<button class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
+            ${gift.number && !gift.catalog_only && !gift.own_listing ? `<button class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
                 <span class="lucky-craft-copy"><strong>Lucky Craft</strong><small>За свои подарки</small></span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3c7-1 14 3 16 10l-1 1c-1-2-3-4-5-5L6 21a1.5 1.5 0 0 1-2-2L13 8C11 6 8 5 5 4Z" fill="currentColor"/></svg>
             </button>` : ''}
@@ -360,6 +345,7 @@ async function localBuyGift(id) {
             id, expected_price: gift.price, request_id: paymentRequestId(requestKey),
         });
         removePurchasedMarketLots([id]);
+        if (marketActivityVisible()) refreshMarketActivity();
         state.me.balance = result.balance;
         state.me.inventory_count = (state.me.inventory_count || 0) + 1;
         state.inventory = [...state.inventory.filter(item => item.id !== result.gift.id), {...result.gift, status: 'unlisted'}];

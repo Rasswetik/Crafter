@@ -272,7 +272,19 @@ function paintMarketActivity() {
     container.innerHTML = `<div class="activity-feed">${rows || '<p class="sub">По этим фильтрам пока нет операций</p>'}</div>
         ${data.has_more ? `<button class="secondary" onclick="refreshMarketActivity(true)" ${activity.pending?'disabled':''}>Показать ещё</button>` : ''}`;
     container.querySelectorAll('[data-activity-gift]').forEach(button => {
-        button.onclick = () => showGiftDetail(data.items[Number(button.dataset.activityGift)].gift, 'history');
+        button.onclick = async () => {
+            const item = data.items[Number(button.dataset.activityGift)];
+            if (item.listing_id) {
+                try {
+                    const {gift} = await api('resale/listings/' + encodeURIComponent(item.listing_id));
+                    if (button.isConnected) showGiftDetail(gift, 'market');
+                    return;
+                } catch (error) {
+                    if (error.status !== 404) return toast(error.message);
+                }
+            }
+            if (button.isConnected) showGiftDetail(item.gift, 'history');
+        };
     });
 }
 

@@ -236,18 +236,26 @@ def create_app(config=None):
             if price is None:
                 price, unit = cached_floors.get(canonical_name(gift.get('name') or ''), (Decimal(0), unit))
             valuation[unit] += price
-        bought = sold = 0
-        volume = Decimal(0)
-        for row in db().execute("SELECT kind,payload FROM history WHERE user_id=? AND kind IN ('buy','sale')", (g.user['id'],)):
+        bought = sold = games_played = 0
+        volume = best_game_win = Decimal(0)
+        for row in db().execute("SELECT kind,payload FROM history WHERE user_id=? AND kind IN ('buy','sale','craft')", (g.user['id'],)):
+            payload = json.loads(row['payload'])
+            if row['kind'] == 'craft':
+                games_played += 1
+                gift = payload.get('gift') or {}
+                if payload.get('success') and (payload.get('prize_value') or gift.get('price_unit') == 'GRAM'):
+                    best_game_win = max(best_game_win, positive_price(payload.get('prize_value', gift.get('price'))) or Decimal(0))
+                continue
             bought += row['kind'] == 'buy'
             sold += row['kind'] == 'sale'
-            price = positive_price(json.loads(row['payload']).get('price'))
+            price = positive_price(payload.get('price'))
             if price:
                 volume += price
         balance = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (g.user['id'],)).fetchone()[0]
         return dict(user=g.user, is_admin=g.is_admin, demo=app.config['DEMO_MODE'],
                     inventory_count=len(inventory), balance=balance, inventory_value_ton=str(valuation['TON']),
                     inventory_value=str(valuation['GRAM']), bought=bought, sold=sold, volume=str(volume),
+                    games_played=games_played, best_game_win=str(best_game_win),
                     referrals=refs, referral_level=1, referral_progress=min(refs * 10, 100), invite_link=link)
 
     @app.post('/api/referral')
@@ -282,6 +290,14 @@ def create_app(config=None):
         text=unicodedata.normalize('NFKC',str(value)).casefold()
         name=re.sub(r"[^\w]",'',text)
         return 'ufcstrike' if name=='ufcmysterybox' else name
+    def market_collection_keys(values):
+        keys = {canonical_name(value) for value in values if value}
+        if keys:
+            for item in (cached('thermos:collections', [])[0] + cached('collections', [])[0] + catalog_seed['collections']):
+                if canonical_name(str(item.get('id') or '')) in keys:
+                    keys.add(canonical_name(item.get('name') or ''))
+        return keys
+
     def catalog_collection(value):
         return next((c for c in public_catalog() if str(value) in (str(c['id']),str(c.get('short_name',''))) or canonical_name(value)==canonical_name(c['name'])),None)
     def collection_attributes(slug):
@@ -447,10 +463,7 @@ def create_app(config=None):
     @app.get('/api/market/activity')
     @auth()
     def market_activity():
-        collections = {canonical_name(value) for value in request.args.get('collections', '')[:2000].split(',') if value}
-        for item in (cached('thermos:collections', [])[0] + cached('collections', [])[0] + catalog_seed['collections']):
-            if canonical_name(item['id']) in collections:
-                collections.add(canonical_name(item['name']))
+        collections = market_collection_keys(request.args.get('collections', '')[:2000].split(','))
         kinds = set(request.args.get('types', '').split(',')) - {''}
         query = request.args.get('search', '').strip().casefold()[:100]
         offset = request.args.get('offset', 0, type=int)
@@ -461,11 +474,12 @@ def create_app(config=None):
         total = 0
         turnover = Decimal(0)
         purchases = 0
-        for row in db().execute("SELECT kind,payload,created FROM history WHERE kind IN ('buy','sell','craft') ORDER BY created DESC,rowid DESC"):
+        active_lots = resale_activity_lots()
+        for row in db().execute("SELECT kind,payload,created,user_id FROM history WHERE kind IN ('buy','sell','craft') ORDER BY created DESC,rowid DESC"):
             entry = json.loads(row['payload'])
             kind = row['kind']
             if kind == 'craft':
-                if not entry.get('success') or not entry.get('gift', {}).get('source_id'):
+                if not entry.get('success') or not (entry.get('listing_id') or entry.get('gift', {}).get('source_id')):
                     continue
                 kind = 'lucky_craft' if entry.get('mode') == 'lucky' else 'craft'
             gifts = entry.get('gifts', []) if kind == 'sell' else [entry.get('gift') or entry]
@@ -498,7 +512,13 @@ def create_app(config=None):
                         'name','number','model','image','background','backdrop','symbol','origin','source_number',
                         'collection_id','floor_price','price_unit','rarity','telegram_url'
                     ) if key in gift}
-                    items.append(dict(kind=kind, gift=public_gift, created=row['created'], price=price))
+                    item = dict(kind=kind, gift=public_gift, created=row['created'], price=price)
+                    if kind == 'sell':
+                        live = active_lots.get((row['user_id'], gift.get('id')))
+                        if live and (gift.get('listing_id') == live[0] or
+                                     (not gift.get('listing_id') and row['created'] >= live[1])):
+                            item['listing_id'] = live[0]
+                    items.append(item)
                 total += 1
         return dict(items=items, has_more=total > offset + 35,
                     total=total, purchases=purchases, turnover=str(turnover), models=sorted(model_names))
@@ -536,6 +556,22 @@ def create_app(config=None):
         if any(x not in gifts for x in ids):abort(409,description='Подарок недоступен')
         chosen=[gifts[x] for x in ids]
         if any(x.get('origin') not in ('admin-grant','application-craft','local-purchase') for x in chosen):abort(409,description='Доступны подарки внутреннего инвентаря Crafter')
+        listing_id = data.get('listing_id')
+        if isinstance(listing_id, str) and listing_id.startswith('crafter-'):
+            lot = available_crafter_lot(listing_id, g.user['id'])
+            gift = json.loads(lot['payload'])
+            target_id = str(gift.get('collection_id') or canonical_name(gift.get('name') or ''))
+            if str(data.get('target_id')) != target_id:
+                abort(400, description='Выберите коллекцию результата')
+            values = [positive_price(item.get('price')) if item.get('price_unit') == 'GRAM' else None for item in chosen]
+            if any(value is None for value in values):
+                abort(409, description='Для этого крафта нужны подарки с оценкой в GRAM')
+            value = sum(values)
+            cost = Decimal(lot['price'])
+            return dict(gift_ids=ids, target_id=target_id, listing_id=listing_id,
+                        listing_price=str(cost), target_value=str(cost), input_value=str(value),
+                        mode='lucky', listing_source='crafter', price_unit='GRAM',
+                        chance_bps=min(9500, int(value / cost * Decimal(9500))), scope='application')
         catalog=public_catalog();target=next((c for c in catalog if c['id']==data.get('target_id')),None)
         if not target:abort(400,description='Выберите коллекцию результата')
         floors={canonical_name(c['name']):Decimal(c['floor_price']) for c in catalog}
@@ -605,7 +641,7 @@ def create_app(config=None):
     def craft_quote():
         q=make_quote(request.get_json() or {});qid=uuid.uuid4().hex
         db().execute('INSERT INTO craft_quotes VALUES(?,?,?,?)',(qid,g.user['id'],json.dumps(q),int(time.time())));db().commit()
-        return dict(quote_id=qid,chance=q['chance_bps']/100,input_value=q['input_value'],target_value=q['target_value'],price_unit='TON',expires_at=int(time.time())+120,scope='application')
+        return dict(quote_id=qid,chance=q['chance_bps']/100,input_value=q['input_value'],target_value=q['target_value'],price_unit=q.get('price_unit','TON'),expires_at=int(time.time())+120,scope='application')
 
     def craft_market_candidates(target):
         sold = {row[0] for row in db().execute('SELECT source_id FROM local_sold')}
@@ -665,19 +701,34 @@ def create_app(config=None):
             if any(x not in eligible for x in ids):abort(409,description='Подарок уже использован или выставлен на продажу')
             if not q.get('listing_id'):
                 abort(409, description='Расчёт устарел. Выберите цель крафта заново.')
-            listing = lucky_listing(q['target'], q['listing_id'])
-            expected_price = q.get('listing_price', q['target_value'])
-            if (market_collectible_key(listing) != q['listing_key'] or
-                    Decimal(str(listing['price'])) != Decimal(expected_price)):
+            expected_price = Decimal(q.get('listing_price', q['target_value']))
+            internal = q.get('listing_source') == 'crafter'
+            if internal:
+                listing = available_crafter_lot(q['listing_id'], g.user['id'])
+                matches = Decimal(listing['price']) == expected_price
+            else:
+                listing = lucky_listing(q['target'], q['listing_id'])
+                matches = (market_collectible_key(listing) == q['listing_key'] and
+                           Decimal(str(listing['price'])) == expected_price)
+            if not matches:
                 abort(409, description='Лот изменился. Обновите расчёт крафта.')
             success = secrets.randbelow(10000) < q['chance_bps']
-            reward = award_market_gift(q['target'], listing, Decimal(expected_price).quantize(Decimal('0.01'))) if success else None
+            reward = internal_sale = None
+            if success and internal:
+                internal_sale = settle_crafter_lot(listing, g.user['id'], 'lucky')
+                reward = internal_sale['gift']
+            elif success:
+                reward = award_market_gift(q['target'], listing, expected_price.quantize(Decimal('0.01')))
+                db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
             for nft in ids:db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?',(g.user['id'],nft))
-            if reward:db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
             result=dict(success=success,chance=q['chance_bps']/100,gift=reward,consumed=ids,scope='application',mode=q.get('mode','lucky'))
+            if internal:
+                result.update(listing_id=q['listing_id'], prize_value=str(expected_price))
             record('craft',result)
             db().execute('INSERT INTO craft_requests VALUES(?,?,?)',(g.user['id'],request_id,json.dumps(result)))
             db().execute('DELETE FROM craft_quotes WHERE id=?',(qid,))
+        if internal_sale:
+            notify_crafter_sale(listing['seller_id'], internal_sale)
         return result
     def owned():
         rows = db().execute('''SELECT i.payload,i.status,l.price AS listing_price
@@ -997,13 +1048,22 @@ def create_app(config=None):
         selection=(request.get_json() or {}).get('selection',{})
         if not isinstance(selection,dict) or len(selection)>1000 or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in selection.values()):abort(400)
         db().execute("INSERT INTO settings VALUES('selection',?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
-    from telegram_bot import https_url, install_telegram_bot, notify_gift_transfer
+    from telegram_bot import https_url, install_telegram_bot, notify_gift_sale, notify_gift_transfer
     bot_settings = install_telegram_bot(app, db, auth, audit)
     from telegram_deposits import install_telegram_deposits
     install_telegram_deposits(app, db, auth, audit, record, bot_settings)
     from wallet import install_wallet
     install_wallet(app,db,auth,record,audit)
-    resale_market = install_resale(app, db, auth, record, canonical_name)
+    def notify_crafter_sale(seller, trade):
+        try:
+            notify_gift_sale(bot_settings(), seller, trade['gift'], trade['proceeds'], app.config['BOT_TOKEN'])
+        except Exception:
+            app.logger.warning('Telegram gift sale notification was not delivered')
+
+    resale_market, resale_activity_lots, available_crafter_lot, settle_crafter_lot = install_resale(
+        app, db, auth, record, canonical_name, market_collection_keys, notify_crafter_sale)
+    from offers import install_offer_display
+    install_offer_display(app, db, auth, canonical_name)
     from banners import install_banners
     install_banners(app, db, auth, audit)
     from staking import install_staking

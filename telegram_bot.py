@@ -101,6 +101,32 @@ def notify_gift_transfer(config, recipient, gifts, sender, origin, default_token
     bot_api(token, 'sendMessage', message)
 
 
+def notify_gift_sale(config, seller, gift, proceeds, default_token):
+    token = config.get('token') or default_token
+    if not token:
+        return
+    name = str(gift.get('name') or 'Gift')
+    number = str(gift.get('number') or '')
+    label = escape(name + (f' #{number}' if number else ''))
+    url = str(gift.get('telegram_url') or '')
+    if not re.fullmatch(r'https://(?:t\.me|telegram\.me)/nft/[a-z0-9]+-[1-9][0-9]*', url, re.I):
+        slug = str(gift.get('telegram_slug') or '')
+        if not re.fullmatch(r'[a-z0-9]+-[1-9][0-9]*', slug, re.I):
+            collection = re.sub(r'[^a-zA-Z0-9]', '', name).lower()
+            serial = str(gift.get('source_number') or '')
+            slug = f'{collection}-{serial}' if collection and re.fullmatch(r'[1-9][0-9]*', serial) else ''
+        url = f'https://t.me/nft/{slug}' if slug else ''
+    if url:
+        label = f'<a href="{escape(url, quote=True)}">{label}</a>'
+    amount = str(proceeds)
+    if '.' in amount:
+        amount = amount.rstrip('0').rstrip('.')
+    bot_api(token, 'sendMessage', {
+        'chat_id': seller, 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True},
+        'text': f'💰 {label} has been sold\nYou received: {escape(amount)} Gram',
+    })
+
+
 def install_telegram_bot(app, db, auth, audit):
     lock = threading.Lock()
     with app.app_context(), db():

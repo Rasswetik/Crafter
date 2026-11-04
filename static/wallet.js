@@ -8,12 +8,12 @@ let walletHistoryItems = [];
 let walletHistoryCursor;
 const walletHistoryFiltersState = {};
 const walletGroups = {
-    balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment']},
+    balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment','stake_claim']},
     gifts: {label:'Подарки', kinds:['buy','sale','sell','unlist','withdraw','transfer','craft','gift_granted','gift_received']},
     offers: {label:'Офферы', kinds:['offer_received','offer_created','offer_cancelled','offer_accepted']},
 };
 const walletEventNames = {
-    deposit:'Пополнение', withdraw_funds:'Вывод', balance_adjustment:'Корректировка баланса',
+    deposit:'Пополнение', withdraw_funds:'Вывод', balance_adjustment:'Корректировка баланса', stake_claim:'Награда стейкинга',
     buy:'Покупка подарка', sale:'Продажа подарка', sell:'Выставление на продажу',
     unlist:'Снятие с продажи', withdraw:'Вывод подарка', transfer:'Отправка подарка',
     gift_granted:'Получен подарок', gift_received:'Подарок получен', craft:'Крафт', offer_received:'Получен оффер',
@@ -259,16 +259,16 @@ async function loadWalletView(page) {
 async function renderWallet() {
     const w = await loadWalletView('wallet');
     if (!w) return;
-    document.querySelector('#main').innerHTML = `${walletIdentity(w)}
+    document.querySelector('#main').innerHTML = `<div class="wallet-glass-summary">${walletIdentity(w)}
         <section class="wallet-balance-card"><span>Баланс кошелька Crafter</span>
             <h1>${money(w.balance)} <em>GRAM</em></h1>
             <div class="wallet-balance-actions"><button onclick="go('deposit')">${icon('walletAdd')}<span>Пополнить</span></button><button onclick="go('withdraw')">${icon('walletUp')}<span>Вывод</span></button></div>
-        </section>
-        <div class="wallet-history-title"><h2>История</h2></div>
+        </section></div>
         <div class="wallet-history-filters">
             <button class="circle" aria-label="Сбросить фильтры" onclick="resetWalletHistoryFilters()">${icon('filter')}</button>
             ${Object.entries(walletGroups).map(([key, group]) => `<button data-wallet-filter="${key}" onclick="walletHistoryFilters('${key}')">${group.label}${icon('chevron')}</button>`).join('')}
         </div>
+        <div class="wallet-history-title"><h2>История</h2></div>
         <div id="wallet-history" aria-live="polite"></div>`;
     loadWalletHistory();
     walletSDK().catch(() => {});
@@ -286,6 +286,7 @@ function walletHistoryFilters(groupKey) {
             <button class="secondary" onclick="applyWalletHistoryFilters('${groupKey}', true)">Сбросить</button>
             <button class="primary" onclick="applyWalletHistoryFilters('${groupKey}')">Применить</button>
         </div>`);
+    appSheet.classList.add('wallet-filter-sheet');
 }
 
 function applyWalletHistoryFilters(group, reset = false) {

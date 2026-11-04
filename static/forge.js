@@ -227,11 +227,12 @@ async function runCraft() {
         if (result.gift && !state.inventory.some(gift => gift.id === result.gift.id)) {
             state.inventory.push({ ...result.gift, status: 'unlisted' });
         }
-        if (result.gift?.source_id) {
+        if (result.gift && (result.listing_id || result.gift.source_id)) {
             const won = result.gift;
-            if (state.target?.listingId === won.source_id) state.target = null;
-            const isWon = item => item.id === won.source_id ||
-                (item.name === won.name && String(item.number) === String(won.source_number));
+            const listingId = result.listing_id || won.source_id;
+            if (state.target?.listingId === listingId) state.target = null;
+            const isWon = item => item.id === listingId || (!result.listing_id &&
+                item.name === won.name && String(item.number) === String(won.source_number));
             state.gifts = state.gifts.filter(item => !isWon(item));
             restoreCart();
             let removed = false;

@@ -254,5 +254,5 @@ function mountGiftAnimation(art, gift, stage, autoplay = true) {
     replay.setAttribute('aria-label', 'Воспроизвести анимацию подарка');
     replay.addEventListener('click', () => playGiftAnimation(art, gift, layer, dialog, backdrop));
     art.append(layer, replay);
-    if (autoplay && !giftAnimationMotion.matches) playGiftAnimation(art, gift, layer, dialog, backdrop);
+    if (autoplay && !giftAnimationMotion.matches && document.documentElement.dataset.crafterAnimations !== 'off') playGiftAnimation(art, gift, layer, dialog, backdrop);
 }

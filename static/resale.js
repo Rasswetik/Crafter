@@ -1,18 +1,21 @@
 const RESALE_LIMIT = 30;
+state.marketSource = 'crafter';
 let resaleDraft;
 
 function resaleMarketTabs() {
-    const active = state.marketSource || 'portals';
+    const active = state.marketSource;
     return `<div class="resale-market-tabs" aria-label="Источник лотов">
+        <button type="button" aria-pressed="${active === 'crafter'}" onclick="selectResaleMarket('crafter')">Craft Market</button>
         <button type="button" aria-pressed="${active === 'portals'}" onclick="selectResaleMarket('portals')">Portals</button>
-        <button type="button" aria-pressed="${active === 'crafter'}" onclick="selectResaleMarket('crafter')">Своя продажа</button>
     </div>`;
 }
 
 function selectResaleMarket(source) {
-    if ((state.marketSource || 'portals') === source) return;
+    if (state.marketSource === source) return;
     state.marketSource = source;
+    state.order = source === 'crafter' ? 'price asc' : 'listed_at desc';
     state.marketUnit = 'GRAM';
+    if (state.collectionPage) return openCollectionPage(state.collectionPage, false);
     go('market');
 }
 
@@ -161,7 +164,7 @@ function renderResaleEditor() {
             state.inventoryStatus = unlist ? 'unlisted' : 'listed';
             await go('gifts');
         }
-        toast(unlist ? 'Подарки сняты с продажи' : edit ? 'Цена обновлена' : 'Лоты появились в «Своей продаже»');
+        toast(unlist ? 'Подарки сняты с продажи' : edit ? 'Цена обновлена' : 'Лоты появились в Craft Market');
     };
     update();
 }

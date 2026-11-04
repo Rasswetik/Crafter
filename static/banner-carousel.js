@@ -83,7 +83,7 @@ function makeBannerCarousel(banners, settings, open) {
 
     function advance() {
         if (!root.isConnected) return;
-        if (document.hidden || root.matches(':hover, :focus-within')) show(current);
+        if (document.hidden || document.documentElement.dataset.crafterAnimations === 'off' || root.matches(':hover, :focus-within')) show(current);
         else show((current + 1) % slides.length);
     }
 

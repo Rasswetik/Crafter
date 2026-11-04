@@ -9,7 +9,7 @@ from flask import request,g,abort,jsonify
 
 DEFAULTS=dict(enabled=False,network='testnet',receiver='',app_name='Crafter',public_url='',gram_per_ton='1',min_deposit='0.1',max_deposit='100',withdraw_enabled=False,withdraw_max='2500',withdraw_daily='20000',rpc_key='')
 HISTORY_GROUPS = {
-    'balance': ('deposit', 'withdraw_funds', 'balance_adjustment'),
+    'balance': ('deposit', 'withdraw_funds', 'balance_adjustment', 'stake_claim'),
     'gifts': ('buy', 'sell', 'unlist', 'withdraw', 'transfer', 'craft', 'gift_granted', 'gift_received', 'sale'),
     'offers': ('offer_received', 'offer_created', 'offer_cancelled', 'offer_accepted'),
 }
