@@ -305,11 +305,14 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         c = config()
         username = str(c.get('account_username') or '').strip().lstrip('@')
         valid = bool(re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{4,31}', username))
-        connected = bool(c.get('session')) and valid
+        # Do not direct valuable gifts to a receiver before initial reconciliation.
+        configured = bool(c.get('session')) and available() and valid
+        connected = configured and bool(c.get('baseline_done'))
         response = app.json.response({
             'connected': connected,
             'username': username if connected else '',
             'display_name': 'Crafter Relayer',
+            'status': 'ready' if connected else 'initial_sync' if configured else 'not_connected',
         })
         response.headers['Cache-Control'] = 'no-store'
         return response
