@@ -3,10 +3,99 @@ let transferDraft;
 function inventoryToolbarAction(action) {
     if (action === 'transfer') return startGiftTransfer();
     if (action === 'craft') return go('craft');
-    if (action === 'add') {
-        sheet('Добавить подарок', `<div class="gift-deposit-banner">${icon('gift')} ${icon('chevron')} ${icon('market')}</div>
-            <p class="sub">Приём подарков из Telegram появится после подключения аккаунта для зачислений.</p>`);
+    if (action === 'add') return openGiftDeposit();
+}
+
+
+let giftDepositTarget = '';
+let giftDepositRequest = 0;
+const depositInstructionIcons = {
+    telegram: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="m21.3 3.1-3.1 17c-.2 1-.8 1.3-1.6.8l-4.7-3.4-2.2 2.1c-.2.2-.5.4-1 .4l.3-4.8L18 6.9c.4-.4-.1-.6-.6-.3L6.7 13.4l-4.6-1.5c-1-.3-1-1 .2-1.5L20.1 2.8c.9-.3 1.5.2 1.2.3Z"/></svg>',
+    gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M2 9h20M12 9v12M12 9C4 9 6 3 10 5c1 .5 2 3 2 4Zm0 0c8 0 6-6 2-4-1 .5-2 3-2 4Z"/></svg>',
+    check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="m7 12 3.2 3 6.5-7"/></svg>',
+    warning: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 2 20h20L12 2Z"/><path d="M12 9v5m0 3v.1"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>'
+};
+function depositInstructionRow(iconName, title, description, variant = '') {
+    return `<div class="gift-deposit-step ${variant}">
+        <span class="gift-deposit-step-icon">${depositInstructionIcons[iconName]}</span>
+        <div><b>${title}</b><small>${description}</small></div>
+    </div>`;
+}
+function openGiftDeposit() {
+    const serial = ++giftDepositRequest;
+    giftDepositTarget = '';
+    sheet('Добавить подарок', `
+        <div class="gift-deposit-content">
+            <div class="gift-deposit-hero">
+                <div class="gift-deposit-sparkle gift-deposit-sparkle-a"></div>
+                <div class="gift-deposit-sparkle gift-deposit-sparkle-b"></div>
+                <div class="gift-deposit-sparkle gift-deposit-sparkle-c"></div>
+                <div class="gift-deposit-sparkle gift-deposit-sparkle-d"></div>
+                <div class="gift-deposit-exchange">
+                    <div class="gift-deposit-party">
+                        <img src="/static/assets/crafter-pepe.webp" alt="" width="70" height="70">
+                        <strong>Предмет</strong>
+                    </div>
+                    <span class="gift-deposit-exchange-arrow">${depositInstructionIcons.chevron}</span>
+                    <div class="gift-deposit-party">
+                        <img src="/static/assets/anvil-mark.webp" alt="" width="70" height="70">
+                        <strong>Relayer</strong>
+                    </div>
+                </div>
+            </div>
+            <div class="gift-deposit-step-list">
+                ${depositInstructionRow('telegram','Откройте аккаунт Relayer',
+                    '<span class="gift-deposit-user">Проверяем подключение…</span>')}
+                ${depositInstructionRow('gift','Отправьте NFT-подарок',
+                    'Переведите коллекционный подарок с вашего личного Telegram-аккаунта.')}
+                ${depositInstructionRow('check','Подарок появится в «Не выставленные»',
+                    'После проверки пополнения подарок зачислится в инвентарь Crafter.')}
+                ${depositInstructionRow('warning','Остерегайтесь мошенников',
+                    'Проверяйте username получателя. Не переходите по ссылкам из чужих сообщений.',
+                    'is-danger')}
+                ${depositInstructionRow('warning','Подарки от каналов не учитываются',
+                    'Отправляйте с личного аккаунта, зарегистрированного в Crafter.',
+                    'is-alert')}
+            </div>
+            <p class="gift-deposit-status" id="gift-deposit-status" role="status"></p>
+            <button type="button" class="gift-deposit-open" id="gift-deposit-open" onclick="openGiftDepositRecipient()" disabled>
+                Добавить подарок
+            </button>
+        </div>`);
+    document.querySelector('#sheet').classList.add('gift-deposit-sheet');
+    api('telegram-deposits/receiver').then(info => {
+        if (serial !== giftDepositRequest) return;
+        const screen = document.querySelector('#sheet .gift-deposit-content');
+        if (!screen || !screen.isConnected) return;
+        const username = String(info.username || '').replace(/^@/, '');
+        const valid = info.connected && /^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(username);
+        const target = screen.querySelector('.gift-deposit-user');
+        const status = screen.querySelector('#gift-deposit-status');
+        const button = screen.querySelector('#gift-deposit-open');
+        if (valid) {
+            giftDepositTarget = username;
+            target.textContent = '@' + username;
+            status.textContent = 'Убедитесь, что отправляете подарок именно этому аккаунту.';
+            button.disabled = false;
+        } else {
+            target.textContent = 'Relayer пока недоступен';
+            status.textContent = 'Приём NFT ещё не настроен. Администратору нужно проверить подключение Relayer и его username.';
+        }
+    }).catch(() => {
+        if (serial !== giftDepositRequest) return;
+        const screen = document.querySelector('#sheet .gift-deposit-content');
+        const status = screen?.querySelector('#gift-deposit-status');
+        if (status) status.textContent = 'Не удалось проверить Relayer. Откройте окно ещё раз.';
+    });
+}
+function openGiftDepositRecipient() {
+    if (!/^[A-Za-z][A-Za-z0-9_]{4,31}$/.test(giftDepositTarget)) {
+        return toast('Relayer пока не подключён');
     }
+    const url = 'https://t.me/' + giftDepositTarget;
+    if (tg?.openTelegramLink) tg.openTelegramLink(url);
+    else window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 function startGiftTransfer(id) {
