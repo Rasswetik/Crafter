@@ -454,6 +454,76 @@ def test_wallet_deposit_checks_sender_balance_and_confirms_after_unlink(client, 
     assert [(item['kind'], item['status'], item['data']['gram']) for item in history] == [
         ('withdraw_funds', 'queued', '1.25'), ('deposit', 'confirmed', '3.25')]
 
+    available_after_request = client.get('/api/wallet', headers=headers).json
+    assert available_after_request['funded_balance'] == '2.00'
+    assert available_after_request['withdrawable'] == '2.00'
+    wid = withdrawal.json['id']
+    assert post('withdraw/' + wid + '/cancel', {}).status_code == 200
+    assert post('withdraw/' + wid + '/cancel', {}).json == {'status':'cancelled'}
+    assert client.post('/api/admin/tonconnect/withdraw/' + wid + '/prepare',
+                       headers=headers, json={}).status_code == 409
+    assert client.post('/api/wallet/withdraw/' + wid + '/cancel',
+                       headers=signed(43), json={}).status_code == 404
+    restored = client.get('/api/wallet', headers=headers).json
+    assert restored['funded_balance'] == '3.25'
+    assert restored['withdrawable'] == '3.25'
+    assert client.get('/api/wallet/history', headers=headers).json['items'][0]['status'] == 'cancelled'
+    # Idempotency keys from an already cancelled request must not create a new payout.
+    assert post('withdraw', {'gram':'1.25', 'request_id':'wallet-withdrawal'}).json['status'] == 'cancelled'
+
+
+
+def test_wallet_withdraw_backing_daily_quota_and_processing_cannot_be_cancelled(client):
+    from decimal import Decimal
+    headers = signed()
+    sender = '0:' + '1' * 64
+    receiver = '0:' + '2' * 64
+    assert client.get('/api/me', headers=headers).status_code == 200
+    assert client.post('/api/admin/tonconnect', headers=headers, json={
+        'enabled': True, 'network':'testnet', 'receiver':receiver,
+        'withdraw_enabled':True, 'gram_per_ton':'1',
+        'withdraw_max':'10','withdraw_daily':'2',
+    }).status_code == 200
+    assert client.post('/api/wallet/connect', headers=headers,
+                       json={'address':sender,'network':'testnet'}).status_code == 200
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("UPDATE demo_accounts SET balance='10.00' WHERE user_id=42")
+    info = client.get('/api/wallet', headers=headers).json
+    assert Decimal(info['balance']) == Decimal('10')
+    assert Decimal(info['withdrawable']) == Decimal('0')
+    assert client.post('/api/wallet/withdraw', headers=headers,
+                       json={'gram':'1.00','request_id':'unbacked'}).status_code == 409
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO wallet_balances VALUES(42,'testnet','2.00')")
+    info = client.get('/api/wallet', headers=headers).json
+    assert Decimal(info['withdrawable']) == Decimal('2')
+    assert client.post('/api/wallet/withdraw', headers=headers,
+                       json={'gram':'1.259','request_id':'not-rounded'}).status_code == 400
+    request1 = client.post('/api/wallet/withdraw', headers=headers,
+                           json={'gram':'1.25','request_id':'first'})
+    assert request1.status_code == 200
+    info = client.get('/api/wallet', headers=headers).json
+    assert Decimal(info['withdrawable']) == Decimal('0.75')
+    assert Decimal(info['withdraw_daily_remaining']) == Decimal('0.75')
+    assert client.post('/api/wallet/withdraw', headers=headers,
+                       json={'gram':'1.00','request_id':'over-daily'}).status_code == 409
+    # Only queued payouts may be cancelled/refunded.
+    assert client.post('/api/wallet/withdraw/' + request1.json['id'] + '/cancel',
+                       headers=headers, json={}).status_code == 200
+    info = client.get('/api/wallet', headers=headers).json
+    assert Decimal(info['withdrawable']) == Decimal('2')
+    assert Decimal(info['withdraw_daily_remaining']) == Decimal('2')
+    request2 = client.post('/api/wallet/withdraw', headers=headers,
+                           json={'gram':'0.50','request_id':'prepared'})
+    assert request2.status_code == 200
+    prepared = client.post('/api/admin/tonconnect/withdraw/' + request2.json['id'] + '/prepare',
+                           headers=headers, json={})
+    assert prepared.status_code == 200
+    assert client.post('/api/wallet/withdraw/' + request2.json['id'] + '/cancel',
+                       headers=headers, json={}).status_code == 409
+    info = client.get('/api/wallet', headers=headers).json
+    assert Decimal(info['withdrawable']) == Decimal('1.50')
+
 
 def test_transfer_gifts_atomically_and_record_anonymous_history(client, monkeypatch):
     import telegram_bot
