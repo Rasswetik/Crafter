@@ -85,6 +85,24 @@ def install_admin_user_tools(app, db, auth, audit, record):
         activity.sort(key=lambda entry:entry['created'],reverse=True)
         return {'items':activity[:limit]}
 
+    @app.get('/api/admin/users/<int:uid>/offers')
+    @auth(admin=True)
+    def admin_user_offers(uid):
+        rows=db().execute("""
+            SELECT id,buyer_id,seller_id,status,price,quantity,remaining,created,gift_json
+            FROM crafter_offers WHERE buyer_id=? OR seller_id=?
+            ORDER BY created DESC,id DESC LIMIT 100
+        """,(uid,uid)).fetchall()
+        return {'offers':[{
+            'id':r['id'],'type':'placed' if r['buyer_id']==uid else 'received',
+            'status':r['status'],'price':r['price'],'quantity':r['quantity'],
+            'remaining':r['remaining'],'created':r['created'],
+            'gift':{
+                'name':json.loads(r['gift_json']).get('name',''),
+                'number':json.loads(r['gift_json']).get('number'),
+            },
+        } for r in rows]}
+
     @app.post('/api/admin/users/<int:uid>/ban')
     @auth(admin=True)
     def admin_ban_user(uid):
