@@ -222,14 +222,22 @@ async function disconnectTon(reconnect = false) {
 
 function walletIdentity(w) {
     const linked = w.connected;
-    return `<button class="wallet-connected" onclick="openWalletDetails()" aria-label="${linked?'Открыть данные кошелька':'Подключить кошелёк'}">
-        <span class="wallet-identity">${icon('wallet')} <span>Ваш кошелёк <b>${esc(shortWallet(linked?.display_address || linked?.address))}</b></span></span>
-        ${linked ? `<span class="wallet-external-pill"><span data-external-wallet-balance>${esc(externalWalletText(linked))}</span> ›</span>` : `<span class="wallet-network">${walletNetworkName(w.config.network)}</span>`}
+    const name = linked ? shortWallet(linked.display_address || linked.address) : 'Подключить кошелёк';
+    return `<button type="button" class="wallet-connected ${linked ? '' : 'wallet-connect-cta'}" onclick="openWalletDetails()" aria-label="${linked ? 'Открыть данные кошелька' : name}">
+        <span class="wallet-identity">
+            <span class="wallet-identity-icon">${icon('wallet')}</span>
+            <span><small>${linked ? 'Подключённый кошелёк' : 'TON Connect'}</small><b>${esc(name)}</b></span>
+        </span>
+        <span class="wallet-identity-end">
+            ${linked ? `<span class="wallet-external-pill" data-external-wallet-balance>${esc(externalWalletText(linked))}</span>` : `<span class="wallet-network">${walletNetworkName(w.config.network)}</span>`}
+            ${icon('walletChevron')}
+        </span>
     </button>`;
 }
 
 Object.assign(paths, {
     wallet:'M20 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-2M3 7h15m2 2h-5a3 3 0 0 0 0 6h5a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1zm-5 3h.01',
+    walletChevron:'m9 6 6 6-6 6',
     walletUp:'M12 20V4m-6 6 6-6 6 6',
     walletDown:'M12 4v16m-6-6 6 6 6-6',
 });
@@ -366,19 +374,22 @@ async function renderWalletAmount(kind) {
     const value = document.querySelector('#wallet-amount')?.value || '';
     const c = w.config;
     const deposit = kind === 'deposit';
-    document.querySelector('#main').innerHTML = `<button class="wallet-back" onclick="go('wallet')">‹ Баланс</button>
-        <h1 class="wallet-page-title">${deposit?'Пополнить':'Вывод'}</h1>
+    document.querySelector('#main').innerHTML = `<section class="wallet-funding">
+        <button type="button" class="wallet-back" onclick="go('wallet')">${icon('walletChevron')} К кошельку</button>
+        <h1 class="wallet-page-title">${deposit ? 'Пополнение' : 'Вывод'}</h1>
         ${walletIdentity(w)}
         <section class="wallet-amount-card">
-            <div class="wallet-amount"><input id="wallet-amount" aria-label="Сумма GRAM" placeholder="0" inputmode="decimal" type="number" min="0" step="0.01" value="${esc(value)}" oninput="walletAmountChanged()"><b>GRAM</b></div>
+            <label class="wallet-amount-label" for="wallet-amount">${deposit ? 'Сумма пополнения' : 'Сумма вывода'}</label>
+            <div class="wallet-amount"><input id="wallet-amount" aria-label="Сумма в GRAM" placeholder="0" inputmode="decimal" type="number" min="0" step="0.01" value="${esc(value)}" oninput="walletAmountChanged()"><b>GRAM</b></div>
             ${deposit?`<div class="wallet-presets">${[10,50,100].map(n=>`<button onclick="setWalletAmount(${n})">${gramIcon()} ${n}</button>`).join('')}</div>`:
-                `<button class="wallet-max" onclick="setWalletAmount(${Number(w.withdrawable)})">Max</button><div class="wallet-limits"><div>Лимит транзакции<b>${money(c.withdraw_max)} GRAM</b></div><div>Доступно к выводу<b>${money(w.withdrawable)} GRAM</b></div></div>`}
-            <p class="wallet-quote" id="wallet-quote"></p>
-            <button class="primary" id="wallet-submit" onclick="${deposit?'sendDeposit()':'requestWithdrawal()'}" disabled>${deposit?'Пополнить':'Вывод'}</button>
+                `<button class="wallet-max" onclick="setWalletAmount(${Math.min(Number(w.withdrawable), Number(c.withdraw_max))})">Макс.</button><div class="wallet-limits"><div>Лимит за операцию<b>${money(c.withdraw_max)} GRAM</b></div><div>Доступно к выводу<b>${money(w.withdrawable)} GRAM</b></div></div>`}
+            <p class="wallet-quote" id="wallet-quote" hidden></p>
+            <button class="primary" id="wallet-submit" onclick="${deposit?'sendDeposit()':'requestWithdrawal()'}" disabled>${deposit ? 'Пополнить баланс' : 'Запросить вывод'}</button>
             <p class="wallet-error" id="wallet-error" role="status"></p>
-        </section>`;
+        </section>
+    </section>`;
     walletAmountChanged();
-    walletSDK().catch(walletError);
+    if (w.manifest_url) walletSDK().catch(() => {});
     refreshExternalWalletBalance();
 }
 
@@ -395,25 +406,36 @@ function walletAmountChanged() {
     const n = Number(input.value);
     const deposit = state.page === 'deposit';
     const ton = n / Number(c.gram_per_ton);
+    const active = c.enabled && c.receiver && (deposit || c.withdraw_enabled);
     const connected = w.connected?.network === c.network;
     const amountValid = n > 0 && input.validity.valid;
+    const withinDepositLimits = ton >= Number(c.min_deposit) && ton <= Number(c.max_deposit);
+    input.style.setProperty('--wallet-amount-digits', String(Math.max(input.value.length, 1)));
+
     let issue = '';
-    if (!c.enabled || !c.receiver || (!deposit && !c.withdraw_enabled)) issue = 'Операция пока отключена администратором';
+    if (!active) issue = deposit ? 'Пополнение пока недоступно' : 'Вывод пока недоступен';
     else if (!connected) issue = 'Подключите кошелёк сети ' + walletNetworkName(c.network);
-    else if (deposit && amountValid && (ton < Number(c.min_deposit) || ton > Number(c.max_deposit))) issue = 'Сумма вне лимитов пополнения';
+    else if (deposit && amountValid && !withinDepositLimits) issue = 'Допустимая сумма от ' + nativeWalletAmount(c.min_deposit) + ' до ' + nativeWalletAmount(c.max_deposit);
     else if (deposit && amountValid && sameWallet(w.connected, state.externalWalletBalance) &&
-        ton > Number(state.externalWalletBalance.balance_ton)) issue = 'Недостаточно TON в подключённом кошельке';
+        ton > Number(state.externalWalletBalance.balance_ton)) issue = 'Недостаточно TON в кошельке';
     else if (!deposit && n > Math.min(Number(w.withdrawable), Number(c.withdraw_max))) issue = 'Сумма превышает доступный лимит';
+
     document.querySelector('#wallet-submit').disabled = state.walletBusy || !amountValid || !!issue;
-    document.querySelector('#wallet-quote').textContent = deposit && amountValid ? 'Перевод ' + nativeWalletAmount(ton) + ' · ' + walletNetworkName(c.network) : '';
-    document.querySelector('#wallet-error').textContent = issue;
+    const quote = document.querySelector('#wallet-quote');
+    quote.hidden = !deposit || !active || !amountValid || !withinDepositLimits || !!(connected && issue);
+    quote.textContent = quote.hidden ? '' : 'К отправке ' + nativeWalletAmount(ton);
+    const status = document.querySelector('#wallet-error');
+    status.textContent = issue;
+    status.classList.toggle('wallet-error-muted', !active || !connected);
 }
 
 function walletError(error) {
     const message = error.message || String(error);
     const el = document.querySelector('#wallet-error');
-    if (el) el.textContent = message;
-    else toast(message);
+    if (el) {
+        el.textContent = message;
+        el.classList.remove('wallet-error-muted');
+    } else toast(message);
 }
 
 async function sendDeposit() {
