@@ -7,18 +7,30 @@ import secrets
 import threading
 import time
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qsl, urlencode, urlsplit
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit
 from urllib.request import Request, urlopen
 
 from flask import Response, abort, request
 from html import escape
 
 
-def bot_api(token, method, payload):
-    req = Request(f'https://api.telegram.org/bot{token}/{method}',
-                  data=json.dumps(payload).encode(), headers={'Content-Type': 'application/json'})
+def bot_api(token, method, payload, sticker=None):
+    if sticker is None:
+        body = json.dumps(payload).encode()
+        headers = {'Content-Type': 'application/json'}
+    else:
+        boundary = secrets.token_hex(16)
+        body = b''.join(
+            f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode()
+            for key, value in payload.items()
+        )
+        body += (f'--{boundary}\r\nContent-Disposition: form-data; name="sticker"; filename="gift.tgs"\r\n'
+                 f'Content-Type: application/x-tgsticker\r\n\r\n').encode()
+        body += sticker + f'\r\n--{boundary}--\r\n'.encode()
+        headers = {'Content-Type': f'multipart/form-data; boundary={boundary}'}
+    req = Request(f'https://api.telegram.org/bot{token}/{method}', data=body, headers=headers)
     try:
-        with urlopen(req, timeout=5) as response:
+        with urlopen(req, timeout=3 if sticker is not None else 5) as response:
             result = json.load(response)
     except HTTPError as error:
         if error.code in (401, 404) and method == 'getMe':
@@ -101,6 +113,21 @@ def notify_gift_transfer(config, recipient, gifts, sender, origin, default_token
     bot_api(token, 'sendMessage', message)
 
 
+def sale_sticker(gift):
+    parts = [str(gift.get(key) or '').strip() for key in ('name','model')]
+    if any(not part or part in ('.','..') or len(part) > 120 for part in parts):
+        return None
+    url = 'https://api.changes.tg/model/' + '/'.join(quote(part, safe='') for part in parts) + '.tgs'
+    try:
+        with urlopen(url, timeout=2) as response:
+            asset = response.read(65537)
+        if len(asset) <= 65536 and asset.startswith(b'\x1f\x8b'):
+            return asset
+    except (OSError, ValueError):
+        return None
+    return None
+
+
 def notify_gift_sale(config, seller, gift, proceeds, default_token):
     token = config.get('token') or default_token
     if not token:
@@ -122,9 +149,17 @@ def notify_gift_sale(config, seller, gift, proceeds, default_token):
     if '.' in amount:
         amount = amount.rstrip('0').rstrip('.')
     bot_api(token, 'sendMessage', {
-        'chat_id': seller, 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True},
+        'chat_id': seller, 'parse_mode': 'HTML',
+        'link_preview_options': {'url':url, 'prefer_large_media':True, 'show_above_text':False} if url else {'is_disabled':True},
         'text': f'💰 {label} has been sold\nYou received: {escape(amount)} Gram',
     })
+    sticker = sale_sticker(gift)
+    if sticker:
+        try:
+            bot_api(token, 'sendSticker', {'chat_id': seller}, sticker=sticker)
+        except Exception:
+            # The receipt has already been sent. Media failure must not retry it.
+            pass
 
 
 def install_telegram_bot(app, db, auth, audit):

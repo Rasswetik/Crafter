@@ -215,6 +215,7 @@ def create_app(config=None):
     @app.get('/api/me')
     @auth()
     def me():
+        expire_offers(g.user['id'])
         refs=db().execute('SELECT count(*) FROM users WHERE referrer=?',(g.user['id'],)).fetchone()[0]
         username = bot_settings()['username']
         link = f"https://t.me/{username}?startapp=ref_{g.user['id']}" if username else None
@@ -475,14 +476,14 @@ def create_app(config=None):
         turnover = Decimal(0)
         purchases = 0
         active_lots = resale_activity_lots()
-        for row in db().execute("SELECT kind,payload,created,user_id FROM history WHERE kind IN ('buy','sell','craft') ORDER BY created DESC,rowid DESC"):
+        for row in db().execute("SELECT kind,payload,created,user_id FROM history WHERE kind IN ('buy','sell','listing_price','craft') ORDER BY created DESC,rowid DESC"):
             entry = json.loads(row['payload'])
             kind = row['kind']
             if kind == 'craft':
                 if not entry.get('success') or not (entry.get('listing_id') or entry.get('gift', {}).get('source_id')):
                     continue
                 kind = 'lucky_craft' if entry.get('mode') == 'lucky' else 'craft'
-            gifts = entry.get('gifts', []) if kind == 'sell' else [entry.get('gift') or entry]
+            gifts = entry.get('gifts', []) if kind in ('sell','listing_price') else [entry.get('gift') or entry]
             for gift in gifts:
                 if collections and not collections.intersection(map(canonical_name, (gift.get('collection_id', ''), gift.get('name', '')))):
                     continue
@@ -505,7 +506,7 @@ def create_app(config=None):
                     turnover += paid
                     purchases += 1
                     price = str(paid)
-                elif kind == 'sell':
+                elif kind in ('sell','listing_price'):
                     price = gift.get('price')
                 if offset <= total < offset + 35:
                     public_gift = {key: gift[key] for key in (
@@ -513,7 +514,7 @@ def create_app(config=None):
                         'collection_id','floor_price','price_unit','rarity','telegram_url'
                     ) if key in gift}
                     item = dict(kind=kind, gift=public_gift, created=row['created'], price=price)
-                    if kind == 'sell':
+                    if kind in ('sell','listing_price'):
                         live = active_lots.get((row['user_id'], gift.get('id')))
                         if live and (gift.get('listing_id') == live[0] or
                                      (not gift.get('listing_id') and row['created'] >= live[1])):
@@ -1060,9 +1061,28 @@ def create_app(config=None):
         except Exception:
             app.logger.warning('Telegram gift sale notification was not delivered')
 
+    from offers import install_offer_display, install_trading_offers
+    close_lot_offers, expire_offers, register_offers = install_trading_offers(
+        app, db, auth, record, canonical_name, notify_crafter_sale)
     resale_market, resale_activity_lots, available_crafter_lot, settle_crafter_lot = install_resale(
-        app, db, auth, record, canonical_name, market_collection_keys, notify_crafter_sale)
-    from offers import install_offer_display
+        app, db, auth, record, canonical_name, market_collection_keys, notify_crafter_sale, close_lot_offers)
+
+    def offer_collection(value):
+        for key in ('thermos:collections', 'collections'):
+            for item in cached(key, [])[0]:
+                if value == str(item.get('id')) or canonical_name(value) == canonical_name(item.get('name') or ''):
+                    return item
+        for item in catalog_seed['collections']:
+            if value == str(item.get('id')) or canonical_name(value) == canonical_name(item.get('name') or ''):
+                return item
+        for row in db().execute("SELECT payload FROM inventory WHERE status IN ('listed','unlisted')"):
+            gift = json.loads(row['payload'])
+            if not gift.get('catalog_only') and (value == str(gift.get('collection_id')) or
+                    canonical_name(value) == canonical_name(gift.get('name') or '')):
+                return {'name':gift['name'],'photo_url':gift.get('image','')}
+        return None
+
+    register_offers(available_crafter_lot, settle_crafter_lot, offer_collection)
     install_offer_display(app, db, auth, canonical_name)
     from banners import install_banners
     install_banners(app, db, auth, audit)

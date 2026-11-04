@@ -503,7 +503,7 @@ async function renderGiftHistory(body) {
         return;
     }
     if (!body.isConnected) return;
-    const labels = {buy:'Покупка', craft:'Крафт', sell:'Выставлено', unlist:'Снято с продажи',
+    const labels = {buy:'Покупка', craft:'Крафт', sell:'Выставлено', listing_price:'Изменена цена', sale:'Продажа', unlist:'Снято с продажи',
         withdraw:'Вывод подарка', gift_granted:'Подарок получен', deposit:'Пополнение',
         withdraw_request:'Заявка на вывод', balance_adjustment:'Корректировка баланса'};
     body.innerHTML = `<label class="search-box">${icon('search')}<input placeholder="Поиск по истории" aria-label="Поиск по истории"></label>

@@ -1,0 +1,43 @@
+.market-offer-actions .market-offer-primary,.offer-inbox-actions {display:grid;grid-template-columns:1fr 1fr;gap:8px}
+#sheet.purchase-sheet .market-offer-actions .lucky-craft {width:100%;min-height:36px;display:flex;justify-content:center;align-items:center;gap:7px;font-size:13px}
+#sheet.purchase-sheet .market-offer-actions .lucky-craft svg,.collection-craft-cta button svg {width:15px;height:15px;vertical-align:middle}
+.market-offer-primary > button {min-height:46px;border-radius:23px;font-size:12px}
+.offer-trading-form .offer-expiries {margin:0;height:auto;background:#8884}
+.offer-expiries > button {min-height:32px;padding:4px 3px;white-space:nowrap}
+.offer-price-row {display:flex;align-items:center;gap:5px}
+.offer-price-row input {min-width:0;flex:1}
+.offer-price-row button {padding:5px 7px;border-radius:14px;background:#8883;white-space:nowrap;font-size:11px}
+.offer-draft-attributes [data-offer-trait] {display:flex;justify-content:space-between;align-items:center;min-height:37px;padding:3px 0;text-align:left}
+.offer-draft-attributes [data-offer-trait] span {opacity:.7}
+.offer-draft-attributes [data-offer-trait] b {text-align:right}
+.offer-gift-summary {display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:9px}
+.offer-trading-form > .offer-gift-summary {display:grid;grid-template-columns:auto minmax(0,1fr) auto}
+.offer-gift-summary > span:last-child {text-align:right}
+.offer-gift-summary b,.offer-gift-summary small {display:block}
+.offer-gift-summary small {margin-top:4px;opacity:.6}
+.offer-form-error {min-height:1em;font-size:12px}
+.offer-inbox-tabs {margin:8px 0 12px}
+.offer-inbox-tabs button {min-width:0;white-space:nowrap;font-size:11px}
+.offer-inbox-list {display:grid;gap:9px}
+.offer-inbox-card {padding:12px;background:#8882;border:1px solid #8883;border-radius:18px}
+.offer-inbox-actions {margin-top:9px}
+.offer-inbox-actions button {min-height:36px;border-radius:18px;font-size:12px}
+.inventory-bank-float {min-width:133px;padding:9px 13px}
+.inventory-bank-float svg {width:23px;height:23px}
+.inventory-bank-float b {font-size:14px}
+.crafter-settings-compact .crafter-option {display:flex;align-items:center;justify-content:center;gap:7px}
+.language-flag {width:23px;height:15px;border-radius:3px;box-shadow:0 0 0 1px #8885}
+.crafter-skeleton {display:grid;gap:13px;padding:8px 0 26px}
+.skeleton-block {display:block;background:#9699a82a;border:1px solid #8882;animation:crafter-skeleton-breathe 1.55s ease-in-out infinite alternate}
+.skeleton-search,.skeleton-title {height:37px;border-radius:21px}
+.skeleton-title {width:52%}
+.skeleton-filters {display:flex;gap:6px}
+.skeleton-chip {width:24%;height:29px;border-radius:17px}
+.skeleton-grid {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.skeleton-gift {aspect-ratio:.78;border-radius:22px}
+.skeleton-stack {display:grid;gap:10px}
+.skeleton-panel {height:135px;border-radius:23px}
+.skeleton-row {height:50px;border-radius:17px}
+@keyframes crafter-skeleton-breathe {from{opacity:.55}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.skeleton-block{animation:none}}
+html[data-crafter-animations="off"] .skeleton-block {animation:none}

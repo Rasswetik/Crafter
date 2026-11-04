@@ -13,6 +13,7 @@ from test_app import client, signed
 def telegram_messages(monkeypatch):
     calls = []
     monkeypatch.setattr('telegram_bot.bot_api', lambda token, method, payload: calls.append((method, payload)))
+    monkeypatch.setattr('telegram_bot.sale_sticker', lambda gift: None)
     return calls
 
 

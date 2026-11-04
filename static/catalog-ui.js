@@ -19,6 +19,9 @@ async function openCatalogSheet(kind){
         rows=collections.map(c=>({value:c.id,name:c.name,image:c.photo_url,price:c.floor_price,unit:'TON'}));
     } catch(e) {toast(e.message);return}
  }
+ else if(state.page==='market' && state.marketSource==='crafter'){
+    rows=(state.marketFacets?.[kind] || []).map(row=>({...row,unit:'GRAM'}));
+ }
  else if(kind==='collection') rows=state.catalog.collections.map(c=>({value:c.id,name:c.name,image:c.photo_url,price:c.floor_price,unit:['snapshot','thermos'].includes(state.catalog.source)?'TON':'GRAM'}));
  else if(selectedCollections().length > 1) {toast('Для фильтра по атрибутам выберите одну коллекцию');return}
  else if(kind==='model'&&collection){try{const data=await api('collections/'+encodeURIComponent(collection.short_name||collection.id)+'/models');rows=data.models.map(m=>({value:m.name,name:m.name,image:m.image,price:m.price,unit:m.price_unit|| (m.price_source==='snapshot-estimate'?'TON':'GRAM')}))}catch(e){toast(e.message);return}}
@@ -300,15 +303,17 @@ function showGiftDetail(gift, source) {
         ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` : own ? `<div class="product-actions owned-gift-actions">
             <button class="secondary" onclick="toast('Вывод пока недоступен')">Вывод</button>
             <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>
-        </div>` : source === 'market' ? `<div class="market-gift-actions">
-            ${gift.number && !gift.catalog_only && !gift.own_listing ? `<button class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
-                <span class="lucky-craft-copy"><strong>Lucky Craft</strong><small>За свои подарки</small></span>
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3c7-1 14 3 16 10l-1 1c-1-2-3-4-5-5L6 21a1.5 1.5 0 0 1-2-2L13 8C11 6 8 5 5 4Z" fill="currentColor"/></svg>
-            </button>` : ''}
+        </div>` : source === 'market' ? `<div class="market-gift-actions market-offer-actions">
             ${gift.own_listing ? `<button class="primary" onclick="openListedInventory()">Управлять в инвентаре</button>` : `
-            <button id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
-            <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
-        </button>`}</div>` : ''}`);
+                <div class="market-offer-primary">
+                    <button type="button" class="secondary" onclick="openPersonalOffer()">Сделать оффер</button>
+                    <button type="button" id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
+                        <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
+                    </button>
+                </div>
+                ${gift.number && !gift.catalog_only ? `<button type="button" class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
+                    ${icon('hammer')} <strong>Lucky Craft</strong>
+                </button>` : ''}`}</div>` : ''}`);
     document.querySelector('#sheet').classList.add('purchase-sheet');
     // Show the already-known gift immediately; network estimates and animation never block opening.
     const panel = document.querySelector('#sheet-body .product-properties');

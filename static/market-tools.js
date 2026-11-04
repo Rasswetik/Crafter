@@ -186,7 +186,7 @@ function removePurchasedMarketLots(ids) {
     paintBulkControls();
 }
 
-const activityTypes = {buy:'Покупка', sell:'Листинг', craft:'Крафт', lucky_craft:'Lucky Craft'};
+const activityTypes = {buy:'Покупка', sell:'Листинг', listing_price:'Изменение цены', craft:'Крафт', lucky_craft:'Lucky Craft'};
 function toggleMarketActivity() {
     bulkSelection = null;
     activity = activity ? null : {types:[], key:'', data:null};

@@ -36,6 +36,11 @@ function craftText(key) {
 }
 /* Source UI copy is Russian; reversing the dictionary restores it without a page reload. */
 const crafterTranslationPairs = [
+    ['Ваше предложение','Your offer'], ['Сделать оффер','Make offer'], ['Отправить оффер','Send offer'],
+    ['Сумма оффера','Offer amount'], ['Комиссия за отправку','Posting fee'], ['Любой','Any'],
+    ['Получено','Received'], ['Размещено','Placed'], ['Отозвать','Withdraw offer'],
+    ['Отклонить','Decline'], ['Принять','Accept'], ['Награда стейкинга','Staking reward'],
+    ['Изменение цены','Price update'], ['Изменена цена','Price updated'],
     ['Анимации','Animations'], ['Поддержка','Support'], ['Общий банк','Inventory bank'],
     ['Лучший выигрыш','Best win'], ['Топ 10 офферов','Top 10 offers'],
     ['Продай сейчас','Sell now'], ['Лучшее предложение','Best offer'],
@@ -251,13 +256,15 @@ function crafterSettingsOption(key, value, title) {
         data-pref="${key}" data-value="${value}" aria-pressed="${crafterPrefs[key]===value}"
         onclick="crafterSetPreference('${key}','${value}')">${title}</button>`;
 }
+const flagEN = '<svg class="language-flag" viewBox="0 0 19 10" aria-hidden="true"><rect width="19" height="10" fill="#fff"/><path d="M0 .385h19M0 1.923h19M0 3.462h19M0 5h19M0 6.538h19M0 8.077h19M0 9.615h19" stroke="#b31942" stroke-width=".77"/><path d="M0 0h7.6v5.385H0z" fill="#0a3161"/><path d="M1 .9h5.6M1 2.1h5.6M1 3.3h5.6M1 4.5h5.6" stroke="#fff" stroke-width=".55" stroke-linecap="round" stroke-dasharray=".01 1.05"/></svg>';
+const flagRU = '<svg class="language-flag" viewBox="0 0 3 2" aria-hidden="true"><path d="M0 0h3v2H0z" fill="#fff"/><path d="M0 .667h3v1.333H0z" fill="#0039a6"/><path d="M0 1.333h3V2H0z" fill="#d52b1e"/></svg>';
 function crafterOpenSettings() {
     sheet(craftText('settings'), `<div id="crafter-settings" class="crafter-settings crafter-settings-compact">
         <section class="crafter-settings-section">
             <h3>Язык</h3>
             <div class="crafter-options" role="group" aria-label="Язык">
-                ${crafterSettingsOption('language','en','🇺🇸 EN')}
-                ${crafterSettingsOption('language','ru','🇷🇺 RU')}
+                ${crafterSettingsOption('language','en',flagEN + '<span>EN</span>')}
+                ${crafterSettingsOption('language','ru',flagRU + '<span>RU</span>')}
             </div>
         </section>
         <section class="crafter-settings-section">

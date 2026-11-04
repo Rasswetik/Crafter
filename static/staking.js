@@ -55,7 +55,7 @@ go = async function(page) {
         return;
     }
     stakeUi.status = null;
-    main.innerHTML = '<div class="loader">Загрузка стейкинга…</div>';
+    main.innerHTML = crafterLoading(page);
     try {
         const [info,inventory] = await Promise.all([api('staking'),api('inventory')]);
         if (state.page !== 'staking') return;

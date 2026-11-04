@@ -26,6 +26,7 @@ def cap_funded_balance(connection, uid, balance):
     rows = connection.execute(
         "SELECT network,gram FROM wallet_balances WHERE user_id=? ORDER BY CASE WHEN network='mainnet' THEN 1 ELSE 0 END,network",
         (uid,)).fetchall()
+    backing = {}
     excess = sum((Decimal(row['gram']) for row in rows), Decimal(0)) - max(balance, Decimal(0))
     for row in rows:
         if excess <= 0:
@@ -34,10 +35,13 @@ def cap_funded_balance(connection, uid, balance):
         removed = min(paid, excess)
         connection.execute('UPDATE wallet_balances SET gram=? WHERE user_id=? AND network=?',
                            (str(paid - removed), uid, row['network']))
+        if removed:
+            backing[row['network']] = str(removed)
         excess -= removed
+    return backing
 
 
-def install_resale(app, db, auth, record, canonical_name, collection_keys, notify_sale):
+def install_resale(app, db, auth, record, canonical_name, collection_keys, notify_sale, close_lot_offers):
     with app.app_context():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS crafter_listings (
@@ -92,10 +96,10 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
             abort(409, description='Этот подарок уже есть в вашем инвентаре')
         return lot
 
-    def settle_lot(lot, buyer, mode):
+    def settle_lot(lot, buyer, mode, price=None):
         connection = db()
         seller, gift_id = lot['seller_id'], lot['gift_id']
-        price = Decimal(lot['price'])
+        price = Decimal(lot['price']) if price is None else price
         fee = (price * FEE).quantize(CENT, rounding=ROUND_HALF_UP)
         proceeds = price - fee
         account = connection.execute('SELECT balance FROM demo_accounts WHERE user_id=?', (seller,)).fetchone()
@@ -104,6 +108,7 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
         connection.execute("""INSERT INTO demo_accounts(user_id,balance) VALUES(?,?)
             ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance""", (seller, str(seller_balance + proceeds)))
         gift = json.loads(lot['payload'])
+        close_lot_offers(lot['id'])
         connection.execute('DELETE FROM crafter_listings WHERE id=?', (lot['id'],))
         connection.execute("UPDATE inventory SET user_id=?,status='unlisted' WHERE user_id=? AND nft_id=?",
                            (buyer, seller, gift_id))
@@ -134,14 +139,24 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
         lots = []
         floors = {}
         collection_floor = None
+        available_collections = {}
+        attributes = {key: {} for key in traits}
         for row in active_lots():
             price = Decimal(row['price'])
             gift = public_lot(row, uid)
             key = canonical_name(gift.get('name', ''))
             floors[key] = min(price, floors.get(key, price))
+            item = available_collections.get(key)
+            if not item or price < Decimal(item['price']):
+                available_collections[key] = {'value': str(gift.get('collection_id') or gift.get('name','')),
+                    'name': gift.get('name',''), 'image': gift.get('image',''), 'price': str(price)}
             if collections and not collections.intersection(canonical_name(gift.get(k, '')) for k in ('collection_id', 'name')):
                 continue
             collection_floor = min(price, collection_floor) if collection_floor is not None else price
+            for trait in traits:
+                name = gift.get(trait)
+                if name and (name not in attributes[trait] or price < Decimal(attributes[trait][name]['price'])):
+                    attributes[trait][name] = {'value':name, 'name':name, 'price':str(price)}
             if not limits[0] <= price <= limits[1]:
                 continue
             if query and query not in ' '.join(str(gift.get(k, '')) for k in ('name', 'model', 'number')).casefold():
@@ -164,6 +179,8 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
             gift['crafter_floor_gram'] = str(floors[canonical_name(gift.get('name', ''))])
         return {'gifts': page, 'source': 'crafter', 'price_unit': 'GRAM',
                 'collection_floor_gram': str(collection_floor) if len(selection) == 1 and collection_floor else None,
+                'facets': {'collection': list(available_collections.values()),
+                           **{trait: list(values.values()) for trait, values in attributes.items()}},
                 'next_offset': end, 'has_more': end < len(lots), 'total': len(lots)}
 
     @app.post('/api/resale/listings')
@@ -196,6 +213,9 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
                     abort(409, description='Модель из каталога нельзя выставить')
                 lot_id = None
                 if action == 'unlist':
+                    active = db().execute('SELECT id FROM crafter_listings WHERE seller_id=? AND gift_id=?', (uid, gift_id)).fetchone()
+                    if active:
+                        close_lot_offers(active['id'])
                     db().execute('DELETE FROM crafter_listings WHERE seller_id=? AND gift_id=?', (uid, gift_id))
                     db().execute("UPDATE inventory SET status='unlisted' WHERE user_id=? AND nft_id=?", (uid, gift_id))
                 else:
@@ -243,7 +263,8 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
             connection.execute('UPDATE demo_accounts SET balance=? WHERE user_id=?', (str(balance), buyer))
             trade = settle_lot(lot, buyer, 'buy')
             record('buy', trade)
-            result = {'ok': True, 'gift': trade['gift'], 'balance': str(balance), 'fee': trade['fee'], 'scope': 'crafter'}
+            balance = connection.execute('SELECT balance FROM demo_accounts WHERE user_id=?', (buyer,)).fetchone()[0]
+            result = {'ok': True, 'gift': trade['gift'], 'balance': balance, 'fee': trade['fee'], 'scope': 'crafter'}
             connection.execute('INSERT INTO crafter_sale_receipts VALUES(?,?,?,?,?)',
                                (buyer, request_id, lot_id, str(price), json.dumps(result)))
         notify_sale(lot['seller_id'], trade)

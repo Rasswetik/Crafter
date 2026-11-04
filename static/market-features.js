@@ -7,6 +7,8 @@ function collectionMarketContext() {
     const collection = state.collectionPage || state.catalog.collections.find(item =>
         [item.id, item.short_name, item.name].some(value => String(value) === id));
     if (collection) return collection;
+    const facet = state.marketFacets?.collection?.find(item => item.value === id || item.name === id);
+    if (facet) return {id, name:facet.name, photo_url:facet.image};
     const gift = state.gifts.find(item => [item.collection_id, item.name].some(value => String(value) === id));
     return gift ? {id, name:gift.name, photo_url:gift.image} : null;
 }
@@ -42,7 +44,7 @@ function paintCollectionMarketFeatures(grid) {
     cta.className = 'collection-craft-cta';
     cta.innerHTML = `${image ? `<img src="${esc(image)}" alt="">` : anvilArt('craft-icon')}
         <strong>Скрафтить ${esc(collection.name)}</strong>
-        <button type="button">↗ Крафт</button>`;
+        <button type="button">${icon('hammer')} Крафт</button>`;
     cta.querySelector('button').onclick = () => {
         state.target = {id:collection.id, name:collection.name, image};
         state.quote = null;
@@ -64,6 +66,9 @@ function paintCollectionMarketFeatures(grid) {
         if (!offer.isConnected || !data) return;
         offer.querySelector('[data-best-offer]').textContent = data.best ? money(data.best.price_gram) + ' GRAM' : '—';
         offer.querySelector('.offer-open span').textContent = data.count;
+        const sell = offer.querySelector('.offer-sell');
+        sell.disabled = !data.best?.executable;
+        sell.onclick = () => acceptCollectionOffer(collection, data.best);
     }
     if (entry.data) paint(entry.data);
     else entry.promise.then(paint);
@@ -92,8 +97,11 @@ async function openCollectionOffers(collection, entry) {
         rows.innerHTML = group.length ? group.map(offer => `<div class="offer-row">
             <b>${money(offer.price_gram)} GRAM</b>
             <span>${esc([offer.model, offer.backdrop, offer.symbol].filter(Boolean).join(' · '))}</span>
-            <small>${offer.quantity} шт.</small><button type="button" disabled>Продать</button>
+            <small>${offer.quantity} шт.</small><button type="button" data-offer-sell="${esc(offer.id)}" ${offer.executable ? '' : 'disabled'}>Продать</button>
         </div>`).join('') : `<p class="offer-empty">${data ? 'Офферов пока нет' : 'Не удалось загрузить офферы'}</p>`;
+        rows.querySelectorAll('[data-offer-sell]').forEach(button => {
+            button.onclick = () => acceptCollectionOffer(collection, group.find(item => item.id === button.dataset.offerSell));
+        });
     };
     root.querySelectorAll('[data-offer-kind]').forEach(button => {
         button.onclick = () => {
@@ -108,42 +116,6 @@ async function openCollectionOffers(collection, entry) {
         root.querySelector('[data-offer-kind="general"]').classList.remove('selected');
         root.querySelector('[data-offer-kind="specific"]').classList.add('selected');
     }
-}
-
-function openOfferDraft(collection) {
-    sheet('Создать оффер', `<form class="offer-draft">
-        <label>Цена <input name="price" inputmode="decimal" placeholder="Введите цену в GRAM"></label>
-        <label>Количество <input name="quantity" type="number" min="1" step="1" value="1"></label>
-        <label>Окончание оффера <select name="expiry"><option>Бессрочно</option><option>24 часа</option><option>7 дней</option></select></label>
-        <div><b>Коллекция</b><p>${esc(collection.name)}</p></div>
-        <div class="offer-draft-attributes"><b>Атрибуты</b>
-            ${[['model','Модель'],['backdrop','Фон'],['symbol','Символ']].map(([key,label]) => `<label>${label}
-                <select name="${key}"><option value="">Любой</option>${state[key] ? `<option selected>${esc(state[key])}</option>` : ''}</select></label>`).join('')}
-        </div>
-        <div class="offer-draft-summary"><span>Общая цена</span><b data-offer-total>0 GRAM</b></div>
-        <div class="offer-draft-summary"><span>Доступный баланс</span><b>${money(state.me.balance)} GRAM</b></div>
-        <button type="button" class="primary" disabled>Создать оффер</button>
-    </form>`);
-    const form = appSheet.querySelector('.offer-draft');
-    form.onsubmit = event => event.preventDefault();
-    form.oninput = () => {
-        const price = resalePriceCents(form.elements.price.value);
-        const quantity = Number(form.elements.quantity.value);
-        form.querySelector('[data-offer-total]').textContent =
-            money(Number.isSafeInteger(quantity) && quantity > 0 ? price * quantity / 100 : 0) + ' GRAM';
-    };
-    giftAttributes({collection_id:collection.id, name:collection.name}).then(data => {
-        if (!form.isConnected || !data) return;
-        for (const [key, group] of [['model','models'],['backdrop','backdrops'],['symbol','symbols']]) {
-            const select = form.elements[key];
-            const names = new Set([...select.options].map(option => option.value));
-            for (const item of data[group] || []) {
-                if (!item.name || names.has(item.name)) continue;
-                names.add(item.name);
-                select.add(new Option(item.name, item.name));
-            }
-        }
-    }).catch(() => {});
 }
 
 function inventoryBank() {
