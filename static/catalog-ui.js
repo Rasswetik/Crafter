@@ -206,7 +206,7 @@ function chooseSort(v){state.draftOrder=v;document.querySelectorAll('.sort-optio
 function applySort(){state.order=state.draftOrder;state.sort=false;closeSheet();if(state.page==='market')renderMarket();changedFilter()}
 function openPriceFilters(){sheet('Цена',`<p class="sub">Диапазон цены, ${esc(state.page==="gifts"?"GRAM":state.marketUnit||"GRAM")}</p><div class="price-fields"><label>От<input id="price-min" inputmode="decimal" type="number" min="0" step="0.01" placeholder="0" value="${esc(state.minPrice)}"></label><label>До<input id="price-max" inputmode="decimal" type="number" min="0" step="0.01" placeholder="Без лимита" value="${esc(state.maxPrice)}"></label></div><div class="catalog-footer"><button onclick="state.minPrice='';state.maxPrice='';closeSheet();refreshFilteredPage();changedFilter()">Сбросить</button><button class="apply" onclick="applyPriceFilters()">Применить</button></div>`);document.querySelector('#sheet').classList.add('price-sheet')}
 function applyPriceFilters(){const min=document.querySelector('#price-min').value,max=document.querySelector('#price-max').value;if((min&&(!Number.isFinite(Number(min))||Number(min)<0))||(max&&(!Number.isFinite(Number(max))||Number(max)<0))||(min&&max&&Number(min)>Number(max)))return toast('Укажите корректный диапазон цены');state.minPrice=min;state.maxPrice=max;closeSheet();refreshFilteredPage();changedFilter()}
-const themedSheet=sheet;sheet=function(t,h){document.querySelector('#sheet').classList.remove('sort-sheet','price-sheet','purchase-sheet');themedSheet(t,h)};
+const themedSheet=sheet;sheet=function(t,h){document.querySelector('#sheet').classList.remove('sort-sheet','price-sheet','purchase-sheet','offer-sheet');themedSheet(t,h)};
 nav=function(){document.querySelector('#nav').innerHTML=`<div class="nav-main">${[['market','market','Маркет'],['gifts','inventoryNav','Мои подарки'],['craft','craft','Крафт']].map(([p,i,n])=>`<button class="${state.page===p?'active':''}" onclick="go('${p}')" aria-label="${n}">${icon(i)}<span>${n}</span></button>`).join('')}</div><button class="profile-nav ${['profile','admin'].includes(state.page)?'active':''}" onclick="go(state.page==='profile'?'market':'profile')" aria-label="Профиль"><span class="avatar">${avatar()}</span></button>`};
 Object.assign(paths, {
     market:'M5 20V9a7 7 0 0 1 14 0v11l-4-2-3 3-3-3-4 2Zm5-5V9a2 2 0 0 1 4 0v6',
@@ -292,7 +292,16 @@ function showGiftDetail(gift, source) {
                     onclick="startGiftTransfer(${arg(gift.id)})" aria-label="Отправить подарок" title="Отправить подарок">
                     ${inventoryToolbarIcon('transfer')}
                 </button>` : ''}
-
+                <button type="button" class="gift-detail-tool gift-eye-tool"
+                    onclick="openGiftTelegramView()" aria-label="Посмотреть NFT в Telegram"
+                    title="Посмотреть в Telegram" ${telegramGiftLink(gift) ? '' : 'disabled'}>
+                    ${crafterGiftEyeSVG()}
+                </button>
+                <button type="button" class="gift-detail-tool gift-share-tool"
+                    onclick="shareDetailGift()" aria-label="Поделиться подарком в Telegram"
+                    title="Поделиться">
+                    ${crafterGiftShareSVG()}
+                </button>
             </div>
             <div><h2><button type="button" class="gift-collection-link" onclick="openGiftCollection()" aria-label="Открыть коллекцию ${esc(gift.name)}">${esc(gift.name)}${icon('chevron')}</button></h2>${gift.number ? `<span>#${esc(gift.number)}</span>` : ''}</div>
         </div>
@@ -305,7 +314,6 @@ function showGiftDetail(gift, source) {
             <div><span>Мин. цена</span><strong>${esc(productFloor(gift))}</strong></div>
             ${listed ? `<div class="owned-listing-price"><span>Цена продажи</span><strong>${money(gift.listing_price ?? gift.price)} GRAM</strong>
                 <button type="button" onclick="startResale('edit', ${arg(gift.id)})">Редактировать</button></div>` : ''}
-            ${gift.resale ? '<div><span>Источник</span><strong>Craft Market</strong></div>' : ''}
         </div>
         ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` : own ? `<div class="product-actions owned-gift-actions">
             <button class="secondary" onclick="toast('Вывод пока недоступен')">Вывод</button>
@@ -313,18 +321,26 @@ function showGiftDetail(gift, source) {
         </div>` : source === 'market' ? `<div class="market-gift-actions market-offer-actions">
             ${gift.own_listing ? `<button class="primary" onclick="openListedInventory()">Управлять в инвентаре</button>` : `
                 ${gift.number && !gift.catalog_only ? `<button type="button" class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
-                    ${icon('hammer')} <strong>Lucky Craft</strong>
+                    ${crafterLuckyActionSVG()} <strong>Lucky Craft</strong>
                 </button>` : ''}
                 <div class="market-offer-primary">
-                    <button type="button" class="secondary" onclick="openPersonalOffer()">Сделать оффер</button>
+                    <button type="button" class="secondary" onclick="openPersonalOffer()">
+                        <span>Make Offer</span><small data-offer-button-fee>0.01 GRAM</small>
+                    </button>
                     <button type="button" id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
-                        <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
+                        <span>Buy Gift</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
                     </button>
                 </div>`}</div>` : ''}`);
     document.querySelector('#sheet').classList.add('purchase-sheet');
     // Show the already-known gift immediately; network estimates and animation never block opening.
     const panel = document.querySelector('#sheet-body .product-properties');
     const art = document.querySelector('#sheet-body .portal-product');
+    const feeLabel = document.querySelector('#sheet-body [data-offer-button-fee]');
+    if (feeLabel) api('offers').then(data => {
+        if (feeLabel.isConnected && state.detailGift === gift) {
+            feeLabel.textContent = money(data.fee_gram) + ' GRAM';
+        }
+    }).catch(() => {});
     requestAnimationFrame(() => {
         setTimeout(() => {
             if (!panel?.isConnected || !art?.isConnected || state.detailGift !== gift) return;

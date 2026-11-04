@@ -25,6 +25,9 @@ async function showOfferForm(draft) {
     const gift = draft.gift;
     const collection = draft.collection;
     const enabled = Boolean(collection || gift?.resale);
+    // The offer editor replaces the gift viewer instead of stacking on it.
+    // Closing or submitting the offer must leave the user on the market.
+    if (gift) state.detailGift = null;
     sheet(gift ? 'Ваше предложение' : 'Создать оффер', `<form class="offer-draft offer-trading-form">
         ${gift ? `<div class="offer-gift-summary">${transferArt(gift)}
             <span><b>${esc(gift.name)}</b><small>#${esc(gift.number)}</small></span>
@@ -47,6 +50,7 @@ async function showOfferForm(draft) {
         <p class="offer-form-error" role="status">${enabled ? '' : 'Этот лот выставлен на Portals. Внутренний оффер доступен для лотов Craft Market.'}</p>
         <button type="submit" class="primary" disabled>${gift ? 'Отправить оффер' : 'Создать оффер'}</button>
     </form>`);
+    appSheet.classList.add('offer-sheet');
     const form = appSheet.querySelector('.offer-trading-form');
     const submit = form.querySelector('[type=submit]');
     const error = form.querySelector('.offer-form-error');
