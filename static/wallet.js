@@ -1,20 +1,511 @@
-let tonUI,tonLibrary,tonStatusSubscription;state.walletFilter='all';
-function loadTonUI(){if(window.TON_CONNECT_UI)return Promise.resolve(window.TON_CONNECT_UI);if(!tonLibrary)tonLibrary=new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='https://unpkg.com/@tonconnect/ui@5.0.1/dist/tonconnect-ui.min.js';s.onload=()=>window.TON_CONNECT_UI?resolve(window.TON_CONNECT_UI):reject(Error('TON Connect недоступен'));s.onerror=()=>{tonLibrary=null;reject(Error('Не удалось загрузить TON Connect'))};document.head.appendChild(s)});return tonLibrary}
-async function walletSDK(){if(tonUI)return tonUI;const lib=await loadTonUI(),info=state.walletInfo||await api('wallet');tonUI=new lib.TonConnectUI({manifestUrl:info.manifest_url,uiPreferences:{theme:'DARK'}});tonStatusSubscription=tonUI.onStatusChange(async wallet=>{try{if(wallet){await api('wallet/connect',{address:wallet.account.address,network:wallet.account.chain==='-239'?'mainnet':'testnet'})}else await api('wallet/disconnect',{});if(state.page==='wallet')await renderWallet();else if(['deposit','withdraw'].includes(state.page)){const value=document.querySelector('#wallet-amount')?.value;await renderWalletAmount(state.page);if(value)setWalletAmount(value)}}catch(e){toast(e.message)}});return tonUI}
-async function connectTonWallet(){try{const ui=await walletSDK();await ui.openModal()}catch(e){toast(e.message)}}
-function shortWallet(s){return s?s.slice(0,6)+'…'+s.slice(-5):'Не подключён'}
-async function disconnectTon(){try{const ui=await walletSDK();await ui.disconnect();await api('wallet/disconnect',{});await renderWallet()}catch(e){toast(e.message)}}
-async function renderWallet(){state.walletInfo=await api('wallet');const w=state.walletInfo,c=w.config;document.querySelector('#main').innerHTML=`<div class="wallet-connected"><button onclick="${w.connected?'disconnectTon()':'connectTonWallet()'}">▣ Ваш кошелёк <b>${esc(shortWallet(w.connected?.address))}</b></button><span>${c.network==='testnet'?'TESTNET':'TON'}</span></div><section class="wallet-balance-card"><span>Баланс кошелька Crafter</span><h1>${money(w.balance)} <em>GRAM</em></h1><div><button onclick="go('deposit')">Пополнить ⊕</button><button onclick="go('withdraw')">Вывод ↑</button></div></section><div class="wallet-history-title"><h2>История</h2><button class="circle" onclick="walletHistoryFilters()">${icon('filter')}</button></div><div id="wallet-history"></div>`;renderWalletHistory();walletSDK().catch(()=>{})}
-function renderWalletHistory(){const w=state.walletInfo,items=[...w.deposits.map(d=>({...d,kind:'deposit'})),...w.withdrawals.map(d=>({...d,kind:'withdraw'}))].filter(x=>state.walletFilter==='all'||x.kind===state.walletFilter).sort((a,b)=>b.created-a.created);document.querySelector('#wallet-history').innerHTML=items.length?items.map(d=>`<div class="wallet-history-row"><span class="wallet-history-icon">${d.kind==='deposit'?'↓':'↑'}</span><div><b>${d.kind==='deposit'?'Пополнение':'Вывод'}</b><small>${new Date(d.created*1000).toLocaleString('ru-RU')} · ${esc(({pending:'Ожидается перевод',confirmed:'Подтверждено',queued:'В очереди',processing:'Обрабатывается'})[d.status]||d.status)}</small></div><strong class="${d.kind==='deposit'?'positive':'negative'}">${d.kind==='deposit'?'+':'−'}${money(d.gram)} GRAM</strong>${d.kind==='deposit'&&d.status==='pending'?`<button onclick="checkDeposit(${arg(d.id)})">Проверить</button>`:''}</div>`).join(''):'<div class="inventory-empty"><h2>История пуста</h2></div>'}
-function walletHistoryFilters(){sheet('Фильтры',`<div class="wallet-filter-options">${[['all','Все операции'],['deposit','Пополнения'],['withdraw','Выводы']].map(([v,n])=>`<button onclick="state.walletFilter='${v}';closeSheet();renderWalletHistory()">${n}${state.walletFilter===v?' ✓':''}</button>`).join('')}</div>`)}
-async function renderWalletAmount(kind){state.walletInfo=await api('wallet');if(kind==='withdraw')state.withdrawSession=Date.now();const w=state.walletInfo,c=w.config,deposit=kind==='deposit',active=deposit?c.enabled:c.enabled&&c.withdraw_enabled;document.querySelector('#main').innerHTML=`<button class="wallet-back" onclick="go('wallet')">‹ Баланс</button><h1 class="wallet-page-title">${deposit?'Пополнить':'Вывод'}</h1><section class="wallet-amount-card"><span>Подключённый кошелёк</span><button class="wallet-address" onclick="connectTonWallet()">▣ ${esc(shortWallet(w.connected?.address))}</button><div class="wallet-amount"><input id="wallet-amount" aria-label="Сумма GRAM" placeholder="0" inputmode="decimal" type="number" min="0" step="0.01" oninput="walletAmountChanged()"><b>GRAM</b></div>${deposit?`<div class="wallet-presets">${[10,50,100].map(n=>`<button onclick="setWalletAmount(${n})">${gramIcon()} ${n}</button>`).join('')}</div>`:`<button class="wallet-max" onclick="setWalletAmount(${Number(w.withdrawable)})">Max</button><div class="wallet-limits"><div>Лимит транзакции<b>${money(c.withdraw_max)} GRAM</b></div><div>Доступно к выводу<b>${money(w.withdrawable)} GRAM</b></div></div>`}<p class="wallet-quote" id="wallet-quote"></p><button class="primary" id="wallet-submit" onclick="${deposit?'sendDeposit()':'requestWithdrawal()'}" disabled>${deposit?'Пополнить':'Вывод'}</button><p class="wallet-error" id="wallet-error" role="alert">${!active?'Операция пока отключена администратором':!w.connected?'Подключите кошелёк':''}</p></section>`}
-function setWalletAmount(n){document.querySelector('#wallet-amount').value=n;walletAmountChanged()}
-function walletAmountChanged(){const w=state.walletInfo,c=w.config,n=Number(document.querySelector('#wallet-amount').value),deposit=state.page==='deposit';document.querySelector('#wallet-submit').disabled=!(n>0&&w.connected&&c.enabled&&(deposit||c.withdraw_enabled&&n<=Number(w.withdrawable)));document.querySelector('#wallet-quote').textContent=deposit&&n>0?'Перевод '+(n/Number(c.gram_per_ton)).toFixed(6)+' TON'+(c.network==='testnet'?' · Testnet':''):''}
-function walletError(e){const el=document.querySelector('#wallet-error');if(el)el.textContent=e.message||String(e);else toast(e.message||String(e))}
-async function sendDeposit(){const b=document.querySelector('#wallet-submit');b.disabled=true;try{const ui=await walletSDK();if(!ui.connected)throw Error('Подключите кошелёк');const account=ui.wallet?.account||ui.account;await api('wallet/connect',{address:account.address,network:account.chain==='-239'?'mainnet':'testnet'});const intent=await api('wallet/deposit',{gram:document.querySelector('#wallet-amount').value});await ui.sendTransaction(intent.transaction);document.querySelector('#wallet-error').textContent='Перевод отправлен. Ожидается подтверждение сети.';await checkDeposit(intent.id)}catch(e){walletError(e)}finally{if(document.querySelector('#wallet-amount'))walletAmountChanged()}}
-async function checkDeposit(id){try{const r=await api('wallet/deposit/'+encodeURIComponent(id)+'/check',{});if(r.status==='confirmed'){await refreshMe();toast('Пополнение подтверждено');if(state.page==='wallet')await renderWallet();else go('wallet')}else{toast('Перевод ещё не подтверждён');if(state.page==='wallet')await renderWallet()}}catch(e){walletError(e)}}
-async function requestWithdrawal(){if(state.walletBusy)return;state.walletBusy=true;const b=document.querySelector('#wallet-submit');b.disabled=true;try{const gram=document.querySelector('#wallet-amount').value;await api('wallet/withdraw',{gram,request_id:paymentRequestId('withdraw:'+state.me.user.id+':'+gram+':'+(state.withdrawSession||Date.now()))});await refreshMe();go('wallet');toast('Заявка на вывод создана')}catch(e){walletError(e);b.disabled=false}finally{state.walletBusy=false}}
-const walletGo=go;go=async function(page){if(!['wallet','deposit','withdraw'].includes(page))return walletGo(page);if(state.crafting)return;state.page=page;document.querySelector('#app').classList.remove('cart-view','craft-view');document.querySelector('#cart-float')?.remove();nav();document.querySelector('#main').innerHTML='<div class="loader">Загрузка…</div>';try{if(page==='wallet')await renderWallet();else await renderWalletAmount(page)}catch(e){document.querySelector('#main').innerHTML=`<div class="error">${esc(e.message)}</div><button class="secondary" onclick="go('${page}')">Повторить</button>`}};
+let tonUI, tonLibrary, tonInitialization;
+let walletLinkQueue = Promise.resolve();
+let walletChanging = false;
+let walletView = 0;
+let walletBalanceRequest = 0;
+let walletHistoryRequest = 0;
+let walletHistoryItems = [];
+let walletHistoryCursor;
+const walletHistoryFiltersState = {};
+const walletGroups = {
+    balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment']},
+    gifts: {label:'Подарки', kinds:['buy','sale','sell','unlist','withdraw','transfer','craft','gift_granted']},
+    offers: {label:'Офферы', kinds:['offer_received','offer_created','offer_cancelled','offer_accepted']},
+};
+const walletEventNames = {
+    deposit:'Пополнение', withdraw_funds:'Вывод', balance_adjustment:'Корректировка баланса',
+    buy:'Покупка подарка', sale:'Продажа подарка', sell:'Выставление на продажу',
+    unlist:'Снятие с продажи', withdraw:'Вывод подарка', transfer:'Отправка подарка',
+    gift_granted:'Получен подарок', craft:'Крафт', offer_received:'Получен оффер',
+    offer_created:'Оффер создан', offer_cancelled:'Оффер отменён', offer_accepted:'Оффер принят',
+};
+const walletStatuses = {
+    pending:'Ожидает подтверждения', confirmed:'Подтверждено', queued:'В очереди', processing:'Обрабатывается',
+};
+const walletPages = ['wallet', 'deposit', 'withdraw'];
+
+function loadTonUI() {
+    if (window.TON_CONNECT_UI) return Promise.resolve(window.TON_CONNECT_UI);
+    if (!tonLibrary) {
+        tonLibrary = new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/@tonconnect/ui@5.0.1/dist/tonconnect-ui.min.js';
+            script.onload = () => window.TON_CONNECT_UI ? resolve(window.TON_CONNECT_UI) : reject(Error('TON Connect недоступен'));
+            script.onerror = () => reject(Error('Не удалось загрузить TON Connect'));
+            document.head.appendChild(script);
+        }).catch(error => {
+            tonLibrary = null;
+            throw error;
+        });
+    }
+    return tonLibrary;
+}
+
+function walletAccount(connection) {
+    const account = connection?.wallet?.account || connection?.account;
+    if (!account) return null;
+    const network = {'-239':'mainnet', '-3':'testnet'}[String(account.chain)];
+    return {address:account.address, network};
+}
+
+function sameWallet(a, b) {
+    return !!a && !!b && a.address === b.address && a.network === b.network;
+}
+
+async function walletSDK() {
+    if (!tonInitialization) {
+        tonInitialization = (async () => {
+            const info = state.walletInfo || await api('wallet');
+            if (!info.manifest_url) throw Error('Подключение кошелька доступно в Crafter');
+            const lib = await loadTonUI();
+            const ui = new lib.TonConnectUI({manifestUrl:info.manifest_url, uiPreferences:{theme:'DARK'}});
+            await ui.connectionRestored;
+            tonUI = ui;
+            let previous = walletAccount(ui);
+            ui.onStatusChange(wallet => {
+                const before = previous;
+                previous = walletAccount(wallet);
+                if (walletChanging) return;
+                const next = previous;
+                walletLinkQueue = walletLinkQueue.then(async () => {
+                    const info = await api('wallet');
+                    if (next) {
+                        if (next.network !== info.config.network) {
+                            throw Error('Выберите кошелёк сети ' + walletNetworkName(info.config.network));
+                        }
+                        if (!sameWallet(info.connected, next)) await api('wallet/connect', next);
+                    } else if (sameWallet(info.connected, before)) {
+                        await api('wallet/disconnect', {address:before.address, network:before.network});
+                    }
+                    await refreshWalletView();
+                }).catch(error => {
+                    walletError(error);
+                    if (state.page === 'deposit') walletAmountChanged();
+                });
+            });
+            if (state.page === 'deposit') walletAmountChanged();
+            return ui;
+        })().catch(error => {
+            tonInitialization = null;
+            throw error;
+        });
+    }
+    return tonInitialization;
+}
+
+function walletNetworkName(network) {
+    return network === 'testnet' ? 'Testnet' : 'Mainnet';
+}
+
+function shortWallet(address) {
+    return address ? address.slice(0, 6) + '…' + address.slice(-5) : 'Не подключён';
+}
+
+function nativeWalletAmount(value) {
+    return Number(value).toLocaleString('ru-RU', {maximumFractionDigits:9}) + ' TON';
+}
+
+function externalWalletText(connected) {
+    const balance = state.externalWalletBalance;
+    if (!sameWallet(balance, connected)) return 'Загрузка…';
+    if (balance.unavailable) return 'Баланс недоступен';
+    return nativeWalletAmount(balance.balance_ton);
+}
+
+function renderExternalWalletBalance() {
+    const connected = state.walletInfo?.connected;
+    if (!connected) return;
+    const value = externalWalletText(connected);
+    document.querySelectorAll('[data-external-wallet-balance]').forEach(el => { el.textContent = value; });
+    if (state.page === 'deposit') walletAmountChanged();
+}
+
+async function refreshExternalWalletBalance() {
+    const request = ++walletBalanceRequest;
+    const connected = state.walletInfo?.connected;
+    if (!connected) {
+        state.externalWalletBalance = null;
+        return;
+    }
+    let balance;
+    try {
+        balance = await api('wallet/balance');
+        if (!sameWallet(connected, balance)) return;
+    } catch {
+        balance = {...connected, unavailable:true};
+    }
+    if (request !== walletBalanceRequest || !sameWallet(connected, state.walletInfo?.connected)) return;
+    state.externalWalletBalance = balance;
+    renderExternalWalletBalance();
+}
+
+async function connectTonWallet() {
+    if (walletChanging) return;
+    try {
+        const ui = await walletSDK();
+        if (ui.connected) {
+            const account = walletAccount(ui);
+            const info = state.walletInfo || await api('wallet');
+            if (account?.network === info.config.network) {
+                await api('wallet/connect', account);
+                await refreshWalletView();
+                return;
+            }
+            await disconnectTon(true);
+            return;
+        }
+        await ui.openModal();
+    } catch (error) {
+        walletError(error);
+    }
+}
+
+function openWalletDetails() {
+    const wallet = state.walletInfo?.connected;
+    if (!wallet) {
+        connectTonWallet();
+        return;
+    }
+    sheet('Ваш кошелёк', `
+        <div class="wallet-details">
+            <span>Баланс · ${walletNetworkName(wallet.network)}</span>
+            <strong data-external-wallet-balance>${esc(externalWalletText(wallet))}</strong>
+            <button class="wallet-detail-address" onclick="copyWalletAddress()">
+                <span>Адрес</span><b>${esc(wallet.display_address || wallet.address)}</b><small>Копировать</small>
+            </button>
+            <button class="primary" onclick="disconnectTon(true)">Переподключить</button>
+            <button class="secondary wallet-unlink" onclick="disconnectTon()">Отвязать кошелёк</button>
+        </div>`);
+    if (!sameWallet(wallet, state.externalWalletBalance) || state.externalWalletBalance.unavailable) {
+        refreshExternalWalletBalance();
+    }
+}
+
+async function copyWalletAddress() {
+    const wallet = state.walletInfo?.connected;
+    if (!wallet) return;
+    try {
+        await navigator.clipboard.writeText(wallet.display_address || wallet.address);
+        toast('Адрес скопирован');
+    } catch {
+        toast('Не удалось скопировать адрес');
+    }
+}
+
+async function disconnectTon(reconnect = false) {
+    if (walletChanging || state.walletBusy) return;
+    walletChanging = true;
+    try {
+        await walletLinkQueue;
+        const linked = state.walletInfo?.connected;
+        const ui = reconnect ? await walletSDK() : tonUI;
+        if (ui?.connected) await ui.disconnect();
+        await api('wallet/disconnect', linked ? {address:linked.address, network:linked.network} : {});
+        state.externalWalletBalance = null;
+        await refreshWalletView();
+        if (reconnect) {
+            // Let the native app sheet close before opening the TON Connect picker.
+            closeSheet();
+            await new Promise(resolve => setTimeout(resolve, 190));
+            walletChanging = false;
+            await ui.openModal();
+        } else {
+            closeSheet();
+            toast('Кошелёк отвязан');
+        }
+    } catch (error) {
+        walletError(error);
+    } finally {
+        walletChanging = false;
+    }
+}
+
+function walletIdentity(w) {
+    const linked = w.connected;
+    return `<button class="wallet-connected" onclick="openWalletDetails()" aria-label="${linked?'Открыть данные кошелька':'Подключить кошелёк'}">
+        <span class="wallet-identity">${icon('wallet')} <span>Ваш кошелёк <b>${esc(shortWallet(linked?.display_address || linked?.address))}</b></span></span>
+        ${linked ? `<span class="wallet-external-pill"><span data-external-wallet-balance>${esc(externalWalletText(linked))}</span> ›</span>` : `<span class="wallet-network">${walletNetworkName(w.config.network)}</span>`}
+    </button>`;
+}
+
+Object.assign(paths, {
+    wallet:'M20 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-2M3 7h15m2 2h-5a3 3 0 0 0 0 6h5a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1zm-5 3h.01',
+    walletUp:'M12 20V4m-6 6 6-6 6 6',
+    walletDown:'M12 4v16m-6-6 6 6 6-6',
+});
+
+async function refreshWalletView() {
+    if (state.page === 'wallet') await renderWallet();
+    else if (walletPages.includes(state.page)) await renderWalletAmount(state.page);
+}
+
+async function loadWalletView(page) {
+    const view = ++walletView;
+    const info = await api('wallet');
+    if (state.page !== page || view !== walletView) return null;
+    state.walletInfo = info;
+    return info;
+}
+
+async function renderWallet() {
+    const w = await loadWalletView('wallet');
+    if (!w) return;
+    document.querySelector('#main').innerHTML = `${walletIdentity(w)}
+        <section class="wallet-balance-card"><span>Баланс кошелька Crafter</span>
+            <h1>${money(w.balance)} <em>GRAM</em></h1>
+            <div><button onclick="go('deposit')">Пополнить ⊕</button><button onclick="go('withdraw')">Вывод ↑</button></div>
+        </section>
+        <div class="wallet-history-title"><h2>История</h2></div>
+        <div class="wallet-history-filters">
+            <button class="circle" aria-label="Сбросить фильтры" onclick="resetWalletHistoryFilters()">${icon('filter')}</button>
+            ${Object.entries(walletGroups).map(([key, group]) => `<button data-wallet-filter="${key}" onclick="walletHistoryFilters('${key}')">${group.label} <span>⌄</span></button>`).join('')}
+        </div>
+        <div id="wallet-history" aria-live="polite"></div>`;
+    loadWalletHistory();
+    walletSDK().catch(() => {});
+    refreshExternalWalletBalance();
+}
+
+function walletHistoryFilters(groupKey) {
+    const group = walletGroups[groupKey];
+    const selected = walletHistoryFiltersState[groupKey] || [];
+    sheet(group.label, `
+        <div class="wallet-filter-options">${group.kinds.map(kind =>
+            `<label><input type="checkbox" value="${kind}" ${selected.includes(kind)?'checked':''}>${walletEventNames[kind]}</label>`
+        ).join('')}</div>
+        <div class="wallet-filter-actions">
+            <button class="secondary" onclick="applyWalletHistoryFilters('${groupKey}', true)">Сбросить</button>
+            <button class="primary" onclick="applyWalletHistoryFilters('${groupKey}')">Применить</button>
+        </div>`);
+}
+
+function applyWalletHistoryFilters(group, reset = false) {
+    walletHistoryFiltersState[group] = reset ? [] : Array.from(
+        document.querySelectorAll('#sheet-body .wallet-filter-options input:checked'), input => input.value);
+    closeSheet();
+    loadWalletHistory();
+}
+
+function resetWalletHistoryFilters() {
+    Object.keys(walletGroups).forEach(group => { delete walletHistoryFiltersState[group]; });
+    loadWalletHistory();
+}
+
+async function loadWalletHistory(append = false) {
+    const list = document.querySelector('#wallet-history');
+    if (!list || (append && !walletHistoryCursor)) return;
+    const request = ++walletHistoryRequest;
+    const types = Object.values(walletHistoryFiltersState).flat();
+    const params = new URLSearchParams();
+    if (types.length) params.set('types', types.join(','));
+    if (append) {
+        params.set('before', walletHistoryCursor);
+        list.querySelector('.wallet-history-more').disabled = true;
+    } else {
+        walletHistoryItems = [];
+        walletHistoryCursor = null;
+        list.innerHTML = '<div class="loader">Загрузка…</div>';
+        document.querySelectorAll('[data-wallet-filter]').forEach(button => {
+            button.classList.toggle('active', !!walletHistoryFiltersState[button.dataset.walletFilter]?.length);
+        });
+    }
+    try {
+        const data = await api('wallet/history?' + params);
+        if (request !== walletHistoryRequest || !list.isConnected) return;
+        walletHistoryItems.push(...data.items);
+        walletHistoryCursor = data.next_cursor;
+        renderWalletHistory(list);
+    } catch (error) {
+        if (request !== walletHistoryRequest || !list.isConnected) return;
+        if (append) {
+            list.querySelector('.wallet-history-more').disabled = false;
+            toast(error.message);
+        } else {
+            list.innerHTML = `<div class="error">${esc(error.message)}</div><button class="secondary" onclick="loadWalletHistory()">Повторить</button>`;
+        }
+    }
+}
+
+function walletHistoryRow(item) {
+    const {kind, data, status} = item;
+    const gift = data.gift || data.gifts?.[0] || (kind === 'buy' ? data : null);
+    const amount = Number(kind === 'buy' ? -(data.price ?? gift?.price) : kind === 'withdraw_funds' ? -data.gram : data.gram);
+    const showAmount = Number.isFinite(amount) && amount !== 0;
+    const title = gift?.name || walletEventNames[kind] || 'Операция';
+    const time = new Date(item.created * 1000).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
+    const activity = kind === 'craft' && data.mode === 'lucky' ? 'Lucky Craft' : walletEventNames[kind];
+    const details = [gift && activity, data.gifts?.length > 1 && `${data.gifts.length} шт.`,
+        kind === 'craft' && (data.success ? 'Успешно' : 'Не удалось'), walletStatuses[status], time].filter(Boolean).join(' · ');
+    return `<div class="wallet-history-row">
+        <span class="wallet-history-icon">${gift ? `<img ${giftPicture(gift)} alt="" loading="lazy">` :
+            icon(kind === 'deposit' ? 'walletDown' : kind === 'withdraw_funds' ? 'walletUp' : kind === 'craft' ? 'craft' : 'gift')}</span>
+        <div class="wallet-history-description"><b>${esc(title)}</b><small>${esc(details)}</small>
+            ${kind === 'deposit' && status === 'pending' ? `<button class="wallet-check-deposit" onclick="checkDeposit(${arg(item.id)}, this)">Проверить перевод</button>` : ''}
+        </div>
+        ${showAmount ? `<strong class="${status === 'pending' ? 'pending' : amount > 0 ? 'positive' : 'negative'}">${status === 'pending' ? '' : amount > 0 ? '+' : '−'}${money(Math.abs(amount))} GRAM</strong>` : ''}
+    </div>`;
+}
+
+function renderWalletHistory(list) {
+    const days = new Map();
+    for (const item of walletHistoryItems) {
+        const day = new Date(item.created * 1000).toLocaleDateString('ru-RU', {day:'numeric', month:'long', year:'numeric'});
+        if (!days.has(day)) days.set(day, []);
+        days.get(day).push(item);
+    }
+    list.innerHTML = days.size ? [...days].map(([day, items]) =>
+        `<section class="wallet-history-day"><h3>${esc(day)}</h3>${items.map(walletHistoryRow).join('')}</section>`
+    ).join('') : '<div class="inventory-empty"><h2>История пуста</h2></div>';
+    if (walletHistoryCursor) list.insertAdjacentHTML('beforeend',
+        '<button class="secondary wallet-history-more" onclick="loadWalletHistory(true)">Показать ещё</button>');
+}
+
+async function renderWalletAmount(kind) {
+    const w = await loadWalletView(kind);
+    if (!w) return;
+    const value = document.querySelector('#wallet-amount')?.value || '';
+    const c = w.config;
+    const deposit = kind === 'deposit';
+    document.querySelector('#main').innerHTML = `<button class="wallet-back" onclick="go('wallet')">‹ Баланс</button>
+        <h1 class="wallet-page-title">${deposit?'Пополнить':'Вывод'}</h1>
+        ${walletIdentity(w)}
+        <section class="wallet-amount-card">
+            <div class="wallet-amount"><input id="wallet-amount" aria-label="Сумма GRAM" placeholder="0" inputmode="decimal" type="number" min="0" step="0.01" value="${esc(value)}" oninput="walletAmountChanged()"><b>GRAM</b></div>
+            ${deposit?`<div class="wallet-presets">${[10,50,100].map(n=>`<button onclick="setWalletAmount(${n})">${gramIcon()} ${n}</button>`).join('')}</div>`:
+                `<button class="wallet-max" onclick="setWalletAmount(${Number(w.withdrawable)})">Max</button><div class="wallet-limits"><div>Лимит транзакции<b>${money(c.withdraw_max)} GRAM</b></div><div>Доступно к выводу<b>${money(w.withdrawable)} GRAM</b></div></div>`}
+            <p class="wallet-quote" id="wallet-quote"></p>
+            <button class="primary" id="wallet-submit" onclick="${deposit?'sendDeposit()':'requestWithdrawal()'}" disabled>${deposit?'Пополнить':'Вывод'}</button>
+            <p class="wallet-error" id="wallet-error" role="status"></p>
+        </section>`;
+    walletAmountChanged();
+    walletSDK().catch(walletError);
+    refreshExternalWalletBalance();
+}
+
+function setWalletAmount(value) {
+    document.querySelector('#wallet-amount').value = value;
+    walletAmountChanged();
+}
+
+function walletAmountChanged() {
+    const input = document.querySelector('#wallet-amount');
+    if (!input) return;
+    const w = state.walletInfo;
+    const c = w.config;
+    const n = Number(input.value);
+    const deposit = state.page === 'deposit';
+    const ton = n / Number(c.gram_per_ton);
+    const connected = w.connected?.network === c.network;
+    const amountValid = n > 0 && input.validity.valid;
+    let issue = '';
+    if (!c.enabled || !c.receiver || (!deposit && !c.withdraw_enabled)) issue = 'Операция пока отключена администратором';
+    else if (!connected) issue = 'Подключите кошелёк сети ' + walletNetworkName(c.network);
+    else if (deposit && amountValid && (ton < Number(c.min_deposit) || ton > Number(c.max_deposit))) issue = 'Сумма вне лимитов пополнения';
+    else if (deposit && amountValid && sameWallet(w.connected, state.externalWalletBalance) &&
+        ton > Number(state.externalWalletBalance.balance_ton)) issue = 'Недостаточно TON в подключённом кошельке';
+    else if (!deposit && n > Math.min(Number(w.withdrawable), Number(c.withdraw_max))) issue = 'Сумма превышает доступный лимит';
+    document.querySelector('#wallet-submit').disabled = state.walletBusy || !amountValid || !!issue;
+    document.querySelector('#wallet-quote').textContent = deposit && amountValid ? 'Перевод ' + nativeWalletAmount(ton) + ' · ' + walletNetworkName(c.network) : '';
+    document.querySelector('#wallet-error').textContent = issue;
+}
+
+function walletError(error) {
+    const message = error.message || String(error);
+    const el = document.querySelector('#wallet-error');
+    if (el) el.textContent = message;
+    else toast(message);
+}
+
+async function sendDeposit() {
+    if (state.walletBusy) return;
+    const gram = document.querySelector('#wallet-amount').value;
+    const connected = state.walletInfo.connected;
+    state.walletBusy = true;
+    walletAmountChanged();
+    let failure;
+    try {
+        const ui = await walletSDK();
+        const account = walletAccount(ui);
+        if (!sameWallet(connected, account)) {
+            throw Error('Переподключите кошелёк этой сети, чтобы подтвердить перевод');
+        }
+        const intent = await api('wallet/deposit', {gram, sender:account.address});
+        await ui.sendTransaction(intent.transaction);
+        toast('Перевод отправлен. Ожидает подтверждения');
+        if (state.page === 'deposit') await go('wallet');
+        await checkDeposit(intent.id, null, true);
+    } catch (error) {
+        failure = error;
+    } finally {
+        state.walletBusy = false;
+        if (state.page === 'deposit') walletAmountChanged();
+        if (failure) walletError(failure);
+    }
+}
+
+async function checkDeposit(id, button, poll = false) {
+    if (button) button.disabled = true;
+    try {
+        const path = 'wallet/deposit/' + encodeURIComponent(id) + '/check';
+        const attempts = poll ? 4 : 1;
+        for (let i = 0; i < attempts; i++) {
+            if (i) {
+                await new Promise(resolve => setTimeout(resolve, 2500));
+                if (state.page !== 'wallet') return;
+            }
+            const result = await api(path, {});
+            if (result.status === 'confirmed') {
+                await refreshMe();
+                if (state.page === 'wallet') await renderWallet();
+                toast('Пополнение подтверждено');
+                return;
+            }
+        }
+        if (!poll) toast('Перевод ещё не подтверждён');
+    } catch (error) {
+        walletError(error);
+    } finally {
+        if (button) button.disabled = false;
+    }
+}
+
+async function requestWithdrawal() {
+    if (state.walletBusy) return;
+    state.walletBusy = true;
+    walletAmountChanged();
+    let failure;
+    try {
+        const gram = document.querySelector('#wallet-amount').value;
+        await api('wallet/withdraw', {gram, request_id:paymentRequestId('withdraw:'+state.me.user.id+':'+gram+':'+state.withdrawSession)});
+        await refreshMe();
+        if (state.page === 'withdraw') go('wallet');
+        toast('Заявка на вывод создана');
+    } catch (error) {
+        failure = error;
+    } finally {
+        state.walletBusy = false;
+        if (state.page === 'withdraw') walletAmountChanged();
+        if (failure) walletError(failure);
+    }
+}
+
+const walletGo = go;
+go = async function(page) {
+    if (!walletPages.includes(page)) return walletGo(page);
+    if (state.crafting) return;
+    state.page = page;
+    if (page === 'withdraw') state.withdrawSession = Date.now();
+    document.querySelector('#app').classList.remove('cart-view','craft-view');
+    document.querySelector('#cart-float')?.remove();
+    nav();
+    document.querySelector('#main').innerHTML = '<div class="loader">Загрузка…</div>';
+    try {
+        await refreshWalletView();
+    } catch (error) {
+        if (state.page !== page) return;
+        document.querySelector('#main').innerHTML = `<div class="error">${esc(error.message)}</div><button class="secondary" onclick="go('${page}')">Повторить</button>`;
+    }
+};
 const walletAdmin=renderAdmin;renderAdmin=async function(){if(state.adminSection==='tonconnect'){await renderTonAdmin();return}await walletAdmin();addTonAdminTab()};
 function addTonAdminTab(){document.querySelector('.admin-tabs')?.insertAdjacentHTML('beforeend',`<button class="${state.adminSection==='tonconnect'?'selected':''}" onclick="state.adminSection='tonconnect';renderAdmin()">TON Connect</button>`)}
 async function renderTonAdmin(){const data=await api('admin/tonconnect'),c=data.config;state.tonAdmin=data;document.querySelector('#main').innerHTML=`<div class="admin-title"><h1>Управление</h1><button onclick="go('profile')">Закрыть</button></div><div class="admin-tabs"><button onclick="state.adminSection='users';renderAdmin()">Пользователи</button><button onclick="state.adminSection='portal';renderAdmin()">Portal Market</button><button class="selected">TON Connect</button></div><section class="panel"><h3>TON Connect</h3><label class="wallet-setting"><input id="ton-enabled" type="checkbox" ${c.enabled?'checked':''}> Включить пополнения</label><label class="form-label">Сеть</label><select id="ton-network" class="field"><option value="testnet" ${c.network==='testnet'?'selected':''}>Testnet</option><option value="mainnet" ${c.network==='mainnet'?'selected':''}>Mainnet</option></select>${[['app_name','Название приложения'],['public_url','Публичный HTTPS адрес приложения'],['receiver','Адрес приёма TON'],['gram_per_ton','Сколько GRAM начислять за 1 TON'],['min_deposit','Минимальное пополнение, TON'],['max_deposit','Максимальное пополнение, TON'],['withdraw_max','Лимит вывода за операцию, GRAM'],['withdraw_daily','Лимит вывода за 24 часа, GRAM']].map(([k,n])=>`<label class="form-label">${n}</label><input class="field" id="ton-${k}" value="${esc(c[k])}">`).join('')}<label class="wallet-setting"><input id="ton-withdraw_enabled" type="checkbox" ${c.withdraw_enabled?'checked':''}> Разрешить заявки на вывод</label><label class="form-label">Toncenter API key ${data.rpc_key_configured?'(задан)':''}</label><input class="field" type="password" id="ton-rpc_key" placeholder="Оставьте пустым, чтобы сохранить"><button class="primary" onclick="saveTonSettings()">Сохранить</button><p class="sub">Ключи и seed-фразы кошелька не требуются. Переводы подписываются в кошельке.</p></section><section class="panel"><h3>Хранение данных</h3><p>${data.storage.durable?'Постоянное хранилище подключено':'Временное хранилище: нужен постоянный диск для сохранения после перезапуска Render'}</p><p class="sub">${esc(data.storage.path)}</p><button class="secondary" onclick="downloadDatabaseBackup()">Скачать резервную копию SQLite</button></section><section class="panel"><h3>Заявки на вывод</h3>${data.withdrawals.map(w=>`<div class="withdraw-admin"><b>${w.user_id} · ${money(w.gram)} GRAM / ${money(w.ton)} TON</b><small>${esc(w.receiver)}</small>${w.status==='queued'?`<button class="secondary" onclick="processWithdrawal(${arg(w.id)})">Перевести через кошелёк</button>`:''}<button class="secondary" onclick="verifyWithdrawal(${arg(w.id)})">Проверить перевод</button></div>`).join('')||'<p class="sub">Нет заявок</p>'}</section>`}

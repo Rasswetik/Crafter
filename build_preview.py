@@ -39,6 +39,14 @@ const previewCatalog=CATALOG_SEED;
      else if(route==='market')data={gifts:previewGifts.filter(gift => !demoState.luckySold?.includes(gift.id)),demo:true,source:'demo'};
      else if(route==='inventory')data={gifts:demoState.inventory,demo:true};
      else if(route==='history')data={items:demoState.history};
+     else if(route==='wallet')data={balance:String(demoState.balance),withdrawable:'0',connected:null,
+        config:{enabled:false,network:'testnet',gram_per_ton:'1',withdraw_enabled:false,withdraw_max:'2500'}};
+     else if(route==='wallet/history'){
+        const params=new URLSearchParams(url.split('?')[1]), kinds=params.get('types')?.split(',');
+        const items=kinds?demoState.history.filter(item=>kinds.includes(item.kind)):demoState.history;
+        const offset=Number(params.get('before')||0);
+        data={items:items.slice(offset,offset+30),next_cursor:items.length>offset+30?String(offset+30):null};
+     }
      else if(route==='catalog')data={collections:previewCatalog.collections,attributes:{},source:'snapshot'};
      else if(route.endsWith('/overview')&&route.startsWith('collections/')){
         const slug=decodeURIComponent(route.split('/')[1]),collection=previewCatalog.collections.find(c=>String(c.id)===slug);

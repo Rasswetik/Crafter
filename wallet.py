@@ -8,10 +8,21 @@ from pathlib import Path
 from flask import request,g,abort,jsonify
 
 DEFAULTS=dict(enabled=False,network='testnet',receiver='',app_name='Crafter',public_url='',gram_per_ton='1',min_deposit='0.1',max_deposit='100',withdraw_enabled=False,withdraw_max='2500',withdraw_daily='20000',rpc_key='')
+HISTORY_GROUPS = {
+    'balance': ('deposit', 'withdraw_funds', 'balance_adjustment'),
+    'gifts': ('buy', 'sell', 'unlist', 'withdraw', 'transfer', 'craft', 'gift_granted', 'sale'),
+    'offers': ('offer_received', 'offer_created', 'offer_cancelled', 'offer_accepted'),
+}
+
 def address(raw):
     from tonsdk.utils import Address
     try:return Address(raw).to_string(False)
     except Exception:abort(400,description='Некорректный адрес TON')
+
+def friendly_address(raw, network):
+    from tonsdk.utils import Address
+    return Address(raw).to_string(True, True, False, network == 'testnet')
+
 def amount(value,places='0.01'):
     try:
         v=Decimal(str(value))
@@ -52,6 +63,11 @@ def confirmed_message(transactions,recipient,sender,nano,memo,created):
 def install_wallet(app,db,auth,record,audit):
     with app.app_context():
         db().executescript('''CREATE TABLE IF NOT EXISTS connected_wallets(user_id INTEGER PRIMARY KEY,address TEXT,network TEXT);CREATE TABLE IF NOT EXISTS wallet_balances(user_id INTEGER,network TEXT,gram TEXT,PRIMARY KEY(user_id,network));CREATE TABLE IF NOT EXISTS ton_deposits(id TEXT PRIMARY KEY,user_id INTEGER,payload TEXT,status TEXT,created INTEGER,tx TEXT);CREATE TABLE IF NOT EXISTS ton_transactions(network TEXT,hash TEXT,PRIMARY KEY(network,hash));CREATE TABLE IF NOT EXISTS ton_withdrawals(id TEXT PRIMARY KEY,user_id INTEGER,payload TEXT,status TEXT,created INTEGER,tx TEXT);''');db().commit()
+        db().executescript('''
+            CREATE INDEX IF NOT EXISTS history_wallet_user ON history(user_id,created);
+            CREATE INDEX IF NOT EXISTS ton_deposits_wallet_user ON ton_deposits(user_id,created);
+            CREATE INDEX IF NOT EXISTS ton_withdrawals_wallet_user ON ton_withdrawals(user_id,created);
+        ''')
     def config():
         row=db().execute("SELECT payload FROM settings WHERE key='tonconnect'").fetchone()
         return {**DEFAULTS,**(json.loads(row[0]) if row else {}),'rpc_key':os.getenv('TONCENTER_API_KEY') or (json.loads(row[0]).get('rpc_key','') if row else '')}
@@ -81,7 +97,56 @@ def install_wallet(app,db,auth,record,audit):
         paid=min(balance,verified_balance(c['network']))
         dep=[dict(id=r['id'],status=r['status'],created=r['created'],**json.loads(r['payload'])) for r in db().execute('SELECT * FROM ton_deposits WHERE user_id=? ORDER BY created DESC LIMIT 30',(g.user['id'],))]
         withdrawals=[dict(id=r['id'],status=r['status'],created=r['created'],**json.loads(r['payload'])) for r in db().execute('SELECT * FROM ton_withdrawals WHERE user_id=? ORDER BY created DESC LIMIT 30',(g.user['id'],))]
-        return dict(config=public(c),connected=dict(row) if row else None,balance=str(balance),withdrawable=str(paid),deposits=dep,withdrawals=withdrawals,manifest_url=origin(c)+'/tonconnect-manifest.json')
+        connected = dict(row, display_address=friendly_address(row['address'], row['network'])) if row else None
+        return dict(config=public(c),connected=connected,balance=str(balance),withdrawable=str(paid),deposits=dep,withdrawals=withdrawals,manifest_url=origin(c)+'/tonconnect-manifest.json')
+    @app.get('/api/wallet/balance')
+    @auth()
+    def connected_balance():
+        row = db().execute('SELECT address,network FROM connected_wallets WHERE user_id=?', (g.user['id'],)).fetchone()
+        c = config()
+        if not row or row['network'] != c['network']:
+            abort(409, description='Подключите кошелёк нужной сети')
+        result = rpc(row['network'], 'getAddressBalance', {'address': row['address']}, c['rpc_key'])
+        nano = str(result)
+        if not nano.isascii() or not nano.isdecimal() or len(nano) > 30:
+            abort(502, description='Не удалось получить баланс кошелька')
+        return dict(row, balance_ton=format(Decimal(nano).scaleb(-9), 'f'))
+    @app.get('/api/wallet/history')
+    @auth()
+    def wallet_history():
+        uid = g.user['id']
+        conditions, params = [], [uid, uid, uid]
+        kinds = request.args.get('types', '').split(',')
+        if kinds != ['']:
+            allowed = {kind for group in HISTORY_GROUPS.values() for kind in group}
+            if len(kinds) > len(allowed) or not set(kinds) <= allowed:
+                abort(400, description='Неизвестный тип операции')
+            conditions.append('kind IN (' + ','.join('?' for _ in kinds) + ')')
+            params.extend(kinds)
+        cursor = request.args.get('before')
+        if cursor is not None:
+            try:
+                timestamp, source, sequence = map(int, cursor.split(':'))
+                if not (0 <= timestamp < 2**63 and source in (0, 1, 2) and 0 < sequence < 2**63):
+                    raise ValueError
+            except ValueError:
+                abort(400, description='Некорректная страница истории')
+            conditions.append('(created, source, sequence) < (?, ?, ?)')
+            params.extend((timestamp, source, sequence))
+        where = ' WHERE ' + ' AND '.join(conditions) if conditions else ''
+        rows = db().execute('''
+            SELECT * FROM (
+                SELECT id,kind,payload,created,NULL AS status,0 AS source,rowid AS sequence
+                FROM history WHERE user_id=? AND kind NOT IN ('deposit','withdraw_request')
+                UNION ALL
+                SELECT id,'deposit',payload,created,status,1,rowid FROM ton_deposits WHERE user_id=?
+                UNION ALL
+                SELECT id,'withdraw_funds',payload,created,status,2,rowid FROM ton_withdrawals WHERE user_id=?
+            )
+        ''' + where + ' ORDER BY created DESC,source DESC,sequence DESC LIMIT 31', params).fetchall()
+        items = [dict(id=r['id'],kind=r['kind'],created=r['created'],status=r['status'],data=json.loads(r['payload'])) for r in rows[:30]]
+        next_cursor = ':'.join(str(rows[29][field]) for field in ('created', 'source', 'sequence')) if len(rows) > 30 else None
+        return dict(items=items, next_cursor=next_cursor)
     @app.post('/api/wallet/connect')
     @auth()
     def connect():
@@ -92,7 +157,15 @@ def install_wallet(app,db,auth,record,audit):
     @app.post('/api/wallet/disconnect')
     @auth()
     def disconnect():
-        db().execute('DELETE FROM connected_wallets WHERE user_id=?',(g.user['id'],));db().commit();return {'ok':True}
+        data = request.get_json() or {}
+        query = 'DELETE FROM connected_wallets WHERE user_id=?'
+        params = [g.user['id']]
+        if 'address' in data:
+            query += ' AND address=? AND network=?'
+            params.extend((address(data['address']), data.get('network')))
+        with db():
+            db().execute(query, params)
+        return {'ok': True}
     @app.post('/api/wallet/deposit')
     @auth()
     def deposit():
@@ -100,13 +173,21 @@ def install_wallet(app,db,auth,record,audit):
         if not Decimal(c['min_deposit'])<=value<=Decimal(c['max_deposit']):abort(400,description='Сумма вне лимитов пополнения')
         row=db().execute('SELECT * FROM connected_wallets WHERE user_id=?',(g.user['id'],)).fetchone()
         if not row or row['network']!=c['network']:abort(409,description='Подключите кошелёк нужной сети')
+        if 'sender' in data and address(data['sender']) != row['address']:
+            abort(409, description='Кошелёк изменился. Подключите его повторно')
         now=int(time.time())
         if db().execute("SELECT count(*) FROM ton_deposits WHERE user_id=? AND created>?",(g.user['id'],now-60)).fetchone()[0]>=5:abort(429,description='Повторите через минуту')
         did=uuid.uuid4().hex;memo='crafter:'+did;nano=str(int(value*1000000000));credit=requested or (value*Decimal(c['gram_per_ton'])).quantize(Decimal('.01'),rounding=ROUND_DOWN)
         if credit<=0:abort(400,description='Сумма слишком мала')
         p=dict(network=c['network'],receiver=address(c['receiver']),sender=row['address'],ton=str(value),nano=nano,gram=str(credit),memo=memo)
         db().execute('INSERT INTO ton_deposits VALUES(?,?,?,?,?,NULL)',(did,g.user['id'],json.dumps(p),'pending',now));db().commit()
-        return dict(id=did,gram=str(credit),transaction=dict(validUntil=now+600,network='-239' if c['network']=='mainnet' else '-3',messages=[dict(address=c['receiver'],amount=nano,payload=payload(memo))]))
+        transaction = {
+            'validUntil': now + 600,
+            'network': '-239' if p['network'] == 'mainnet' else '-3',
+            'from': p['sender'],
+            'messages': [dict(address=friendly_address(p['receiver'], p['network']), amount=nano, payload=payload(memo))],
+        }
+        return dict(id=did, gram=str(credit), transaction=transaction)
     @app.post('/api/wallet/deposit/<did>/check')
     @auth()
     def check_deposit(did):

@@ -592,8 +592,8 @@ def create_app(config=None):
         return result
     def owned():
         return [{**json.loads(r['payload']),'status':r['status']} for r in db().execute('SELECT payload,status FROM inventory WHERE user_id=?',(g.user['id'],))]
-    def record(kind,payload):
-        db().execute('INSERT INTO history VALUES(?,?,?,?,?)',(uuid.uuid4().hex,g.user['id'],kind,json.dumps(payload),int(time.time())))
+    def record(kind,payload,*,uid=None):
+        db().execute('INSERT INTO history VALUES(?,?,?,?,?)',(uuid.uuid4().hex,g.user['id'] if uid is None else uid,kind,json.dumps(payload),int(time.time())))
     @app.get('/api/history')
     @auth()
     def history():
@@ -785,7 +785,15 @@ def create_app(config=None):
         try:amount=Decimal(str((request.get_json() or {}).get('balance')))
         except Exception:abort(400,description='Укажите баланс числом')
         if not amount.is_finite() or amount<0 or amount>1000000000:abort(400,description='Недопустимый баланс')
-        db().execute('INSERT OR REPLACE INTO demo_accounts VALUES(?,?)',(uid,str(amount.quantize(Decimal('0.01')))));db().commit();audit('Balance edited: '+str(uid))
+        balance = amount.quantize(Decimal('0.01'))
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            previous = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (uid,)).fetchone()
+            change = balance - (Decimal(previous['balance']) if previous else Decimal(0))
+            db().execute('INSERT OR REPLACE INTO demo_accounts VALUES(?,?)', (uid, str(balance)))
+            if change:
+                record('balance_adjustment', {'gram': str(change)}, uid=uid)
+        audit('Balance edited: '+str(uid))
         return {'ok':True}
     @app.post('/api/admin/users/<int:uid>/gifts')
     @auth(admin=True)
@@ -797,7 +805,10 @@ def create_app(config=None):
         if not collection or not model:abort(400,description='Выберите коллекцию и модель из каталога')
         backdrop, symbol = reward_attributes(collection['id'])
         gift=dict(id='grant-'+uuid.uuid4().hex,name=collection['name'],collection_id=collection['id'],model=model['name'],backdrop=backdrop.get('name', ''),background=backdrop,symbol=symbol,price=model['price'],image=model['image'],number=gift_number(collection['id'],data.get('number')),origin='admin-grant',source_price_unit=model.get('price_unit','TON'),price_unit='GRAM')
-        db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(uid,gift['id'],json.dumps(gift),'unlisted'));db().commit();audit('Gift granted: '+str(uid)+' '+collection['name']+' / '+name)
+        with db():
+            db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(uid,gift['id'],json.dumps(gift),'unlisted'))
+            record('gift_granted', {'gift': gift}, uid=uid)
+        audit('Gift granted: '+str(uid)+' '+collection['name']+' / '+name)
         return {'ok':True,'gift':gift}
     @app.get('/api/admin/selection')
     @auth(admin=True)

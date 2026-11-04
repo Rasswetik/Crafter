@@ -332,3 +332,109 @@ def test_market_activity_filters_collection_model_and_type(client):
     assert result.json['models'] == ['Another', 'Arcade']
     assert result.json['items'][0]['gift']['name'] == 'Witch Hat'
     assert b'private' not in result.data
+
+
+def test_wallet_history_includes_purchases_and_paginates_by_user(client):
+    headers = signed()
+    client.get('/api/me', headers=headers)
+    lot = {**DEMO_GIFTS[0], 'id': 'wallet-lot', 'price': '4.25', 'price_unit': 'GRAM'}
+    now = int(time.time())
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('INSERT INTO cache VALUES (?,?,?)',
+                   ('public:market:', json.dumps({'gifts': [lot]}), now))
+        db.execute('UPDATE demo_accounts SET balance=? WHERE user_id=42', ('20',))
+        db.executemany('INSERT INTO history VALUES (?,?,?,?,?)', [
+            (f'legacy-{i}', 42, 'buy', json.dumps({'name':'Legacy gift','price':'1'}), now - 600)
+            for i in range(32)
+        ])
+        db.execute('INSERT INTO history VALUES (?,?,?,?,?)',
+                   ('private', 43, 'buy', json.dumps({'price': '1000'}), now))
+
+    purchase = client.post('/api/local/buy', headers=headers,
+                           json={'id': lot['id'], 'request_id': 'wallet-single'})
+    assert purchase.status_code == 200
+    assert client.post('/api/admin/users/42/balance', headers=headers, json={'balance': '18'}).status_code == 200
+    history = client.get('/api/wallet/history', headers=headers).json
+    by_kind = {item['kind']:item for item in history['items'][:2]}
+    assert by_kind['buy']['data']['price'] == '4.25'
+    assert by_kind['buy']['data']['gift']['source_id'] == lot['id']
+    assert by_kind['balance_adjustment']['data']['gram'] == '2.25'
+    assert len(history['items']) == 30
+    second = client.get('/api/wallet/history', headers=headers,
+                        query_string={'before': history['next_cursor']}).json
+    rows = history['items'] + second['items']
+    assert len({item['id'] for item in rows}) == len(rows) == 34
+    assert second['next_cursor'] is None
+    assert [item['id'] for item in client.get('/api/wallet/history', headers=signed(43)).json['items']] == ['private']
+    filtered = client.get('/api/wallet/history?types=balance_adjustment', headers=headers).json
+    assert filtered['items'] == [by_kind['balance_adjustment']]
+    assert client.get('/api/wallet/history?before=invalid', headers=headers).status_code == 400
+
+
+def test_wallet_deposit_checks_sender_balance_and_confirms_after_unlink(client, monkeypatch):
+    from tonsdk.utils import Address
+    import wallet
+
+    headers = signed()
+    sender, receiver, other = ('0:' + char * 64 for char in ('1', '2', '3'))
+    settings = {'enabled': True, 'network': 'testnet', 'receiver': receiver, 'gram_per_ton': '2',
+                'withdraw_enabled': True}
+    assert client.post('/api/admin/tonconnect', headers=headers, json=settings).status_code == 200
+
+    def post(path, body):
+        return client.post('/api/wallet/' + path, headers=headers, json=body)
+
+    assert post('connect', {'address': sender, 'network': 'mainnet'}).status_code == 409
+    assert post('connect', {'address': sender, 'network': 'testnet'}).status_code == 200
+    transactions = []
+
+    def mock_rpc(network, method, params, key):
+        assert network == 'testnet'
+        if method == 'getAddressBalance':
+            assert params == {'address': sender}
+            return '1700000001'
+        assert method == 'getTransactions' and params['address'] == receiver
+        return transactions
+
+    monkeypatch.setattr(wallet, 'rpc', mock_rpc)
+    balance = client.get('/api/wallet/balance', headers=headers).json
+    assert balance == {'address': sender, 'network': 'testnet', 'balance_ton': '1.700000001'}
+    assert post('deposit', {'gram': '3.25', 'sender': other}).status_code == 409
+    assert post('deposit', {'gram': '0.10', 'sender': sender}).status_code == 400
+    result = post('deposit', {'gram': '3.25', 'sender': sender})
+    assert result.status_code == 200
+    intent = result.json
+    transaction = intent['transaction']
+    assert transaction['network'] == '-3' and transaction['from'] == sender
+    message = transaction['messages'][0]
+    destination = Address(message['address'])
+    assert destination.is_user_friendly and destination.is_test_only
+    assert destination.to_string(False) == receiver
+    assert message['amount'] == '1625000000' and message['payload']
+
+    check_path = 'deposit/' + intent['id'] + '/check'
+    assert post('disconnect', {'address': other, 'network': 'testnet'}).status_code == 200
+    assert client.get('/api/wallet/balance', headers=headers).status_code == 200
+    assert post('disconnect', {'address': sender, 'network': 'testnet'}).status_code == 200
+    assert client.get('/api/wallet/balance', headers=headers).status_code == 409
+    assert client.get('/api/wallet', headers=headers).json['connected'] is None
+    assert post(check_path, {}).json == {'status': 'pending'}
+    initial = client.get('/api/wallet', headers=headers).json['balance']
+    assert client.get('/api/wallet/history', headers=headers).json['items'][0]['status'] == 'pending'
+
+    memo = 'crafter:' + intent['id']
+    chain_message = {'source':other, 'destination':receiver, 'value':message['amount'], 'message':memo}
+    transactions.append({'in_msg':chain_message, 'transaction_id':{'hash':'deposit-hash'}, 'utime':int(time.time())})
+    assert post(check_path, {}).json == {'status': 'pending'}
+    chain_message['source'] = sender
+    assert post(check_path, {}).json['status'] == 'confirmed'
+    assert post(check_path, {}).json == {'status': 'confirmed'}
+    from decimal import Decimal
+    assert Decimal(client.get('/api/wallet', headers=headers).json['balance']) == Decimal(initial) + Decimal('3.25')
+
+    assert post('connect', {'address': sender, 'network': 'testnet'}).status_code == 200
+    withdrawal = post('withdraw', {'gram': '1.25', 'request_id': 'wallet-withdrawal'})
+    assert withdrawal.status_code == 200
+    history = client.get('/api/wallet/history', headers=headers).json['items']
+    assert [(item['kind'], item['status'], item['data']['gram']) for item in history] == [
+        ('withdraw_funds', 'queued', '1.25'), ('deposit', 'confirmed', '3.25')]
