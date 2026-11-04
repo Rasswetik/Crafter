@@ -33,6 +33,10 @@ assert.equal(exec('crafterGiftFromParam("lot_../../admin")'),null);
 assert.equal(exec('crafterGiftFromParam("nft_no-0")'),null);
 assert.match(exec('crafterGiftEyeSVG()'),/viewBox="0 0 14 10"/);
 assert.match(exec('crafterGiftShareSVG()'),/viewBox="0 0 21 20"/);
+assert.match(exec('crafterTelegramPlaneSVG()'),/viewBox="0 0 24 24"/);
+assert.match(catalog,/class="gift-detail-tool gift-send-tool"/);
+assert.match(modalCSS,/#sheet\.catalog-sheet \.sheet-head > \.close \{display:none!important;\}/);
+
 assert.match(exec('crafterLuckyActionSVG()'),/viewBox="0 0 24 24"/);
 assert.match(catalog,/class="gift-detail-tool gift-eye-tool"/);
 assert.match(catalog,/class="gift-detail-tool gift-share-tool"/);
