@@ -353,6 +353,20 @@ def install_wallet(app,db,auth,record,audit):
     def admin_config():
         c=config();pending=[dict(id=r['id'],user_id=r['user_id'],status=r['status'],created=r['created'],**json.loads(r['payload'])) for r in db().execute("SELECT * FROM ton_withdrawals WHERE status IN ('queued','processing') ORDER BY created LIMIT 100")]
         return dict(config=public(c),rpc_key_configured=bool(c['rpc_key']),storage=storage(),withdrawals=pending)
+    @app.get('/api/admin/tonconnect/receiver/balance')
+    @auth(admin=True)
+    def admin_receiver_balance():
+        c = config()
+        if not c['receiver']:
+            abort(409, description='Укажите кошелёк приёма TON в настройках TON Connect')
+        receiver = address(c['receiver'])
+        nano = str(rpc(c['network'], 'getAddressBalance',
+                       {'address': receiver}, c['rpc_key']))
+        if not nano.isascii() or not nano.isdecimal() or len(nano) > 30:
+            abort(502, description='Не удалось получить баланс TON')
+        return {'receiver': receiver, 'network': c['network'],
+                'balance_ton': format(Decimal(nano).scaleb(-9), 'f')}
+
     @app.post('/api/admin/tonconnect')
     @auth(admin=True)
     def set_config():
