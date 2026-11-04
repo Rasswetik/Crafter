@@ -134,6 +134,13 @@ function openGiftDepositRecipient() {
 }
 
 function startGiftTransfer(id) {
+    if (id != null) {
+        const gift = (state.inventory || []).find(item => String(item.id) === String(id));
+        if (!gift || gift.status !== 'unlisted' || gift.catalog_only) {
+            toast('Этот подарок недоступен для отправки. Сначала снимите его с продажи.');
+            return;
+        }
+    }
     transferDraft = {ids:new Set(id ? [id] : []), username:'', recipient:null, anonymous:false, request:null};
     if (id) renderTransferRecipient();
     else renderTransferPicker(true);
