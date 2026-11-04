@@ -41,7 +41,7 @@ function paintCollectionMarketFeatures(grid) {
         if (previous?.classList.contains('collection-craft-cta')) previous.remove();
         return;
     }
-    const image = imageURL(collection.photo_url) || fragmentCollectionImage(giftCollectionSlug(collection.name));
+    const image = imageURL(collection.photo_url); // Never substitute unrelated NFT model art for a collection preview.
     const cta = document.createElement('div');
     cta.className = 'collection-craft-cta';
     cta.innerHTML = `${image ? `<img src="${esc(image)}" alt="">` : anvilArt('craft-icon')}
