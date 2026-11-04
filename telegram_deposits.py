@@ -411,7 +411,7 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
 
     @app.post('/api/admin/telegram-deposits/disconnect')
     @auth(admin=True)
-    def disconnect():
+    def disconnect_telegram_deposits():
         c = config()
         c.pop('session', None)
         c.pop('pending', None)
