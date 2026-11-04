@@ -542,7 +542,12 @@ async function requestWithdrawal() {
     let failure;
     try {
         const gram = document.querySelector('#wallet-amount').value;
-        await api('wallet/withdraw', {gram, request_id:paymentRequestId('withdraw:'+state.me.user.id+':'+gram+':'+state.withdrawSession)});
+        const outcome = await api('wallet/withdraw', {gram, request_id:paymentRequestId('withdraw:'+state.me.user.id+':'+gram+':'+state.withdrawSession)});
+        if (outcome.status !== 'queued') {
+            throw Error(outcome.status === 'cancelled'
+                ? 'Эта заявка уже отменена. Откройте страницу вывода заново.'
+                : 'Заявка уже обрабатывается. Проверьте её статус в истории.');
+        }
         await refreshMe();
         if (state.page === 'withdraw') go('wallet');
         toast('Заявка на вывод создана');
