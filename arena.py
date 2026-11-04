@@ -21,7 +21,7 @@ PLAY_MS = AIM_MS + FLIGHT_MS + FINISH_MS
 RESULT_MS = 8_000
 WAIT_MS = 300_000
 MAX_PLAYERS = 32
-MAX_GIFTS = 12
+MAX_GIFTS = 20
 MAX_REQUESTS = 80
 MAX_AMOUNT = Decimal('1000000')
 
@@ -206,7 +206,7 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 'target': str(round_row['winner_id']) if end is not None and now >= end + AIM_MS + FLIGHT_MS else None,
                 'players': players_public(players), 'bank': gram(sum(p['value'] for p in players.values())),
                 'last_result': json.loads(previous['result']) if previous else None,
-                'balance': str(balance(uid)), 'viewer': str(uid),
+                'balance': str(balance(uid)), 'viewer': str(uid), 'gift_limit': MAX_GIFTS,
                 'can_cancel': phase == 'waiting' and uid in players}
 
     def floor_prices():
@@ -250,10 +250,13 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
             now = clock()
             return snapshot(advance(now), now, g.user['id'])
 
+    def gift_order(gift):
+        return gift['value'], gift['id']
+
     @app.get('/api/arena/gifts')
     @auth()
     def arena_gifts():
-        return {'gifts': list(available_gifts(g.user['id'], floor_prices()).values())}
+        return {'gifts': sorted(available_gifts(g.user['id'], floor_prices()).values(), key=gift_order)}
 
     @app.post('/api/arena/stake')
     @auth()
@@ -263,15 +266,22 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
             abort(400)
         round_id, rid = data.get('round_id'), data.get('request_id')
         ids, amount = data.get('gift_ids', []), data.get('amount', '0')
+        quick_value = data.get('quick_value')
         if (type(round_id) is not int or not 0 < round_id < 2**63 or
                 not isinstance(rid, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', rid) or
                 not isinstance(ids, list) or len(ids) > MAX_GIFTS or
                 any(not isinstance(item, str) or not 1 <= len(item) <= 200 for item in ids) or
                 len(set(ids)) != len(ids) or not isinstance(amount, str) or
                 (amount != 'all' and not re.fullmatch(r'[0-9]{1,7}(?:\.[0-9]{1,6})?', amount)) or
-                (amount == 'all' and ids)):
+                (amount == 'all' and ids) or
+                (quick_value is not None and
+                 (type(quick_value) is not int or not 0 < quick_value <= units(MAX_AMOUNT) or
+                  len(ids) != 1 or amount != '0'))):
             abort(400, description='Проверьте ставку')
-        intent = json.dumps({'amount': amount, 'gift_ids': sorted(ids)})
+        intent_fields = {'amount': amount, 'gift_ids': sorted(ids)}
+        if quick_value is not None:
+            intent_fields['quick_value'] = quick_value
+        intent = json.dumps(intent_fields)
         uid = g.user['id']
         with db():
             connection = db()
@@ -300,7 +310,13 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 abort(400, description='Укажите сумму или выберите подарки')
             if cash > before:
                 abort(409, description='Недостаточно GRAM на балансе')
-            gifts = available_gifts(uid, floor_prices(), ids) if ids else {}
+            if quick_value is not None:
+                cheapest = min(available_gifts(uid, floor_prices()).values(), key=gift_order, default=None)
+                if not cheapest or (cheapest['id'], cheapest['value']) != (ids[0], quick_value):
+                    abort(409, description='Самый дешёвый подарок изменился. Проверьте новую ставку.')
+                gifts = {cheapest['id']: cheapest}
+            else:
+                gifts = available_gifts(uid, floor_prices(), ids) if ids else {}
             if len(gifts) != len(ids):
                 abort(409, description='Один из подарков уже недоступен для ставки')
             for gift_id in ids:

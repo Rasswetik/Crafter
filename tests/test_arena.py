@@ -114,3 +114,32 @@ def test_waiting_refunds_restore_escrow_on_timeout_or_cancel(client, monkeypatch
         assert client.get('/api/inventory', headers=signed()).json['gifts'][0]['status'] == 'unlisted'
         with sqlite3.connect(client.application.config['DATABASE']) as db:
             assert Decimal(db.execute('SELECT gram FROM wallet_balances WHERE user_id=42').fetchone()[0]) == 2
+
+
+def test_quick_gift_rechecks_cheapest_and_price_without_double_staking(client, monkeypatch):
+    monkeypatch.setattr(arena, 'clock', lambda: 1_000_000)
+    prepare(client, 42, '2')
+    nft = add_gift(client, 42)
+    second = {'id': 'arena-valuable', 'name': 'Valuable Gift', 'number': 8,
+              'price': '4', 'price_unit': 'GRAM'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO inventory VALUES (?,?,?,'unlisted')", (42, second['id'], json.dumps(second)))
+    round_id = status(client, 42)['round_id']
+    assert [gift['id'] for gift in client.get('/api/arena/gifts', headers=signed()).json['gifts']] == [nft, second['id']]
+
+    def quick(gift_id, value, request_id):
+        return client.post('/api/arena/stake', headers=signed(), json={
+            'round_id': round_id, 'request_id': request_id, 'amount': '0',
+            'gift_ids': [gift_id], 'quick_value': value,
+        })
+
+    assert quick(second['id'], 4_000_000, 'wrong-gift').status_code == 409
+    assert quick(nft, 2_000_000, 'old-value').status_code == 409
+    accepted = quick(nft, 3_000_000, 'first')
+    assert accepted.status_code == 200, accepted.json
+    assert accepted.json['bank'] == '3.000000'
+    assert quick(nft, 3_000_000, 'first').json['bank'] == '3.000000'
+    assert quick(nft, 3_000_000, 'duplicate').status_code == 409
+    assert quick(second['id'], 4_000_000, 'next').json['bank'] == '7.000000'
+    assert client.get('/api/arena/gifts', headers=signed()).json['gifts'] == []
+    assert Decimal(status(client, 42)['balance']) == 2

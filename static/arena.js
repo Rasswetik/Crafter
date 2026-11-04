@@ -31,10 +31,12 @@ function arenaRules() {
 
 function enterArena(main) {
     arena.data = null;
+    arena.gifts = [];
+    arena.giftLoad = null;
     arena.boardKey = '';
     arena.cells = [];
     arena.view++;
-    main.innerHTML = `<section class="arena-page" aria-label="Arena">
+    main.innerHTML = `<section class="arena-page arena-loading" aria-label="Arena" aria-busy="true">
         <div class="arena-table">
             <div class="arena-meta"><span>Банк <b id="arena-bank">0 GRAM</b></span>
                 <span id="arena-phase" role="status">Загрузка…</span></div>
@@ -60,11 +62,14 @@ function enterArena(main) {
         <div id="arena-players" class="arena-players"></div>
         <div class="arena-dock">
             <div class="arena-modes">
-                <button type="button" data-mode="gram" onclick="arenaMode('gram')">GRAM</button>
-                <button type="button" data-mode="gifts" onclick="arenaMode('gifts')">NFT</button>
+                <div class="arena-mode-tabs" role="group" aria-label="Тип ставки">
+                    <button type="button" data-mode="gifts" aria-label="NFT" onclick="arenaMode('gifts')">${stakingGiftIcon}</button>
+                    <button type="button" data-mode="gram" aria-label="GRAM" onclick="arenaMode('gram')">${arenaGramIcon}</button>
+                </div>
                 <span class="arena-room">Комната 1</span>
             </div>
             <div id="arena-actions" class="arena-actions"></div>
+            <button id="arena-cancel" type="button" hidden onclick="arenaCancel()">Вернуть ставку</button>
         </div>
     </section>`;
     arenaRenderControls();
@@ -84,7 +89,11 @@ async function arenaPoll(view) {
         const data = await api('arena');
         if (view === arena.view) arenaApply(data, sent);
     } catch (error) {
-        if (view === arena.view) document.querySelector('#arena-phase').textContent = error.message;
+        if (view === arena.view) {
+            document.querySelector('.arena-page').classList.remove('arena-loading');
+            document.querySelector('.arena-page').setAttribute('aria-busy','false');
+            document.querySelector('#arena-phase').textContent = error.message;
+        }
     } finally {
         if (view === arena.view) arena.timer = setTimeout(() => arenaPoll(view), 850);
     }
@@ -93,6 +102,10 @@ async function arenaPoll(view) {
 function arenaApply(data, sent) {
     if (arena.data && data.server_time < arena.data.server_time) return;
     const old = arena.data;
+    if (!old) {
+        document.querySelector('.arena-page').classList.remove('arena-loading');
+        document.querySelector('.arena-page').setAttribute('aria-busy','false');
+    }
     arena.data = data;
     arena.serverOrigin = (performance.now() + sent) / 2 - data.server_time;
     state.me.balance = data.balance;
@@ -105,6 +118,9 @@ function arenaApply(data, sent) {
     }
     if (!old || old.round_id !== data.round_id || old.phase !== data.phase || old.can_cancel !== data.can_cancel ||
             old.balance !== data.balance) arenaRenderControls();
+    if (arena.mode === 'gifts' && (!old || old.round_id !== data.round_id || data.phase === 'result' && old.phase !== 'result')) {
+        arenaRefreshGifts(true);
+    }
     if (data.last_result?.round_id !== old?.last_result?.round_id || data.phase !== old?.phase) {
         arenaRenderResult(data);
     }
@@ -203,12 +219,12 @@ function arenaRenderPlayers(data) {
     document.querySelector('#arena-players').innerHTML = data.players.map((player, i) => {
         const [dark, light] = arenaPalette[i % arenaPalette.length];
         return `<button class="arena-player" type="button" onclick="arenaPlayer(${i})"
-            style="--arena-avatar:linear-gradient(150deg,${light},${dark})">
+            style="--arena-team:${light};--arena-avatar:linear-gradient(150deg,${light},${dark})">
             ${arenaAvatar(player)}<span class="arena-player-info"><b>${esc(player.name)}</b>
             <small>${arenaFormat(player.chance)}% шанс</small></span><strong>${arenaFormat(player.value)} GRAM</strong>
             ${player.gifts.length || Number(player.gram) ? `<span class="arena-player-items">
-                ${Number(player.gram) ? '<span class="arena-mini-gram"><img src="/static/assets/gram.svg" alt="GRAM"></span>' : ''}
-                ${player.gifts.map(gift => `<span style="background:${giftBackdrop(gift)}"><img ${giftPicture(gift)} alt="${esc(gift.name)}"></span>`).join('')}
+                ${Number(player.gram) ? `<span class="arena-mini-gram">${arenaGramIcon}<b>${arenaFormat(player.gram)}</b></span>` : ''}
+                ${player.gifts.map(gift => `<span style="background:${giftBackdrop(gift)}"><img ${giftPicture(gift)} alt="${esc(gift.name)}"><b>${arenaGiftValue(gift)}</b></span>`).join('')}
                 </span>` : ''}
         </button>`;
     }).join('') || '<p class="arena-no-players">Сделайте первую ставку, чтобы открыть раунд.</p>';
@@ -230,14 +246,20 @@ function arenaPrizeCards(gram, gifts) {
             <small>${arenaGiftValue(gift)} GRAM</small></button>`).join('')}</div>`;
 }
 
-function arenaShowPrizes(title, total, gram, gifts) {
-    arena.detail = {title, total, gram, gifts};
-    sheet(title, `<strong class="arena-sheet-total">${arenaFormat(total)} GRAM</strong>${arenaPrizeCards(gram, gifts)}`);
+function arenaShowPrizes(title, total, gram, gifts, winner = null) {
+    arena.detail = {title, total, gram, gifts, winner};
+    const multiplier = winner?.value > 0 ? arenaFormat(Number((total / winner.value).toFixed(2))) : '';
+    sheet(title, `<div class="${winner ? 'arena-win-panel' : 'arena-stake-panel'}">
+        ${winner ? `<div class="arena-win-avatar">${arenaAvatar(winner)}</div>` : ''}
+        <strong class="arena-sheet-total">${arenaFormat(total)} GRAM
+            ${multiplier ? `<span>${multiplier}×</span>` : ''}</strong>
+        ${arenaPrizeCards(gram, gifts)}
+    </div>`);
 }
 
 function arenaWinner() {
     const result = arena.data?.last_result;
-    if (result) arenaShowPrizes(result.winner.name + ' выиграл', result.value, result.gram, result.gifts);
+    if (result) arenaShowPrizes(result.winner.name + ' выиграл', result.value, result.gram, result.gifts, result.winner);
 }
 
 function arenaPlayer(index) {
@@ -252,7 +274,7 @@ function arenaGiftInfo(index) {
         ${[['Модель', gift.model], ['Фон', gift.backdrop], ['Узор', gift.symbol?.name || gift.symbol],
             ['Оценка', arenaGiftValue(gift) + ' GRAM']].map(([label, value]) =>
         `<div class="detail-row"><span>${label}</span><b>${esc(value || '—')}</b></div>`).join('')}
-        <button class="secondary" type="button" onclick="arenaShowPrizes(arena.detail.title,arena.detail.total,arena.detail.gram,arena.detail.gifts)">Назад</button>`);
+        <button class="secondary" type="button" onclick="arenaShowPrizes(arena.detail.title,arena.detail.total,arena.detail.gram,arena.detail.gifts,arena.detail.winner)">Назад</button>`);
 }
 
 function arenaPosition(time, angle) {
@@ -313,6 +335,7 @@ function arenaFrame(now) {
             if (data.phase === 'result') label = 'Раунд завершён';
         }
         if (phase.textContent !== label) phase.textContent = label;
+        arenaUpdatePickerClock();
         puck.setAttribute('visibility', show ? 'visible' : 'hidden');
         if (show) {
             puck.setAttribute('transform', `translate(${position.x} ${position.y})`);
@@ -331,90 +354,294 @@ function arenaFrame(now) {
 function arenaMode(mode) {
     arena.mode = mode;
     arenaRenderControls();
+    if (mode === 'gifts' && arena.data) arenaRefreshGifts(true);
 }
+
+function arenaBetOpen(data = arena.data) {
+    return data && (data.phase === 'waiting' ||
+        (data.phase === 'betting' && performance.now() - arena.serverOrigin < data.bet_until));
+}
+
+function arenaGiftSlots() {
+    const viewer = arena.data?.players.find(player => player.id === arena.data.viewer);
+    return (arena.data?.gift_limit || 20) - (viewer?.gifts.length || 0);
+}
+
+const arenaGramIcon = '<img class="arena-gram-icon" src="/static/assets/gram.svg" alt="">';
 
 function arenaRenderControls() {
     const root = document.querySelector('#arena-actions');
     const data = arena.data;
     const settings = arenaSettings();
-    const open = data && ['waiting','betting'].includes(data.phase) && !arena.pending;
-    const disabled = open ? '' : 'disabled';
+    const open = arenaBetOpen(data) && !arena.pending;
     document.querySelectorAll('.arena-modes [data-mode]').forEach(button => {
         button.setAttribute('aria-pressed', String(button.dataset.mode === arena.mode));
     });
-    const cancel = data?.can_cancel ? `<button type="button" ${disabled} onclick="arenaCancel()">Вернуть ставку</button>` : '';
-    root.innerHTML = arena.mode === 'gifts' ? `<button type="button" class="arena-choose-gifts" ${disabled}
-        onclick="arenaGiftPicker()">Выбрать подарки</button>${cancel}` : `
+    const cancel = document.querySelector('#arena-cancel');
+    cancel.hidden = !data?.can_cancel;
+    cancel.disabled = !open;
+    const cheapest = arena.gifts[0];
+    const giftsOpen = open && arenaGiftSlots() > 0;
+    root.classList.toggle('arena-gift-actions', arena.mode === 'gifts');
+    root.innerHTML = arena.mode === 'gifts' ? `
+        <button type="button" class="arena-choose-gifts" ${giftsOpen ? '' : 'disabled'} onclick="arenaGiftPicker()">Выбрать гифты</button>
+        <button type="button" class="arena-quick-gift" aria-label="Быстрая ставка подарком"
+            ${giftsOpen && cheapest && !arena.giftLoad ? '' : 'disabled'} onclick="arenaQuickGift()">
+            <span>Добавить<small>${cheapest ? arenaGiftValue(cheapest) + ' GRAM' : 'Нет гифтов'}</small></span>
+            ${cheapest ? `<span class="arena-quick-art" style="background:${giftBackdrop(cheapest)}">
+                <img ${giftPicture(cheapest)} alt=""></span>` : ''}</button>` : `
         <button type="button" class="arena-pencil" aria-label="Настроить кнопки" onclick="arenaOpenSettings()">✎</button>
         ${settings.amounts.map(amount => `<button type="button" ${open && Number(data.balance) >= Number(amount) ? '' : 'disabled'}
             onclick="arenaStake(${arg(amount)})">${arenaFormat(amount)} <span>◆</span></button>`).join('')}
-        ${settings.all ? `<button type="button" ${open && Number(data.balance) > 0 ? '' : 'disabled'} onclick="arenaAllIn()">Ва-банк</button>` : ''}
-        ${cancel}`;
+        ${settings.all ? `<button type="button" ${open && Number(data.balance) > 0 ? '' : 'disabled'} onclick="arenaAllIn()">Ва-банк</button>` : ''}`;
     if (arena.retry) root.innerHTML = `<button type="button" ${arena.pending ? 'disabled' : ''}
         onclick="arenaStake(...arena.retry.args)">Проверить предыдущую ставку</button>`;
-    const balance = document.querySelector('#arena-available');
-    const value = data ? 'Доступно ' + arenaFormat(data.balance) + ' GRAM' : '';
-    if (balance) balance.textContent = value;
-    else root.insertAdjacentHTML('afterend', `<small id="arena-available">${value}</small>`);
 }
 
 function arenaOpenSettings() {
     const settings = arenaSettings();
+    arena.settingsDraft = {amounts: [...settings.amounts], all: settings.all};
+    arena.settingsSlot = 0;
     sheet('Настроить кнопки', `<form class="arena-settings" onsubmit="arenaSaveSettings(event)">
-        ${settings.amounts.map((value, i) => `<label>Кнопка ${i + 1}
-            <input name="amount" inputmode="decimal" value="${esc(value)}" required><span>GRAM</span></label>`).join('')}
-        <label>Показать «Ва-банк» <input type="checkbox" name="all" ${settings.all ? 'checked' : ''}></label>
-        <div class="arena-settings-actions"><button type="button" class="secondary" onclick="arenaResetSettings()">Сбросить всё</button>
+        <div class="arena-settings-tabs" role="group" aria-label="Кнопка ставки">
+            ${settings.amounts.map((_, i) => `<button type="button" aria-label="Кнопка ${i+1}"
+                onclick="arenaSelectSetting(${i})">${arenaGramIcon}<span></span></button>`).join('')}
+        </div>
+        <div class="arena-settings-amount">
+            <input id="arena-amount" aria-label="Сумма ставки" inputmode="decimal" maxlength="14"
+                autocomplete="off" oninput="arenaEditSetting(this.value)">
+            <span>GRAM</span>
+            <button type="button" aria-label="Стереть цифру" onclick="arenaEraseSetting()">
+                <svg viewBox="0 0 28 20" fill="currentColor" aria-hidden="true"><path d="M8 2h16a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H8a3 3 0 0 1-2-1L1 11a2 2 0 0 1 0-2l5-6a3 3 0 0 1 2-1Z"/><path d="m12 6 8 8m0-8-8 8" stroke="#202020" stroke-width="2.4" stroke-linecap="round"/></svg>
+            </button>
+        </div>
+        <label class="arena-settings-toggle">Скрывать «Ва-банк»
+            <input type="checkbox" name="hide-all" role="switch" ${settings.all ? '' : 'checked'}></label>
+        <div class="arena-sheet-actions"><button type="button" class="secondary" onclick="arenaResetSettings()">Сбросить всё</button>
             <button type="submit" class="primary">Сохранить</button></div>
     </form>`);
+    arenaSelectSetting(0);
+}
+
+function arenaSelectSetting(index) {
+    arena.settingsSlot = index;
+    const input = document.querySelector('#arena-amount');
+    input.value = arena.settingsDraft.amounts[index];
+    arenaEditSetting(input.value);
+}
+
+function arenaEditSetting(value) {
+    arena.settingsDraft.amounts[arena.settingsSlot] = value;
+    const input = document.querySelector('#arena-amount');
+    input.style.setProperty('--amount-length', Math.max(2, value.length));
+    document.querySelectorAll('.arena-settings-tabs button').forEach((button, i) => {
+        button.setAttribute('aria-pressed', String(i === arena.settingsSlot));
+        button.querySelector('span').textContent = arena.settingsDraft.amounts[i] || '—';
+    });
+}
+
+function arenaEraseSetting() {
+    const input = document.querySelector('#arena-amount');
+    input.value = input.value.slice(0, -1);
+    arenaEditSetting(input.value);
+    input.focus();
 }
 
 function arenaSaveSettings(event) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
-    const amounts = data.getAll('amount').map(value => value.trim().replace(',', '.'));
-    if (amounts.some(value => !/^\d{1,7}(\.\d{1,6})?$/.test(value) || +value <= 0 || +value > 1e6)) {
+    const amounts = arena.settingsDraft.amounts.map(value => value.trim().replace(',', '.'));
+    const invalid = amounts.findIndex(value => !/^\d{1,7}(\.\d{1,6})?$/.test(value) || +value <= 0 || +value > 1e6);
+    if (invalid !== -1) {
+        arenaSelectSetting(invalid);
         return toast('Укажите сумму от 0,000001 до 1 000 000 GRAM');
     }
-    try { localStorage.setItem(arenaSettingsKey(), JSON.stringify({amounts, all: data.has('all')})); }
+    const all = !event.currentTarget.elements['hide-all'].checked;
+    try { localStorage.setItem(arenaSettingsKey(), JSON.stringify({amounts, all})); }
     catch { return toast('Не удалось сохранить настройки'); }
     closeSheet();
     arenaRenderControls();
 }
 
 function arenaResetSettings() {
-    try { localStorage.removeItem(arenaSettingsKey()); } catch {}
-    arenaOpenSettings();
+    arena.settingsDraft = {amounts: [...arenaDefaults.amounts], all: arenaDefaults.all};
+    document.querySelector('.arena-settings-toggle input').checked = false;
+    arenaSelectSetting(0);
+}
+
+async function arenaRefreshGifts(quiet = false) {
+    if (arena.giftLoad) return arena.giftLoad;
+    const view = arena.view;
+    arena.giftLoad = (async () => {
+        try {
+            const {gifts} = await api('arena/gifts');
+            if (view !== arena.view) return false;
+            arena.gifts = gifts;
+            return true;
+        } catch (error) {
+            if (!quiet && view === arena.view) toast(error.message);
+            return false;
+        } finally {
+            if (view === arena.view) {
+                arena.giftLoad = null;
+                arenaRenderControls();
+            }
+        }
+    })();
     arenaRenderControls();
+    return arena.giftLoad;
+}
+
+function arenaQuickGift() {
+    const gift = arena.gifts[0];
+    if (gift && arenaBetOpen() && arenaGiftSlots() > 0) arenaStake('0', [gift.id], arena.data.round_id, gift.value);
+}
+
+const arenaGiftPlural = new Intl.PluralRules('ru-RU');
+function arenaGiftCount(count) {
+    const word = {one:'гифт', few:'гифта', many:'гифтов'}[arenaGiftPlural.select(count)] || 'гифта';
+    return count + ' ' + word;
 }
 
 async function arenaGiftPicker() {
-    const view = arena.view;
-    const round = arena.data.round_id;
-    try {
-        const {gifts} = await api('arena/gifts');
-        if (view !== arena.view || round !== arena.data.round_id || arena.mode !== 'gifts') return;
-        arena.gifts = gifts;
-        arena.picked.clear();
-        sheet('Выберите подарки', gifts.length ? `<div class="arena-gift-picker">
-            ${gifts.map((gift, index) => `<label><input type="checkbox" onchange="arenaPickGift(${index},this)">
-                <span style="background:${giftBackdrop(gift)}"><img ${giftPicture(gift)} alt=""></span>
-                <b>${esc(gift.name)} #${esc(gift.number)}</b><strong>${arenaGiftValue(gift)} GRAM</strong></label>`).join('')}
-            <button id="arena-gift-submit" class="primary" type="button" disabled
-                onclick="arenaStake('0', [...arena.picked], ${round})">Поставить подарки</button></div>` :
-            '<div class="arena-sheet-copy"><p>Доступные подарки с оценкой появятся здесь.</p><button class="secondary" type="button" onclick="closeSheet();go(\'gifts\')">Мои подарки</button></div>');
-    } catch (error) { toast(error.message); }
+    if (!arenaBetOpen()) return;
+    const view = arena.view, round = arena.data.round_id;
+    arena.picked.clear();
+    arena.collections = new Set();
+    arena.giftAscending = false;
+    sheet('Выберите гифты', `<div class="arena-picker">
+        <p id="arena-picker-timer" aria-live="off"></p>
+        <div class="arena-picker-filters">
+            <button type="button" id="arena-price-sort" disabled onclick="arenaToggleGiftSort()">Цена <span>↓</span></button>
+            <button type="button" id="arena-collection-filter" disabled onclick="arenaOpenCollections()">Коллекция <span>⌄</span></button>
+        </div>
+        <div class="arena-picker-scroll"><div id="arena-picker-grid" class="arena-picker-grid" role="group" aria-label="Гифты">
+            ${'<span class="arena-gift-skeleton" aria-hidden="true"></span>'.repeat(9)}
+        </div></div>
+        <div class="arena-picker-footer">
+            <div class="arena-picker-summary">
+                <input id="arena-gift-range" type="range" min="0" max="0" value="0" aria-label="Количество гифтов" oninput="arenaSelectGiftCount(this.value)">
+                <div><b id="arena-gift-total">0 GRAM</b><small id="arena-gift-count">0 гифтов</small></div>
+            </div>
+            <div class="arena-sheet-actions">
+                <button id="arena-clear-gifts" class="secondary" type="button" onclick="arenaClearGifts()" disabled>Очистить всё</button>
+                <button id="arena-gift-submit" class="primary" type="button" disabled
+                    onclick="arenaStake('0', [...arena.picked], ${round})">Добавить 0 гифтов</button>
+            </div>
+        </div>
+        <dialog id="arena-collections" aria-labelledby="arena-collections-title">
+            <div class="sheet-head"><h2 id="arena-collections-title">Выбрать коллекцию</h2>
+                <button class="close" type="button" aria-label="Закрыть коллекции" onclick="this.closest('dialog').close()">×</button></div>
+            <div id="arena-collection-list"></div>
+        </dialog>
+    </div>`);
+    arena.pickerRound = round;
+    arenaUpdatePickerClock();
+    const loaded = await arenaRefreshGifts();
+    if (view !== arena.view || arena.pickerRound !== round || !appSheet.open ||
+            !document.querySelector('#arena-picker-grid')) return;
+    if (loaded) arenaRenderGiftGrid();
+    else document.querySelector('#arena-picker-grid').innerHTML =
+        '<p class="arena-picker-empty">Не удалось загрузить гифты. <button class="secondary" type="button" onclick="arenaGiftPicker()">Повторить</button></p>';
 }
 
-function arenaPickGift(index, checkbox) {
-    const id = arena.gifts[index].id;
-    if (checkbox.checked && arena.picked.size >= 12) {
-        checkbox.checked = false;
-        return toast('До 12 подарков за раунд');
-    }
-    if (checkbox.checked) arena.picked.add(id);
-    else arena.picked.delete(id);
-    document.querySelector('#arena-gift-submit').disabled = !arena.picked.size;
+function arenaVisibleGifts() {
+    const gifts = arena.gifts.filter(gift => !arena.collections.size || arena.collections.has(gift.name));
+    return arena.giftAscending ? gifts : gifts.reverse();
+}
+
+function arenaRenderGiftGrid() {
+    const grid = document.querySelector('#arena-picker-grid');
+    const gifts = arenaVisibleGifts();
+    grid.innerHTML = gifts.map(gift => `<button type="button" class="arena-gift-tile" data-gift-id="${esc(gift.id)}"
+        style="background:${giftBackdrop(gift)}" aria-label="${esc(gift.name)} #${esc(gift.number)}, ${arenaGiftValue(gift)} GRAM"
+        onclick="arenaToggleGift(this.dataset.giftId)">
+        <img ${giftPicture(gift)} alt="" loading="lazy">
+        <span class="arena-gift-check" aria-hidden="true"></span>
+        <span class="arena-gift-price">${arenaGiftValue(gift)} ${arenaGramIcon}</span>
+    </button>`).join('') || (arena.gifts.length ?
+        '<p class="arena-picker-empty">В этих коллекциях нет доступных гифтов.</p>' :
+        '<div class="arena-picker-empty"><p>Нет доступных гифтов с оценкой.</p><button class="secondary" type="button" onclick="closeSheet();go(&quot;gifts&quot;)">Мои подарки</button></div>');
+    const filter = document.querySelector('#arena-collection-filter');
+    filter.disabled = !arena.gifts.length;
+    document.querySelector('#arena-price-sort').disabled = gifts.length < 2;
+    filter.firstChild.textContent = arena.collections.size ? 'Коллекция · ' + arena.collections.size + ' ' : 'Коллекция ';
+    document.querySelector('#arena-price-sort span').textContent = arena.giftAscending ? '↑' : '↓';
+    arenaUpdateGiftSelection();
+}
+
+function arenaToggleGiftSort() {
+    arena.giftAscending = !arena.giftAscending;
+    arenaRenderGiftGrid();
+}
+
+function arenaOpenCollections() {
+    const counts = new Map();
+    for (const gift of arena.gifts) counts.set(gift.name, (counts.get(gift.name) || 0) + 1);
+    const list = document.querySelector('#arena-collection-list');
+    list.innerHTML = [...counts].sort(([a, n], [b, m]) => m - n || a.localeCompare(b)).map(([name, count]) => `
+        <label class="arena-collection-option"><input type="checkbox" value="${esc(name)}" ${arena.collections.has(name) ? 'checked' : ''}
+            onchange="arenaToggleCollection(this)">
+            <span><img src="${esc(fragmentCollectionImage(giftCollectionSlug(name)))}" alt="" loading="lazy" onerror="this.hidden=true"></span>
+            <b>${esc(name)}</b><small>${arenaGiftCount(count)}</small></label>`).join('') ||
+        '<p class="arena-picker-empty">Нет коллекций</p>';
+    document.querySelector('#arena-collections').showModal();
+}
+
+function arenaToggleCollection(checkbox) {
+    if (checkbox.checked) arena.collections.add(checkbox.value);
+    else arena.collections.delete(checkbox.value);
+    arenaRenderGiftGrid();
+}
+
+function arenaToggleGift(id) {
+    if (!arenaBetOpen() || arena.pickerRound !== arena.data.round_id || arena.pending) return;
+    if (arena.picked.has(id)) arena.picked.delete(id);
+    else if (arena.picked.size >= arenaGiftSlots()) return toast('Достигнут лимит гифтов на раунд');
+    else arena.picked.add(id);
+    arenaUpdateGiftSelection();
+}
+
+function arenaSelectGiftCount(count) {
+    const visible = arenaVisibleGifts();
+    for (const gift of visible) arena.picked.delete(gift.id);
+    const available = Math.max(0, arenaGiftSlots() - arena.picked.size);
+    for (const gift of visible.slice(0, Math.min(Number(count), available))) arena.picked.add(gift.id);
+    arenaUpdateGiftSelection();
+}
+
+function arenaClearGifts() {
+    arena.picked.clear();
+    arenaUpdateGiftSelection();
+}
+
+function arenaUpdateGiftSelection() {
+    const visible = arenaVisibleGifts();
+    const visiblePicked = visible.filter(gift => arena.picked.has(gift.id)).length;
+    const remaining = Math.max(0, arenaGiftSlots() - (arena.picked.size - visiblePicked));
+    const range = document.querySelector('#arena-gift-range');
+    range.max = Math.min(remaining, visible.length);
+    range.value = visiblePicked;
+    document.querySelectorAll('#arena-picker-grid [data-gift-id]').forEach(button => {
+        button.setAttribute('aria-pressed', String(arena.picked.has(button.dataset.giftId)));
+    });
+    const total = arena.gifts.reduce((sum, gift) => sum + (arena.picked.has(gift.id) ? gift.value : 0), 0);
+    document.querySelector('#arena-gift-total').textContent = arenaFormat(total / 1e6) + ' GRAM';
+    document.querySelector('#arena-gift-count').textContent = arenaGiftCount(arena.picked.size);
+    document.querySelector('#arena-clear-gifts').disabled = !arena.picked.size;
+    document.querySelector('#arena-gift-submit').textContent = 'Добавить ' + arenaGiftCount(arena.picked.size);
+    arenaUpdatePickerClock();
+}
+
+function arenaUpdatePickerClock() {
+    const timer = document.querySelector('#sheet[open] #arena-picker-timer');
+    if (!timer || !arena.data) return;
+    const open = arenaBetOpen() && arena.pickerRound === arena.data.round_id && !arena.pending;
+    const seconds = Math.max(0, Math.ceil((arena.data.bet_until - performance.now() + arena.serverOrigin) / 1000));
+    const label = !arenaBetOpen() || arena.pickerRound !== arena.data.round_id ? 'Ставки на этот раунд закрыты' :
+        arena.data.phase === 'betting' ? 'Игра начнётся через 00:' + String(seconds).padStart(2, '0') : '';
+    if (timer.textContent !== label) timer.textContent = label;
+    document.querySelector('#arena-gift-submit').disabled = !open || !arena.picked.size || arena.picked.size > arenaGiftSlots();
+    document.querySelector('#arena-gift-range').disabled = !open;
 }
 
 function arenaAllIn() {
@@ -423,9 +650,9 @@ function arenaAllIn() {
         <button class="primary" type="button" onclick="arenaStake('all', [], ${round})">Поставить всё</button></div>`);
 }
 
-async function arenaStake(amount, giftIds = [], round = arena.data?.round_id) {
-    if (!round || arena.pending) return;
-    const signature = JSON.stringify([round, amount, giftIds]);
+async function arenaStake(amount, giftIds = [], round = arena.data?.round_id, quickValue) {
+    if (!round || arena.pending || (!arena.retry && (!arenaBetOpen() || round !== arena.data.round_id))) return;
+    const signature = JSON.stringify([round, amount, giftIds, quickValue]);
     if (arena.retry && arena.retry.signature !== signature) {
         return toast('Проверьте результат предыдущей ставки, повторив её');
     }
@@ -434,19 +661,23 @@ async function arenaStake(amount, giftIds = [], round = arena.data?.round_id) {
     arena.pending = true;
     arenaRenderControls();
     try {
-        const data = await api('arena/stake', {round_id: round, request_id: requestId, amount, gift_ids: giftIds});
+        const data = await api('arena/stake', {round_id: round, request_id: requestId, amount, gift_ids: giftIds, quick_value: quickValue});
         arena.retry = null;
         if (view === arena.view) {
-            if (giftIds.length || amount === 'all') closeSheet();
+            if (giftIds.length && !quickValue || amount === 'all') closeSheet();
+            if (giftIds.length) arena.gifts = arena.gifts.filter(gift => !giftIds.includes(gift.id));
             arenaApply(data, sent);
             toast('Ставка принята');
         }
     } catch (error) {
-        arena.retry = error.status && error.status < 500 ? null : {signature, id: requestId, args: [amount, giftIds, round]};
+        arena.retry = error.status && error.status < 500 ? null : {signature, id: requestId, args: [amount, giftIds, round, quickValue]};
         if (view === arena.view) toast(error.message);
     } finally {
         arena.pending = false;
-        if (state.page === 'arena') arenaRenderControls();
+        if (state.page === 'arena') {
+            arenaRenderControls();
+            if (giftIds.length) arenaRefreshGifts(true);
+        }
     }
 }
 
