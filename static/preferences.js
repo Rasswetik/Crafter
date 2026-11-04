@@ -117,6 +117,19 @@ const crafterTranslationPairs = [
      'Selected gifts are consumed. If successful, the reward appears in your Crafter inventory. Crafting does not transfer NFTs in Telegram.'],
     ['Нет активных офферов','No active offers'],['Поиск по истории','Search history']
 ];
+crafterTranslationPairs.push(
+    ['Стейкинг','Staking'],['Игры','Games'],['Крафты','Crafts'],
+    ['Выбирайте игровой режим','Choose a game mode'],
+    ['Стейкинг подарков','Gift staking'],['Внести подарки','Stake gifts'],
+    ['Получить','Claim'],['Всего заработано','Total earned'],
+    ['Ваш стейк','Your stake'],['Лимит стейкинга','Staking limit'],
+    ['Начисление за сутки','Daily reward'],['Выберите подарки','Select gifts'],
+    ['Отправить в стейкинг','Stake selected gifts'],
+    ['Правила стейкинга','Staking rules'],
+    ['Вывести из стейкинга','Withdraw from staking'],
+    ['Можно вывести','Ready to withdraw'],['Заблокирован','Locked'],
+    ['Активирован','Activated']
+);
 const crafterRuEn = new Map(crafterTranslationPairs);
 const crafterEnRu = new Map(crafterTranslationPairs.map(pair=>[pair[1],pair[0]]));
 const crafterTextCache = new WeakMap();

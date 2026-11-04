@@ -72,6 +72,8 @@ def install_banners(app, db, auth, audit):
         row = db().execute("SELECT payload FROM settings WHERE key='banner_carousel'").fetchone()
         carousel = json.loads(row[0]) if row else {'enabled': False, 'interval': 5}
         carousel['show_counter'] = bool(carousel.get('show_counter', False))
+        carousel['show_dots'] = bool(carousel.get('show_dots', True))
+        carousel['auto_rotate'] = bool(carousel.get('auto_rotate', True))
         query = ('SELECT id,title,sort_order,enabled,action,target,focus_x,focus_y,zoom,image_key FROM market_banners '
                  + ('' if admin else 'WHERE enabled=1 ') + 'ORDER BY sort_order,id')
         rows = [dict(row) for row in db().execute(query)]
@@ -97,9 +99,13 @@ def install_banners(app, db, auth, audit):
             abort(400, description='Укажите режим карусели')
         if type(data.get('show_counter', False)) is not bool:
             abort(400, description='Укажите, отображать ли счётчик баннеров')
+        if type(data.get('show_dots', True)) is not bool or type(data.get('auto_rotate', True)) is not bool:
+            abort(400, description='Настройки точек и автопрокрутки должны быть переключателями')
         value = {'enabled': data['enabled'],
                  'interval': number(data.get('interval'), 2, 60, 'Интервал'),
-                 'show_counter': data.get('show_counter', False)}
+                 'show_counter': data.get('show_counter', False),
+                 'show_dots': data.get('show_dots', True),
+                 'auto_rotate': data.get('auto_rotate', True)}
         db().execute("INSERT INTO settings VALUES('banner_carousel',?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload",
                      (json.dumps(value),))
         db().commit()

@@ -210,7 +210,7 @@ def create_app(config=None):
         refs=db().execute('SELECT count(*) FROM users WHERE referrer=?',(g.user['id'],)).fetchone()[0]
         username = bot_settings()['username']
         link = f"https://t.me/{username}?startapp=ref_{g.user['id']}" if username else None
-        return dict(user=g.user,is_admin=g.is_admin,demo=app.config['DEMO_MODE'],inventory_count=len(owned()),balance=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0],inventory_value_ton=str(sum(Decimal(x['price']) for x in owned() if x.get('price_unit')=='TON')),inventory_value=str(sum(Decimal(x['price']) for x in owned() if x.get('price_unit')!='TON')),bought=db().execute("SELECT count(*) FROM history WHERE user_id=? AND kind='buy'",(g.user['id'],)).fetchone()[0],sold=0,volume='0',referrals=refs,referral_level=1,referral_progress=min(refs*10,100),invite_link=link)
+        return dict(user=g.user,is_admin=g.is_admin,demo=app.config['DEMO_MODE'],inventory_count=sum(1 for gift in owned() if gift['status'] != 'staked'),balance=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0],inventory_value_ton=str(sum(Decimal(x['price']) for x in owned() if x.get('price_unit')=='TON')),inventory_value=str(sum(Decimal(x['price']) for x in owned() if x.get('price_unit')!='TON')),bought=db().execute("SELECT count(*) FROM history WHERE user_id=? AND kind='buy'",(g.user['id'],)).fetchone()[0],sold=0,volume='0',referrals=refs,referral_level=1,referral_progress=min(refs*10,100),invite_link=link)
     @app.post('/api/referral')
     @auth()
     def referral():
@@ -466,7 +466,7 @@ def create_app(config=None):
     @auth()
     def inventory():
         # A partner token belongs to the operator, NOT to all Mini App users.
-        gifts = owned()
+        gifts = [gift for gift in owned() if gift['status'] != 'staked']
         symbols_by_collection = {}
         for gift in gifts:
             if gift.get('symbol') or gift.get('source_id') or gift.get('origin') not in ('admin-grant', 'application-craft'):
@@ -735,11 +735,14 @@ def create_app(config=None):
             for nft in ids:
                 gift=gifts[nft]
                 if action=='sell':
+                    if gift['status'] != 'unlisted':abort(409,description='Подарок нельзя продавать во время стейкинга')
                     try:price=Decimal(str(data.get('price','0')))
                     except Exception:abort(400,description='Некорректная цена')
                     if not price.is_finite() or price<=0 or price>1000000:abort(400,description='Некорректная цена')
                     gift['price']=str(price);db().execute("UPDATE inventory SET status='listed',payload=? WHERE user_id=? AND nft_id=?",(json.dumps(gift),g.user['id'],nft))
-                elif action=='unlist':db().execute("UPDATE inventory SET status='unlisted' WHERE user_id=? AND nft_id=?",(g.user['id'],nft))
+                elif action=='unlist':
+                    if gift['status'] != 'listed':abort(409,description='Подарок не выставлен на продажу')
+                    db().execute("UPDATE inventory SET status='unlisted' WHERE user_id=? AND nft_id=?",(g.user['id'],nft))
                 else:
                     if gift['status']!='unlisted':abort(409,description='Сначала снимите подарок с продажи')
                     if action=='transfer' and not str(data.get('recipient','')).strip():abort(400,description='Укажите получателя')
@@ -952,6 +955,8 @@ def create_app(config=None):
     install_wallet(app,db,auth,record,audit)
     from banners import install_banners
     install_banners(app, db, auth, audit)
+    from staking import install_staking
+    install_staking(app, db, auth, record, audit, public_catalog)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     return app

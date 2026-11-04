@@ -46,7 +46,7 @@ function makeBannerCarousel(banners, settings, open) {
         dots.append(button);
         return button;
     }) : [];
-    if (controls.length) root.append(dots);
+    if (controls.length && settings.show_dots !== false) root.append(dots);
 
     // Optional position indicator. It is omitted from the DOM when disabled.
     let counter = null;
@@ -78,7 +78,7 @@ function makeBannerCarousel(banners, settings, open) {
             counter.textContent = (current + 1) + ' из ' + slides.length;
         }
         clearTimeout(timer);
-        if (slides.length > 1 && !reducedMotion.matches) timer = setTimeout(advance, settings.interval * 1000);
+        if (slides.length > 1 && settings.auto_rotate !== false && !reducedMotion.matches) timer = setTimeout(advance, settings.interval * 1000);
     }
 
     function advance() {

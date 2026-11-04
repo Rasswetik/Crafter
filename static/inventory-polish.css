@@ -154,3 +154,19 @@ html[data-crafter-theme="light"] #sheet.gift-deposit-sheet {
 html[data-crafter-theme="light"] .gift-deposit-step {background:#29292c;color:#f6f6f8}
 html[data-crafter-theme="light"] .gift-deposit-step.is-danger {background:#42282a}
 html[data-crafter-theme="light"] .gift-deposit-step.is-alert {background:#3e341f}
+
+/* Gift deposit: rotate authentic Crafter PNG presents with smooth, pattern-free gradients. */
+.gift-deposit-random-tile {
+    width:64px;height:64px;flex:none;
+    display:grid;place-items:center;overflow:hidden;
+    border-radius:50%;background:linear-gradient(145deg,#c04bca,#5a2ea1);
+}
+.gift-deposit-party .gift-deposit-random-tile img {
+    display:block;width:56px;height:56px;
+    padding:0;object-fit:contain;
+    background:transparent!important;border-radius:0;
+    filter:drop-shadow(0 4px 4px #0003);
+}
+.gift-deposit-spawn {animation:gift-deposit-spawn .4s cubic-bezier(.18,.9,.26,1.12) both}
+@keyframes gift-deposit-spawn {from{opacity:.2;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.gift-deposit-spawn{animation:none}}
