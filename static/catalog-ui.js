@@ -37,7 +37,51 @@ async function openCatalogSheet(kind){
  sheet(titles[kind],`<label class="catalog-search search-box">${icon('search')}<input placeholder="Быстрый поиск" aria-label="Быстрый поиск" oninput="renderCatalogRows(this.value)"></label><div class="catalog-columns"><span>${kind==='target'?'КОЛЛЕКЦИЯ':titles[kind]}</span><span>Мин. цена</span></div><div id="catalog-rows" class="catalog-rows"></div>${kind==='target'?'':`<div class="catalog-footer"><button onclick="resetCatalogDraft()">Сбросить</button><button class="apply" onclick="applyCatalogFilter()">Применить</button></div>`}`);
  document.querySelector('#sheet').classList.add('catalog-sheet');renderCatalogRows('');
 }
-function renderCatalogRows(query){const rows=state.catalogRows.filter(r=>r.name.toLowerCase().includes(query.toLowerCase()));document.querySelector('#catalog-rows').innerHTML=rows.length?rows.map(r=>`<button class="catalog-row" onclick="pickCatalogRow(${arg(r.value)})">${state.sheetKind==='target'?'':`<span class="catalog-check ${catalogRowSelected(r.value)?'checked':''}">${catalogRowSelected(r.value)?'✓':''}</span>`}<span class="catalog-thumb" ${r.background?`style="background:${r.background}"`: ''}>${r.image?`<img loading="lazy" src="${esc(imageURL(r.image))}" alt="">`:''}</span><strong>${esc(r.name)}</strong><b>${r.price!=null&&Number(r.price)>0?money(r.price)+' '+esc(r.unit):'—'}</b></button>`).join(''):`<div class="catalog-empty">${state.sheetKind!=='collection'&&!state.collection?'Сначала выберите коллекцию':'Нет доступных данных'}</div>`}
+function catalogRowArtwork(row) {
+    const kind=state.sheetKind;
+    const selected=selectedCollections();
+    const matchingCollection=gift=>!selected.length||selected.some(key=>
+        String(gift.collection_id)===key||String(gift.name)===key);
+    let src=imageURL(row.image);
+    // Catalog attribute imagery may be omitted by the public provider:
+    // prefer a real gift with EXACT matching collection/model/symbol, never
+    // a random gift or an illustration from a different collection.
+    if (!src && (kind==='model'||kind==='symbol')) {
+        const pool=state.page==='gifts' ? state.inventory : state.gifts;
+        const gift=(pool||[]).find(gift=>matchingCollection(gift)&&
+            String(gift[kind]||'').toLocaleLowerCase()===String(row.name).toLocaleLowerCase()&&imageURL(gift.image));
+        if(gift)src=imageURL(gift.image);
+    }
+    let fallback='';
+    if(kind==='collection') {
+        const collection=state.catalog.collections.find(c=>String(c.id)===String(row.value)||
+            String(c.name)===String(row.name));
+        src=src||imageURL(collection?.photo_url);
+        fallback=fragmentCollectionImage(giftCollectionSlug(row.name))||'';
+        src=src||fallback;
+    } else if(kind==='model' && !src) {
+        const collection=state.catalog.collections.find(c=>selected.some(k=>String(c.id)===k));
+        src=imageURL(collection?.photo_url);
+    }
+    const bg=row.background ? ' style="background:'+esc(row.background)+'"' : '';
+    const fallbackAttr=fallback&&src!==fallback?' data-fallback="'+esc(fallback)+'"':'';
+    const img=src?'<img loading="lazy" src="'+esc(src)+'"'+fallbackAttr+
+        ' alt="" onerror="if(this.dataset.fallback&&this.src!==this.dataset.fallback){this.src=this.dataset.fallback}else{this.hidden=true}">':'';
+    return '<span class="catalog-thumb catalog-thumb-'+kind+'"'+bg+'>'+img+'</span>';
+}
+function renderCatalogRows(query){
+    const target=document.querySelector('#catalog-rows');if(!target)return;
+    const rows=state.catalogRows.filter(r=>r.name.toLowerCase().includes(query.toLowerCase()));
+    target.innerHTML=rows.length?rows.map(r=>
+        '<button class="catalog-row" onclick="pickCatalogRow('+arg(r.value)+')">'+
+        (state.sheetKind==='target'?'':'<span class="catalog-check '+(catalogRowSelected(r.value)?'checked':'')+'">'+
+            (catalogRowSelected(r.value)?'✓':'')+'</span>')+
+        catalogRowArtwork(r)+'<strong>'+esc(r.name)+'</strong><b>'+
+        (r.price!=null&&Number(r.price)>0?money(r.price)+' '+esc(r.unit):'—')+
+        '</b></button>').join(''):
+        '<div class="catalog-empty">'+(state.sheetKind!=='collection'&&!state.collection?
+            'Сначала выберите коллекцию':'Нет доступных данных')+'</div>';
+}
 function catalogRowSelected(value) {
     return state.page === 'market' && state.sheetKind === 'collection'
         ? selectedCollections(state.sheetValue).includes(String(value))
