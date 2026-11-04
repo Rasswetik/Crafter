@@ -9,6 +9,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from flask import Flask, request, jsonify, render_template, g, abort
 from dotenv import load_dotenv
+from database import Postgres
 load_dotenv()
 ROOT = Path(__file__).parent
 
@@ -37,12 +38,18 @@ DEMO_GIFTS = [
 def create_app(config=None):
     app = Flask(__name__)
     app.config.update(DATABASE=os.getenv('DATABASE',str(Path('/var/data/crafter.sqlite3') if Path('/var/data').is_dir() else ROOT/'instance/app.sqlite3')), DEMO_MODE=os.getenv('DEMO_MODE','0')=='1', BOT_TOKEN=os.getenv('BOT_TOKEN',''), ADMIN_IDS={int(x.strip()) for x in os.getenv('ADMIN_IDS','').split(',') if x.strip().isdigit()}, PORTALS_API_KEY=os.getenv('PORTALS_API_KEY',''), BOT_USERNAME=os.getenv('BOT_USERNAME',''), MAX_CONTENT_LENGTH=16384)
+    app.config['DATABASE_URL'] = os.getenv('DATABASE_URL', '')
     if config: app.config.update(config)
     catalog_seed=json.loads(gzip.decompress((ROOT/'data/catalog_seed.json.gz').read_bytes())) if (ROOT/'data/catalog_seed.json.gz').exists() else {'collections':[]}
     catalog_job={'running':False,'completed':0,'total':0,'error':'','updated_at':None}
-    Path(app.config['DATABASE']).parent.mkdir(parents=True,exist_ok=True)
+    postgres_url = app.config['DATABASE_URL']
+    if not postgres_url:
+        Path(app.config['DATABASE']).parent.mkdir(parents=True,exist_ok=True)
     def db():
         if 'db' not in g:
+            if postgres_url:
+                g.db = Postgres(postgres_url)
+                return g.db
             g.db=sqlite3.connect(app.config['DATABASE'],timeout=10);g.db.row_factory=sqlite3.Row
             g.db.execute('PRAGMA busy_timeout=10000')
             g.db.execute('PRAGMA journal_mode=WAL')
@@ -58,10 +65,10 @@ def create_app(config=None):
         except (TypeError,ValueError):preferred=None
         for attempt in range(50):
             number=preferred if attempt==0 and preferred and preferred>0 else secrets.randbelow(999999)+1
-            try:
-                db().execute('INSERT INTO local_numbers VALUES(?,?)',(collection_id,number))
+            inserted = db().execute('INSERT INTO local_numbers VALUES(?,?) ON CONFLICT DO NOTHING',
+                                    (collection_id, number))
+            if inserted.rowcount:
                 return number
-            except sqlite3.IntegrityError:pass
         abort(409,description='Не удалось присвоить номер подарка')
     with app.app_context(),db():
         for row in db().execute('SELECT user_id,nft_id,payload FROM inventory').fetchall():
@@ -69,7 +76,7 @@ def create_app(config=None):
             try:existing_number=int(gift.get('number') or 0)
             except (ValueError,TypeError):existing_number=0
             if existing_number>0:
-                db().execute('INSERT OR IGNORE INTO local_numbers VALUES(?,?)',(gift.get('collection_id',gift['name']),existing_number))
+                db().execute('INSERT INTO local_numbers VALUES(?,?) ON CONFLICT DO NOTHING',(gift.get('collection_id',gift['name']),existing_number))
             if existing_number<=0:
                 gift['number']=gift_number(gift.get('collection_id',gift['name']))
                 db().execute('UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?',(json.dumps(gift),row['user_id'],row['nft_id']))
@@ -121,11 +128,11 @@ def create_app(config=None):
                 db().execute('INSERT INTO users VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,username=excluded.username',(g.user['id'],g.user.get('first_name',''),g.user.get('username',''),None,int(time.time())));db().commit()
                 if app.config['DEMO_MODE']:
                     with db():
-                        fresh=db().execute('INSERT OR IGNORE INTO demo_accounts VALUES(?,?)',(g.user['id'],'100')).rowcount
+                        fresh=db().execute('INSERT INTO demo_accounts VALUES(?,?) ON CONFLICT DO NOTHING',(g.user['id'],'100')).rowcount
                         if fresh:
                             for gift in DEMO_GIFTS:db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],gift['id'],json.dumps(gift),'unlisted'))
                 if not app.config['DEMO_MODE']:
-                    db().execute('INSERT OR IGNORE INTO demo_accounts VALUES(?,?)',(g.user['id'],'0'));db().commit()
+                    db().execute('INSERT INTO demo_accounts VALUES(?,?) ON CONFLICT DO NOTHING',(g.user['id'],'0'));db().commit()
                 return fn(*args,**kwargs)
             return run
         return deco
@@ -184,7 +191,10 @@ def create_app(config=None):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')
-    def health():return {'ok':True}
+    def health():
+        if postgres_url:
+            db().execute('SELECT 1').fetchone()
+        return {'ok': True}
     @app.get('/api/me')
     @auth()
     def me():
@@ -207,7 +217,7 @@ def create_app(config=None):
         import thermos
         try:
             rows=thermos.collections()
-            db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',('thermos:collections',json.dumps(rows),int(time.time())));db().commit()
+            db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',('thermos:collections',json.dumps(rows),int(time.time())));db().commit()
         except Exception:
             if not rows:raise
         return rows
@@ -233,7 +243,7 @@ def create_app(config=None):
         if not c:return dict(models=[],backdrops=[],symbols=[])
         try:
             data=thermos.request('attributes',{'collections':[c['name']]}).get(c['name'],{})
-            db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(key,json.dumps(data),int(time.time())));db().commit()
+            db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',(key,json.dumps(data),int(time.time())));db().commit()
             return data
         except Exception:
             if data:return data
@@ -306,7 +316,7 @@ def create_app(config=None):
             try:
                 rows = portals_public.backdrops(collection['short_name'])
                 with db():
-                    db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',
+                    db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',
                                  (cache_key, json.dumps(rows), int(time.time())))
             except (ValueError, OSError, TypeError):
                 pass
@@ -351,7 +361,7 @@ def create_app(config=None):
                         result=thermos.gifts(params,rows)
                 result['next_offset']=max(0,int(params.get('offset',0)))+20
                 result['has_more']=len(result['gifts'])>=20
-                db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(key,json.dumps(result),int(time.time())));db().commit()
+                db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',(key,json.dumps(result),int(time.time())));db().commit()
                 return local_market_rows(result)
             except Exception:
                 if previous:return local_market_rows({**previous,'warning':'Показаны сохранённые предложения. Цены могут измениться.'})
@@ -365,7 +375,7 @@ def create_app(config=None):
         try:
             data=portal('nfts/search',params)
             result={'gifts':[normalized(n) for n in data.get('results',[])],'demo':False,'source':'portals','total':data.get('total_count',0),'next_offset':max(0,int(params.get('offset',0)))+40,'has_more':len(data.get('results',[]))>=40}
-            db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',(cache_key,json.dumps(result),int(time.time())));db().commit()
+            db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',(cache_key,json.dumps(result),int(time.time())));db().commit()
             return hide_claimed_market_gifts(result)
         except Exception as error:
             from werkzeug.exceptions import HTTPException
@@ -522,7 +532,7 @@ def create_app(config=None):
                 offers = thermos.gifts(params, catalog)
             key = 'public:market:craft:' + str(target['id'])
             with db():
-                db().execute('INSERT OR REPLACE INTO cache VALUES (?,?,?)',
+                db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',
                              (key, json.dumps(offers), int(time.time())))
         except (OSError, ValueError, KeyError):
             abort(503, description='Не удалось обновить лоты для крафта. Попробуйте ещё раз.')
@@ -627,10 +637,10 @@ def create_app(config=None):
     def history():
         return {'items':[dict(id=r['id'],kind=r['kind'],created=r['created'],data=json.loads(r['payload'])) for r in db().execute('SELECT * FROM history WHERE user_id=? ORDER BY created DESC,rowid DESC LIMIT 100',(g.user['id'],))]}
     with app.app_context(), db():
-        db().execute("""CREATE TABLE IF NOT EXISTS gift_transfers
+        db().executescript("""CREATE TABLE IF NOT EXISTS gift_transfers
                         (sender_id INTEGER, request_id TEXT, payload TEXT,
                          PRIMARY KEY(sender_id, request_id))""")
-        db().execute("CREATE INDEX IF NOT EXISTS users_username_nocase ON users(username COLLATE NOCASE)")
+        db().execute("CREATE INDEX IF NOT EXISTS users_username_nocase ON users(lower(username))")
 
     @app.get('/api/inventory/recipient')
     @auth()
@@ -639,7 +649,7 @@ def create_app(config=None):
         if not re.fullmatch(r'[A-Za-z0-9_]{3,32}', username):
             return {'recipient': None}
         row = db().execute(
-            'SELECT id,name,username FROM users WHERE username=? COLLATE NOCASE AND id!=? ORDER BY id LIMIT 2',
+            'SELECT id,name,username FROM users WHERE lower(username)=lower(?) AND id!=? ORDER BY id LIMIT 2',
             (username, g.user['id']),
         ).fetchall()
         return {'recipient': dict(row[0]) if len(row) == 1 else None}
@@ -752,7 +762,7 @@ def create_app(config=None):
             db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],gift['id'],json.dumps(gift),'unlisted'))
             db().execute('INSERT INTO local_sold VALUES(?)',(source_id,))
             if collectible_key:
-                db().execute('INSERT OR IGNORE INTO local_sold VALUES(?)',(collectible_key,))
+                db().execute('INSERT INTO local_sold VALUES(?) ON CONFLICT DO NOTHING',(collectible_key,))
             result=dict(ok=True,gift=gift,balance=str(balance-price),scope='application')
             record('buy',dict(gift=gift,price=str(price),scope='application'))
             db().execute('INSERT INTO local_purchases VALUES(?,?,?)',(g.user['id'],rid,json.dumps(result)))
@@ -799,7 +809,7 @@ def create_app(config=None):
                 record('buy',dict(gift=reward,price=reward['price'],scope='application'))
                 rewards.append(reward)
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-total),g.user['id']))
-            db().executemany('INSERT OR IGNORE INTO local_sold VALUES(?)', [(key,) for key in keys])
+            db().executemany('INSERT INTO local_sold VALUES(?) ON CONFLICT DO NOTHING', [(key,) for key in keys])
             result=dict(ok=True,gifts=rewards,balance=str(balance-total),total=str(total),scope='application')
             db().execute('INSERT INTO local_purchases VALUES(?,?,?)',(g.user['id'],rid,json.dumps(result)))
         return result
@@ -842,7 +852,7 @@ def create_app(config=None):
                     if not rows:raise ValueError('Источник вернул пустой каталог')
                     rows=[{**c,'short_name':c.get('short_name') or c.get('shortName') or '', 'photo_url':c.get('photo_url') or 'https://portal-market.com/collection_previews/'+str(c.get('short_name') or c.get('shortName') or '')+'.webp'} for c in rows]
                     catalog_job['total']=len(rows)
-                    with db():db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',('collections',json.dumps(rows),int(time.time())))
+                    with db():db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',('collections',json.dumps(rows),int(time.time())))
                     for c in rows:
                         slug=c.get('short_name') or c.get('shortName')
                         if not slug:continue
@@ -861,7 +871,7 @@ def create_app(config=None):
                                 price=value.get('floor_price',value.get('floor',value.get('price',0))) if isinstance(value,dict) else value
                                 parsed.append({'name':name,'price':str(price or 0),'image':seed.get(name,{}).get('image',c.get('photo_url','')),'price_source':'portals'})
                             if parsed:
-                                with db():db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',('models:'+slug,json.dumps(parsed),int(time.time())))
+                                with db():db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',('models:'+slug,json.dumps(parsed),int(time.time())))
                         except Exception as error:catalog_job['error']='Часть моделей не обновлена: '+str(error)[:100]
                         catalog_job['completed']+=1
                     catalog_job['updated_at']=int(time.time())
@@ -873,7 +883,7 @@ def create_app(config=None):
     @auth(admin=True)
     def users():
         query='%'+request.args.get('search','')[:100]+'%'
-        rows=db().execute('SELECT u.*, COALESCE(a.balance,0) balance,(SELECT count(*) FROM inventory i WHERE i.user_id=u.id) gifts FROM users u LEFT JOIN demo_accounts a ON a.user_id=u.id WHERE CAST(u.id AS TEXT) LIKE ? OR u.name LIKE ? OR u.username LIKE ? ORDER BY u.created DESC LIMIT 100',(query,query,query)).fetchall()
+        rows=db().execute('SELECT u.*, COALESCE(a.balance,\'0\') balance,(SELECT count(*) FROM inventory i WHERE i.user_id=u.id) gifts FROM users u LEFT JOIN demo_accounts a ON a.user_id=u.id WHERE CAST(u.id AS TEXT) LIKE ? OR u.name LIKE ? OR u.username LIKE ? ORDER BY u.created DESC LIMIT 100',(query,query,query)).fetchall()
         return {'users':[dict(r) for r in rows]}
     @app.post('/api/admin/users/<int:uid>/balance')
     @auth(admin=True)
@@ -887,7 +897,7 @@ def create_app(config=None):
             db().execute('BEGIN IMMEDIATE')
             previous = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (uid,)).fetchone()
             change = balance - (Decimal(previous['balance']) if previous else Decimal(0))
-            db().execute('INSERT OR REPLACE INTO demo_accounts VALUES(?,?)', (uid, str(balance)))
+            db().execute('INSERT INTO demo_accounts VALUES(?,?) ON CONFLICT (user_id) DO UPDATE SET balance=excluded.balance', (uid, str(balance)))
             if change:
                 record('balance_adjustment', {'gram': str(change)}, uid=uid)
         audit('Balance edited: '+str(uid))
@@ -916,7 +926,7 @@ def create_app(config=None):
     def set_selection():
         selection=(request.get_json() or {}).get('selection',{})
         if not isinstance(selection,dict) or len(selection)>1000 or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in selection.values()):abort(400)
-        db().execute("INSERT OR REPLACE INTO settings VALUES('selection',?)",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
+        db().execute("INSERT INTO settings VALUES('selection',?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
     from telegram_bot import install_telegram_bot, notify_gift_transfer
     bot_settings = install_telegram_bot(app, db, auth, audit)
     from wallet import install_wallet

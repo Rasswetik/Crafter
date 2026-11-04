@@ -70,7 +70,7 @@ def notify_gift_transfer(config, recipient, gifts, sender, origin, default_token
 def install_telegram_bot(app, db, auth, audit):
     lock = threading.Lock()
     with app.app_context(), db():
-        db().execute('''CREATE TABLE IF NOT EXISTS telegram_start_updates
+        db().executescript('''CREATE TABLE IF NOT EXISTS telegram_start_updates
                        (bot_id INTEGER, update_id INTEGER, created INTEGER, PRIMARY KEY(bot_id, update_id))''')
 
     def settings():
@@ -93,7 +93,7 @@ def install_telegram_bot(app, db, auth, audit):
 
     def save(config):
         with db():
-            db().execute("INSERT OR REPLACE INTO settings VALUES('telegram_bot', ?)", (json.dumps(config),))
+            db().execute("INSERT INTO settings VALUES('telegram_bot', ?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload", (json.dumps(config),))
 
     def app_url(config):
         url = config['app_url'] or os.getenv('RENDER_EXTERNAL_URL') or request.url_root
@@ -307,7 +307,7 @@ def install_telegram_bot(app, db, auth, audit):
             message.update(text=''.join(parts), parse_mode='HTML')
         bot_api(token_for(config), 'sendMessage', message)
         with db():
-            db().execute('INSERT OR IGNORE INTO telegram_start_updates VALUES (?, ?, ?)',
+            db().execute('INSERT INTO telegram_start_updates VALUES(?, ?, ?) ON CONFLICT DO NOTHING',
                          (bot_id, update_id, int(time.time())))
             db().execute('DELETE FROM telegram_start_updates WHERE created < ?', (int(time.time()) - 604800,))
         return {'ok': True}

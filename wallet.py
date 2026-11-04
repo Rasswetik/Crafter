@@ -72,6 +72,8 @@ def install_wallet(app,db,auth,record,audit):
         row=db().execute("SELECT payload FROM settings WHERE key='tonconnect'").fetchone()
         return {**DEFAULTS,**(json.loads(row[0]) if row else {}),'rpc_key':os.getenv('TONCENTER_API_KEY') or (json.loads(row[0]).get('rpc_key','') if row else '')}
     def storage():
+        if app.config['DATABASE_URL']:
+            return dict(engine='postgresql', durable=True, path='Render PostgreSQL')
         path=Path(app.config['DATABASE']).resolve();mounted=Path('/var/data')
         durable=not os.getenv('RENDER') or (os.path.ismount(mounted) and path.is_relative_to(mounted))
         return dict(engine='sqlite',durable=durable,path=str(path))
@@ -152,7 +154,7 @@ def install_wallet(app,db,auth,record,audit):
     def connect():
         c=config();data=request.get_json() or {};raw=address(data.get('address',''));network=data.get('network')
         if network!=c['network']:abort(409,description='Выберите сеть '+c['network'])
-        db().execute('INSERT OR REPLACE INTO connected_wallets VALUES(?,?,?)',(g.user['id'],raw,network));db().commit()
+        db().execute('INSERT INTO connected_wallets VALUES(?,?,?) ON CONFLICT (user_id) DO UPDATE SET address=excluded.address,network=excluded.network',(g.user['id'],raw,network));db().commit()
         return {'ok':True}
     @app.post('/api/wallet/disconnect')
     @auth()
@@ -206,7 +208,7 @@ def install_wallet(app,db,auth,record,audit):
             balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])+Decimal(p['gram'])
             paid=verified_balance(p['network'])+Decimal(p['gram'])
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance),g.user['id']))
-            db().execute('INSERT OR REPLACE INTO wallet_balances VALUES(?,?,?)',(g.user['id'],p['network'],str(paid)))
+            db().execute('INSERT INTO wallet_balances VALUES(?,?,?) ON CONFLICT (user_id,network) DO UPDATE SET gram=excluded.gram',(g.user['id'],p['network'],str(paid)))
             db().execute("UPDATE ton_deposits SET status='confirmed',tx=? WHERE id=?",(found,did));record('deposit',dict(gram=p['gram'],ton=p['ton'],network=p['network'],tx=found))
         return {'status':'confirmed','balance':str(balance)}
     @app.post('/api/wallet/withdraw')
@@ -238,6 +240,8 @@ def install_wallet(app,db,auth,record,audit):
     @app.get('/api/admin/database/backup')
     @auth(admin=True)
     def database_backup():
+        if app.config['DATABASE_URL']:
+            abort(409, description='Экспорт SQLite доступен только для SQLite')
         import sqlite3,tempfile
         from flask import send_file
         handle=tempfile.NamedTemporaryFile(suffix='.sqlite3',delete=False);path=handle.name;handle.close()
@@ -284,7 +288,7 @@ def install_wallet(app,db,auth,record,audit):
         if c['public_url'] and not str(c['public_url']).startswith('https://'):abort(400,description='Адрес приложения должен начинаться с https://')
         if c['enabled'] and not c['receiver']:abort(400,description='Укажите адрес приёма TON')
         if c['enabled'] and c['network']=='mainnet' and not storage()['durable']:abort(409,description='Сначала подключите постоянную базу данных')
-        db().execute("INSERT OR REPLACE INTO settings VALUES('tonconnect',?)",(json.dumps(c),));db().commit();audit('TON Connect settings updated');return {'ok':True}
+        db().execute("INSERT INTO settings VALUES('tonconnect',?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload",(json.dumps(c),));db().commit();audit('TON Connect settings updated');return {'ok':True}
     @app.post('/api/admin/tonconnect/withdraw/<wid>/prepare')
     @auth(admin=True)
     def prepare_withdraw(wid):
@@ -303,6 +307,6 @@ def install_wallet(app,db,auth,record,audit):
         p=json.loads(row['payload']);c=config();tx=confirmed_message(rpc(p['network'],'getTransactions',{'address':p['receiver'],'limit':100,'archival':'true'},c['rpc_key']),p['receiver'],p['sender'],p['nano'],p['memo'],row['created'])
         if not tx:return {'status':'processing'}
         with db():
-            db().execute('INSERT OR IGNORE INTO ton_transactions VALUES(?,?)',(p['network'],tx))
+            db().execute('INSERT INTO ton_transactions VALUES(?,?) ON CONFLICT DO NOTHING',(p['network'],tx))
             db().execute("UPDATE ton_withdrawals SET status='confirmed',tx=? WHERE id=?",(tx,wid));audit('Withdrawal confirmed: '+wid)
         return {'status':'confirmed'}
