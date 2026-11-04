@@ -3,7 +3,7 @@ const adminSections = {
     users: ['Пользователи', 'Баланс и инвентарь', 'gift', renderAdminUsers],
     portal: ['Portal Market', 'Каталог и модели подарков', 'grid', renderAdminPortal],
     'telegram-bot': ['Telegram-бот', 'Приветствие, уведомления и эмодзи', 'send', renderTelegramBotAdmin],
-    'telegram-deposits': ['Telegram NFT', 'Подключение, мониторинг и история депозитов', 'gift', renderTelegramDeposits],
+    relayer: ['Relayer', 'Telegram NFT · подключение и пополнения', 'send', renderTelegramDeposits],
     tonconnect: ['TON Connect', 'Подключение кошельков и операции', 'wallet', renderTonAdmin],
 };
 
