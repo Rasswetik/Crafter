@@ -502,6 +502,8 @@ def test_wallet_withdraw_backing_daily_quota_and_processing_cannot_be_cancelled(
     request1 = client.post('/api/wallet/withdraw', headers=headers,
                            json={'gram':'1.25','request_id':'first'})
     assert request1.status_code == 200
+    assert client.post('/api/wallet/withdraw', headers=headers,
+                       json={'gram':'1.00','request_id':'first'}).status_code == 409
     info = client.get('/api/wallet', headers=headers).json
     assert Decimal(info['withdrawable']) == Decimal('0.75')
     assert Decimal(info['withdraw_daily_remaining']) == Decimal('0.75')
