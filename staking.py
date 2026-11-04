@@ -142,6 +142,11 @@ def install_staking(app, db, auth, record, audit, public_catalog):
         account = db().execute('SELECT activated_at FROM staking_accounts WHERE user_id=?', (uid,)).fetchone()
         rows = db().execute("SELECT * FROM staking_entries WHERE user_id=? AND status='active' ORDER BY locked_at DESC,id", (uid,)).fetchall()
         gifts = []
+        rewards_by_entry = {}
+        for reward in db().execute(
+                'SELECT entry_id,amount FROM staking_rewards WHERE user_id=?', (uid,)):
+            eid = reward['entry_id']
+            rewards_by_entry[eid] = rewards_by_entry.get(eid, Decimal('0')) + Decimal(reward['amount'])
         total = Decimal('0')
         daily = Decimal('0')
         now = int(time.time())
@@ -157,6 +162,7 @@ def install_staking(app, db, auth, record, audit, public_catalog):
                 'locked_at': entry['locked_at'], 'unlock_at': entry['unlock_at'],
                 'can_unstake': now >= int(entry['unlock_at']),
                 'settled_days': int(entry['settled_days']),
+                'earned_gram': money(rewards_by_entry.get(entry['id'], Decimal('0'))),
             })
         pending, claimed = balance_summary(uid)
         return {
