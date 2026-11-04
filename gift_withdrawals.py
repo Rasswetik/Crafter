@@ -7,11 +7,10 @@ that the *exact* gift was transferred out of the custody account.
 import json
 import re
 import time
-import uuid
 
 from flask import abort, g, request
 
-_TELEGRAM_NFT = re.compile(r'^https://(?:t\\.me|telegram\\.me)/nft/[a-z0-9]+-[1-9][0-9]*$', re.I)
+_TELEGRAM_NFT = re.compile(r'^https://(?:t\.me|telegram\.me)/nft/[a-z0-9]+-[1-9][0-9]*$', re.I)
 
 
 def install_gift_withdrawals(app, db, auth, record, audit):
