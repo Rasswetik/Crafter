@@ -212,3 +212,56 @@ def test_market_requests_all_selected_collections(client, monkeypatch):
     assert result.status_code == 200
     assert [gift['collection_id'] for gift in result.json['gifts']] == ['amulet']
     assert result.json['next_offset'] == 40
+
+
+def test_telegram_bot_settings_connect_start_and_menu(client, monkeypatch):
+    import telegram_bot
+
+    token = '12345:fake_telegram_bot_token'
+    calls = []
+    monkeypatch.setenv('RENDER_EXTERNAL_URL', 'https://crafter.example')
+
+    def telegram_api(key, method, payload):
+        assert key == token
+        calls.append((method, payload))
+        if method == 'getMe':
+            return {'is_bot': True, 'id': 12345, 'username': 'crafter_example_bot'}
+        return True
+
+    monkeypatch.setattr(telegram_bot, 'bot_api', telegram_api)
+    route = '/api/admin/telegram-bot'
+    assert client.get(route, headers=signed(43)).status_code == 403
+    settings = {
+        'token': token, 'greeting': 'Добро пожаловать!', 'menu_text': 'Открыть меню', 'app_url': '',
+        'buttons': [{'text': 'Crafter', 'type': 'web_app', 'url': ''},
+                    {'text': 'Правила', 'type': 'url', 'url': 'https://crafter.example/rules'}],
+    }
+    saved = client.post(route, headers=signed(), json=settings)
+    assert saved.status_code == 200
+    assert saved.json['token_configured'] and token.encode() not in saved.data
+    assert client.get('/api/me', headers=signed(token=token)).status_code == 200
+
+    connected = client.post(route + '/connect', headers=signed(), json={})
+    assert connected.json['connected']
+    method, webhook = calls[-1]
+    assert method == 'setWebhook'
+    assert webhook['url'] == 'https://crafter.example/api/telegram/webhook/12345'
+    hook = '/api/telegram/webhook/12345'
+    event = {'update_id': 10, 'message': {'chat': {'id': 42, 'type': 'private'}, 'text': '/start ref_5'}}
+    header = {'X-Telegram-Bot-Api-Secret-Token': webhook['secret_token']}
+    assert client.post(hook, json=event).status_code == 403
+    assert client.post(hook, headers=header, json=event).status_code == 200
+    assert client.post(hook, headers=header, json=event).status_code == 200
+    sent = [body for method, body in calls if method == 'sendMessage']
+    assert len(sent) == 1 and sent[0]['text'] == settings['greeting']
+    assert sent[0]['reply_markup']['inline_keyboard'] == [
+        [{'text': 'Crafter', 'web_app': {'url': 'https://crafter.example'}}],
+        [{'text': 'Правила', 'url': 'https://crafter.example/rules'}],
+    ]
+    assert client.post(route + '/menu', headers=signed(), json={}).status_code == 200
+    assert calls[-1] == ('setChatMenuButton', {'menu_button': {
+        'type': 'web_app', 'text': 'Открыть меню', 'web_app': {'url': 'https://crafter.example'},
+    }})
+    backup = client.get('/api/admin/database/backup', headers=signed())
+    assert backup.status_code == 200
+    assert token.encode() not in backup.data and webhook['secret_token'].encode() not in backup.data

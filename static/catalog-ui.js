@@ -274,7 +274,8 @@ detail = function (id) {
         </div>
         <div class="product-properties">
             ${attributes.map(([key, label, value]) => `<div class="trait-row">
-                <span>${label}</span><b>${esc(value || '—')}<small data-trait-rarity="${key}">${Number(gift.rarity?.[key]) > 0 ? money(Number(gift.rarity[key]) / 10) + '%' : ''}</small></b>
+                <span>${label}</span><b>${value ? `<button type="button" class="trait-filter" onclick="filterMarketByGiftTrait(${arg(key)})"
+                    aria-label="Фильтр маркета: ${esc(label)}, ${esc(value)}">${esc(value)}</button>` : '—'}<small data-trait-rarity="${key}">${Number(gift.rarity?.[key]) > 0 ? money(Number(gift.rarity[key]) / 10) + '%' : ''}</small></b>
                 <strong data-trait-price="${key}">—</strong>
             </div>`).join('')}
             <div><span>Мин. цена</span><strong>${esc(productFloor(gift))}</strong></div>

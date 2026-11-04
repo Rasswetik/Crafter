@@ -422,3 +422,17 @@ html { touch-action: pan-x pan-y; }
         radial-gradient(ellipse at 50% 27%, color-mix(in srgb, var(--craft-result-center, #4d4d4d) 32%, transparent), transparent 60%),
         linear-gradient(var(--bg), color-mix(in srgb, var(--craft-result-edge, #262626) 20%, var(--bg)));
 }
+
+.trait-filter {
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+.trait-filter:active { opacity: .7; }
+.admin-tabs { flex-wrap: wrap; }
+.bot-inline-row { display: grid; gap: 8px; border: 1px solid var(--line); border-radius: 14px; margin: 10px 0; padding: 10px; }
+.bot-admin-actions { display: grid; gap: 8px; margin-top: 15px; }
+#bot-settings .field { display: block; width: 100%; margin-top: 5px; }
+#bot-settings textarea { min-height: 94px; resize: vertical; }

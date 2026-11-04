@@ -103,7 +103,16 @@ def create_app(config=None):
             def run(*args,**kwargs):
                 raw=request.headers.get('X-Telegram-Init-Data','')
                 try:
-                    if raw and app.config['BOT_TOKEN']:g.user=verify_telegram(raw,app.config['BOT_TOKEN'])
+                    if raw:
+                        tokens = dict.fromkeys(filter(None, (app.config['BOT_TOKEN'], bot_settings().get('token'))))
+                        for token in tokens:
+                            try:
+                                g.user = verify_telegram(raw, token)
+                                break
+                            except ValueError:
+                                continue
+                        else:
+                            raise ValueError('signature')
                     elif app.config['DEMO_MODE']:g.user={'id':1,'first_name':'Гошан','username':'goshan_wow'}
                     else:abort(401,description='Откройте приложение через Telegram')
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):abort(401,description='Недействительная авторизация Telegram')
@@ -173,7 +182,8 @@ def create_app(config=None):
     @auth()
     def me():
         refs=db().execute('SELECT count(*) FROM users WHERE referrer=?',(g.user['id'],)).fetchone()[0]
-        link=f"https://t.me/{app.config['BOT_USERNAME']}?startapp=ref_{g.user['id']}" if app.config['BOT_USERNAME'] else None
+        username = bot_settings()['username']
+        link = f"https://t.me/{username}?startapp=ref_{g.user['id']}" if username else None
         return dict(user=g.user,is_admin=g.is_admin,demo=app.config['DEMO_MODE'],inventory_count=len(owned()),balance=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0],inventory_value_ton=str(sum(Decimal(x['price']) for x in owned() if x.get('price_unit')=='TON')),inventory_value=str(sum(Decimal(x['price']) for x in owned() if x.get('price_unit')!='TON')),bought=db().execute("SELECT count(*) FROM history WHERE user_id=? AND kind='buy'",(g.user['id'],)).fetchone()[0],sold=0,volume='0',referrals=refs,referral_level=1,referral_progress=min(refs*10,100),invite_link=link)
     @app.post('/api/referral')
     @auth()
@@ -273,7 +283,7 @@ def create_app(config=None):
                 if previous:return local_market_rows({**previous,'warning':'Показаны сохранённые предложения. Цены могут измениться.'})
                 abort(502,description='Каталог временно недоступен. Повторите загрузку.')
         if not app.config['PORTALS_API_KEY'] and app.config['DEMO_MODE']:return {'gifts':DEMO_GIFTS,'demo':True,'source':'demo'}
-        allowed={'search','collection_id','filter_by_models','filter_by_backdrops','sort_by','offset'}
+        allowed={'search','collection_id','filter_by_models','filter_by_backdrops','filter_by_symbols','sort_by','offset'}
         params={k:request.args[k][:150] for k in allowed if request.args.get(k)};params.update(limit=40,status='listed')
         cache_key='market:'+urlencode(sorted(params.items()))
         previous,updated=cached(cache_key)
@@ -684,6 +694,8 @@ def create_app(config=None):
         selection=(request.get_json() or {}).get('selection',{})
         if not isinstance(selection,dict) or len(selection)>1000 or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in selection.values()):abort(400)
         db().execute("INSERT OR REPLACE INTO settings VALUES('selection',?)",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
+    from telegram_bot import install_telegram_bot
+    bot_settings = install_telegram_bot(app, db, auth, audit)
     from wallet import install_wallet
     install_wallet(app,db,auth,record,audit)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':

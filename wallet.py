@@ -162,7 +162,18 @@ def install_wallet(app,db,auth,record,audit):
         handle=tempfile.NamedTemporaryFile(suffix='.sqlite3',delete=False);path=handle.name;handle.close()
         try:
             target=sqlite3.connect(path)
-            try:db().backup(target)
+            try:
+                db().backup(target)
+                target.execute('PRAGMA secure_delete=ON')
+                row = target.execute("SELECT payload FROM settings WHERE key='telegram_bot'").fetchone()
+                if row:
+                    config = json.loads(row[0])
+                    for key in ('token', 'secret', 'bot_id', 'username', 'webhook_url'):
+                        config.pop(key, None)
+                    with target:
+                        target.execute("UPDATE settings SET payload=? WHERE key='telegram_bot'",
+                                       (json.dumps(config),))
+                    target.execute('VACUUM')
             finally:target.close()
             response=send_file(path,as_attachment=True,download_name='crafter-backup.sqlite3',mimetype='application/vnd.sqlite3')
             response.call_on_close(lambda:os.unlink(path) if os.path.exists(path) else None)
