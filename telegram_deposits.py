@@ -298,6 +298,25 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             with db():
                 db().execute('UPDATE telegram_gift_monitor SET lease_until=0 WHERE id=1')
 
+    @app.get('/api/telegram-deposits/receiver')
+    @auth()
+    def public_deposit_recipient():
+        # Show only the public destination handle; never expose phone, API keys or MTProto session.
+        c = config()
+        username = str(c.get('account_username') or '').strip().lstrip('@')
+        valid = bool(re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{4,31}', username))
+        # Do not direct valuable gifts to a receiver before initial reconciliation.
+        configured = bool(c.get('session')) and available() and valid
+        connected = configured and bool(c.get('baseline_done'))
+        response = app.json.response({
+            'connected': connected,
+            'username': username if connected else '',
+            'display_name': 'Crafter Relayer',
+            'status': 'ready' if connected else 'initial_sync' if configured else 'not_connected',
+        })
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
     @app.get('/api/admin/telegram-deposits')
     @auth(admin=True)
     def deposit_status():

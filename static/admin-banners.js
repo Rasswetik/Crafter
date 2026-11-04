@@ -12,10 +12,11 @@ async function renderAdminBanners(content) {
         <section class="panel"><h3>Карусель</h3>
             <form class="banner-carousel-form">
                 <label><input type="checkbox" name="enabled" ${carousel.enabled ? 'checked' : ''}> Включить</label>
+                <label><input type="checkbox" name="show_counter" ${carousel.show_counter ? 'checked' : ''}> Показывать номер баннера</label>
                 <label>Интервал <input class="field" name="interval" type="number" min="2" max="60" value="${carousel.interval}" required> сек.</label>
                 <button class="secondary" type="submit">Сохранить</button>
             </form>
-            <p class="sub">При выключенной карусели показывается первый опубликованный баннер по порядку.</p>
+            <p class="sub">Счётчик показывает текущую позицию (например, 2 из 5). Если его выключить, место под ним освобождается автоматически. При выключенной карусели показывается первый опубликованный баннер.</p>
             <div class="banner-preview-wrap" data-carousel-preview></div>
         </section>
         <section class="panel"><h3>Баннеры маркета</h3><div class="banner-admin-list">
@@ -35,6 +36,7 @@ async function renderAdminBanners(content) {
         const interval = Number(form.elements.interval.value);
         preview.replaceChildren(makeBannerCarousel(published, {
             enabled:form.elements.enabled.checked, interval:interval >= 2 && interval <= 60 ? interval : 5,
+            show_counter: form.elements.show_counter.checked,
         }));
     };
     form.addEventListener('change', paintPreview);
@@ -43,7 +45,9 @@ async function renderAdminBanners(content) {
         const button = event.submitter;
         button.disabled = true;
         try {
-            await api('admin/banners/carousel', {enabled:form.elements.enabled.checked, interval:Number(form.elements.interval.value)});
+            await api('admin/banners/carousel', {enabled:form.elements.enabled.checked,
+                show_counter:form.elements.show_counter.checked,
+                interval:Number(form.elements.interval.value)});
             toast('Карусель сохранена');
         } catch (error) { toast(error.message); }
         finally { button.disabled = false; }

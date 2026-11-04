@@ -22,3 +22,26 @@
     .banner-slide.banner-active {animation:none}
     .banner-slide.banner-out {display:none}
 }
+
+/* Optional banner index. No element or reserved height when switched off. */
+.banner-position-counter {
+    width:max-content;
+    min-width:60px;
+    margin:6px auto 1px;
+    padding:5px 11px;
+    text-align:center;
+    border-radius:100px;
+    background:#26272a;
+    border:1px solid #ffffff16;
+    color:#d8dbe1;
+    font-size:11px;
+    line-height:1;
+    font-weight:700;
+    font-variant-numeric:tabular-nums;
+}
+.banner-carousel:has(.banner-position-counter) .banner-dots {margin-bottom:1px}
+html[data-crafter-theme="light"] .banner-position-counter {
+    color:#354459;
+    background:#e9edf3;
+    border-color:#d8dde5;
+}

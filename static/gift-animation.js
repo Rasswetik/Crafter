@@ -54,12 +54,17 @@ function giftAttributes(gift) {
     const collection = giftCollection(gift);
     if (!collection) return Promise.resolve(null);
     const id = collection.id;
-    if (!giftAttributeRequests.has(id)) {
-        const request = api('collections/' + encodeURIComponent(id) + '/attributes')
-            .finally(() => giftAttributeRequests.delete(id));
-        giftAttributeRequests.set(id, request);
-    }
-    return giftAttributeRequests.get(id);
+    const existing = giftAttributeRequests.get(id);
+    // Reuse completed and in-flight attribute lookups while browsing gifts.
+    if (existing && existing.expires > Date.now()) return existing.request;
+    const request = api('collections/' + encodeURIComponent(id) + '/attributes')
+        .catch(error => {
+            if (giftAttributeRequests.get(id)?.request === request) giftAttributeRequests.delete(id);
+            throw error;
+        });
+    giftAttributeRequests.set(id, {request, expires: Date.now() + 90000});
+    if (giftAttributeRequests.size > 40) giftAttributeRequests.delete(giftAttributeRequests.keys().next().value);
+    return request;
 }
 
 async function prepareGiftBackdrop(art, gift, stage) {

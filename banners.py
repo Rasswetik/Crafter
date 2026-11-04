@@ -71,6 +71,7 @@ def install_banners(app, db, auth, audit):
     def listing(admin=False):
         row = db().execute("SELECT payload FROM settings WHERE key='banner_carousel'").fetchone()
         carousel = json.loads(row[0]) if row else {'enabled': False, 'interval': 5}
+        carousel['show_counter'] = bool(carousel.get('show_counter', False))
         query = ('SELECT id,title,sort_order,enabled,action,target,focus_x,focus_y,zoom,image_key FROM market_banners '
                  + ('' if admin else 'WHERE enabled=1 ') + 'ORDER BY sort_order,id')
         rows = [dict(row) for row in db().execute(query)]
@@ -94,7 +95,11 @@ def install_banners(app, db, auth, audit):
         data = request.get_json(silent=True)
         if not isinstance(data, dict) or type(data.get('enabled')) is not bool:
             abort(400, description='Укажите режим карусели')
-        value = {'enabled': data['enabled'], 'interval': number(data.get('interval'), 2, 60, 'Интервал')}
+        if type(data.get('show_counter', False)) is not bool:
+            abort(400, description='Укажите, отображать ли счётчик баннеров')
+        value = {'enabled': data['enabled'],
+                 'interval': number(data.get('interval'), 2, 60, 'Интервал'),
+                 'show_counter': data.get('show_counter', False)}
         db().execute("INSERT INTO settings VALUES('banner_carousel',?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload",
                      (json.dumps(value),))
         db().commit()
