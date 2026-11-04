@@ -21,6 +21,7 @@ const walletEventNames = {
 };
 const walletStatuses = {
     pending:'Ожидает подтверждения', confirmed:'Подтверждено', queued:'В очереди', processing:'Обрабатывается',
+    cancelled:'Отменено',
 };
 const walletPages = ['wallet', 'deposit', 'withdraw'];
 
@@ -341,6 +342,7 @@ function walletHistoryRow(item) {
     const gift = data.gift || data.gifts?.[0] || (kind === 'buy' ? data : null);
     const amount = Number(kind === 'buy' ? -(data.price ?? gift?.price) : kind === 'withdraw_funds' ? -data.gram : data.gram);
     const showAmount = Number.isFinite(amount) && amount !== 0;
+    const cancelled = kind === 'withdraw_funds' && status === 'cancelled';
     const title = gift?.name || walletEventNames[kind] || 'Операция';
     const time = new Date(item.created * 1000).toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit'});
     const activity = kind === 'craft' && data.mode === 'lucky' ? 'Lucky Craft' : walletEventNames[kind];
@@ -351,8 +353,9 @@ function walletHistoryRow(item) {
             icon(kind === 'deposit' ? 'walletDown' : kind === 'withdraw_funds' ? 'walletUp' : kind === 'craft' ? 'craft' : 'gift')}</span>
         <div class="wallet-history-description"><b>${esc(title)}</b><small>${esc(details)}</small>
             ${kind === 'deposit' && status === 'pending' ? `<button class="wallet-check-deposit" onclick="checkDeposit(${arg(item.id)}, this)">Проверить перевод</button>` : ''}
+            ${kind === 'withdraw_funds' && status === 'queued' ? `<button class="wallet-cancel-withdraw" onclick="cancelQueuedWithdrawal(${arg(item.id)}, this)">Отменить заявку</button>` : ''}
         </div>
-        ${showAmount ? `<strong class="${status === 'pending' ? 'pending' : amount > 0 ? 'positive' : 'negative'}">${status === 'pending' ? '' : amount > 0 ? '+' : '−'}${money(Math.abs(amount))} GRAM</strong>` : ''}
+        ${showAmount ? `<strong class="${cancelled ? 'wallet-cancelled-amount' : status === 'pending' ? 'pending' : amount > 0 ? 'positive' : 'negative'}">${cancelled ? '' : status === 'pending' ? '' : amount > 0 ? '+' : '−'}${money(Math.abs(amount))} GRAM</strong>` : ''}
     </div>`;
 }
 
@@ -376,6 +379,15 @@ async function renderWalletAmount(kind) {
     const value = document.querySelector('#wallet-amount')?.value || '';
     const c = w.config;
     const deposit = kind === 'deposit';
+    const backed = Math.max(0, Number(w.funded_balance) || 0);
+    const available = Math.max(0, Number(w.withdrawable) || 0);
+    const dailyLeft = Math.max(0, Number(w.withdraw_daily_remaining) || 0);
+    const withdrawNote = !deposit && available < Math.max(0, Number(w.balance) || 0) ?
+        `<p class="wallet-withdraw-note">На счёте Crafter: <b>${money(w.balance)} GRAM</b>.
+            Для вывода доступны только GRAM из подтверждённых пополнений TON.
+            ${backed <= 0 ? 'Подтверждённых средств для вывода сейчас нет.' :
+              dailyLeft <= 0 ? 'Суточный лимит вывода исчерпан.' : ''}
+            TON на подключённом кошельке — отдельный баланс, он не равен GRAM внутри Crafter.</p>` : '';
     document.querySelector('#main').innerHTML = `<section class="wallet-funding">
         <button type="button" class="wallet-back" onclick="go('wallet')">${icon('walletChevron')} К кошельку</button>
         <h1 class="wallet-page-title">${deposit ? 'Пополнение' : 'Вывод'}</h1>
@@ -384,7 +396,9 @@ async function renderWalletAmount(kind) {
             <label class="wallet-amount-label" for="wallet-amount">${deposit ? 'Сумма пополнения' : 'Сумма вывода'}</label>
             <div class="wallet-amount"><input id="wallet-amount" aria-label="Сумма в GRAM" placeholder="0" inputmode="decimal" type="number" min="0" step="0.01" value="${esc(value)}" oninput="walletAmountChanged()"><b>GRAM</b></div>
             ${deposit?`<div class="wallet-presets">${[10,50,100].map(n=>`<button onclick="setWalletAmount(${n})">${gramIcon()} ${n}</button>`).join('')}</div>`:
-                `<button class="wallet-max" onclick="setWalletAmount(${Math.min(Number(w.withdrawable), Number(c.withdraw_max))})">Макс.</button><div class="wallet-limits"><div>Лимит за операцию<b>${money(c.withdraw_max)} GRAM</b></div><div>Доступно к выводу<b>${money(w.withdrawable)} GRAM</b></div></div>`}
+                `<button class="wallet-max" onclick="setWalletAmount(${Math.max(0, Math.min(available, Number(c.withdraw_max)))})" ${available > 0 ? '' : 'disabled title="Нет подтверждённых средств для вывода"'}>Макс.</button>
+                <div class="wallet-limits"><div>Лимит за операцию<b>${money(c.withdraw_max)} GRAM</b></div><div>Доступно к выводу<b>${money(available)} GRAM</b></div></div>
+                ${withdrawNote}`}
             <p class="wallet-quote" id="wallet-quote" hidden></p>
             <button class="primary" id="wallet-submit" onclick="${deposit?'sendDeposit()':'requestWithdrawal()'}" disabled>${deposit ? 'Пополнить баланс' : 'Запросить вывод'}</button>
             <p class="wallet-error" id="wallet-error" role="status"></p>
@@ -420,7 +434,15 @@ function walletAmountChanged() {
     else if (deposit && amountValid && !withinDepositLimits) issue = 'Допустимая сумма от ' + nativeWalletAmount(c.min_deposit) + ' до ' + nativeWalletAmount(c.max_deposit);
     else if (deposit && amountValid && sameWallet(w.connected, state.externalWalletBalance) &&
         ton > Number(state.externalWalletBalance.balance_ton)) issue = 'Недостаточно TON в кошельке';
-    else if (!deposit && n > Math.min(Number(w.withdrawable), Number(c.withdraw_max))) issue = 'Сумма превышает доступный лимит';
+    else if (!deposit && Number(w.withdrawable) <= 0) {
+        issue = Number(w.funded_balance) <= 0
+            ? 'Нет GRAM из подтверждённых TON-пополнений для вывода'
+            : Number(w.withdraw_daily_remaining) <= 0
+                ? 'Суточный лимит вывода исчерпан'
+                : 'Нет доступных средств для вывода';
+    }
+    else if (!deposit && n > Number(c.withdraw_max)) issue = 'Сумма превышает лимит одной операции';
+    else if (!deposit && n > Number(w.withdrawable)) issue = 'Сумма превышает подтверждённый доступный баланс';
 
     document.querySelector('#wallet-submit').disabled = state.walletBusy || !amountValid || !!issue;
     const quote = document.querySelector('#wallet-quote');
@@ -493,8 +515,28 @@ async function checkDeposit(id, button, poll = false) {
     }
 }
 
+let walletCancellationBusy = false;
+async function cancelQueuedWithdrawal(id, button) {
+    if (walletCancellationBusy || state.walletBusy) return;
+    if (!confirm('Отменить заявку на вывод? Зарезервированные GRAM вернутся на баланс Crafter.')) return;
+    walletCancellationBusy = true;
+    if (button) button.disabled = true;
+    try {
+        const result = await api('wallet/withdraw/' + encodeURIComponent(id) + '/cancel', {});
+        if (result.status !== 'cancelled') throw Error('Не удалось отменить заявку');
+        await refreshMe();
+        if (state.page === 'wallet') await renderWallet();
+        toast('Заявка отменена. GRAM возвращены на баланс Crafter.');
+    } catch (error) {
+        walletError(error);
+    } finally {
+        walletCancellationBusy = false;
+        if (button?.isConnected) button.disabled = false;
+    }
+}
+
 async function requestWithdrawal() {
-    if (state.walletBusy) return;
+    if (state.walletBusy || document.querySelector('#wallet-submit')?.disabled) return;
     state.walletBusy = true;
     walletAmountChanged();
     let failure;
