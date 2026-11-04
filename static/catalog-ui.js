@@ -45,44 +45,39 @@ async function openCatalogSheet(kind){
  document.querySelector('#sheet').classList.add('catalog-sheet');renderCatalogRows('');
 }
 function catalogCollectionForArtwork(row) {
-    const selected = selectedCollections();
-    const candidates = state.catalog?.collections || [];
-    return candidates.find(c => String(c.id)===String(row.value) ||
-        giftCollectionSlug(c.name)===giftCollectionSlug(row.name)) ||
-        candidates.find(c => selected.some(value =>
-            String(c.id)===String(value) || String(c.name)===String(value))) || null;
+    const selected=selectedCollections();
+    const candidates=state.catalog?.collections||[];
+    const same=(a,b)=>String(a||'').toLocaleLowerCase()===String(b||'').toLocaleLowerCase();
+    const exact=row.collection_name && candidates.find(c=>same(c.name,row.collection_name));
+    return exact || candidates.find(c=>same(c.id,row.value)||same(c.name,row.name)) ||
+        (selected.length===1 ? candidates.find(c=>selected.some(v=>same(c.id,v)||same(c.name,v))) : null);
+}
+// Only isolated model/symbol PNGs may be shown inside attribute filter rows.
+function catalogTraitPNG(kind, collectionName, name) {
+    if(!['model','symbol'].includes(kind)||!collectionName||!name)return '';
+    return '/media/trait/'+kind+'?gift='+encodeURIComponent(collectionName)+'&name='+encodeURIComponent(name);
 }
 function catalogArtworkURLs(row) {
     const kind=state.sheetKind;
     const collection=catalogCollectionForArtwork(row);
-    const collectionName=collection?.name ||
-        (kind==='collection'||kind==='target' ? row.name : '');
-    const collectionSlug=giftCollectionSlug(collectionName);
-    const proxy=fragmentCollectionImage(collectionSlug);
-    const direct=directFragmentCollectionImage(collectionSlug);
-    const official=imageURL(collection?.photo_url);
-    const listed=imageURL(row.image);
-    // Collection icons are separate assets. A random NFT model must never be
-    // shown as the collection icon (including in "My Gifts").
+    const name=row.collection_name||collection?.name||
+        ((kind==='collection'||kind==='target')?row.name:'');
     if(kind==='collection'||kind==='target'){
-        return [...new Set([proxy,direct,official].filter(Boolean))];
+        const slug=giftCollectionSlug(name);
+        return [...new Set([fragmentCollectionImage(slug),
+            directFragmentCollectionImage(slug),imageURL(collection?.photo_url||row.image)].filter(Boolean))];
     }
-    const trait=kind==='model'?'model':kind==='symbol'?'symbol':null;
-    if(trait){
-        // A listing image contains the assembled gift (model + background + symbol).
-        // Filter thumbnails must instead be the isolated transparent PNG.
+    if(kind==='model'||kind==='symbol'){
         const matches=[...(state.inventory||[]),...(state.gifts||[])].filter(g=>
-            String(g[trait]||'').toLocaleLowerCase()===String(row.name).toLocaleLowerCase());
-        const distinctCollections=[...new Set(matches.map(g=>g.name).filter(Boolean))];
-        const exactCollection=collectionName || row.collection_name ||
-            (distinctCollections.length===1 ? distinctCollections[0] : '');
-        const part=value=>encodeURIComponent(String(value||'').trim());
-        const isolated=exactCollection && row.name ?
-            'https://api.changes.tg/'+trait+'/'+part(exactCollection)+'/'+part(row.name)+'.png?size=128' : '';
-        // Portals' models endpoint can also return an isolated PNG. Use it only
-        // after our exact-model URL; never take a thumbnail from an NFT listing.
-        const catalogAsset=state.page==='gifts'||state.marketSource==='crafter' ? '' : listed;
-        return [...new Set([isolated,catalogAsset].filter(Boolean))];
+            String(g[kind]||'').toLocaleLowerCase()===String(row.name||'').toLocaleLowerCase());
+        const collections=[...new Set(matches.map(g=>String(g.name||'')).filter(Boolean))];
+        const giftName=name||(collections.length===1?collections[0]:'');
+        if(!giftName)return [];
+        const part=value=>encodeURIComponent(String(value).trim());
+        return [...new Set([
+            catalogTraitPNG(kind,giftName,row.name),
+            'https://api.changes.tg/'+kind+'/'+part(giftName)+'/'+part(row.name)+'.png?size=128'
+        ].filter(Boolean))];
     }
     return [];
 }
@@ -90,7 +85,8 @@ function catalogRowArtwork(row) {
     const kind = state.sheetKind;
     const urls = catalogArtworkURLs(row);
     const backgroundColor = kind==='backdrop' && (typeof row.background==='string' ? row.background :
-        row.background ? giftBackdrop({backdrop:row.name,background:row.background}) : '');
+        row.background ? giftBackdrop({backdrop:row.name,background:row.background}) :
+        giftBackdrop({backdrop:row.name}));
     const background = backgroundColor &&
         /^(?:linear-gradient|radial-gradient|#[0-9a-f]{3,8}|rgb|hsl)/i.test(backgroundColor) ?
         ' style="background:'+esc(backgroundColor)+'"' : '';
