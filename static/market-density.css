@@ -1,0 +1,103 @@
+/* Responsive Crafter Market: real tiles, no rounded viewport frames. */
+#main .grid:not(.list) {
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+  width:100%;
+  align-items:stretch;
+}
+#main .grid:not(.list) > .gift,
+#main .grid:not(.list) > .collection-offer-card,
+#main .grid:not(.list) > .collection-card {
+  min-width:0;
+  width:100%;
+  max-width:none;
+  margin:0;
+  border-radius:17px;
+  overflow:hidden;
+}
+#main .grid:not(.list) > .gift {
+  padding:5px;
+  border:1px solid #303135;
+  background:#202124;
+}
+#main .grid:not(.list) > .gift .art {
+  width:100%;
+  aspect-ratio:1;
+  margin:0;
+  border-radius:12px;
+  overflow:hidden;
+}
+#main .grid:not(.list) .gift .art > img {
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain;
+}
+#main .grid:not(.list) .gift h3,
+#main .grid:not(.list) .gift .number {
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+#main .grid:not(.list) .collection-offer-card {
+  padding:8px;
+  border-radius:17px;
+}
+#main .grid:not(.list) .collection-offer-card > img {
+  width:100%;
+  max-width:135px;
+  height:auto;
+  aspect-ratio:1;
+  object-fit:contain;
+}
+#main .grid:not(.list) .collection-offer-card > strong {
+  font-size:clamp(14px,3.5vw,22px);
+  white-space:nowrap;
+}
+#main .grid:not(.list) .collection-offer-card > small {
+  font-size:10px;
+  line-height:1.3;
+}
+#main .grid:not(.list) .collection-offer-card button {
+  min-width:0;
+  border-radius:13px;
+  min-height:32px;
+  line-height:1.15;
+}
+#main .grid:not(.list) .collection-offer-card .offer-sell:not(:disabled) {
+  color:#fff;
+  background:#168aff;
+}
+#main .grid:not(.list) .collection-offer-card .offer-sell:disabled {
+  opacity:.52;
+}
+#main .grid:not(.list) .collection-card img {
+  display:block;
+  width:100%;
+  object-fit:contain;
+}
+.wallet-history-balance {
+  display:block;
+  font-size:11px;
+  color:#8796ab;
+  line-height:1.35;
+  margin-top:4px;
+}
+html[data-crafter-theme="light"] .wallet-history-balance {color:#546b84}
+@media (min-width:700px) {
+  #app {max-width:1280px;width:100%}
+  #app > main {padding-left:22px;padding-right:22px}
+  #main .grid:not(.list) {grid-template-columns:repeat(3,minmax(0,1fr));gap:13px}
+}
+@media (min-width:950px) {
+  #main .grid:not(.list) {grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}
+}
+@media (min-width:1180px) {
+  #main .grid:not(.list) {grid-template-columns:repeat(5,minmax(0,1fr));gap:15px}
+}
+@media (max-width:370px) {
+  #main .grid:not(.list) {gap:6px}
+  #main .grid:not(.list) > .gift {padding:4px}
+  #main .grid:not(.list) .gift .art {border-radius:10px}
+}
