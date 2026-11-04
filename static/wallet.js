@@ -315,7 +315,7 @@ async function loadWalletHistory(append = false) {
     } else {
         walletHistoryItems = [];
         walletHistoryCursor = null;
-        list.innerHTML = crafterLoading(page);
+        list.innerHTML = crafterLoading('wallet');
         document.querySelectorAll('[data-wallet-filter]').forEach(button => {
             button.classList.toggle('active', !!walletHistoryFiltersState[button.dataset.walletFilter]?.length);
         });
@@ -400,13 +400,6 @@ async function renderWalletAmount(kind) {
     const deposit = kind === 'deposit';
     const available = Math.max(0, Number(w.withdrawable) || 0);
     const dailyLeft = Math.max(0, Number(w.withdraw_daily_remaining) || 0);
-    const internal = Math.max(0, Number(w.balance) || 0);
-    const withdrawNote = !deposit ?
-        `<p class="wallet-withdraw-note">Для вывода доступны <b>все GRAM на балансе Crafter</b>:
-            пополнения, продажи подарков, офферы и награды.
-            ${internal === 0 ? 'Сейчас баланс пуст.' :
-              dailyLeft <= 0 ? 'Суточный лимит вывода исчерпан.' : ''}
-            Заявка поступает на обработку. TON-перевод выполняется после подтверждения.</p>` : '';
     document.querySelector('#main').innerHTML = `<section class="wallet-funding">
         <button type="button" class="wallet-back" onclick="go('wallet')">${icon('walletChevron')} К кошельку</button>
         <h1 class="wallet-page-title">${deposit ? 'Пополнение' : 'Вывод'}</h1>
@@ -417,7 +410,7 @@ async function renderWalletAmount(kind) {
             ${deposit?`<div class="wallet-presets">${[10,50,100].map(n=>`<button onclick="setWalletAmount(${n})">${gramIcon()} ${n}</button>`).join('')}</div>`:
                 `<button class="wallet-max" onclick="setWalletAmount(${Math.floor(Math.max(0, Math.min(available, Number(c.withdraw_max))) * 100) / 100})" ${available > 0 ? '' : 'disabled title="Нет доступного баланса GRAM"'}>Макс.</button>
                 <div class="wallet-limits"><div>Лимит за операцию<b>${money(c.withdraw_max)} GRAM</b></div><div>Доступно к выводу<b>${money(available)} GRAM</b></div></div>
-                ${withdrawNote}`}
+`}
             <p class="wallet-quote" id="wallet-quote" hidden></p>
             <button class="primary" id="wallet-submit" onclick="${deposit?'sendDeposit()':'requestWithdrawal()'}" disabled>${deposit ? 'Пополнить баланс' : 'Запросить вывод'}</button>
             <p class="wallet-error" id="wallet-error" role="status"></p>
