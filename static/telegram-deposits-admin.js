@@ -6,7 +6,20 @@ async function renderTelegramDeposits(content = document.querySelector('#admin-c
     let html = '<section class="panel"><h3>Приём NFT-подарков Telegram</h3>';
     html += '<p class="sub">Сессия Telegram хранится в зашифрованном виде. Обрабатываются только входящие NFT.</p>';
     html += '<p><b>' + (info.connected ? '● Подключён' : '○ Не подключён') + '</b> ' + esc(info.account_name || '') + '</p>';
-    html += '<p class="sub">MTProto: ' + (info.configured ? 'ключи заданы' : 'требуются TELEGRAM_API_ID, TELEGRAM_API_HASH и TELEGRAM_SESSION_KEY в Render') + '</p>';
+    const keyInfo = info.api_credentials_source === 'relayer' ? 'API ID и API Hash сохранены в Relayer' :
+                    info.api_credentials_source === 'render' ? 'API ID и API Hash заданы в Render' :
+                    'API ID и API Hash пока не заданы';
+    html += '<p class="sub">' + keyInfo + ' · Ключ сессии: ' +
+            (info.session_key_configured ? 'настроен' : 'не настроен на сервере') + '</p>';
+    html += '<form id="relayer-settings-form" autocomplete="off" onsubmit="event.preventDefault();saveRelayerSettings()">';
+    html += '<h4>Настройки Telegram API</h4>';
+    html += '<label class="form-label">API ID<input class="field" id="relayer-api-id" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="16" autocomplete="off" placeholder="Числовой API ID"></label>';
+    html += '<label class="form-label">API Hash<input class="field" id="relayer-api-hash" type="password" minlength="32" maxlength="32" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="' +
+            (info.api_credentials_source === 'missing' ? '32 символа' : 'Сохранён · оставьте пустым, если не меняете') + '"></label>';
+    html += '<label class="form-label">Эмодзи для уведомления<input class="field" id="relayer-emoji" type="text" maxlength="16" value="' + esc(info.notification_emoji || '🎁') + '" placeholder="🎁"></label>';
+    html += '<button class="primary" type="submit">Сохранить настройки</button>';
+    html += '<p class="sub">Для смены API-ключей введите оба поля. Данные шифруются на сервере и не показываются повторно. API ID и API Hash можно получить на my.telegram.org.</p>';
+    html += '</form>';
     html += '<p class="sub">Первая сверка: ' + (info.baseline_done ? 'выполнена' : 'не выполнена') + '</p>';
     html += '<p class="sub">Последняя проверка: ' + (info.last_scan ? new Date(info.last_scan * 1000).toLocaleString('ru-RU') : 'не выполнялась') + '</p>';
     if (info.last_error) html += '<p class="error">' + esc(info.last_error) + '</p>';
@@ -52,8 +65,8 @@ async function telegramDepositAction(action) {
         document.querySelector('#tg-deposit-feedback').textContent = message;
         toast(message);
     } catch (error) {
-        if (status) status.textContent = error.message;
-        toast(error.message);
+        if (status) status.textContent = relayerErrorText(error);
+        toast(relayerErrorText(error));
     }
 }
 
@@ -71,7 +84,41 @@ async function telegramDepositLogin(action) {
         document.querySelector('#tg-deposit-feedback').textContent = message;
         toast(message);
     } catch (error) {
-        if (status) status.textContent = error.message;
-        toast(error.message);
+        if (status) status.textContent = relayerErrorText(error);
+        toast(relayerErrorText(error));
+    }
+}
+
+function relayerErrorText(error) {
+    if (error.status === 401) return 'Авторизация админки Telegram истекла. Заново откройте Crafter через Telegram и перейдите в админ-панель.';
+    return error.message || 'Не удалось выполнить запрос';
+}
+
+async function saveRelayerSettings() {
+    const form = document.querySelector('#relayer-settings-form');
+    if (!form || !form.reportValidity()) return;
+    const id = document.querySelector('#relayer-api-id').value.trim();
+    const hash = document.querySelector('#relayer-api-hash').value.trim();
+    const emoji = document.querySelector('#relayer-emoji').value.trim();
+    if (!!id !== !!hash) {
+        toast('Введите API ID и API Hash вместе или оставьте оба поля пустыми.');
+        return;
+    }
+    if (id && (!/^[1-9][0-9]{0,15}$/.test(id) || !/^[a-fA-F0-9]{32}$/.test(hash))) {
+        toast('API ID должен быть числом, а API Hash — 32 шестнадцатеричных символа.');
+        return;
+    }
+    const button = form.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+        await api('admin/telegram-deposits/credentials', {api_id: id, api_hash: hash, emoji});
+        toast('Настройки Relayer сохранены');
+        await renderTelegramDeposits();
+    } catch (error) {
+        toast(relayerErrorText(error));
+        const status = document.querySelector('#tg-deposit-feedback');
+        if (status) status.textContent = relayerErrorText(error);
+    } finally {
+        if (button.isConnected) button.disabled = false;
     }
 }
