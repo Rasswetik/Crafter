@@ -398,24 +398,24 @@ async function renderWalletAmount(kind) {
     const value = document.querySelector('#wallet-amount')?.value || '';
     const c = w.config;
     const deposit = kind === 'deposit';
-    const backed = Math.max(0, Number(w.funded_balance) || 0);
     const available = Math.max(0, Number(w.withdrawable) || 0);
     const dailyLeft = Math.max(0, Number(w.withdraw_daily_remaining) || 0);
-    const withdrawNote = !deposit && available < Math.max(0, Number(w.balance) || 0) ?
-        `<p class="wallet-withdraw-note">На счёте Crafter: <b>${money(w.balance)} GRAM</b>.
-            Для вывода доступны только GRAM из подтверждённых пополнений TON.
-            ${backed <= 0 ? 'Подтверждённых средств для вывода сейчас нет.' :
+    const internal = Math.max(0, Number(w.balance) || 0);
+    const withdrawNote = !deposit ?
+        `<p class="wallet-withdraw-note">Для вывода доступны <b>все GRAM на балансе Crafter</b>:
+            пополнения, продажи подарков, офферы и награды.
+            ${internal === 0 ? 'Сейчас баланс пуст.' :
               dailyLeft <= 0 ? 'Суточный лимит вывода исчерпан.' : ''}
-            TON на подключённом кошельке — отдельный баланс, он не равен GRAM внутри Crafter.</p>` : '';
+            Заявка поступает на обработку. TON-перевод выполняется после подтверждения.</p>` : '';
     document.querySelector('#main').innerHTML = `<section class="wallet-funding">
         <button type="button" class="wallet-back" onclick="go('wallet')">${icon('walletChevron')} К кошельку</button>
         <h1 class="wallet-page-title">${deposit ? 'Пополнение' : 'Вывод'}</h1>
         ${walletIdentity(w)}
         <section class="wallet-amount-card">
             <label class="wallet-amount-label" for="wallet-amount">${deposit ? 'Сумма пополнения' : 'Сумма вывода'}</label>
-            <div class="wallet-amount"><input id="wallet-amount" aria-label="Сумма в GRAM" placeholder="0" inputmode="decimal" type="number" min="0" step="0.01" value="${esc(value)}" oninput="walletAmountChanged()"><b>GRAM</b></div>
+            <div class="wallet-amount"><input id="wallet-amount" aria-label="Сумма в GRAM" placeholder="0" inputmode="decimal" type="text" pattern="[0-9]+([.,][0-9]{1,2})?" maxlength="16" autocomplete="off" spellcheck="false" value="${esc(value)}" oninput="walletAmountChanged()"><b>GRAM</b></div>
             ${deposit?`<div class="wallet-presets">${[10,50,100].map(n=>`<button onclick="setWalletAmount(${n})">${gramIcon()} ${n}</button>`).join('')}</div>`:
-                `<button class="wallet-max" onclick="setWalletAmount(${Math.max(0, Math.min(available, Number(c.withdraw_max)))})" ${available > 0 ? '' : 'disabled title="Нет подтверждённых средств для вывода"'}>Макс.</button>
+                `<button class="wallet-max" onclick="setWalletAmount(${Math.floor(Math.max(0, Math.min(available, Number(c.withdraw_max))) * 100) / 100})" ${available > 0 ? '' : 'disabled title="Нет доступного баланса GRAM"'}>Макс.</button>
                 <div class="wallet-limits"><div>Лимит за операцию<b>${money(c.withdraw_max)} GRAM</b></div><div>Доступно к выводу<b>${money(available)} GRAM</b></div></div>
                 ${withdrawNote}`}
             <p class="wallet-quote" id="wallet-quote" hidden></p>
@@ -428,8 +428,20 @@ async function renderWalletAmount(kind) {
     refreshExternalWalletBalance();
 }
 
+function normalizeWalletAmount(value) {
+    // Telegram mobile keyboards use either comma or dot for decimals.
+    return String(value ?? '').trim().replace(',', '.');
+}
+
+function walletAmountIsValid(value) {
+    return /^[0-9]{1,10}(?:\.[0-9]{1,2})?$/.test(value) &&
+        Number(value) > 0 && Number.isFinite(Number(value));
+}
+
 function setWalletAmount(value) {
-    document.querySelector('#wallet-amount').value = value;
+    const input = document.querySelector('#wallet-amount');
+    if (!input) return;
+    input.value = Number(value).toFixed(2).replace(/\.00$/, '');
     walletAmountChanged();
 }
 
@@ -438,14 +450,14 @@ function walletAmountChanged() {
     if (!input) return;
     const w = state.walletInfo;
     const c = w.config;
-    const n = Number(input.value);
+    const normalized = normalizeWalletAmount(input.value);
+    const n = Number(normalized);
     const deposit = state.page === 'deposit';
     const ton = n / Number(c.gram_per_ton);
     const active = c.enabled && c.receiver && (deposit || c.withdraw_enabled);
     const connected = w.connected?.network === c.network;
-    const amountValid = n > 0 && input.validity.valid;
+    const amountValid = walletAmountIsValid(normalized);
     const withinDepositLimits = ton >= Number(c.min_deposit) && ton <= Number(c.max_deposit);
-    input.style.setProperty('--wallet-amount-digits', String(Math.max(input.value.length, 1)));
 
     let issue = '';
     if (!active) issue = deposit ? 'Пополнение пока недоступно' : 'Вывод пока недоступен';
@@ -454,14 +466,15 @@ function walletAmountChanged() {
     else if (deposit && amountValid && sameWallet(w.connected, state.externalWalletBalance) &&
         ton > Number(state.externalWalletBalance.balance_ton)) issue = 'Недостаточно TON в кошельке';
     else if (!deposit && Number(w.withdrawable) <= 0) {
-        issue = Number(w.funded_balance) <= 0
-            ? 'Нет GRAM из подтверждённых TON-пополнений для вывода'
+        issue = Number(w.balance) <= 0
+            ? 'Недостаточно GRAM на балансе Crafter'
             : Number(w.withdraw_daily_remaining) <= 0
                 ? 'Суточный лимит вывода исчерпан'
                 : 'Нет доступных средств для вывода';
     }
     else if (!deposit && n > Number(c.withdraw_max)) issue = 'Сумма превышает лимит одной операции';
-    else if (!deposit && n > Number(w.withdrawable)) issue = 'Сумма превышает подтверждённый доступный баланс';
+    else if (!deposit && n > Number(w.balance)) issue = 'Недостаточно GRAM на балансе Crafter';
+    else if (!deposit && n > Number(w.withdrawable)) issue = 'Сумма превышает суточный лимит вывода';
 
     document.querySelector('#wallet-submit').disabled = state.walletBusy || !amountValid || !!issue;
     const quote = document.querySelector('#wallet-quote');
@@ -483,7 +496,7 @@ function walletError(error) {
 
 async function sendDeposit() {
     if (state.walletBusy) return;
-    const gram = document.querySelector('#wallet-amount').value;
+    const gram = normalizeWalletAmount(document.querySelector('#wallet-amount').value);
     const connected = state.walletInfo.connected;
     state.walletBusy = true;
     walletAmountChanged();
@@ -560,7 +573,7 @@ async function requestWithdrawal() {
     walletAmountChanged();
     let failure;
     try {
-        const gram = document.querySelector('#wallet-amount').value;
+        const gram = normalizeWalletAmount(document.querySelector('#wallet-amount').value);
         const outcome = await api('wallet/withdraw', {gram, request_id:paymentRequestId('withdraw:'+state.me.user.id+':'+gram+':'+state.withdrawSession)});
         if (outcome.status !== 'queued') {
             throw Error(outcome.status === 'cancelled'
