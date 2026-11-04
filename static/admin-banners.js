@@ -13,6 +13,8 @@ async function renderAdminBanners(content) {
             <form class="banner-carousel-form">
                 <label><input type="checkbox" name="enabled" ${carousel.enabled ? 'checked' : ''}> Включить</label>
                 <label><input type="checkbox" name="show_counter" ${carousel.show_counter ? 'checked' : ''}> Показывать номер баннера</label>
+                <label><input type="checkbox" name="show_dots" ${carousel.show_dots !== false ? 'checked' : ''}> Показывать точки баннеров</label>
+                <label><input type="checkbox" name="auto_rotate" ${carousel.auto_rotate !== false ? 'checked' : ''}> Автоматически перелистывать</label>
                 <label>Интервал <input class="field" name="interval" type="number" min="2" max="60" value="${carousel.interval}" required> сек.</label>
                 <button class="secondary" type="submit">Сохранить</button>
             </form>
@@ -37,6 +39,8 @@ async function renderAdminBanners(content) {
         preview.replaceChildren(makeBannerCarousel(published, {
             enabled:form.elements.enabled.checked, interval:interval >= 2 && interval <= 60 ? interval : 5,
             show_counter: form.elements.show_counter.checked,
+            show_dots: form.elements.show_dots.checked,
+            auto_rotate: form.elements.auto_rotate.checked,
         }));
     };
     form.addEventListener('change', paintPreview);
@@ -47,6 +51,8 @@ async function renderAdminBanners(content) {
         try {
             await api('admin/banners/carousel', {enabled:form.elements.enabled.checked,
                 show_counter:form.elements.show_counter.checked,
+                show_dots:form.elements.show_dots.checked,
+                auto_rotate:form.elements.auto_rotate.checked,
                 interval:Number(form.elements.interval.value)});
             toast('Карусель сохранена');
         } catch (error) { toast(error.message); }
