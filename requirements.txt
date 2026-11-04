@@ -7,3 +7,5 @@ tonsdk>=1.0.15,<2
 psycopg[binary]>=3.2,<4
 
 Pillow>=12.2,<14
+telethon>=1.42,<3
+cryptography>=43,<47
