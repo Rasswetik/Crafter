@@ -316,7 +316,7 @@ function showGiftDetail(gift, source) {
                 <button type="button" onclick="startResale('edit', ${arg(gift.id)})">Редактировать</button></div>` : ''}
         </div>
         ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` : own ? `<div class="product-actions owned-gift-actions">
-            <button class="secondary" onclick="toast('Вывод пока недоступен')">Вывод</button>
+            <button class="secondary" onclick="requestGiftWithdrawal(${arg(gift.id)})">Вывести NFT</button>
             <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>
         </div>` : source === 'market' ? `<div class="market-gift-actions market-offer-actions">
             ${gift.own_listing ? `<button class="primary" onclick="openListedInventory()">Управлять в инвентаре</button>` : `
@@ -345,7 +345,7 @@ function showGiftDetail(gift, source) {
         setTimeout(() => {
             if (!panel?.isConnected || !art?.isConnected || state.detailGift !== gift) return;
             loadGiftAttributePrices(panel, gift, attributes);
-            mountGiftAnimation(art, gift, null, false); // Tap the gift to play animation on demand.
+            mountGiftAnimation(art, gift, null, own); // Auto-play TGS for owned gift details.
         }, 40);
     });
 };
@@ -393,6 +393,19 @@ async function localBuyGift(id) {
 }
 
 
+async function requestGiftWithdrawal(id) {
+    if (!state.detailGift || state.detailGift.id !== id) return;
+    if (!confirm('Создать заявку на вывод этого NFT в Telegram? Подарок будет заморожен до завершения передачи на Relayer.')) return;
+    const gift=state.detailGift;
+    try {
+        const request_id=paymentRequestId('gift-withdraw:'+state.me.user.id+':'+id+':'+Date.now());
+        await api('gifts/withdraw',{gift_id:id,request_id});
+        state.inventory=state.inventory.map(item=>item.id===id?{...item,status:'withdrawing'}:item);
+        closeSheet();
+        toast('Заявка отправлена. Подарок заблокирован до подтверждения вывода.');
+        if(state.page==='gifts') go('gifts');
+    }catch(e){toast(e.message)}
+}
 function craftGiftById(id){state.selected=[id];state.quote=null;closeSheet();go('craft')}
 
 state.targetOrder='desc';const targetSheet=openCatalogSheet;openCatalogSheet=async function(kind){state.targetOrder='desc';await targetSheet(kind);if(document.querySelector('#catalog-rows')){document.querySelector('.catalog-columns').innerHTML='<span>'+({target:'КОЛЛЕКЦИЯ',collection:'КОЛЛЕКЦИЯ',model:'МОДЕЛЬ',backdrop:'ФОН',symbol:'СИМВОЛ'}[kind]||'')+'</span><button class="target-order" onclick="toggleTargetOrder()">ФЛОР ↓</button>';sortTargets()}};
