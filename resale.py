@@ -164,7 +164,9 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
             for trait in traits:
                 name = gift.get(trait)
                 if name and (name not in attributes[trait] or price < Decimal(attributes[trait][name]['price'])):
-                    attributes[trait][name] = {'value':name, 'name':name, 'price':str(price)}
+                    attributes[trait][name] = {'value':name, 'name':name, 'price':str(price),
+                        'collection_name': gift.get('name',''),
+                        'background': gift.get('background') if trait=='backdrop' else None}
             if not limits[0] <= price <= limits[1]:
                 continue
             if query and query not in ' '.join(str(gift.get(k, '')) for k in ('name', 'model', 'number')).casefold():
