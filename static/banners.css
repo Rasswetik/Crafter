@@ -1,0 +1,24 @@
+.banner-carousel {margin:0 0 12px}
+.banner-viewport {
+    position:relative;aspect-ratio:15 / 4;overflow:hidden;isolation:isolate;
+    border-radius:clamp(14px,5vw,24px);background:#242830;touch-action:pan-y;
+}
+.banner-slide {position:absolute;inset:0;display:none;width:100%;height:100%;padding:0;overflow:hidden}
+.banner-slide img,.banner-crop-preview img {display:block;width:100%;height:100%;object-fit:cover}
+.banner-slide:focus-visible {outline-offset:-4px}
+.banner-slide.banner-active {display:block;z-index:2;animation:banner-enter .32s ease-out both}
+.banner-slide.banner-out {display:block;pointer-events:none;animation:banner-exit .32s ease-out both}
+.banner-slide.banner-backwards {--banner-direction:-1}
+@keyframes banner-enter {from {transform:translateX(calc(100% * var(--banner-direction,1)))}}
+@keyframes banner-exit {to {transform:translateX(calc(-100% * var(--banner-direction,1)));visibility:hidden}}
+.banner-slide:first-child:only-child {animation:none}
+.banner-dots {display:flex;justify-content:center;flex-wrap:wrap;margin:3px 0 -4px}
+.banner-dots button {display:grid;place-items:center;width:18px;height:22px;padding:0}
+.banner-dots button::before {content:'';width:5px;height:5px;border-radius:50%;background:#686868}
+.banner-dots button[aria-current=true]::before {width:12px;border-radius:5px;background:#eee}
+.banner-lucky-gifts {max-height:55dvh;overflow:auto;scrollbar-width:thin}
+.banner-lucky-gifts .transfer-art {flex:none}
+@media (prefers-reduced-motion:reduce) {
+    .banner-slide.banner-active {animation:none}
+    .banner-slide.banner-out {display:none}
+}

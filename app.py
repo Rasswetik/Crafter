@@ -180,6 +180,9 @@ def create_app(config=None):
         return dict(id=n['id'],name=n.get('name','Gift'),collection_id=n.get('collection_id',''),model=attrs.get('model',''),symbol=attrs.get('symbol',attrs.get('pattern','')),backdrop=attrs.get('backdrop',''),price=str(n.get('price') or n.get('floor_price') or '0'),number=n.get('external_collection_number',''),image=n.get('photo_url',''))
     @app.get('/')
     def index():return render_template('index.html')
+    @app.get('/admin')
+    def admin_page():return render_template('admin.html')
+
     @app.get('/collections/<slug>')
     def collection_page(slug):
         return render_template('index.html')
@@ -193,7 +196,7 @@ def create_app(config=None):
         return build_preview()
     @app.after_request
     def cache_control(response):
-        if request.path=='/' or request.path=='/preview' or request.path.startswith('/static/'):
+        if request.path in {'/', '/admin', '/preview', '/api/banners'} or request.path.startswith('/static/'):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')
@@ -945,6 +948,8 @@ def create_app(config=None):
     bot_settings = install_telegram_bot(app, db, auth, audit)
     from wallet import install_wallet
     install_wallet(app,db,auth,record,audit)
+    from banners import install_banners
+    install_banners(app, db, auth, audit)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     return app

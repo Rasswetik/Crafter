@@ -105,10 +105,9 @@ function syncBulkSelection(bulk) {
         state.cartSelected.add(gift.id);
         bulk.added.add(gift.id);
     }
-    const added = requested.filter(gift => state.cart.has(gift.id));
     saveCart();
     updateMarketCartButtons();
-    paintBulkSummary(added);
+    paintBulkControls();
 }
 
 function paintBulkSummary(items) {
@@ -126,6 +125,7 @@ function paintBulkControls() {
     if (!bulk || !range) return;
     range.max = bulk.max;
     range.value = bulk.count;
+    range.style.setProperty('--bulk-progress', (bulk.max ? 100 * bulk.count / bulk.max : 0) + '%');
     range.disabled = !bulk.ready || !bulk.max || Boolean(state.marketFilterPending);
     paintBulkSummary(marketBulkCandidates().slice(0, bulk.count).filter(item => state.cart.has(item.id)));
 }

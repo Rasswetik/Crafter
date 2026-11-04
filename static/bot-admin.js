@@ -1,16 +1,3 @@
-const baseBotAdmin = renderAdmin;
-renderAdmin = async function () {
-    if (state.adminSection === 'telegram-bot') return renderTelegramBotAdmin();
-    await baseBotAdmin();
-    if (state.page !== 'admin' || state.adminSection === 'telegram-bot') return;
-    document.querySelector('.admin-tabs')?.insertAdjacentHTML('beforeend', telegramBotTab());
-};
-
-function telegramBotTab() {
-    const selected = state.adminSection === 'telegram-bot';
-    return `<button class="${selected ? 'selected' : ''}" onclick="state.adminSection='telegram-bot';renderAdmin()">Telegram-бот</button>`;
-}
-
 function botButtonRow(button = {text: '', type: 'web_app', url: ''}) {
     return `<fieldset class="bot-inline-row">
         <label>Подпись<input class="field" name="button-text" maxlength="64" value="${esc(button.text)}" required></label>
@@ -30,17 +17,9 @@ function botButtonRow(button = {text: '', type: 'web_app', url: ''}) {
     </fieldset>`;
 }
 
-async function renderTelegramBotAdmin() {
-    document.querySelector('#main').innerHTML = `
-        <div class="admin-title"><h1>Управление</h1><button onclick="go('profile')">Закрыть</button></div>
-        <div class="admin-tabs">
-            <button onclick="state.adminSection='users';renderAdmin()">Пользователи</button>
-            <button onclick="state.adminSection='portal';renderAdmin()">Portal Market</button>
-            <button onclick="state.adminSection='tonconnect';renderAdmin()">TON Connect</button>
-            ${telegramBotTab()}
-        </div>
-        <section class="panel" id="bot-admin-content"><p>Загрузка…</p></section>`;
-    const content = document.querySelector('#bot-admin-content');
+async function renderTelegramBotAdmin(content = document.querySelector('#admin-content')) {
+    content.innerHTML = '<section class="panel" id="bot-admin-content"><p>Загрузка…</p></section>';
+    content = content.firstElementChild;
     try {
         const config = await api('admin/telegram-bot');
         if (!content.isConnected) return;

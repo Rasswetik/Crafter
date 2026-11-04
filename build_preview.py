@@ -7,6 +7,7 @@ def build_preview():
     html=(root/'templates/index.html').read_text().replace('<script async src="https://telegram.org/js/telegram-web-app.js"></script>','')
     html = html.replace("{% include 'collection.html' %}", (root/'templates/collection.html').read_text())
     html=html.replace('<link rel="stylesheet" href="/static/style.css">','<style>'+(root/'static/style.css').read_text()+'</style>')
+    html=html.replace('<link rel="stylesheet" href="/static/banners.css">','<style>'+(root/'static/banners.css').read_text()+'</style>')
     mock=r'''
     const previewGifts=GIFTS;
 const previewCatalog=CATALOG_SEED;
@@ -21,7 +22,8 @@ const previewCatalog=CATALOG_SEED;
     window.fetch=async (url,options={})=>{
      if(!url.startsWith('/api/'))return fetchExternal(url,options);
      const route=url.replace('/api/','').split('?')[0],body=JSON.parse(options.body||'{}');let data={},ok=true;
-     if(route==='craft/targets')data={gifts:previewGifts,demo:true};
+     if(route==='craft/targets')data={collections:previewCatalog.collections,demo:true};
+     else if(route==='banners')data={banners:[],carousel:{enabled:false,interval:5}};
      else if(route==='me')data={user:{id:5257227756,first_name:'Гошан',username:'goshan_wow'},is_admin:true,demo:true,balance:String(demoState.balance),inventory_count:demoState.inventory.length,inventory_value:String(demoState.inventory.reduce((a,x)=>a+Number(x.price),0)),bought:demoState.history.filter(x=>x.kind==='buy').length,sold:0,volume:'0',referrals:0,referral_level:1,referral_progress:0,invite_link:null};
      else if(route==='market/activity'){
         const params=new URLSearchParams(url.split('?')[1]||''), collectionIds=params.get('collections')?.split(',').filter(Boolean)||[];

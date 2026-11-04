@@ -55,13 +55,8 @@ function renderTransferPicker(first = false) {
                 <button type="button" class="sort" data-picker-reset aria-label="Сбросить фильтры">${icon('filter')}</button>
                 <button type="button" class="sort" data-picker-sort aria-label="Сортировать по цене" aria-pressed="false">${icon('sortOrder')}</button>
                 <span class="filter-divider"></span>
-                ${transferPickerTraits.map(([key, label]) => `<label class="filter-chip transfer-filter-chip">
-                    <select aria-label="${label}" data-picker-filter="${key}">
-                        <option value="">${label}</option>
-                        ${[...new Set(inventory.map(gift => gift[key]).filter(Boolean))].sort((a,b) => a.localeCompare(b)).map(value =>
-                            `<option value="${esc(value)}">${esc(value)}</option>`).join('')}
-                    </select>${icon('chevron')}
-                </label>`).join('')}
+                ${transferPickerTraits.map(([key, label]) => `<button type="button" class="filter-chip transfer-filter-chip"
+                    data-picker-filter="${key}" aria-haspopup="dialog">${label}${icon('chevron')}</button>`).join('')}
             </div>
             <div class="transfer-select-tools">
                 <label><input class="transfer-checkbox" type="checkbox" data-picker-all> Выбрать всё <small data-picker-count></small></label>
@@ -69,6 +64,7 @@ function renderTransferPicker(first = false) {
             </div>
         </div>
         <div class="transfer-picker-list"></div>
+        <dialog class="transfer-filter-dialog" aria-labelledby="transfer-filter-title"></dialog>
         <div class="transfer-actions transfer-picker-footer"><button class="secondary" onclick="${first ? 'closeSheet()' : 'renderTransferRecipient()'}">Отмена</button>
         <button class="primary" id="transfer-picker-apply" onclick="applyTransferPicker()">Выбрать</button></div>`);
     const dialog = document.querySelector('#sheet');
@@ -76,7 +72,9 @@ function renderTransferPicker(first = false) {
     const panel = document.querySelector('#sheet-body');
     const input = panel.querySelector('input[type=search]');
     const list = panel.querySelector('.transfer-picker-list');
-    const selects = [...panel.querySelectorAll('[data-picker-filter]')];
+    const filterButtons = [...panel.querySelectorAll('[data-picker-filter]')];
+    const filterDialog = panel.querySelector('.transfer-filter-dialog');
+    const filters = new Map();
     const all = panel.querySelector('[data-picker-all]');
     const clear = panel.querySelector('[data-picker-clear]');
     const sortButton = panel.querySelector('[data-picker-sort]');
@@ -100,7 +98,7 @@ function renderTransferPicker(first = false) {
     const paint = () => {
         const query = input.value.trim().toLowerCase();
         visible = inventory.filter(gift =>
-            selects.every(select => !select.value || gift[select.dataset.pickerFilter] === select.value) &&
+            [...filters].every(([key, values]) => values.has(gift[key])) &&
             [gift.name, gift.number, gift.model, gift.backdrop].some(value => String(value ?? '').toLowerCase().includes(query)));
         if (sort) visible.sort((a,b) => Number(a.floor_price || a.price || 0) - Number(b.floor_price || b.price || 0));
         list.innerHTML = visible.map((gift, index) => transferPickerRow(gift, index, draft.picking.has(gift.id))).join('') ||
@@ -124,7 +122,33 @@ function renderTransferPicker(first = false) {
     };
 
     input.addEventListener('input', paint);
-    selects.forEach(select => select.addEventListener('change', paint));
+    const paintFilters = () => {
+        filterButtons.forEach((button, index) => {
+            const [key, label] = transferPickerTraits[index];
+            const values = filters.get(key);
+            button.classList.toggle('has-value', Boolean(values?.size));
+            button.innerHTML = label + (values?.size ? `<span>${values.size}</span>` : '') + icon('chevron');
+        });
+        list.scrollTop = 0;
+        paint();
+    };
+    filterButtons.forEach((button, index) => {
+        const [key, label] = transferPickerTraits[index];
+        button.onclick = () => {
+            const rows = new Map();
+            for (const gift of inventory) {
+                if (gift[key] && (key === 'name' || !filters.has('name') || filters.get('name').has(gift.name))) {
+                    if (!rows.has(gift[key])) rows.set(gift[key], gift);
+                }
+            }
+            openTransferFilter(filterDialog, key, label, rows, filters.get(key), selected => {
+                if (selected.size) filters.set(key, selected);
+                else filters.delete(key);
+                if (key === 'name') transferPickerTraits.slice(1).forEach(([trait]) => filters.delete(trait));
+                paintFilters();
+            });
+        };
+    });
     sortButton.onclick = () => {
         sort = !sort;
         sortButton.setAttribute('aria-pressed', String(sort));
@@ -132,8 +156,8 @@ function renderTransferPicker(first = false) {
     };
     panel.querySelector('[data-picker-reset]').onclick = () => {
         input.value = '';
-        selects.forEach(select => { select.value = ''; });
-        paint();
+        filters.clear();
+        paintFilters();
     };
     all.onchange = () => {
         if (all.checked) {
@@ -164,8 +188,48 @@ function renderTransferPicker(first = false) {
         }
         paintSelection();
     });
-    dialog.addEventListener('close', () => observer?.disconnect(), {once:true});
+    dialog.addEventListener('close', () => { observer?.disconnect(); filterDialog.close(); }, {once:true});
     paint();
+}
+
+function openTransferFilter(dialog, key, label, rows, selection, apply) {
+    const selected = new Set(selection);
+    dialog.innerHTML = `<div class="sheet-head"><h2 id="transfer-filter-title">${label}</h2>
+        <button type="button" class="close" aria-label="Закрыть">×</button></div>
+        <label class="catalog-search search-box">${icon('search')}<input type="search" placeholder="Быстрый поиск" aria-label="Быстрый поиск"></label>
+        <div class="catalog-rows"></div>
+        <div class="catalog-footer"><button type="button" data-reset>Сбросить</button><button type="button" class="apply">Применить</button></div>`;
+    const list = dialog.querySelector('.catalog-rows');
+    const input = dialog.querySelector('input');
+    const paint = () => {
+        const query = input.value.trim().toLocaleLowerCase();
+        list.innerHTML = [...rows].sort(([a],[b]) => a.localeCompare(b)).filter(([name]) => name.toLocaleLowerCase().includes(query))
+            .map(([name, gift]) => {
+                const checked = selected.has(name);
+                const art = key === 'backdrop' ? `<span class="catalog-thumb" style="background:${giftBackdrop(gift)}"></span>` :
+                    key === 'symbol' ? '' : transferArt(gift);
+                return `<button type="button" class="catalog-row" data-value="${esc(name)}" aria-pressed="${checked}">
+                    <span class="catalog-check ${checked ? 'checked' : ''}">${checked ? '✓' : ''}</span>${art}<strong>${esc(name)}</strong></button>`;
+            }).join('') || '<div class="catalog-empty">Ничего не найдено</div>';
+    };
+    list.onclick = event => {
+        const button = event.target.closest('[data-value]');
+        if (!button) return;
+        const {value} = button.dataset;
+        if (selected.has(value)) selected.delete(value);
+        else {
+            if (key !== 'name') selected.clear();
+            selected.add(value);
+        }
+        paint();
+        [...list.querySelectorAll('button')].find(row => row.dataset.value === value)?.focus({preventScroll:true});
+    };
+    input.oninput = paint;
+    dialog.querySelector('.close').onclick = () => dialog.close();
+    dialog.querySelector('[data-reset]').onclick = () => { selected.clear(); paint(); };
+    dialog.querySelector('.apply').onclick = () => { dialog.close(); apply(selected); };
+    paint();
+    dialog.showModal();
 }
 
 function paintTransferTraits(row, data) {

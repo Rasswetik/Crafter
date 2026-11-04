@@ -520,7 +520,18 @@ html { touch-action: pan-x pan-y; }
 .market-tool.selected { background: #f4f4f4; color: #252525; }
 .market-tool[aria-expanded="true"] svg { rotate: 180deg; }
 .market-bulk { display: grid; grid-template-columns: minmax(0, 1fr) max-content; align-items: center; gap: 10px; border: 1px solid #343434; background: #1d1d1d; border-radius: 17px; padding: 8px 12px; margin: 0 0 10px; }
-.market-bulk input { width: 100%; accent-color: #fff; }
+/* Keep the same slider geometry in Telegram's WebView and desktop browsers. */
+.market-bulk input {appearance:none;width:100%;background:none;--bulk-progress:0%}
+.market-bulk input::-webkit-slider-runnable-track {
+    height:6px;border-radius:8px;background:linear-gradient(to right,#fff var(--bulk-progress),#424242 var(--bulk-progress));
+}
+.market-bulk input::-moz-range-track {
+    height:6px;border-radius:8px;background:linear-gradient(to right,#fff var(--bulk-progress),#424242 var(--bulk-progress));
+}
+.market-bulk input::-webkit-slider-thumb {
+    appearance:none;width:15px;height:15px;margin-top:-4.5px;border-radius:50%;background:#fff;
+}
+.market-bulk input::-moz-range-thumb {width:15px;height:15px;border:0;border-radius:50%;background:#fff}
 .market-bulk div { text-align: right; border-left: 1px solid #434343; padding-left: 10px; }
 .market-bulk small, .activity-summary small, .market-activity-row small { display: block; color: #a5a5a5; font-size: 11px; }
 .activity-summary { display: grid; grid-template-columns: 1fr auto minmax(0,1fr); gap: 8px; align-items: center; background: #202020; border-radius: 18px; padding: 11px; margin-bottom: 12px; }
@@ -742,10 +753,7 @@ button.market-activity-row:hover { background:#ffffff0b }
 .transfer-picker-controls .search-box {height:42px}
 .transfer-filter-strip {gap:6px;margin:11px 0 14px;padding-bottom:2px}
 .transfer-filter-strip .sort[aria-pressed="true"] {color:#64b2ff;background:#213347}
-.transfer-filter-chip {position:relative;flex:none;padding:0;min-height:34px}
-.transfer-filter-chip select {appearance:none;max-width:162px;background:none;border:0;color:inherit;padding:7px 28px 7px 13px;font-size:12px;font-weight:700}
-.transfer-filter-chip select option {background:#252525;color:white}
-.transfer-filter-chip svg {position:absolute;right:8px;top:50%;transform:translateY(-50%);width:13px;height:13px;pointer-events:none}
+.transfer-filter-chip {min-height:34px}
 .transfer-select-tools {display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:36px;margin:2px 0 7px;font-size:13px;font-weight:700}
 .transfer-select-tools label {display:flex;align-items:center;gap:7px}
 .transfer-select-tools small {color:#919199}
@@ -757,7 +765,7 @@ button.market-activity-row:hover { background:#ffffff0b }
 .transfer-checkbox:checked,.transfer-checkbox:indeterminate {border-color:#168aff;background:#168aff}
 .transfer-checkbox:checked::after {content:'';width:8px;height:4px;border:solid currentColor;border-width:0 0 2px 2px;transform:translateY(-1px) rotate(-45deg)}
 .transfer-checkbox:indeterminate::after {content:'';width:8px;height:2px;border-radius:1px;background:currentColor}
-.transfer-picker-list {display:flex;flex:1;flex-direction:column;gap:13px;min-height:0;overflow:auto;padding:2px 16px 14px;overscroll-behavior:contain;scrollbar-width:thin}
+.transfer-picker-list {display:flex;flex:1;flex-direction:column;gap:13px;min-height:0;overflow:auto;padding:2px 16px 14px;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#565656 transparent}
 .transfer-option {display:block;flex:none;padding:12px;border-radius:20px;background:#222;cursor:pointer}
 .transfer-option-top {display:grid;grid-template-columns:56px minmax(0,1fr) auto;align-items:center;gap:12px}
 .transfer-option-top .transfer-art {width:56px;border-radius:15px}
@@ -818,12 +826,14 @@ dialog.transfer-recipient-sheet {height:fit-content}
 .transfer-recipient-footer .transfer-actions {margin:0}
 .transfer-recipient-footer .transfer-actions button {min-width:0;min-height:46px;padding:8px;border-radius:23px;font-size:clamp(11px,3.5vw,15px)}
 .transfer-recipient-footer .sub {margin:7px 4px 0}
-.transfer-filter-strip {display:flex;flex-wrap:wrap;gap:5px;overflow:visible;margin:8px 0}
-.transfer-filter-strip .sort {width:32px;height:32px;flex-basis:32px}
-.transfer-filter-strip .filter-divider {margin:0 2px}
-.transfer-filter-chip {min-height:32px}
-.transfer-filter-chip select {max-width:132px;padding:6px 23px 6px 9px;font-size:11px}
-.transfer-filter-chip svg {right:6px}
+dialog.transfer-filter-dialog {
+    position:fixed;inset:auto 0 0;width:min(100% - 24px,480px);margin:0 auto;max-height:75dvh;
+    padding:18px 16px 0;border-radius:24px 24px 0 0;overflow:hidden;background:#202020;
+}
+.transfer-filter-dialog[open] {display:flex;flex-direction:column}
+.transfer-filter-dialog .catalog-rows {overflow:auto;min-height:96px;scrollbar-width:thin;scrollbar-color:#565656 transparent}
+.transfer-filter-dialog .catalog-footer {flex:none}
+.transfer-filter-dialog .transfer-art {flex:none}
 .wallet-balance-card .wallet-balance-actions {display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .wallet-balance-card .wallet-balance-actions button {
     display:flex;align-items:center;justify-content:center;gap:7px;min-height:46px;padding:8px 6px;

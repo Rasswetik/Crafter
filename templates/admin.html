@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ru">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="theme-color" content="#131313">
+    <title>Crafter · Управление</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/banners.css">
+    <link rel="stylesheet" href="/static/admin.css">
+</head>
+<body class="admin-page">
+    <div class="admin-shell">
+        <div class="admin-page-heading">
+            <div><small>CRAFTER</small><h1>Управление</h1></div>
+            <a href="/?view=profile">В приложение ↗</a>
+        </div>
+        <main id="main" class="admin-main">
+            <p class="sub" role="status">Проверяем доступ…</p>
+        </main>
+    </div>
+    <dialog id="sheet">
+        <div class="sheet-head"><h2 id="sheet-title"></h2><button class="close" onclick="closeSheet()" aria-label="Закрыть">×</button></div>
+        <div id="sheet-body"></div>
+    </dialog>
+    <div id="toast" role="status"></div>
+    <script src="/static/app.js"></script>
+    <script src="/static/screens.js"></script>
+    <script src="/static/wallet.js"></script>
+    <script src="/static/bot-admin.js"></script>
+    <script src="/static/banner-carousel.js"></script>
+    <script src="/static/admin-banners.js"></script>
+    <script src="/static/admin-page.js"></script>
+</body>
+</html>
