@@ -13,13 +13,14 @@ go = async function (page) {
 function nav(){document.querySelector('#nav').innerHTML=`<div class="nav-main">${[['market','market','Маркет'],['gifts','gift','Мои подарки'],['craft','hammer','Крафт']].map(([p,i,t])=>`<button onclick="go('${p}')" class="${state.page===p?'active':''}">${icon(i)}${t}</button>`).join('')}</div><button class="profile-nav ${['profile','admin'].includes(state.page)?'active':''}" onclick="go('profile')" aria-label="Профиль"><span class="avatar">${avatar()}</span></button>`}
 function card(g, action = 'detail') {
     const own = state.page === 'gifts' && action === 'detail';
-    const canSend = g.status === 'unlisted';
+    const canSend = g.status === 'unlisted' && !g.catalog_only;
     const floor = productFloor(g);
     return `<article class="gift ${own ? 'inventory-gift' : ''}">
         <button class="art" onclick="${action}(${arg(g.id)})" aria-label="${esc(g.name)}">
             <img ${giftPicture(g)} alt="${esc(g.name)}" loading="lazy">
         </button>
         ${own && canSend ? `<button class="inventory-craft-dot" onclick="craftGiftById(${arg(g.id)})" aria-label="Использовать для крафта">${anvilArt('inventory-anvil')}</button>` : ''}
+        ${own ? `<button type="button" class="inventory-send-plane" ${canSend ? `onclick="startGiftTransfer(${arg(g.id)})"` : 'disabled'} aria-label="Отправить ${esc(g.name)}${g.number ? ' #' + esc(g.number) : ''} пользователю Telegram" title="${canSend ? 'Отправить подарок' : 'Сначала снимите подарок с продажи'}">${crafterTelegramPlaneSVG()}</button>` : ''}
         ${g.resale ? `<span class="resale-source">${g.own_listing ? 'Мой лот' : 'Craft Market'}</span>` : ''}
         <h3>${esc(g.name)}</h3><p class="number">#${esc(g.number)}</p>
         <div class="gift-bottom">
