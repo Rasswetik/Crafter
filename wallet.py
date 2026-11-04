@@ -247,8 +247,12 @@ def install_wallet(app,db,auth,record,audit):
         wid='w-'+str(g.user['id'])+'-'+rid
         with db():
             db().execute('BEGIN IMMEDIATE')
-            old=db().execute('SELECT id,status FROM ton_withdrawals WHERE id=?',(wid,)).fetchone()
-            if old:return dict(old)
+            old=db().execute('SELECT id,status,payload FROM ton_withdrawals WHERE id=? AND user_id=?',
+                             (wid,g.user['id'])).fetchone()
+            if old:
+                if Decimal(json.loads(old['payload'])['gram']) != value:
+                    abort(409,description='Идентификатор заявки уже использован для другой суммы')
+                return {'id':old['id'],'status':old['status']}
             w=db().execute('SELECT * FROM connected_wallets WHERE user_id=?',(g.user['id'],)).fetchone()
             if not w or w['network']!=c['network']:abort(409,description='Подключите кошелёк нужной сети')
             balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])
