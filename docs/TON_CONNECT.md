@@ -11,12 +11,17 @@ Only credits backed by verified deposits on the selected network are eligible fo
 
 ## Persistence
 
-Render Free uses an ephemeral filesystem. WAL does not make it persistent.
-Before changing compute plans or redeploying, download the authenticated SQLite backup from the TON Connect admin section. Backups contain private user data and the configured RPC API key: keep them private.
+1. Before restarting or changing the Render plan, open Crafter as a Telegram administrator and download **Скачать резервную копию SQLite** from **Профиль → Админ-панель → TON Connect**. Schedule the cutover for a quiet period so purchases and wallet activity after the export are not lost. Keep the file private. It contains user data and may contain a configured RPC API key. The download strips Telegram bot credentials saved through the admin panel, so reconfigure that bot after restoring if needed.
+2. Attach a persistent disk at `/var/data` on a paid Render web service. Render starts a new deploy when the disk is attached. Keep the application in maintenance during restoration.
+3. Upload the backup and `scripts/restore_sqlite.py` privately via Render SSH/SFTP. Restore to a new filename, even if the app has already initialized an empty default database on the disk.
 
-Attach a persistent disk at `/var/data` to a supported paid Render service. The application automatically uses `/var/data/crafter.sqlite3` when that directory is present, unless DATABASE explicitly specifies a different file. Restore the SQLite backup to that path while the service is stopped. Only files under the actual mount persist. Mainnet funding is blocked on Render unless the database is under the mounted `/var/data` disk.
+   ```sh
+   python /var/data/restore_sqlite.py /var/data/crafter-backup.sqlite3 /var/data/crafter-restored.sqlite3
+   ```
 
-No paid plan or disk is provisioned automatically by this code change.
+4. Set the Render environment variable `DATABASE` to `/var/data/crafter-restored.sqlite3` and deploy. Verify the reported storage path and durability in **TON Connect** admin settings. Compare existing balances, gift inventory, wallet history and pending transfers before reopening the app.
+
+The restore command checks SQLite integrity and the required Crafter tables before publishing the file. It refuses to overwrite a database. Mainnet funding on Render requires a database under the mounted `/var/data` disk.
 
 ## Verification performed
 
