@@ -29,6 +29,8 @@ assert.equal(exec('crafterShareBotBase()'),'https://t.me/crafter_robot');
 assert.equal(exec('crafterGiftShareParam(state.detailGift)'),'nft_luckylocket-5469');
 assert.equal(exec('crafterGiftFromParam("nft_luckylocket-5469").number'),'5469');
 assert.equal(exec('crafterGiftFromParam("nft_<script>-1")'),null);
+assert.equal(exec('crafterGiftFromParam("lot_../../admin")'),null);
+assert.equal(exec('crafterGiftFromParam("nft_no-0")'),null);
 assert.match(exec('crafterGiftEyeSVG()'),/viewBox="0 0 14 10"/);
 assert.match(exec('crafterGiftShareSVG()'),/viewBox="0 0 21 20"/);
 assert.match(exec('crafterLuckyActionSVG()'),/viewBox="0 0 24 24"/);
