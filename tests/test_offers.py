@@ -61,9 +61,21 @@ def test_offer_fee_refunds_and_acceptance(client, notifications):
         assert db.execute("SELECT status FROM crafter_offers WHERE id=?", (offer['id'],)).fetchone()[0] == 'accepted'
     acquired, = client.get('/api/inventory', headers=signed(43)).json['gifts']
     assert acquired['id'] == gift['id'] and acquired['number'] == gift['number']
-    assert [entry[0] for entry in notifications] == ['sendMessage','sendSticker']
-    assert all(entry[1]['chat_id'] == 42 for entry in notifications)
-    assert notifications[1][2]['sticker'] == b'animated-sticker'
+    seller_messages = [msg for method,msg,_ in notifications
+                       if method == 'sendMessage' and msg['chat_id'] == 42]
+    assert len([msg for msg in seller_messages if 'New offer:' in msg['text']]) == 3
+    assert len([msg for msg in seller_messages if 'Offer withdrawn:' in msg['text']]) == 1
+    assert len([msg for msg in seller_messages if 'has been sold' in msg['text']]) == 1
+    assert any(method == 'sendSticker' and msg['chat_id'] == 42 and kw['sticker'] == b'animated-sticker'
+               for method,msg,kw in notifications)
+    assert any(method == 'sendMessage' and msg['chat_id'] == 43 and
+               'Successfully purchased' in msg['text'] for method,msg,_ in notifications)
+    assert client.get('/api/wallet/history?types=offer_withdrawn',
+                      headers=signed(42)).json['items'][0]['kind'] == 'offer_withdrawn'
+    history = client.get('/api/wallet/history?types=sale', headers=signed(42)).json['items'][0]
+    assert history['data']['price'] == '5.00'
+    assert history['data']['proceeds'] == '4.80'
+    assert history['data']['balance_after'] == '4.80'
 
 
 def test_regular_purchase_and_expiry_release_offer_reservations(client):
