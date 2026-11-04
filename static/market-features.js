@@ -55,20 +55,28 @@ function paintCollectionMarketFeatures(grid) {
 
     const offer = document.createElement('article');
     offer.className = 'collection-offer-card';
-    offer.innerHTML = `<img src="/static/assets/offer-magnate.webp" alt="" width="120" height="120">
+    // The collection preview must always be the *collection* thumbnail,
+    // never a random model/gift illustration.
+    const collectionArt = imageURL(collection.photo_url) || fragmentCollectionImage(giftCollectionSlug(collection.name));
+    offer.innerHTML = `<img src="${esc(collectionArt)}" alt="${esc(collection.name)}" width="120" height="120">
         <strong data-best-offer>—</strong><small data-offer-status>Лучшее предложение</small>
-        <button type="button" class="offer-sell" disabled>Продай сейчас</button>
+        <button type="button" class="offer-sell" disabled>Продать сейчас</button>
         <button type="button" class="offer-open">Офферы <span>0</span></button>`;
     grid.prepend(offer);
     const entry = offerRequest(collection);
     offer.querySelector('.offer-open').onclick = () => openCollectionOffers(collection, entry);
     function paint(data) {
         if (!offer.isConnected || !data) return;
-        offer.querySelector('[data-best-offer]').textContent = data.best ? money(data.best.price_gram) + ' GRAM' : '—';
+        const best = data.best;
+        offer.querySelector('[data-best-offer]').textContent = best ? money(best.price_gram) + ' GRAM' : '—';
+        offer.querySelector('[data-offer-status]').textContent = !best
+            ? 'Нет активных обеспеченных офферов'
+            : best.executable ? 'Лучшее предложение' : 'Нет подходящего подарка для этого оффера';
         offer.querySelector('.offer-open span').textContent = data.count;
         const sell = offer.querySelector('.offer-sell');
-        sell.disabled = !data.best?.executable;
-        sell.onclick = () => acceptCollectionOffer(collection, data.best);
+        sell.disabled = !best?.executable;
+        sell.textContent = !best ? 'Нет офферов' : 'Продать сейчас';
+        sell.onclick = () => acceptCollectionOffer(collection, best);
     }
     if (entry.data) paint(entry.data);
     else entry.promise.then(paint);
