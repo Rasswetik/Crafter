@@ -189,14 +189,14 @@ html[data-crafter-theme="light"] .gifts-empty-dots button[aria-current="true"]::
 /* The Telegram transfer action belongs to each owned NFT tile. */
 #main .inventory-gift .inventory-send-plane {
     position:absolute; top:12px; right:12px; z-index:6;
-    display:grid; place-items:center; width:34px; height:34px;
+    display:grid; place-items:center; width:52px; height:32px;
     padding:0; border:1px solid rgba(255,255,255,.26);
-    border-radius:11px; color:#fff; background:#168aff;
+    border-radius:999px; color:#fff; background:#168aff;
     box-shadow:0 2px 12px rgba(0,0,0,.32);
     cursor:pointer; -webkit-tap-highlight-color:transparent;
 }
 #main .inventory-gift .inventory-send-plane svg {
-    display:block; width:20px; height:20px; fill:currentColor;
+    display:block; width:21px; height:21px; fill:currentColor;
     stroke:none; pointer-events:none;
 }
 #main .inventory-gift .inventory-send-plane:not(:disabled):active {transform:scale(.94)}
@@ -206,6 +206,13 @@ html[data-crafter-theme="light"] .gifts-empty-dots button[aria-current="true"]::
     opacity:.68; cursor:not-allowed;
 }
 @media(max-width:370px){
-    #main .inventory-gift .inventory-send-plane {top:9px;right:9px;width:30px;height:30px;border-radius:10px}
-    #main .inventory-gift .inventory-send-plane svg {width:18px;height:18px}
+    #main .inventory-gift .inventory-send-plane {top:9px;right:9px;width:45px;height:29px;border-radius:999px}
+    #main .inventory-gift .inventory-send-plane svg {width:19px;height:19px}
 }
+
+/* Center the Telegram plane in the oval of the inventory's existing Send action. */
+#main .inventory-actions button[data-inventory-transfer] .inventory-send-oval-icon {
+    display:grid;place-items:center;flex:none; width:48px;height:27px;
+    border-radius:999px;background:#168aff;color:#fff;
+}
+#main .inventory-actions button[data-inventory-transfer] .inventory-send-oval-icon svg {width:18px;height:18px;fill:currentColor;stroke:none;margin:auto}
