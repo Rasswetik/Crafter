@@ -4,7 +4,7 @@ import os, json, time, hmac, hashlib, sqlite3, secrets, threading, uuid
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 from pathlib import Path
-from urllib.parse import parse_qsl, urlencode
+from urllib.parse import parse_qsl, urlencode, quote
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError, URLError
 from flask import Flask, request, jsonify, render_template, g, abort
@@ -324,7 +324,13 @@ def create_app(config=None):
             import thermos
             return [dict(name=m['name'],image=m.get('image_url',''),price=thermos.ton(m.get('stats',{}).get('floor')),price_unit='TON',price_source='thermos') for m in collection_attributes(slug).get('models',[])]
         live,_=cached('models:'+slug)
-        return live or next((c.get('models',[]) for c in catalog_seed['collections'] if c['id']==slug or c['short_name']==slug),[])
+        models=live or next((c.get('models',[]) for c in catalog_seed['collections'] if c['id']==slug or c['short_name']==slug),[])
+        collection=next((c for c in cached('collections',[])[0] + catalog_seed['collections'] if
+                         str(c.get('id'))==slug or str(c.get('short_name'))==slug),None)
+        name=(collection or {}).get('name','')
+        return [{**m,'image':('https://api.changes.tg/model/'+quote(name,safe='')+'/'+
+                quote(str(m['name']),safe='')+'.png?size=128') if name and m.get('name') else ''}
+                for m in models]
     @app.get('/api/collections/<slug>/overview')
     @auth()
     def collection_overview(slug):
@@ -1006,7 +1012,7 @@ def create_app(config=None):
                             for name,value in (models.items() if isinstance(models,dict) else [(x.get('name') or x.get('value'),x) for x in models if isinstance(x,dict)]):
                                 if not name:continue
                                 price=value.get('floor_price',value.get('floor',value.get('price',0))) if isinstance(value,dict) else value
-                                parsed.append({'name':name,'price':str(price or 0),'image':seed.get(name,{}).get('image',c.get('photo_url','')),'price_source':'portals'})
+                                parsed.append({'name':name,'price':str(price or 0),'image':('https://api.changes.tg/model/'+quote(str(c.get('name') or ''),safe='')+'/'+quote(str(name),safe='')+'.png?size=128') if c.get('name') else '', 'price_source':'portals'})
                             if parsed:
                                 with db():db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',('models:'+slug,json.dumps(parsed),int(time.time())))
                         except Exception as error:catalog_job['error']='Часть моделей не обновлена: '+str(error)[:100]
