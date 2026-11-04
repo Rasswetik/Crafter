@@ -39,7 +39,37 @@ def https_url(value):
         return False
 
 
-def notify_gift_transfer(config, recipient, gifts, sender, origin, default_token):
+GIFT_TEMPLATE = '🎁 You received {count} {gift_word} from {sender}: {gifts}!\n\nOpen your inventory to see them.'
+GIFT_TEMPLATE_STYLES = {'b', 'i', 'u', 's', 'tg-spoiler'}
+GIFT_TEMPLATE_FIELDS = {'count', 'gift_word', 'sender', 'gifts', 'message'}
+GIFT_TEMPLATE_TOKEN = re.compile(r'(</?[a-z-]+>|\{[a-z_]+\})')
+
+
+def render_gift_template(template, values):
+    chunks = []
+    styles = []
+    for index, part in enumerate(GIFT_TEMPLATE_TOKEN.split(template)):
+        if index % 2 and part.startswith('<'):
+            name = part.strip('</>')
+            if name not in GIFT_TEMPLATE_STYLES:
+                chunks.append(escape(part))
+                continue
+            if part.startswith('</'):
+                if not styles or styles.pop() != name:
+                    raise ValueError('Закройте стили в обратном порядке')
+            else:
+                styles.append(name)
+            chunks.append(part)
+        elif index % 2 and part[1:-1] in GIFT_TEMPLATE_FIELDS:
+            chunks.append(values[part[1:-1]])
+        else:
+            chunks.append(escape(part))
+    if styles:
+        raise ValueError('Закройте все теги стилей')
+    return ''.join(chunks)
+
+
+def notify_gift_transfer(config, recipient, gifts, sender, origin, default_token, personal_message=''):
     token = config.get('token') or default_token
     if not token:
         return
@@ -55,15 +85,19 @@ def notify_gift_transfer(config, recipient, gifts, sender, origin, default_token
         labels.append(f'<a href="https://t.me/nft/{slug}-{serial}">{label}</a>' if slug and serial.isdecimal() else label)
     extra = f' and {len(gifts)-7} others' if len(gifts) > 7 else ''
     url = config.get('app_url') or os.getenv('RENDER_EXTERNAL_URL') or origin
-    message = {'chat_id': recipient, 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True},
-               'text': f'🎁 You received {len(gifts)} {"gift" if len(gifts) == 1 else "gifts"} from {escape(source)}: '
-                       + ', '.join(labels) + extra + '!\n\nOpen your inventory to see them.'}
+    template = config.get('gift_template') or GIFT_TEMPLATE
+    values = {'count': str(len(gifts)), 'gift_word': 'gift' if len(gifts) == 1 else 'gifts',
+              'sender': escape(source), 'gifts': ', '.join(labels) + extra, 'message': escape(personal_message)}
+    text = render_gift_template(template, values)
+    if personal_message and '{message}' not in template:
+        text += '\n\n' + values['message']
+    message = {'chat_id': recipient, 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True}, 'text': text}
     if https_url(url):
         parts = urlsplit(url)
         query = dict(parse_qsl(parts.query))
         query['view'] = 'gifts'
         inventory_url = parts._replace(query=urlencode(query)).geturl()
-        message['reply_markup'] = {'inline_keyboard': [[{'text': 'View Inventory', 'web_app': {'url': inventory_url}}]]}
+        message['reply_markup'] = {'inline_keyboard': [[{'text': config.get('gift_button_text') or 'View Inventory', 'web_app': {'url': inventory_url}}]]}
     bot_api(token, 'sendMessage', message)
 
 
@@ -79,14 +113,15 @@ def install_telegram_bot(app, db, auth, audit):
         return {
             'username': app.config['BOT_USERNAME'], 'greeting': 'Добро пожаловать в Crafter!',
             'buttons': [{'text': 'Открыть Crafter', 'type': 'web_app', 'url': ''}],
-            'app_url': '', 'menu_text': '', 'emoji_library': {}, **saved,
+            'app_url': '', 'menu_text': '', 'emoji_library': {},
+            'gift_template': GIFT_TEMPLATE, 'gift_button_text': 'View Inventory', **saved,
         }
 
     def token_for(config):
         return config.get('token') or app.config['BOT_TOKEN']
 
     def public_settings(config):
-        return {key: config[key] for key in ('username', 'greeting', 'buttons', 'app_url', 'menu_text')} | {
+        return {key: config[key] for key in ('username', 'greeting', 'buttons', 'app_url', 'menu_text', 'gift_template', 'gift_button_text')} | {
             'token_configured': bool(token_for(config)), 'connected': bool(config.get('webhook_url')),
             'emoji_library': [{'id': key, 'emoji': item['emoji']} for key, item in config['emoji_library'].items()],
         }
@@ -120,6 +155,22 @@ def install_telegram_bot(app, db, auth, audit):
             if not isinstance(value, str) or len(value) > limit:
                 abort(400, description='Проверьте длину полей настроек бота')
             fields[name] = value.strip()
+        if 'gift_template' in data:
+            template = data['gift_template']
+            if not isinstance(template, str) or not 1 <= len(template.strip()) <= 1300 or '\x00' in template:
+                abort(400, description='Введите шаблон до 1300 символов')
+            try:
+                rendered = render_gift_template(template, {key: '×' for key in GIFT_TEMPLATE_FIELDS})
+            except ValueError as error:
+                abort(400, description=str(error))
+            if not re.sub(r'</?(?:b|i|u|s|tg-spoiler)>', '', rendered).strip():
+                abort(400, description='Добавьте текст уведомления')
+            fields['gift_template'] = template.strip()
+        if 'gift_button_text' in data:
+            label = data['gift_button_text']
+            if not isinstance(label, str) or not 1 <= len(label.strip()) <= 64 or '\x00' in label:
+                abort(400, description='Введите подпись кнопки до 64 символов')
+            fields['gift_button_text'] = label.strip()
         buttons = data.get('buttons')
         if not fields['greeting'] or not isinstance(buttons, list) or len(buttons) > 8:
             abort(400, description='Укажите приветствие и не более 8 кнопок')

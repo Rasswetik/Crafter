@@ -59,6 +59,14 @@ async function renderTelegramBotAdmin() {
                 <button type="button" class="secondary" onclick="addTelegramBotButton(this.form)">Добавить кнопку</button>
                 <label class="form-label">Кнопка меню в чате<input name="menu_text" class="field" maxlength="64"
                     value="${esc(config.menu_text)}" placeholder="Пустое поле возвращает стандартное меню"></label>
+                <h4>Уведомление о получении подарков</h4>
+                <label class="form-label">Текст уведомления<textarea name="gift_template" class="field" maxlength="1300" rows="5" required>${esc(config.gift_template)}</textarea></label>
+                <div class="bot-gift-styles" aria-label="Стили текста">
+                    ${[['b','Жирный'],['i','Курсив'],['u','Подчёркнутый'],['s','Зачёркнутый'],['tg-spoiler','Спойлер']].map(([tag,label]) =>
+                        `<button type="button" class="secondary" onclick="styleGiftNotification(this.form.elements.gift_template,'${tag}')">${label}</button>`).join('')}
+                </div>
+                <p class="sub">Поля: {count}, {gift_word}, {sender}, {gifts}, {message}.</p>
+                <label class="form-label">Кнопка под уведомлением<input name="gift_button_text" class="field" maxlength="64" required value="${esc(config.gift_button_text)}"></label>
                 <div class="bot-admin-actions">
                     <button class="primary" type="submit">Сохранить</button>
                     <button class="secondary" type="button" data-bot-action="connect" onclick="submitTelegramBotAction(this)">Подключить webhook</button>
@@ -108,6 +116,7 @@ async function submitTelegramBotAction(button) {
     try {
         await api('admin/telegram-bot', {
             token: data.token, greeting: data.greeting, app_url: data.app_url, menu_text: data.menu_text, buttons,
+            gift_template:data.gift_template, gift_button_text:data.gift_button_text,
         });
         form.elements.token.value = '';
         if (action) await api('admin/telegram-bot/' + action, {});
@@ -189,4 +198,13 @@ async function paintBotEmojiImage(button) {
     } catch {
         botEmojiImages.delete(id);
     }
+}
+
+function styleGiftNotification(field, tag) {
+    const {selectionStart:start, selectionEnd:end} = field;
+    const selected = field.value.slice(start, end);
+    const open = '<' + tag + '>';
+    field.setRangeText(open + selected + '</' + tag + '>', start, end, 'end');
+    field.focus();
+    field.setSelectionRange(start + open.length, start + open.length + selected.length);
 }

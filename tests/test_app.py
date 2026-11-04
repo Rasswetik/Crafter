@@ -3,8 +3,8 @@ from urllib.parse import urlencode
 import pytest
 from app import create_app,DEMO_GIFTS
 
-def signed(uid=42,age=0,token='test-token'):
-    data={'auth_date':str(int(time.time())-age),'user':json.dumps({'id':uid,'first_name':'Test'})}
+def signed(uid=42,age=0,token='test-token',**profile):
+    data={'auth_date':str(int(time.time())-age),'user':json.dumps({'id':uid,'first_name':'Test',**profile})}
     key=hmac.new(b'WebAppData',token.encode(),hashlib.sha256).digest()
     data['hash']=hmac.new(key,'\n'.join(f'{k}={v}' for k,v in sorted(data.items())).encode(),hashlib.sha256).hexdigest()
     return {'X-Telegram-Init-Data':urlencode(data)}
@@ -446,7 +446,7 @@ def test_transfer_gifts_atomically_and_record_anonymous_history(client, monkeypa
     monkeypatch.setattr(telegram_bot, 'bot_api', lambda _, method, body: calls.append((method, body)))
     monkeypatch.setenv('RENDER_EXTERNAL_URL', 'https://crafter.example')
     sender = signed()
-    recipient = signed(43)
+    recipient = signed(43, username='Other_User', photo_url='https://t.me/i/userpic/320/example.jpg')
     client.get('/api/me', headers=sender)
     client.get('/api/me', headers=recipient)
     with sqlite3.connect(client.application.config['DATABASE']) as db:
@@ -457,9 +457,10 @@ def test_transfer_gifts_atomically_and_record_anonymous_history(client, monkeypa
         ])
     lookup = client.get('/api/inventory/recipient?username=other_user', headers=sender)
     assert lookup.json['recipient']['id'] == 43
+    assert lookup.json['recipient']['photo_url'] == 'https://t.me/i/userpic/320/example.jpg'
     route = '/api/inventory/transfer'
     body = {'gift_ids':['available','listed'], 'recipient_id':43, 'username':'Other_User', 'anonymous':True,
-            'request_id':'same-request'}
+            'request_id':'same-request', 'message':'<b>Enjoy!</b>'}
     assert client.post(route, headers=sender, json=body).status_code == 409
     assert not calls
     body['gift_ids'] = ['available']
@@ -468,6 +469,8 @@ def test_transfer_gifts_atomically_and_record_anonymous_history(client, monkeypa
     assert len(calls) == 1
     assert calls[0][1]['reply_markup']['inline_keyboard'][0][0]['web_app']['url'] == 'https://crafter.example?view=gifts'
     assert calls[0][1]['chat_id'] == 43 and 'anonymous' in calls[0][1]['text']
+    assert '&lt;b&gt;Enjoy!&lt;/b&gt;' in calls[0][1]['text']
+    assert client.post(route, headers=sender, json={**body, 'message':'Changed'}).status_code == 409
     assert [gift['id'] for gift in client.get('/api/inventory', headers=sender).json['gifts']] == ['listed']
     assert [gift['id'] for gift in client.get('/api/inventory', headers=recipient).json['gifts']] == ['available']
     sent = client.get('/api/history', headers=sender).json['items']
@@ -475,6 +478,7 @@ def test_transfer_gifts_atomically_and_record_anonymous_history(client, monkeypa
     assert len(sent) == len(received) == 1
     assert sent[0]['kind'] == 'transfer' and sent[0]['data']['recipient']['username'] == 'Other_User'
     assert received[0]['kind'] == 'gift_received' and received[0]['data']['sender'] is None
+    assert received[0]['data']['message'] == '<b>Enjoy!</b>'
 
 
 def test_import_bot_emoji_and_apply_to_greeting_and_button(client, monkeypatch):
@@ -517,3 +521,20 @@ def test_portals_backdrop_catalog_uses_colors_and_floor(monkeypatch):
     assert portals_public.backdrops('test') == {
         'Black': {'center_color': 66051, 'edge_color': 1, 'portal_floor':'10.5'}
     }
+
+
+def test_gift_notification_template_preserves_only_supported_styles(client, monkeypatch):
+    import telegram_bot
+    messages = []
+    monkeypatch.setattr(telegram_bot, 'bot_api', lambda token, method, payload: messages.append(payload))
+    route = '/api/admin/telegram-bot'
+    data = {'greeting':'Hello', 'buttons':[], 'gift_template':'<b>From {sender}</b>\n<i>{message}</i> <script>',
+            'gift_button_text':'Open gifts'}
+    assert client.post(route, headers=signed(), json={**data, 'gift_template':'<b><i>Broken</b></i>'}).status_code == 400
+    result = client.post(route, headers=signed(), json=data)
+    assert result.status_code == 200
+    assert result.json['gift_template'] == data['gift_template']
+    telegram_bot.notify_gift_transfer(result.json, 43, [DEMO_GIFTS[0]], {'name':'<someone>', 'username':''},
+                                      'https://crafter.example', 'test-token', 'A&B')
+    assert messages[0]['text'] == '<b>From &lt;someone&gt;</b>\n<i>A&amp;B</i> &lt;script&gt;'
+    assert messages[0]['reply_markup']['inline_keyboard'][0][0]['text'] == 'Open gifts'

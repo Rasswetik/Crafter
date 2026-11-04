@@ -59,7 +59,7 @@ def create_app(config=None):
     def close(error):
         if 'db' in g:g.db.close()
     with app.app_context():
-        db().executescript('''CREATE TABLE IF NOT EXISTS local_numbers(collection_id TEXT,number INTEGER,PRIMARY KEY(collection_id,number)); CREATE TABLE IF NOT EXISTS local_purchases(user_id INTEGER,request_id TEXT,result TEXT,PRIMARY KEY(user_id,request_id)); CREATE TABLE IF NOT EXISTS local_sold(source_id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS craft_quotes(id TEXT PRIMARY KEY,user_id INTEGER,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT, username TEXT, referrer INTEGER, created INTEGER); CREATE TABLE IF NOT EXISTS cache(key TEXT PRIMARY KEY, payload TEXT, updated INTEGER); CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, payload TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, actor INTEGER, action TEXT, created INTEGER); CREATE TABLE IF NOT EXISTS inventory(user_id INTEGER, nft_id TEXT, payload TEXT, status TEXT DEFAULT 'unlisted', PRIMARY KEY(user_id,nft_id)); CREATE TABLE IF NOT EXISTS demo_accounts(user_id INTEGER PRIMARY KEY,balance TEXT); CREATE TABLE IF NOT EXISTS history(id TEXT PRIMARY KEY,user_id INTEGER,kind TEXT,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS craft_requests(user_id INTEGER,request_id TEXT,result TEXT,PRIMARY KEY(user_id,request_id));'''); db().commit()
+        db().executescript('''CREATE TABLE IF NOT EXISTS local_numbers(collection_id TEXT,number INTEGER,PRIMARY KEY(collection_id,number)); CREATE TABLE IF NOT EXISTS local_purchases(user_id INTEGER,request_id TEXT,result TEXT,PRIMARY KEY(user_id,request_id)); CREATE TABLE IF NOT EXISTS local_sold(source_id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS craft_quotes(id TEXT PRIMARY KEY,user_id INTEGER,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT, username TEXT, referrer INTEGER, created INTEGER); CREATE TABLE IF NOT EXISTS user_avatars(user_id INTEGER PRIMARY KEY,photo_url TEXT NOT NULL); CREATE TABLE IF NOT EXISTS cache(key TEXT PRIMARY KEY, payload TEXT, updated INTEGER); CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, payload TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, actor INTEGER, action TEXT, created INTEGER); CREATE TABLE IF NOT EXISTS inventory(user_id INTEGER, nft_id TEXT, payload TEXT, status TEXT DEFAULT 'unlisted', PRIMARY KEY(user_id,nft_id)); CREATE TABLE IF NOT EXISTS demo_accounts(user_id INTEGER PRIMARY KEY,balance TEXT); CREATE TABLE IF NOT EXISTS history(id TEXT PRIMARY KEY,user_id INTEGER,kind TEXT,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS craft_requests(user_id INTEGER,request_id TEXT,result TEXT,PRIMARY KEY(user_id,request_id));'''); db().commit()
     def gift_number(collection_id,preferred=None):
         try:preferred=int(preferred)
         except (TypeError,ValueError):preferred=None
@@ -126,6 +126,12 @@ def create_app(config=None):
                 g.is_admin=g.user['id'] in app.config['ADMIN_IDS']
                 if admin and not g.is_admin:abort(403,description='Доступ только для администратора')
                 db().execute('INSERT INTO users VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,username=excluded.username',(g.user['id'],g.user.get('first_name',''),g.user.get('username',''),None,int(time.time())));db().commit()
+                photo = g.user.get('photo_url')
+                if isinstance(photo, str) and len(photo) <= 2048 and not any(ord(char) < 33 for char in photo) and https_url(photo):
+                    db().execute('INSERT INTO user_avatars VALUES(?,?) ON CONFLICT (user_id) DO UPDATE '
+                                 'SET photo_url=excluded.photo_url WHERE user_avatars.photo_url!=excluded.photo_url',
+                                 (g.user['id'], photo))
+                    db().commit()
                 if app.config['DEMO_MODE']:
                     with db():
                         fresh=db().execute('INSERT INTO demo_accounts VALUES(?,?) ON CONFLICT DO NOTHING',(g.user['id'],'100')).rowcount
@@ -649,7 +655,8 @@ def create_app(config=None):
         if not re.fullmatch(r'[A-Za-z0-9_]{3,32}', username):
             return {'recipient': None}
         row = db().execute(
-            'SELECT id,name,username FROM users WHERE lower(username)=lower(?) AND id!=? ORDER BY id LIMIT 2',
+            'SELECT u.id,u.name,u.username,a.photo_url FROM users u LEFT JOIN user_avatars a ON a.user_id=u.id '
+            'WHERE lower(u.username)=lower(?) AND u.id!=? ORDER BY u.id LIMIT 2',
             (username, g.user['id']),
         ).fetchall()
         return {'recipient': dict(row[0]) if len(row) == 1 else None}
@@ -662,6 +669,10 @@ def create_app(config=None):
             abort(400)
         ids, recipient_id, request_id = (data.get(key) for key in ('gift_ids', 'recipient_id', 'request_id'))
         anonymous = data.get('anonymous', False)
+        message = data.get('message', '')
+        if not isinstance(message, str) or len(message) > 300 or '\x00' in message:
+            abort(400, description='Сообщение должно содержать до 300 символов')
+        message = message.strip()
         if (not isinstance(ids, list) or not 1 <= len(ids) <= 100 or
                 any(not isinstance(item, str) or not 1 <= len(item) <= 200 for item in ids) or
                 len(set(ids)) != len(ids) or type(recipient_id) is not int or
@@ -671,6 +682,8 @@ def create_app(config=None):
             abort(400, description='Проверьте подарки и получателя')
         sender_id = g.user['id']
         order = dict(ids=sorted(ids), recipient_id=recipient_id, anonymous=anonymous)
+        if message:
+            order['message'] = message
         with db():
             db().execute('BEGIN IMMEDIATE')
             existing = db().execute('SELECT payload FROM gift_transfers WHERE sender_id=? AND request_id=?',
@@ -695,12 +708,12 @@ def create_app(config=None):
                 abort(409, description='Один из подарков уже есть у получателя')
             db().executemany('UPDATE inventory SET user_id=? WHERE user_id=? AND nft_id=?',
                              [(recipient_id, sender_id, gift_id) for gift_id in ids])
-            record('transfer', {'gifts': gifts, 'recipient': dict(recipient)})
+            record('transfer', {'gifts': gifts, 'recipient': dict(recipient), 'message': message})
             sender = None if anonymous else {'name': g.user.get('first_name', ''), 'username': g.user.get('username', '')}
-            record('gift_received', {'gifts': gifts, 'sender': sender}, uid=recipient_id)
+            record('gift_received', {'gifts': gifts, 'sender': sender, 'message': message}, uid=recipient_id)
             db().execute('INSERT INTO gift_transfers VALUES (?,?,?)', (sender_id, request_id, json.dumps(order)))
         try:
-            notify_gift_transfer(bot_settings(), recipient_id, gifts, sender, request.url_root, app.config['BOT_TOKEN'])
+            notify_gift_transfer(bot_settings(), recipient_id, gifts, sender, request.url_root, app.config['BOT_TOKEN'], message)
         except Exception:
             app.logger.warning('Telegram gift notification was not delivered')
         return {'ok': True, 'gift_ids': ids}
@@ -927,7 +940,7 @@ def create_app(config=None):
         selection=(request.get_json() or {}).get('selection',{})
         if not isinstance(selection,dict) or len(selection)>1000 or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in selection.values()):abort(400)
         db().execute("INSERT INTO settings VALUES('selection',?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
-    from telegram_bot import install_telegram_bot, notify_gift_transfer
+    from telegram_bot import https_url, install_telegram_bot, notify_gift_transfer
     bot_settings = install_telegram_bot(app, db, auth, audit)
     from wallet import install_wallet
     install_wallet(app,db,auth,record,audit)

@@ -40,14 +40,14 @@ const previewCatalog=CATALOG_SEED;
      else if(route==='inventory')data={gifts:demoState.inventory,demo:true};
      else if(route==='inventory/recipient') {
         const query = new URLSearchParams(url.split('?')[1]).get('username')?.toLowerCase();
-        data={recipient:query==='crafter_demo'?{id:2,name:'Демо-получатель',username:'crafter_demo'}:null};
+        data={recipient:query==='crafter_demo'?{id:2,name:'Демо-получатель',username:'crafter_demo',photo_url:'/static/assets/crafter-pepe.webp'}:null};
      }
      else if(route==='inventory/transfer'){
         const gifts=demoState.inventory.filter(item=>body.gift_ids.includes(item.id)&&item.status==='unlisted');
         if(body.recipient_id!==2||gifts.length!==body.gift_ids.length){ok=false;data={error:'Подарок или получатель недоступен'}}
         else {
             demoState.inventory=demoState.inventory.filter(item=>!body.gift_ids.includes(item.id));
-            demoHistory('transfer',{gifts,recipient:{name:'Демо-получатель',username:'crafter_demo'}});
+            demoHistory('transfer',{gifts,recipient:{name:'Демо-получатель',username:'crafter_demo'},message:body.message});
             data={ok:true,gift_ids:body.gift_ids};
         }
      }
@@ -128,7 +128,7 @@ const previewCatalog=CATALOG_SEED;
       else{if(body.action==='sell')selected.forEach(x=>{x.status='listed';x.price=body.price});else if(body.action==='unlist')selected.forEach(x=>x.status='unlisted');else demoState.inventory=demoState.inventory.filter(x=>!body.gift_ids.includes(x.id));demoHistory(body.action,{gifts:selected,demo:true});data={ok:true,demo:true}}
      }
      else if(route==='demo/buy'){let g=previewGifts.find(x=>x.id===body.id);if(!g||demoState.balance<Number(g.price)){ok=false;data={error:'Не хватает тестового баланса'}}else{let gift={...g,id:'bought-'+Date.now(),number:Math.floor(Math.random()*999999),status:'unlisted'};demoState.balance-=Number(g.price);demoState.inventory.push(gift);demoHistory('buy',gift);data={ok:true,gift,demo:true}}}
-     else if(route==='admin/telegram-bot' && !options.body)data={username:'',greeting:'Добро пожаловать в Crafter!',buttons:[{text:'Открыть Crafter',type:'web_app',url:''}],app_url:'',menu_text:'',token_configured:false,connected:false};
+     else if(route==='admin/telegram-bot' && !options.body)data={username:'',greeting:'Добро пожаловать в Crafter!',buttons:[{text:'Открыть Crafter',type:'web_app',url:''}],app_url:'',menu_text:'',token_configured:false,connected:false,gift_template:'🎁 You received {count} {gift_word} from {sender}: {gifts}!',gift_button_text:'View Inventory'};
      else if(route.startsWith('admin/telegram-bot')){ok=false;data={error:'Подключение бота доступно на сервере Crafter.'}}
      else if(route==='admin/status')data={configured:false,updated_at:null,collections:114,users:1,mode:'public',sync:{running:false,completed:0,total:114,error:''},audit:[]};
      else if(route==='admin/selection'){if(options.body)demoState.selection=body.selection;data={selection:demoState.selection,ok:true}}

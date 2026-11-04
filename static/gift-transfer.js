@@ -10,7 +10,7 @@ function inventoryToolbarAction(action) {
 }
 
 function startGiftTransfer(id) {
-    transferDraft = {ids:new Set(id ? [id] : []), username:'', recipient:null, anonymous:false, request:null};
+    transferDraft = {ids:new Set(id ? [id] : []), username:'', recipient:null, anonymous:false, message:'', request:null};
     if (id) renderTransferRecipient();
     else renderTransferPicker(true);
 }
@@ -194,17 +194,27 @@ function renderTransferRecipient() {
     if (!draft) return;
     const gifts = state.inventory.filter(gift => draft.ids.has(gift.id));
     sheet('Получатель подарков', `
-        <p class="sub">Введите имя пользователя Telegram.</p>
-        <div class="transfer-summary"><span>Выбранные подарки</span><b>${money(cartTotal(gifts))} GRAM · ${gifts.length} ${giftCountWord(gifts.length)}</b></div>
-        <div class="transfer-thumbs">${gifts.map(gift => `<div class="transfer-selected">${transferArt(gift)}<b>#${esc(gift.number)}</b>
-            <button type="button" onclick="transferDraft.ids.delete(${arg(gift.id)});renderTransferRecipient()" aria-label="Убрать подарок">×</button></div>`).join('')}
-            <button class="circle" onclick="renderTransferPicker()" aria-label="Добавить подарки">${icon('plus')}</button></div>
-        <label class="search-box transfer-user"><span>@</span><input id="transfer-username" value="${esc(draft.username)}" maxlength="33" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Имя пользователя Telegram" aria-label="Имя пользователя Telegram"></label>
-        <div id="transfer-recipient"></div>
-        <label class="transfer-anonymous"><input type="checkbox" ${draft.anonymous ? 'checked' : ''} onchange="transferDraft.anonymous=this.checked"> Отправить анонимно</label>
-        <div class="transfer-actions"><button class="secondary" onclick="closeSheet()">Назад</button>
-        <button class="primary" id="transfer-send" onclick="submitGiftTransfer()" disabled>Отправить ${gifts.length} ${giftCountWord(gifts.length)}</button></div>
-        <p class="sub" id="transfer-status" role="status">Проверьте имя перед отправкой.</p>`);
+        <div class="transfer-recipient-content">
+            <p class="sub">Введите имя пользователя Telegram.</p>
+            <div class="transfer-summary"><span>Выбранные подарки</span><b>${money(cartTotal(gifts))} GRAM · ${gifts.length} ${giftCountWord(gifts.length)}</b></div>
+            <div class="transfer-preview">
+                <div class="transfer-thumbs" tabindex="0" aria-label="Выбранные подарки">${gifts.map(gift => `<div class="transfer-selected">${transferArt(gift)}<b>#${esc(gift.number)}</b>
+                    <button type="button" onclick="removeTransferGift(${arg(gift.id)})" aria-label="Убрать подарок">×</button></div>`).join('')}</div>
+                <button class="circle transfer-add" onclick="renderTransferPicker()" aria-label="Добавить подарки">${icon('plus')}</button>
+            </div>
+            <label class="search-box transfer-user"><span aria-hidden="true">@</span><input id="transfer-username" value="${esc(draft.username)}" maxlength="33" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Имя пользователя Telegram" aria-label="Имя пользователя Telegram"></label>
+            <div id="transfer-recipient"></div>
+            <label class="transfer-anonymous"><input class="transfer-checkbox" type="checkbox" ${draft.anonymous ? 'checked' : ''} onchange="transferDraft.anonymous=this.checked"> Отправить анонимно</label>
+            <label class="transfer-message">Сообщение к подарку <span>необязательно</span>
+                <textarea maxlength="300" rows="2" placeholder="Напишите получателю" oninput="transferDraft.message=this.value">${esc(draft.message)}</textarea>
+            </label>
+        </div>
+        <div class="transfer-recipient-footer">
+            <div class="transfer-actions"><button class="secondary" onclick="closeSheet()">Назад</button>
+            <button class="primary" id="transfer-send" onclick="submitGiftTransfer()" disabled>Отправить ${gifts.length} ${giftCountWord(gifts.length)}</button></div>
+            <p class="sub" id="transfer-status" role="status">Проверьте имя перед отправкой.</p>
+        </div>`);
+    document.querySelector('#sheet').classList.add('transfer-recipient-sheet');
     const input = document.querySelector('#transfer-username');
     let timer;
     input.addEventListener('input', () => {
@@ -216,6 +226,14 @@ function renderTransferRecipient() {
     });
     if (draft.recipient) paintTransferRecipient(draft.recipient);
     else if (draft.username) findTransferRecipient(input, draft);
+}
+
+function removeTransferGift(id) {
+    if (transferDraft.sending) return;
+    const scroll = document.querySelector('.transfer-thumbs').scrollTop;
+    transferDraft.ids.delete(id);
+    renderTransferRecipient();
+    document.querySelector('.transfer-thumbs').scrollTop = scroll;
 }
 
 async function findTransferRecipient(input, draft) {
@@ -232,8 +250,13 @@ function paintTransferRecipient(recipient, searched = false) {
     const draft = transferDraft;
     const node = document.querySelector('#transfer-recipient');
     const chosen = recipient && draft.recipient?.id === recipient.id;
-    node.innerHTML = recipient ? `<button class="transfer-match ${chosen ? 'selected' : ''}" type="button"><b>${esc(recipient.name || recipient.username)}</b>
-        <small>@${esc(recipient.username)}</small>${chosen ? icon('check') : ''}</button>` : searched ? '<p class="sub">Пользователь не найден в Crafter</p>' : '';
+    const name = recipient?.name || recipient?.username || '';
+    const photo = imageURL(recipient?.photo_url);
+    node.innerHTML = recipient ? `<button class="transfer-match ${chosen ? 'selected' : ''}" type="button" aria-pressed="${Boolean(chosen)}">
+        <span class="transfer-avatar"><span aria-hidden="true">${esc([...name][0]?.toUpperCase() || '•')}</span>${photo ? `<img src="${esc(photo)}" alt="" referrerpolicy="no-referrer">` : ''}</span>
+        <span class="transfer-match-name"><b>${esc(name)}</b><small>@${esc(recipient.username)}</small></span>
+        ${chosen ? icon('check') : ''}</button>` : searched ? '<p class="sub">Пользователь не найден в Crafter</p>' : '';
+    node.querySelector('img')?.addEventListener('error', event => event.currentTarget.remove());
     if (recipient) node.firstElementChild.onclick = () => {
         draft.recipient = recipient;
         paintTransferRecipient(recipient);
@@ -245,14 +268,15 @@ async function submitGiftTransfer() {
     const draft = transferDraft;
     if (!draft?.recipient || !draft.ids.size || draft.sending) return;
     const ids = [...draft.ids].sort();
-    const key = [draft.recipient.id, draft.anonymous, ...ids].join('|');
-    if (draft.request?.key !== key) draft.request = {key, id:paymentRequestId('crafter-gift-transfer:' + Date.now() + ':' + key)};
+    const message = draft.message.trim();
+    const key = JSON.stringify([draft.recipient.id, draft.anonymous, message, ids]);
+    if (draft.request?.key !== key) draft.request = {key, id:globalThis.crypto?.randomUUID?.() || paymentRequestId('crafter-gift-transfer:' + Date.now() + ':' + ids.join('|'))};
     const panel = document.querySelector('#transfer-status');
     draft.sending = true;
     paintTransferRecipient(draft.recipient);
     try {
         await api('inventory/transfer', {gift_ids:ids, recipient_id:draft.recipient.id, username:draft.recipient.username,
-            anonymous:draft.anonymous, request_id:draft.request.id});
+            anonymous:draft.anonymous, message, request_id:draft.request.id});
         state.inventory = state.inventory.filter(gift => !ids.includes(gift.id));
         if (draft === transferDraft) closeSheet();
         if (state.page === 'gifts') await renderGifts();
@@ -309,7 +333,8 @@ async function renderGiftHistory(body) {
                     `<div class="market-activity-row gift-history-row">${row}</div>`;
             }).join('');
             if (rows) lastDay = day;
-            return rows ? heading + rows : '';
+            const note = direction && data.message ? `<p class="gift-history-note">${esc(data.message)}</p>` : '';
+            return rows ? heading + rows + note : '';
         }).join('') || '<p class="sub">История пуста</p>';
         feed.querySelectorAll('[data-history-gift]').forEach(button => {
             button.onclick = () => showGiftDetail(gifts[Number(button.dataset.historyGift)], 'history');

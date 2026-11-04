@@ -238,6 +238,7 @@ function walletIdentity(w) {
 Object.assign(paths, {
     wallet:'M20 8V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-2M3 7h15m2 2h-5a3 3 0 0 0 0 6h5a1 1 0 0 0 1-1v-4a1 1 0 0 0-1-1zm-5 3h.01',
     walletChevron:'m9 6 6 6-6 6',
+    walletAdd:'M12 5v14M5 12h14',
     walletUp:'M12 20V4m-6 6 6-6 6 6',
     walletDown:'M12 4v16m-6-6 6 6 6-6',
 });
@@ -261,12 +262,12 @@ async function renderWallet() {
     document.querySelector('#main').innerHTML = `${walletIdentity(w)}
         <section class="wallet-balance-card"><span>Баланс кошелька Crafter</span>
             <h1>${money(w.balance)} <em>GRAM</em></h1>
-            <div><button onclick="go('deposit')">Пополнить ⊕</button><button onclick="go('withdraw')">Вывод ↑</button></div>
+            <div class="wallet-balance-actions"><button onclick="go('deposit')">${icon('walletAdd')}<span>Пополнить</span></button><button onclick="go('withdraw')">${icon('walletUp')}<span>Вывод</span></button></div>
         </section>
         <div class="wallet-history-title"><h2>История</h2></div>
         <div class="wallet-history-filters">
             <button class="circle" aria-label="Сбросить фильтры" onclick="resetWalletHistoryFilters()">${icon('filter')}</button>
-            ${Object.entries(walletGroups).map(([key, group]) => `<button data-wallet-filter="${key}" onclick="walletHistoryFilters('${key}')">${group.label} <span>⌄</span></button>`).join('')}
+            ${Object.entries(walletGroups).map(([key, group]) => `<button data-wallet-filter="${key}" onclick="walletHistoryFilters('${key}')">${group.label}${icon('chevron')}</button>`).join('')}
         </div>
         <div id="wallet-history" aria-live="polite"></div>`;
     loadWalletHistory();
