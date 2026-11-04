@@ -312,15 +312,15 @@ function showGiftDetail(gift, source) {
             <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>
         </div>` : source === 'market' ? `<div class="market-gift-actions market-offer-actions">
             ${gift.own_listing ? `<button class="primary" onclick="openListedInventory()">Управлять в инвентаре</button>` : `
+                ${gift.number && !gift.catalog_only ? `<button type="button" class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
+                    ${icon('hammer')} <strong>Lucky Craft</strong>
+                </button>` : ''}
                 <div class="market-offer-primary">
                     <button type="button" class="secondary" onclick="openPersonalOffer()">Сделать оффер</button>
                     <button type="button" id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
                         <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
                     </button>
-                </div>
-                ${gift.number && !gift.catalog_only ? `<button type="button" class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
-                    ${icon('hammer')} <strong>Lucky Craft</strong>
-                </button>` : ''}`}</div>` : ''}`);
+                </div>`}</div>` : ''}`);
     document.querySelector('#sheet').classList.add('purchase-sheet');
     // Show the already-known gift immediately; network estimates and animation never block opening.
     const panel = document.querySelector('#sheet-body .product-properties');

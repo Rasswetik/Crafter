@@ -1,65 +1,102 @@
-/* Crafter product action layout — compact Portal-style three-button strip. */
-.purchase-sheet .market-gift-actions.market-offer-actions:not(:has(> .primary)) {
-    display:grid!important;
-    grid-template-columns:minmax(0,.88fr) minmax(0,1.08fr) minmax(0,1.28fr);
-    column-gap:7px;
-    row-gap:0;
-    width:100%;
-    align-items:stretch;
-    padding:0;
-    margin-top:12px;
-}
-.purchase-sheet .market-offer-actions .market-offer-primary {
-    display:contents!important;
-}
-.purchase-sheet .market-offer-actions .market-offer-primary > button,
-.purchase-sheet .market-offer-actions > button.lucky-craft {
+/* Gift purchase dialog: Lucky Craft ABOVE two EQUAL actions.
+   Explicit two-row layout prevents inherited auto-flow from rearranging buttons. */
+.purchase-sheet .market-gift-actions.market-offer-actions {
     display:flex!important;
     flex-direction:column!important;
+    align-items:stretch!important;
+    gap:8px!important;
+    width:100%;
+    min-width:0;
+    margin-top:12px;
+    padding:0;
+}
+.purchase-sheet .market-gift-actions.market-offer-actions > button.lucky-craft {
+    order:0;
+    display:flex!important;
     align-items:center!important;
     justify-content:center!important;
-    gap:3px!important;
-    min-width:0!important;
+    gap:9px;
+    flex:none;
     width:100%!important;
-    height:51px!important;
-    min-height:51px!important;
-    max-height:51px!important;
-    padding:5px 6px!important;
-    border-radius:25px!important;
-    font-weight:800!important;
-    font-size:clamp(10px,2.9vw,13px)!important;
-    line-height:1.12!important;
-    white-space:normal;
+    min-width:0;
+    height:53px!important;
+    min-height:53px!important;
+    max-height:53px!important;
+    margin:0!important;
+    padding:10px 15px!important;
+    border-radius:21px!important;
+    background:linear-gradient(110deg,#64418f 0%,#9258ca 100%);
+    color:#fff;
+    font-size:15px!important;
+    line-height:1.15;
+    font-weight:800;
+    overflow:hidden;
+    box-shadow:inset 0 1px 0 #ffffff20;
+}
+.purchase-sheet .market-offer-actions > button.lucky-craft svg {
+    flex:none;width:19px;height:19px;
+}
+.purchase-sheet .market-offer-actions > button.lucky-craft strong {
+    font-size:15px;font-weight:800;white-space:nowrap;
+}
+.purchase-sheet .market-offer-actions > .market-offer-primary {
+    order:1;
+    display:grid!important;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:8px;
+    width:100%;
+    min-width:0;
+    margin:0;
+    padding:0;
+}
+.purchase-sheet .market-offer-primary > button {
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    align-items:center!important;
+    gap:3px!important;
+    width:100%!important;
+    min-width:0!important;
+    min-height:53px!important;
+    max-height:53px!important;
+    height:53px!important;
+    margin:0!important;
+    padding:6px 5px!important;
+    border-radius:21px!important;
+    font-size:clamp(11px,3vw,14px)!important;
+    font-weight:800;
+    line-height:1.15;
     text-align:center;
     overflow:hidden;
 }
-.purchase-sheet .market-offer-actions .market-offer-primary > .secondary {
+.purchase-sheet .market-offer-primary > .secondary {
     color:#f2f3f5;
-    background:#373737;
-    border:1px solid #ffffff13;
+    background:#343438;
+    border:1px solid #ffffff1a;
 }
-.purchase-sheet .market-offer-actions #buy-gift {
+.purchase-sheet .market-offer-primary > #buy-gift {
     background:#168aff;
     color:#fff;
 }
-.purchase-sheet .market-offer-actions .buy-gift-price {
-    font-size:clamp(10px,2.65vw,12px);
+.purchase-sheet .market-offer-primary .buy-gift-price {
+    display:block;
+    max-width:100%;
+    font-size:clamp(10px,2.8vw,13px);
+    line-height:1.05;
     white-space:nowrap;
-    line-height:1;
+    overflow:hidden;
+    text-overflow:ellipsis;
 }
-.purchase-sheet .market-offer-actions > button.lucky-craft {
-    flex-direction:row!important;
-    background:linear-gradient(105deg,#72409d,#8e53bd);
-    color:#fff;
-    gap:5px!important;
+.purchase-sheet .market-gift-actions > .primary {
+    width:100%!important;
+    min-width:0!important;
 }
-.purchase-sheet .market-offer-actions > button.lucky-craft strong {
-    font-size:clamp(11px,3vw,13px);
-    font-weight:800;
+@media(max-width:350px) {
+    .purchase-sheet .market-gift-actions.market-offer-actions {gap:6px!important}
+    .purchase-sheet .market-offer-actions > .market-offer-primary {gap:6px}
+    .purchase-sheet .market-offer-primary > button {padding:5px 3px!important;font-size:11px!important}
 }
-.purchase-sheet .market-offer-actions > button.lucky-craft svg {
-    width:17px;height:17px;flex:0 0 17px;
-}
+
 .purchase-sheet .product-properties .trait-row {
     grid-template-columns:minmax(55px,.7fr) minmax(0,1.25fr) minmax(75px,.95fr);
     min-width:0;

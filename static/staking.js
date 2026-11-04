@@ -22,10 +22,10 @@ nav = function() {
     ];
     root.classList.toggle('games-nav', inGames);
     root.innerHTML = `<button class="games-entry" type="button" onclick="go('${sidePage}')" aria-label="${sideLabel}">
-        <span class="stake-nav-icon">${gameNavIcons[sidePage] || icon(sidePage)}</span><span>${sideLabel}</span></button>
+        <span class="stake-nav-icon">${gameNavIcons[sidePage] || icon(sidePage)}</span><span class="nav-label">${sideLabel}</span></button>
         <div class="nav-main">${destinations.map(([page,kind,title]) => `
         <button type="button" onclick="go('${page}')" class="${state.page === page || (page === 'games' && state.page === 'craft') ? 'active' : ''}"
-            aria-label="${title}"><span class="stake-nav-icon">${gameNavIcons[kind] || icon(kind)}</span><span>${title}</span></button>`).join('')}</div>
+            aria-label="${title}"><span class="stake-nav-icon">${gameNavIcons[kind] || icon(kind)}</span><span class="nav-label">${title}</span></button>`).join('')}</div>
         <button class="profile-nav ${state.page === 'profile' ? 'active' : ''}" onclick="go('profile')" aria-label="Профиль">
             <span class="avatar">${avatar()}</span></button>`;
 };
