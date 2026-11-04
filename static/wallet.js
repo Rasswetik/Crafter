@@ -9,13 +9,14 @@ let walletHistoryCursor;
 const walletHistoryFiltersState = {};
 const walletGroups = {
     balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment','stake_claim']},
-    gifts: {label:'Подарки', kinds:['buy','sale','sell','listing_price','unlist','withdraw','transfer','craft','gift_granted','gift_received']},
+    gifts: {label:'Подарки', kinds:['buy','sale','sell','listing_price','unlist','withdraw','transfer','craft','gift_granted','gift_received','gift_withdraw_requested','gift_withdraw_failed']},
     offers: {label:'Офферы', kinds:['offer_received','offer_created','offer_cancelled','offer_withdrawn','offer_accepted']},
 };
 const walletEventNames = {
     deposit:'Пополнение', withdraw_funds:'Вывод', balance_adjustment:'Корректировка баланса', stake_claim:'Награда стейкинга',
     buy:'Покупка подарка', sale:'Продажа подарка', sell:'Выставление на продажу', listing_price:'Изменение цены',
-    unlist:'Снятие с продажи', withdraw:'Вывод подарка', transfer:'Отправка подарка',
+    unlist:'Снятие с продажи', withdraw:'Вывод подарка', gift_withdraw_requested:'Заявка на вывод NFT',
+    gift_withdraw_failed:'Вывод NFT не выполнен', transfer:'Отправка подарка',
     gift_granted:'Получен подарок', gift_received:'Подарок получен', craft:'Крафт', offer_received:'Получен оффер',
     offer_created:'Оффер создан', offer_cancelled:'Оффер отменён', offer_withdrawn:'Оффер отозван', offer_accepted:'Оффер принят',
 };
