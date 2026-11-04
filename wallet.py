@@ -107,7 +107,7 @@ def install_wallet(app,db,auth,record,audit):
     @app.get('/tonconnect-manifest.json')
     def ton_manifest():
         c=config();root=origin(c)
-        response=jsonify(url=root,name=c['app_name'],iconUrl=root+'/static/assets/wallet-icon.png')
+        response=jsonify(url=root,name=c['app_name'],iconUrl=root+'/static/assets/splash-magnate.png')
         response.headers['Access-Control-Allow-Origin']='*'
         return response
     @app.get('/api/wallet')
