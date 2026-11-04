@@ -6,6 +6,8 @@ const BULK_LIMIT = 50;
 let bulkSelection;
 let activity;
 
+function marketActivityVisible() { return Boolean(activity); }
+
 const marketToolFilters = filters;
 filters = function () {
     let html = marketToolFilters();
@@ -186,8 +188,9 @@ function removePurchasedMarketLots(ids) {
 const activityTypes = {buy:'Покупка', sell:'Листинг', craft:'Крафт', lucky_craft:'Lucky Craft'};
 function toggleMarketActivity() {
     bulkSelection = null;
-    activity = activity ? null : {types:[], model:null, key:'', data:null};
+    activity = activity ? null : {types:[], key:'', data:null};
     renderMarket();
+    updateCartFloat();
     if (!activity) changedFilter();
 }
 
@@ -209,13 +212,8 @@ function applyMarketActivityTypes(reset) {
 
 function marketActivityParams(offset = 0) {
     return new URLSearchParams({offset:String(offset), collections:state.collection || '',
-        search:state.query || '', model:activity.model ?? state.model ?? '',
+        search:state.query || '', model:state.model || '',
         backdrop:state.backdrop || '', symbol:state.symbol || '', types:activity.types.join(',')});
-}
-
-function setActivityModel(value) {
-    activity.model = value;
-    renderMarket();
 }
 
 async function refreshMarketActivity(more = false) {
@@ -258,27 +256,23 @@ function paintMarketActivity() {
             '<button class="secondary" onclick="refreshMarketActivity()">Повторить</button>';
         return;
     }
-    const model = activity.model ?? state.model ?? '';
-    const models = [...new Set([model, ...data.models].filter(Boolean))];
     let lastDay = '';
-    const rows = data.items.map(({gift,kind,price,created}) => {
+    const rows = data.items.map(({gift,kind,price,created}, index) => {
         const date = new Date(created * 1000);
         const day = date.toLocaleDateString('ru-RU', {day:'numeric', month:'long', year:'numeric'});
         const heading = day === lastDay ? '' : `<h3>${esc(day)}</h3>`;
         lastDay = day;
-        return `${heading}<article class="market-activity-row">
-            <div class="activity-art" style="background:${giftBackdrop(gift)}"><img ${giftPicture(gift)} alt="" loading="lazy"></div>
-            <div><b>${esc(gift.name)}</b><small>${gift.number?'#'+esc(gift.number)+' · ':''}${date.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</small></div>
-            <div class="activity-price"><small>${activityTypes[kind] || ''}</small>${price != null ? `<b>${money(price)} GRAM</b>` : ''}</div>
-        </article>`;
+        return `${heading}<button type="button" class="market-activity-row" data-activity-gift="${index}">
+            <span class="activity-art" style="background:${giftBackdrop(gift)}"><img ${giftPicture(gift)} alt="" loading="lazy"></span>
+            <span><b>${esc(gift.name)}</b><small>${gift.number?'#'+esc(gift.number)+' · ':''}${date.toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</small></span>
+            <span class="activity-price"><small>${activityTypes[kind] || ''}</small>${price != null ? `<b>${money(price)} ${gramIcon()}</b>` : ''}</span>
+        </button>`;
     }).join('');
-    container.innerHTML = `<div class="activity-summary">
-        <div><small>Объём покупок</small><b>${money(data.turnover)} GRAM</b></div>
-        <div><small>Покупок</small><b>${money(data.purchases)}</b></div>
-        <label><small>Модель</small><select aria-label="Модель в статистике" onchange="setActivityModel(this.value)">
-            <option value="">Все модели</option>${models.map(item => `<option value="${esc(item)}" ${item===model?'selected':''}>${esc(item)}</option>`).join('')}
-        </select></label></div><div class="activity-feed">${rows || '<p class="sub">По этим фильтрам пока нет операций</p>'}</div>
+    container.innerHTML = `<div class="activity-feed">${rows || '<p class="sub">По этим фильтрам пока нет операций</p>'}</div>
         ${data.has_more ? `<button class="secondary" onclick="refreshMarketActivity(true)" ${activity.pending?'disabled':''}>Показать ещё</button>` : ''}`;
+    container.querySelectorAll('[data-activity-gift]').forEach(button => {
+        button.onclick = () => showGiftDetail(data.items[Number(button.dataset.activityGift)].gift, 'history');
+    });
 }
 
 const renderMarketToolsBase = renderMarket;
@@ -303,7 +297,6 @@ renderMarket = function () {
 const changedMarketToolsBase = changedFilter;
 changedFilter = function () {
     if (activity && state.page === 'market') {
-        activity.model = null;
         saveView();
         refreshMarketActivity();
         return;

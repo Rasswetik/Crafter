@@ -438,3 +438,82 @@ def test_wallet_deposit_checks_sender_balance_and_confirms_after_unlink(client, 
     history = client.get('/api/wallet/history', headers=headers).json['items']
     assert [(item['kind'], item['status'], item['data']['gram']) for item in history] == [
         ('withdraw_funds', 'queued', '1.25'), ('deposit', 'confirmed', '3.25')]
+
+
+def test_transfer_gifts_atomically_and_record_anonymous_history(client, monkeypatch):
+    import telegram_bot
+    calls = []
+    monkeypatch.setattr(telegram_bot, 'bot_api', lambda _, method, body: calls.append((method, body)))
+    monkeypatch.setenv('RENDER_EXTERNAL_URL', 'https://crafter.example')
+    sender = signed()
+    recipient = signed(43)
+    client.get('/api/me', headers=sender)
+    client.get('/api/me', headers=recipient)
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("UPDATE users SET username='Other_User' WHERE id=43")
+        db.executemany('INSERT INTO inventory VALUES(42,?,?,?)', [
+            ('available', json.dumps({**DEMO_GIFTS[0], 'id':'available'}), 'unlisted'),
+            ('listed', json.dumps({**DEMO_GIFTS[0], 'id':'listed'}), 'listed'),
+        ])
+    lookup = client.get('/api/inventory/recipient?username=other_user', headers=sender)
+    assert lookup.json['recipient']['id'] == 43
+    route = '/api/inventory/transfer'
+    body = {'gift_ids':['available','listed'], 'recipient_id':43, 'username':'Other_User', 'anonymous':True,
+            'request_id':'same-request'}
+    assert client.post(route, headers=sender, json=body).status_code == 409
+    assert not calls
+    body['gift_ids'] = ['available']
+    assert client.post(route, headers=sender, json=body).status_code == 200
+    assert client.post(route, headers=sender, json=body).status_code == 200
+    assert len(calls) == 1
+    assert calls[0][1]['reply_markup']['inline_keyboard'][0][0]['web_app']['url'] == 'https://crafter.example?view=gifts'
+    assert calls[0][1]['chat_id'] == 43 and 'anonymous' in calls[0][1]['text']
+    assert [gift['id'] for gift in client.get('/api/inventory', headers=sender).json['gifts']] == ['listed']
+    assert [gift['id'] for gift in client.get('/api/inventory', headers=recipient).json['gifts']] == ['available']
+    sent = client.get('/api/history', headers=sender).json['items']
+    received = client.get('/api/history', headers=recipient).json['items']
+    assert len(sent) == len(received) == 1
+    assert sent[0]['kind'] == 'transfer' and sent[0]['data']['recipient']['username'] == 'Other_User'
+    assert received[0]['kind'] == 'gift_received' and received[0]['data']['sender'] is None
+
+
+def test_import_bot_emoji_and_apply_to_greeting_and_button(client, monkeypatch):
+    import telegram_bot
+    calls = []
+    monkeypatch.setenv('RENDER_EXTERNAL_URL', 'https://crafter.example')
+    def bot_api(token, method, payload):
+        calls.append((method, payload))
+        if method == 'getMe':
+            return {'id': 123, 'is_bot': True, 'username': 'crafter_bot'}
+        if method == 'getStickerSet':
+            return {'stickers':[{'custom_emoji_id':'123456789012345678', 'emoji':'💎', 'thumbnail':{'file_id':'preview'}}]}
+        return True
+    monkeypatch.setattr(telegram_bot, 'bot_api', bot_api)
+    route = '/api/admin/telegram-bot'
+    result = client.post(route+'/emoji', headers=signed(), json={'value':'https://t.me/addemoji/Gems'})
+    assert result.json['emoji_library'] == [{'id':'123456789012345678', 'emoji':'💎'}]
+    result = client.post(route, headers=signed(), json={
+        'greeting':'<Crafter> [[emoji:123456789012345678]]',
+        'buttons':[{'text':'Открыть','type':'web_app','url':'','style':'primary','icon_custom_emoji_id':'123456789012345678'}],
+    })
+    assert result.status_code == 200
+    assert client.post(route+'/connect', headers=signed(), json={}).status_code == 200
+    secret = calls[-1][1]['secret_token']
+    event = {'update_id':1, 'message':{'chat':{'id':42,'type':'private'}, 'text':'/start'}}
+    assert client.post('/api/telegram/webhook/123', json=event, headers={'X-Telegram-Bot-Api-Secret-Token':secret}).status_code == 200
+    message = calls[-1][1]
+    assert message['text'] == '&lt;Crafter&gt; <tg-emoji emoji-id="123456789012345678">💎</tg-emoji>'
+    assert message['parse_mode'] == 'HTML'
+    button = message['reply_markup']['inline_keyboard'][0][0]
+    assert button['style'] == 'primary' and button['icon_custom_emoji_id'] == '123456789012345678'
+
+
+def test_portals_backdrop_catalog_uses_colors_and_floor(monkeypatch):
+    import portals_public
+    monkeypatch.setattr(portals_public, 'get', lambda *_: {
+        'collections': [{'backdrops': {'Black': {'floor_price': '10.5',
+            'backdrop': {'center_color': 66051, 'edge_color': 1}}}}]
+    })
+    assert portals_public.backdrops('test') == {
+        'Black': {'center_color': 66051, 'edge_color': 1, 'portal_floor':'10.5'}
+    }

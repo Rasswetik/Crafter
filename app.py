@@ -289,7 +289,34 @@ def create_app(config=None):
     def models(slug):return {'models':collection_models(slug)}
     @app.get('/api/collections/<slug>/attributes')
     @auth()
-    def attributes(slug):return collection_attributes(slug)
+    def attributes(slug):
+        if request.args.get('source') != 'portals':
+            return collection_attributes(slug)
+        try:
+            data = collection_attributes(slug)
+        except (ValueError, OSError):
+            data = {}
+        collection = catalog_collection(slug)
+        if not collection or not collection.get('short_name'):
+            return data
+        import portals_public
+        cache_key = 'portals:backdrops:' + collection['short_name']
+        rows, updated = cached(cache_key, {})
+        if not updated or time.time() - updated > 900:
+            try:
+                rows = portals_public.backdrops(collection['short_name'])
+                with db():
+                    db().execute('INSERT OR REPLACE INTO cache VALUES(?,?,?)',
+                                 (cache_key, json.dumps(rows), int(time.time())))
+            except (ValueError, OSError, TypeError):
+                pass
+        if not rows:
+            return data
+        merged = {row['name']: row for row in data.get('backdrops', []) if row.get('name')}
+        for name, row in rows.items():
+            merged[name] = {**merged.get(name, {}), **row, 'name': name}
+        return {**data, 'backdrops': list(merged.values())}
+
     @app.get('/api/market')
     @auth()
     def market():
@@ -407,7 +434,8 @@ def create_app(config=None):
                     price = gift.get('price')
                 if offset <= total < offset + 35:
                     public_gift = {key: gift[key] for key in (
-                        'name','number','model','image','background','backdrop','symbol','origin','source_number'
+                        'name','number','model','image','background','backdrop','symbol','origin','source_number',
+                        'collection_id','floor_price','price_unit','rarity','telegram_url'
                     ) if key in gift}
                     items.append(dict(kind=kind, gift=public_gift, created=row['created'], price=price))
                 total += 1
@@ -598,6 +626,75 @@ def create_app(config=None):
     @auth()
     def history():
         return {'items':[dict(id=r['id'],kind=r['kind'],created=r['created'],data=json.loads(r['payload'])) for r in db().execute('SELECT * FROM history WHERE user_id=? ORDER BY created DESC,rowid DESC LIMIT 100',(g.user['id'],))]}
+    with app.app_context(), db():
+        db().execute("""CREATE TABLE IF NOT EXISTS gift_transfers
+                        (sender_id INTEGER, request_id TEXT, payload TEXT,
+                         PRIMARY KEY(sender_id, request_id))""")
+        db().execute("CREATE INDEX IF NOT EXISTS users_username_nocase ON users(username COLLATE NOCASE)")
+
+    @app.get('/api/inventory/recipient')
+    @auth()
+    def inventory_recipient():
+        username = request.args.get('username', '').strip().lstrip('@')
+        if not re.fullmatch(r'[A-Za-z0-9_]{3,32}', username):
+            return {'recipient': None}
+        row = db().execute(
+            'SELECT id,name,username FROM users WHERE username=? COLLATE NOCASE AND id!=? ORDER BY id LIMIT 2',
+            (username, g.user['id']),
+        ).fetchall()
+        return {'recipient': dict(row[0]) if len(row) == 1 else None}
+
+    @app.post('/api/inventory/transfer')
+    @auth()
+    def inventory_transfer():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400)
+        ids, recipient_id, request_id = (data.get(key) for key in ('gift_ids', 'recipient_id', 'request_id'))
+        anonymous = data.get('anonymous', False)
+        if (not isinstance(ids, list) or not 1 <= len(ids) <= 100 or
+                any(not isinstance(item, str) or not 1 <= len(item) <= 200 for item in ids) or
+                len(set(ids)) != len(ids) or type(recipient_id) is not int or
+                not 0 < recipient_id < 2**63 or recipient_id == g.user['id'] or
+                not isinstance(request_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', request_id) or
+                type(anonymous) is not bool):
+            abort(400, description='Проверьте подарки и получателя')
+        sender_id = g.user['id']
+        order = dict(ids=sorted(ids), recipient_id=recipient_id, anonymous=anonymous)
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            existing = db().execute('SELECT payload FROM gift_transfers WHERE sender_id=? AND request_id=?',
+                                    (sender_id, request_id)).fetchone()
+            if existing:
+                if json.loads(existing[0]) != order:
+                    abort(409, description='Этот запрос уже использован')
+                return {'ok': True, 'gift_ids': ids}
+            recipient = db().execute('SELECT name,username FROM users WHERE id=? AND username IS NOT NULL AND username!=?',
+                                     (recipient_id, '')).fetchone()
+            if not recipient or recipient['username'].casefold() != str(data.get('username', '')).casefold():
+                abort(409, description='Проверьте имя получателя и выберите его снова')
+            inventory = {gift['id']: gift for gift in owned()}
+            if any(gift_id not in inventory or inventory[gift_id]['status'] != 'unlisted' for gift_id in ids):
+                abort(409, description='Один из подарков недоступен для отправки')
+            gifts = [inventory[gift_id] for gift_id in ids]
+            conflict = db().execute(
+                'SELECT 1 FROM inventory WHERE user_id=? AND nft_id IN (' + ','.join('?' for _ in ids) + ') LIMIT 1',
+                [recipient_id, *ids],
+            ).fetchone()
+            if conflict:
+                abort(409, description='Один из подарков уже есть у получателя')
+            db().executemany('UPDATE inventory SET user_id=? WHERE user_id=? AND nft_id=?',
+                             [(recipient_id, sender_id, gift_id) for gift_id in ids])
+            record('transfer', {'gifts': gifts, 'recipient': dict(recipient)})
+            sender = None if anonymous else {'name': g.user.get('first_name', ''), 'username': g.user.get('username', '')}
+            record('gift_received', {'gifts': gifts, 'sender': sender}, uid=recipient_id)
+            db().execute('INSERT INTO gift_transfers VALUES (?,?,?)', (sender_id, request_id, json.dumps(order)))
+        try:
+            notify_gift_transfer(bot_settings(), recipient_id, gifts, sender, request.url_root, app.config['BOT_TOKEN'])
+        except Exception:
+            app.logger.warning('Telegram gift notification was not delivered')
+        return {'ok': True, 'gift_ids': ids}
+
     @app.post('/api/inventory/action')
     @auth()
     def inventory_action():
@@ -820,7 +917,7 @@ def create_app(config=None):
         selection=(request.get_json() or {}).get('selection',{})
         if not isinstance(selection,dict) or len(selection)>1000 or any(not isinstance(v,list) or any(not isinstance(x,str) for x in v) for v in selection.values()):abort(400)
         db().execute("INSERT OR REPLACE INTO settings VALUES('selection',?)",(json.dumps(selection),));db().commit();audit('Craft model selection updated');return {'ok':True}
-    from telegram_bot import install_telegram_bot
+    from telegram_bot import install_telegram_bot, notify_gift_transfer
     bot_settings = install_telegram_bot(app, db, auth, audit)
     from wallet import install_wallet
     install_wallet(app,db,auth,record,audit)

@@ -25,3 +25,40 @@ def listings(params,catalog):
         rarity={a['type'].lower():a.get('rarity_per_mille') for a in n.get('attributes',[])}
         gifts.append(dict(id=n['id'],name=n['name'],collection_id=ids.get(n['name'],n['collection_id']),model=attrs.get('model',''),symbol=attrs.get('symbol',attrs.get('pattern','')),backdrop=attrs.get('backdrop',''),rarity=rarity,number=n.get('external_collection_number'),image=n['photo_url'],price=str(n['price']),price_unit='GRAM',floor_price=n.get('floor_price'),listed_at=n.get('listed_at'),purchase_url='https://t.me/portals_market_bot/market?startapp=gift_'+n['id']))
     return dict(gifts=gifts,total=data.get('total_count',0),source='portals',price_unit='GRAM',sort_by=order,demo=False)
+
+def backdrops(short_name):
+    def locate(node):
+        if isinstance(node, dict):
+            if isinstance(node.get('backdrops'), (dict, list)):
+                return node['backdrops']
+            for value in node.values():
+                group = locate(value)
+                if group:
+                    return group
+        if isinstance(node, list):
+            for value in node:
+                group = locate(value)
+                if group:
+                    return group
+        return {}
+
+    group = locate(get('collections/filters', {'short_names': short_name}))
+    rows = group.items() if isinstance(group, dict) else (
+        (item.get('name') or item.get('value'), item) for item in group if isinstance(item, dict)
+    )
+    result = {}
+    for name, value in rows:
+        if not isinstance(name, str) or not name:
+            continue
+        fields = value if isinstance(value, dict) else {'floor_price': value}
+        meta = fields.get('backdrop') if isinstance(fields.get('backdrop'), dict) else fields
+        item = {key: meta[key] for key in ('center_color', 'edge_color', 'image_url') if meta.get(key) is not None}
+        price = fields.get('floor_price', fields.get('floor', fields.get('price')))
+        try:
+            if float(price) > 0:
+                item['portal_floor'] = price
+        except (TypeError, ValueError):
+            pass
+        if item:
+            result[name] = item
+    return result

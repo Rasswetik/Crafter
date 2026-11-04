@@ -1,4 +1,4 @@
-Object.assign(paths,{basket:'M3 8h18l-2 13H5L3 8Zm5 0 4-6 4 6M8 12v5m4-5v5m4-5v5',check:'m5 12 4 4L20 5'});
+Object.assign(paths,{basket:'M4 10h16l-1.6 8.5A2 2 0 0 1 16.4 20H7.6a2 2 0 0 1-2-1.5L4 10Zm-2 0h20M7 10l3-5m7 5-3-5m-5 8v4m3-4v4m3-4v4',check:'m5 12 4 4L20 5'});
 Object.assign(state,{cart:new Map(),cartSelected:new Set(),cartUser:null,cartBuying:false});
 function cartKey(){return 'crafter-cart:'+state.me.user.id}
 function restoreCart(){if(!state.me||state.cartUser===state.me.user.id)return;state.cartUser=state.me.user.id;try{const rows=JSON.parse(sessionStorage.getItem(cartKey())||'[]');state.cart=new Map(rows.filter(g=>g&&typeof g.id==='string'&&Number.isFinite(Number(g.price))).map(g=>[g.id,g]));state.cartSelected=new Set(state.cart.keys())}catch{state.cart=new Map();state.cartSelected=new Set()}}
@@ -20,7 +20,7 @@ function updateMarketCartButtons() {
 
 function updateCartFloat() {
     let button = document.querySelector('#cart-float');
-    if (!state.cart.size || state.page !== 'market') {
+    if (!state.cart.size || state.page !== 'market' || marketActivityVisible()) {
         button?.remove();
         return;
     }

@@ -129,6 +129,10 @@ async function playForge(forge, gifts, result) {
                 decal.hidden = true;
             }
         });
+        if (reveal > 0 && result.gift && !forge.classList.contains('forge-reward-visible')) {
+            forge.classList.add('forge-reward-visible');
+            mountGiftAnimation(reward, result.gift, forge.closest('.craft-page'));
+        }
         const resultFace = visible.find(face => face.index === CrafterCube.resultFace);
         placeForgePanel(reward, resultFace?.points, reveal);
     }
@@ -184,7 +188,14 @@ function showForgeResult(status, result, usedGifts = []) {
     if (gift) {
         status.querySelector('.gift-collection-link').addEventListener('click', () => openGiftCollection(gift, false));
         const art = status.querySelector('.forge-result-art');
-        mountGiftAnimation(art, gift, status.closest('.craft-page'));
+        const stage = status.closest('.craft-page');
+        const [center, edge] = giftBackdropColors(gift);
+        art.style.background = giftBackdrop(gift);
+        if (center && edge) {
+            stage.style.setProperty('--craft-result-center', center);
+            stage.style.setProperty('--craft-result-edge', edge);
+        }
+        mountGiftAnimation(art, gift, stage);
     }
     status.querySelectorAll('.craft-material').forEach((art, index) => {
         mountGiftAnimation(art, usedGifts[index], null, false);

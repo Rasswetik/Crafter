@@ -38,6 +38,19 @@ const previewCatalog=CATALOG_SEED;
      }
      else if(route==='market')data={gifts:previewGifts.filter(gift => !demoState.luckySold?.includes(gift.id)),demo:true,source:'demo'};
      else if(route==='inventory')data={gifts:demoState.inventory,demo:true};
+     else if(route==='inventory/recipient') {
+        const query = new URLSearchParams(url.split('?')[1]).get('username')?.toLowerCase();
+        data={recipient:query==='crafter_demo'?{id:2,name:'Демо-получатель',username:'crafter_demo'}:null};
+     }
+     else if(route==='inventory/transfer'){
+        const gifts=demoState.inventory.filter(item=>body.gift_ids.includes(item.id)&&item.status==='unlisted');
+        if(body.recipient_id!==2||gifts.length!==body.gift_ids.length){ok=false;data={error:'Подарок или получатель недоступен'}}
+        else {
+            demoState.inventory=demoState.inventory.filter(item=>!body.gift_ids.includes(item.id));
+            demoHistory('transfer',{gifts,recipient:{name:'Демо-получатель',username:'crafter_demo'}});
+            data={ok:true,gift_ids:body.gift_ids};
+        }
+     }
      else if(route==='history')data={items:demoState.history};
      else if(route==='wallet')data={balance:String(demoState.balance),withdrawable:'0',connected:null,
         config:{enabled:false,network:'testnet',gram_per_ton:'1',withdraw_enabled:false,withdraw_max:'2500'}};

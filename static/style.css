@@ -626,3 +626,52 @@ html { touch-action: pan-x pan-y; }
 .wallet-funding .wallet-error {font-size:12px;line-height:1.45}
 .wallet-funding .wallet-error:empty {display:none}
 .wallet-funding .wallet-error-muted {color:#b2b6be}
+
+.inventory-gift { position:relative }
+.inventory-gift .gift-bottom .price { justify-content:space-between; background:#343434; color:#57afff; padding:0 9px; min-width:0; font-size:12px }
+.inventory-gift .price small { color:#b4b4b4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis }
+.inventory-gift .price b { display:flex; align-items:center; gap:4px; white-space:nowrap }
+.inventory-gift .gram-icon { filter:brightness(0) saturate(100%) invert(63%) sepia(75%) saturate(1662%) hue-rotate(172deg) }
+.inventory-craft-dot { position:absolute; top:13px; left:13px; z-index:2; width:29px; height:29px; display:grid; place-items:center; border-radius:50%; background:#7358abd9 }
+.inventory-craft-dot svg { width:16px; height:16px }
+.inventory-actions { margin-top:12px }
+.gift-deposit-banner { display:flex; justify-content:center; align-items:center; gap:24px; padding:38px 12px; border-radius:20px; background:linear-gradient(160deg,#168bff,#75c6ef) }
+.gift-deposit-banner svg { width:42px; height:42px }
+.transfer-picker-list { display:grid; gap:9px; margin:12px 0; max-height:52dvh; overflow:auto }
+.transfer-option { display:grid; grid-template-columns:46px 1fr auto; align-items:center; gap:10px; padding:9px; border-radius:14px; background:#262626 }
+.transfer-option small,.transfer-match small { display:block; color:#a6a6a6; margin-top:4px }
+.transfer-option input,.transfer-anonymous input { accent-color:var(--blue) }
+.transfer-art { display:block; width:45px; aspect-ratio:1; overflow:hidden; border-radius:12px }
+.transfer-art img { display:block; width:100%; height:100%; object-fit:contain }
+.transfer-summary { display:flex; flex-wrap:wrap; justify-content:space-between; gap:5px; margin:17px 0 12px; color:#bbb; font-size:12px }
+.transfer-thumbs { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:10px 0 20px }
+.transfer-selected { position:relative }
+.transfer-selected .transfer-art { width:64px }
+.transfer-selected>b { position:absolute; bottom:4px; inset-inline:0; text-align:center; font-size:11px; text-shadow:0 1px 3px #000 }
+.transfer-selected>button { position:absolute; top:-6px; right:-5px; border-radius:50%; width:22px; height:22px; padding:0; background:#414141 }
+.transfer-user { display:flex; gap:8px; padding-inline:12px }
+.transfer-match { position:relative; width:100%; text-align:left; padding:12px; margin:8px 0; border-radius:14px; background:#272727; border:1px solid transparent }
+.transfer-match.selected { border-color:#58cc73; background:#24402b }
+.transfer-match svg { position:absolute; right:12px; top:15px; width:20px; height:20px; color:#58cc73 }
+.transfer-anonymous { display:flex; align-items:center; gap:8px; margin-top:14px }
+.transfer-actions { display:flex; gap:8px; margin-top:16px }
+.transfer-actions button { flex:1 }
+button.market-activity-row { width:100%; padding:0; text-align:left; border-radius:11px }
+button.market-activity-row:hover { background:#ffffff0b }
+.gift-history-row>span:last-child { max-width:125px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+.gift-history-row strong { color:#65b6ff }
+.activity-price .gram-icon { width:13px;height:13px;vertical-align:-2px }
+.craft-page:has(.forge-reward-visible) { background:radial-gradient(ellipse at 50% 27%, color-mix(in srgb, var(--craft-result-center,#4d4d4d) 32%, transparent), transparent 60%), var(--bg) }
+@media (min-width:760px) {
+    #app { max-width:1120px; width:calc(100% - 36px); min-height:calc(100dvh - 32px); margin:16px auto }
+    #app #nav { width:calc(100% - 56px); max-width:660px }
+    #gifts-grid.grid { grid-template-columns:repeat(3,minmax(0,1fr)) }
+    .craft-page #forge,.craft-page .manufacturing-status { max-width:680px; margin-inline:auto }
+}
+@media (min-width:1020px) { #gifts-grid.grid { grid-template-columns:repeat(4,minmax(0,1fr)) } }
+.bot-emoji-admin { margin-top:20px; padding-top:10px; border-top:1px solid #383838 }
+.bot-emoji-picker { display:grid; grid-template-columns:repeat(auto-fill,minmax(44px,1fr)); gap:7px; max-height:48dvh; overflow:auto }
+.bot-emoji-picker button { min-height:44px; display:grid; place-items:center; padding:4px; background:#2b2b2b; border-radius:10px; font-size:22px }
+.bot-emoji-picker img { width:33px; height:33px; object-fit:contain }
+.gift-history-filters { display:flex; gap:8px; margin:10px 0 16px }
+.gift-history-filters select { min-width:0; border:1px solid #383838; border-radius:16px; padding:7px; background:#252525; color:inherit }

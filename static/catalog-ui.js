@@ -16,12 +16,12 @@ async function openCatalogSheet(kind){
  if(kind==='collection'||kind==='target') rows=state.catalog.collections.map(c=>({value:c.id,name:c.name,image:c.photo_url,price:c.floor_price,unit:['snapshot','thermos'].includes(state.catalog.source)?'TON':'GRAM'}));
  else if(selectedCollections().length > 1) {toast('Для фильтра по атрибутам выберите одну коллекцию');return}
  else if(kind==='model'&&collection){try{const data=await api('collections/'+encodeURIComponent(collection.short_name||collection.id)+'/models');rows=data.models.map(m=>({value:m.name,name:m.name,image:m.image,price:m.price,unit:m.price_unit|| (m.price_source==='snapshot-estimate'?'TON':'GRAM')}))}catch(e){toast(e.message);return}}
- else if(collection){try{const attrs=await api('collections/'+encodeURIComponent(collection.id)+'/attributes');const group=attrs[kind==='backdrop'?'backdrops':'symbols']||[];rows=group.map(m=>({value:m.name,name:m.name,image:m.image_url,price:Number(m.stats?.floor||0)/1e9,unit:'TON'}))}catch(e){toast(e.message);return}}
+ else if(collection){try{const attrs=await api('collections/'+encodeURIComponent(collection.id)+'/attributes'+(kind==='backdrop'?'?source=portals':''));const group=attrs[kind==='backdrop'?'backdrops':'symbols']||[];rows=group.map(m=>({value:m.name,name:m.name,image:m.image_url,background:kind==='backdrop'?giftBackdrop({backdrop:m.name,background:m}):'',price:m.portal_floor??Number(m.stats?.floor||0)/1e9,unit:m.portal_floor!=null?'GRAM':'TON'}))}catch(e){toast(e.message);return}}
  state.catalogRows=rows;state.sheetKind=kind;state.sheetValue=kind==='target'?'':state[kind]||'';
  sheet(titles[kind],`<label class="catalog-search search-box">${icon('search')}<input placeholder="Быстрый поиск" aria-label="Быстрый поиск" oninput="renderCatalogRows(this.value)"></label><div class="catalog-columns"><span>${kind==='target'?'КОЛЛЕКЦИЯ':titles[kind]}</span><span>Мин. цена</span></div><div id="catalog-rows" class="catalog-rows"></div>${kind==='target'?'':`<div class="catalog-footer"><button onclick="resetCatalogDraft()">Сбросить</button><button class="apply" onclick="applyCatalogFilter()">Применить</button></div>`}`);
  document.querySelector('#sheet').classList.add('catalog-sheet');renderCatalogRows('');
 }
-function renderCatalogRows(query){const rows=state.catalogRows.filter(r=>r.name.toLowerCase().includes(query.toLowerCase()));document.querySelector('#catalog-rows').innerHTML=rows.length?rows.map(r=>`<button class="catalog-row" onclick="pickCatalogRow(${arg(r.value)})">${state.sheetKind==='target'?'':`<span class="catalog-check ${catalogRowSelected(r.value)?'checked':''}">${catalogRowSelected(r.value)?'✓':''}</span>`}<span class="catalog-thumb">${r.image?`<img loading="lazy" src="${esc(imageURL(r.image))}" alt="">`:''}</span><strong>${esc(r.name)}</strong><b>${r.price!=null&&Number(r.price)>0?money(r.price)+' '+esc(r.unit):'—'}</b></button>`).join(''):`<div class="catalog-empty">${state.sheetKind!=='collection'&&!state.collection?'Сначала выберите коллекцию':'Нет доступных данных'}</div>`}
+function renderCatalogRows(query){const rows=state.catalogRows.filter(r=>r.name.toLowerCase().includes(query.toLowerCase()));document.querySelector('#catalog-rows').innerHTML=rows.length?rows.map(r=>`<button class="catalog-row" onclick="pickCatalogRow(${arg(r.value)})">${state.sheetKind==='target'?'':`<span class="catalog-check ${catalogRowSelected(r.value)?'checked':''}">${catalogRowSelected(r.value)?'✓':''}</span>`}<span class="catalog-thumb" ${r.background?`style="background:${r.background}"`: ''}>${r.image?`<img loading="lazy" src="${esc(imageURL(r.image))}" alt="">`:''}</span><strong>${esc(r.name)}</strong><b>${r.price!=null&&Number(r.price)>0?money(r.price)+' '+esc(r.unit):'—'}</b></button>`).join(''):`<div class="catalog-empty">${state.sheetKind!=='collection'&&!state.collection?'Сначала выберите коллекцию':'Нет доступных данных'}</div>`}
 function catalogRowSelected(value) {
     return state.page === 'market' && state.sheetKind === 'collection'
         ? selectedCollections(state.sheetValue).includes(String(value))
@@ -191,8 +191,12 @@ function applySort(){state.order=state.draftOrder;state.sort=false;closeSheet();
 function openPriceFilters(){sheet('Цена',`<p class="sub">Диапазон цены, ${esc(state.page==="gifts"?"GRAM":state.marketUnit||"GRAM")}</p><div class="price-fields"><label>От<input id="price-min" inputmode="decimal" type="number" min="0" step="0.01" placeholder="0" value="${esc(state.minPrice)}"></label><label>До<input id="price-max" inputmode="decimal" type="number" min="0" step="0.01" placeholder="Без лимита" value="${esc(state.maxPrice)}"></label></div><div class="catalog-footer"><button onclick="state.minPrice='';state.maxPrice='';closeSheet();refreshFilteredPage();changedFilter()">Сбросить</button><button class="apply" onclick="applyPriceFilters()">Применить</button></div>`);document.querySelector('#sheet').classList.add('price-sheet')}
 function applyPriceFilters(){const min=document.querySelector('#price-min').value,max=document.querySelector('#price-max').value;if((min&&(!Number.isFinite(Number(min))||Number(min)<0))||(max&&(!Number.isFinite(Number(max))||Number(max)<0))||(min&&max&&Number(min)>Number(max)))return toast('Укажите корректный диапазон цены');state.minPrice=min;state.maxPrice=max;closeSheet();refreshFilteredPage();changedFilter()}
 const themedSheet=sheet;sheet=function(t,h){document.querySelector('#sheet').classList.remove('sort-sheet','price-sheet','purchase-sheet');themedSheet(t,h)};
-nav=function(){document.querySelector('#nav').innerHTML=`<div class="nav-main">${[['market','market','Маркет'],['gifts','gift','Мои подарки'],['craft','craft','Крафт']].map(([p,i,n])=>`<button class="${state.page===p?'active':''}" onclick="go('${p}')" aria-label="${n}">${icon(i)}<span>${n}</span></button>`).join('')}</div><button class="profile-nav ${['profile','admin'].includes(state.page)?'active':''}" onclick="go(state.page==='profile'?'market':'profile')" aria-label="Профиль"><span class="avatar">${avatar()}</span></button>`};
-Object.assign(paths, { eye: 'M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z' });
+nav=function(){document.querySelector('#nav').innerHTML=`<div class="nav-main">${[['market','market','Маркет'],['gifts','inventoryNav','Мои подарки'],['craft','craftNav','Крафт']].map(([p,i,n])=>`<button class="${state.page===p?'active':''}" onclick="go('${p}')" aria-label="${n}">${icon(i)}<span>${n}</span></button>`).join('')}</div><button class="profile-nav ${['profile','admin'].includes(state.page)?'active':''}" onclick="go(state.page==='profile'?'market':'profile')" aria-label="Профиль"><span class="avatar">${avatar()}</span></button>`};
+Object.assign(paths, {
+    market:'M5 20V9a7 7 0 0 1 14 0v11l-4-2-3 3-3-3-4 2Zm5-5V9a2 2 0 0 1 4 0v6',
+    inventoryNav:'M3 9h18v4H3zM5 13v8h14v-8M12 9v12M12 9C5 9 6 3 9 4c2 1 3 5 3 5Zm0 0c7 0 6-6 3-5-2 1-3 5-3 5Z',
+    craftNav:'M3 10h18l-4 4h-3v3l3 2v2H7v-2l3-2v-3H8L3 10Zm5-5 4-3 2 3-4 3-2-3Zm6 0 6-2',
+    eye: 'M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z' });
 
 function telegramGiftLink(gift) {
     if (/^https:\/\/t\.me\/nft\/[a-z0-9]+-[1-9]\d*$/i.test(gift.telegram_url || '')) {
@@ -262,7 +266,11 @@ async function loadGiftAttributePrices(panel, gift, attributes) {
 detail = function (id) {
     const own = state.page === 'gifts';
     const gift = (own ? state.inventory : state.gifts).find(item => item.id === id);
-    if (!gift) return;
+    if (gift) showGiftDetail(gift, own ? 'inventory' : 'market');
+};
+
+function showGiftDetail(gift, source) {
+    const own = source === 'inventory';
     state.detailGift = gift;
     const eyeLabel = telegramGiftLink(gift) ? 'Открыть подарок в Telegram' : 'У подарка пока нет ссылки в Telegram';
     const attributes = [['model', 'Модель', gift.model], ['symbol', 'Узор', gift.symbol], ['backdrop', 'Фон', gift.backdrop]];
@@ -284,14 +292,14 @@ detail = function (id) {
         ${own ? `<div class="product-actions owned-gift-actions">
             <button class="secondary" onclick="toast('Вывод пока недоступен')">Вывод</button>
             <button class="primary" onclick="toast('Продажа пока недоступна')">Продать</button>
-        </div>` : `<div class="market-gift-actions">
+        </div>` : source === 'market' ? `<div class="market-gift-actions">
             ${gift.number && !gift.catalog_only ? `<button class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
                 <span class="lucky-craft-copy"><strong>Lucky Craft</strong><small>За свои подарки</small></span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3c7-1 14 3 16 10l-1 1c-1-2-3-4-5-5L6 21a1.5 1.5 0 0 1-2-2L13 8C11 6 8 5 5 4Z" fill="currentColor"/></svg>
             </button>` : ''}
             <button id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
             <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
-        </button></div>`}`);
+        </button></div>` : ''}`);
     document.querySelector('#sheet').classList.add('purchase-sheet');
     mountGiftAnimation(document.querySelector('.portal-product'), gift);
     loadGiftAttributePrices(document.querySelector('.product-properties'), gift, attributes);
@@ -304,9 +312,9 @@ const localRequestIds=new Map();
 function paymentRequestId(key){if(localRequestIds.has(key))return localRequestIds.get(key);let rid;try{rid=sessionStorage.getItem(key)}catch{}if(!rid){if(globalThis.crypto?.randomUUID)rid=crypto.randomUUID();else if(globalThis.crypto?.getRandomValues)rid=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');else rid=Date.now().toString(36)+Math.random().toString(36).slice(2);try{sessionStorage.setItem(key,rid)}catch{}}localRequestIds.set(key,rid);return rid}
 function purchaseError(message){let el=document.querySelector('#purchase-error');if(!el){el=document.createElement('p');el.id='purchase-error';el.className='purchase-error';el.setAttribute('role','alert');document.querySelector('#sheet-body')?.appendChild(el)}el.textContent=message}
 async function localBuyGift(id){if(state.buying)return;state.buying=true;const button=document.querySelector('#buy-gift');if(button){button.disabled=true;button.setAttribute('aria-busy','true')}document.querySelector('#purchase-error')?.remove();try{const result=await api('local/buy',{id,expected_price:state.detailGift?.price,request_id:paymentRequestId('crafter-purchase:'+state.me.user.id+':'+id)});removePurchasedMarketLots([id]);state.me.balance=result.balance;state.me.inventory_count=(state.me.inventory_count||0)+1;state.inventory=[...state.inventory.filter(g=>g.id!==result.gift.id),{...result.gift,status:'unlisted'}];updateBalance();closeSheet();toast('Подарок добавлен в инвентарь')}catch(e){purchaseError(e.message||'Не удалось купить подарок')}finally{state.buying=false;if(button){button.disabled=false;button.removeAttribute('aria-busy')}}}
-const inventoryCards=card;card=function(g,action='detail'){let html=inventoryCards(g,action);if(state.page==='gifts'&&action==='detail')html=html.split(`togglePicked(${arg(g.id)})`).join(`detail(${arg(g.id)})`).replace('</article>',`<button class="card-craft" onclick="craftGiftById(${arg(g.id)})">${icon('craft')} Крафт</button></article>`);return html};
+
 function craftGiftById(id){state.selected=[id];state.quote=null;closeSheet();go('craft')}
-const inventoryScreen=renderGifts;renderGifts=async function(){await inventoryScreen();document.querySelector('.inventory-actions')?.remove();document.querySelector('.selection-bar')?.remove()};
+
 state.targetOrder='desc';const targetSheet=openCatalogSheet;openCatalogSheet=async function(kind){state.targetOrder='desc';await targetSheet(kind);if(document.querySelector('#catalog-rows')){document.querySelector('.catalog-columns').innerHTML='<span>'+({target:'КОЛЛЕКЦИЯ',collection:'КОЛЛЕКЦИЯ',model:'МОДЕЛЬ',backdrop:'ФОН',symbol:'СИМВОЛ'}[kind]||'')+'</span><button class="target-order" onclick="toggleTargetOrder()">ФЛОР ↓</button>';sortTargets()}};
 function sortTargets(){state.catalogRows.sort((a,b)=>(Number(a.price)-Number(b.price))*(state.targetOrder==='desc'?-1:1));renderCatalogRows(document.querySelector('.catalog-search input')?.value||'');const el=document.querySelector('.target-order');if(el)el.textContent='ФЛОР '+(state.targetOrder==='desc'?'↓':'↑')}
 function toggleTargetOrder(){state.targetOrder=state.targetOrder==='desc'?'asc':'desc';sortTargets()}
