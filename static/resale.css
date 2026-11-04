@@ -56,3 +56,36 @@ html[data-crafter-theme="light"] #sheet.resale-editor-sheet[open] {background:#f
 html[data-crafter-theme="light"] .resale-editor-card,html[data-crafter-theme="light"] .resale-editor-footer {background:#fff}
 html[data-crafter-theme="light"] .resale-price {background:#f1f2f6;color:#222;border-color:#d8dae2}
 html[data-crafter-theme="light"] .resale-fee b {color:#222}
+
+
+/* Compact, predictable listing actions on narrow Telegram devices. */
+.resale-editor-footer .resale-confirm {
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:1px;width:100%;max-height:54px;min-height:54px;
+    padding:7px 10px!important;overflow:hidden;
+    border-radius:22px!important;
+    line-height:1.1;text-align:center;
+}
+.resale-editor-footer .resale-confirm b {
+    display:block;font-size:clamp(12px,3.5vw,14px);line-height:1.15;
+    white-space:normal;overflow-wrap:normal;
+}
+.resale-editor-footer .resale-confirm small {
+    display:block;margin:0!important;
+    font-size:clamp(10px,2.6vw,11px);line-height:1.05;
+}
+.resale-editor-scroll .resale-add {
+    display:inline-flex;align-items:center;justify-content:center;
+    gap:8px;max-width:100%;min-height:37px;
+    margin:11px auto 0;padding:8px 13px;border-radius:19px;
+    font-size:12px;white-space:normal;text-align:center;
+}
+.resale-editor-scroll .resale-add b {
+    display:grid;place-items:center;flex:none;width:23px;height:23px;
+    border-radius:50%;font-size:17px;line-height:1;
+}
+.resale-editor-footer {min-width:0}
+@media(max-width:370px){
+    .resale-editor-footer {padding:9px 12px calc(10px + env(safe-area-inset-bottom))}
+    .resale-editor-scroll {padding:4px 12px 12px}
+}
