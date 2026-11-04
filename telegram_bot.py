@@ -171,7 +171,7 @@ def notify_offer_event(config, seller, gift, price, event, default_token):
     label = escape(str(gift.get('name') or 'Gift') +
                    (f" #{gift['number']}" if gift.get('number') else ''))
     url = str(gift.get('telegram_url') or '')
-    if re.fullmatch(r'https://(?:t\\.me|telegram\\.me)/nft/[a-z0-9]+-[1-9][0-9]*', url, re.I):
+    if re.fullmatch(r'https://(?:t\.me|telegram\.me)/nft/[a-z0-9]+-[1-9][0-9]*', url, re.I):
         label = '<a href="' + escape(url, quote=True) + '">' + label + '</a>'
     amount = str(price)
     if '.' in amount:
