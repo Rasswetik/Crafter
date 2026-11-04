@@ -77,7 +77,7 @@ async function verifyTonManifest(manifestUrl) {
     try {
         const homepage=new URL(manifest.url), icon=new URL(manifest.iconUrl);
         if (homepage.origin !== url.origin || icon.origin !== url.origin ||
-            icon.protocol !== 'https:' || !/\\.png(?:\\?|$)/i.test(icon.pathname)) {
+            icon.protocol !== 'https:' || !icon.pathname.toLowerCase().endsWith('.png')) {
             throw Error('manifest fields');
         }
         const image=await fetch(icon.href,{method:'HEAD',cache:'no-store',credentials:'omit'});
