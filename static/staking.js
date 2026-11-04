@@ -1,14 +1,14 @@
 /* Crafter Games Hub and gift staking. The existing craft mechanic is preserved. */
 const stakeUi = {status:null, picked:new Set(), tutorialStep:0, gifts:[], pending:false};
-const stakingIconSVG = '<svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M3 15h26l-5 7h-4v4l4 2H8l4-2v-4H8l-5-7Z" fill="#75e6cb" stroke="#215d59" stroke-width="1.8"/><path d="M12 5h15v5H12V5Z" fill="#85e5f5"/><path d="m19 13 3-3 3 3-3 3-3-3Z" fill="#ffe699" stroke="#cf9659" stroke-width="1.2"/></svg>';
+const stakingMachinePNG = '<img class="staking-machine-png" src="/static/assets/staking-machine.png" alt="Стейкинг подарков" decoding="async">';
 const gameCraftIconSVG = '<svg viewBox="0 0 120 120" fill="none" aria-hidden="true"><circle cx="61" cy="61" r="50" fill="#2e416b" opacity=".54"/><path d="M18 59h86l-13 19H79v15l12 8H32l12-8V78H31L18 59Z" fill="#bfc7e4" stroke="#5d6b91" stroke-width="3"/><path d="M56 21h48v16H56V21Z" fill="#d9e3f7" stroke="#6b82b2" stroke-width="3"/><g transform="rotate(-31 59 42)"><path d="M52 12h16v37H52V12Z" fill="#9960da" stroke="#d6b7ff" stroke-width="3"/><path d="M44 11h32v12H44V11Z" fill="#e9d2ff"/><path d="M56 49h8v23h-8V49Z" fill="#e5b89b"/></g><path d="m28 29 4-11 4 11 11 4-11 4-4 11-4-11-11-4 11-4Z" fill="#f6c971"/><path d="m93 43 2-8 3 8 8 3-8 3-3 8-2-8-8-3 8-3Z" fill="#9bdcff"/></svg>';
-const stakeGiftSVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="9" width="18" height="12" rx="2"/><path d="M2 9h20M12 9v12M12 9C4 9 6 3 10 5c1 .5 2 3 2 4Zm0 0c8 0 6-6 2-4-1 .5-2 3-2 4Z"/></svg>';
+const stakingGiftPNG = '<img class="staking-gift-png" src="/static/assets/splash-watch-platinum.png" alt="" decoding="async">';
 const gamesHubIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 8-2.5 1.2A4 4 0 0 0 1 12.8L2 17a3 3 0 0 0 4.6 1.7L10 16h4l3.4 2.7A3 3 0 0 0 22 17l1-4.2a4 4 0 0 0-2.5-3.6L18 8H6Z"/><path d="M6 11v5M3.5 13.5h5M16.5 12h.1M19 14h.1"/></svg>';
 const stakeNavBefore = nav;
 nav = function() {
     const root = document.querySelector('#nav');
     if (!root) return;
-    const inGames = ['games','craft'].includes(state.page);
+    const inGames = Boolean(state.gamesMode || ['games','craft'].includes(state.page));
     const destinations = inGames ? [
         ['market','market','Маркет'],['games','games','Hub']
     ] : [
@@ -19,20 +19,24 @@ nav = function() {
     root.innerHTML = `<div class="nav-main">${destinations.map(([page,kind,title]) => `
         <button type="button" onclick="go('${page}')" class="${state.page === page || (page === 'games' && state.page === 'craft') ? 'active' : ''}"
             aria-label="${title}"><span class="stake-nav-icon">${kind === 'games' ? gamesHubIcon :
-                kind === 'staking' ? stakingIconSVG : icon(kind)}</span><span>${title}</span></button>`).join('')}</div>
+                kind === 'staking' ? stakingMachinePNG : icon(kind)}</span><span>${title}</span></button>`).join('')}</div>
         <button class="profile-nav ${state.page === 'profile' ? 'active' : ''}" onclick="go('profile')" aria-label="Профиль">
             <span class="avatar">${avatar()}</span></button>`;
 };
 const stakeGoBefore = go;
 go = async function(page) {
+    if (state.crafting) return;
+    // Games is a navigation context, not a permanent extra tab. Keep Hub available
+    // while visiting the profile from a game; Market leaves Games mode.
+    if (page === 'games' || page === 'craft') state.gamesMode = true;
+    else if (page === 'market' || page === 'gifts' || page === 'staking') state.gamesMode = false;
     if (page !== 'games' && page !== 'staking') {
-        document.querySelector('#app')?.classList.toggle('games-view',page === 'craft');
+        document.querySelector('#app')?.classList.toggle('games-view', Boolean(state.gamesMode));
         return stakeGoBefore(page);
     }
-    if (state.crafting) return;
     state.page = page;
     document.querySelector('#app')?.classList.remove('craft-view','cart-view');
-    document.querySelector('#app')?.classList.toggle('games-view',page === 'games');
+    document.querySelector('#app')?.classList.toggle('games-view',Boolean(state.gamesMode));
     document.querySelector('#cart-float')?.remove();
     nav();
     const main = document.querySelector('#main');
@@ -99,31 +103,36 @@ function renderStaking() {
     const limit=stakeFormat(d.settings.limit_gram);
     const ratio=Math.min(100,Math.round(100*Number(d.total_staked_gram)/Math.max(0.000001,Number(d.settings.limit_gram))));
     const intro = !d.activated ? `<section class="staking-welcome">
-        <div class="staking-welcome-glow">${stakingIconSVG}</div>
+        <div class="staking-welcome-glow">${stakingMachinePNG}</div>
         <h1>Стейкинг подарков</h1>
         <strong class="staking-apr">${esc(d.settings.apr_percent)}% APR</strong>
         <p>Замораживайте подарки и получайте внутренние GRAM-награды за полные сутки стейкинга.</p>
         <button class="staking-activate" type="button" onclick="showStakingTutorial()" ${d.enabled?'':'disabled'}>Activate Staking</button>
     </section>` : `<div class="staking-main">
         <div class="staking-heading">
-            <span class="staking-eyebrow">CRAFTER · STAKING</span>
-            <button class="staking-rules-button" onclick="stakingRules()">ⓘ Правила</button>
+            <button class="staking-rules-button" onclick="stakingRules()" aria-label="Правила стейкинга">
+                <span class="staking-rules-dot">i</span> Правила
+            </button>
+            <span class="staking-gram-pill"><img src="/static/assets/gram.svg" alt="" class="gram-icon"> ${total} GRAM</span>
         </div>
         <div class="staking-highlight">
-            <div class="staking-highlight-icon">${stakingIconSVG}</div>
-            <div><h1>Стейкинг подарков <em>${esc(d.settings.apr_percent)}% APR</em></h1>
-                <p>Размещайте NFT на срок и получайте ежедневные награды</p></div>
+            <div class="staking-highlight-icon">${stakingMachinePNG}</div>
+            <div><h1>Стейкинг подарков</h1>
+                <strong class="staking-apr-display">${esc(d.settings.apr_percent)}% APR
+                    <button type="button" class="staking-apr-info" onclick="stakingRules()" aria-label="Что такое APR">i</button>
+                </strong>
+                <p>Держите NFT-подарки в стейкинге и получайте ежедневные GRAM-награды</p></div>
         </div>
         ${active.length ? `<section class="staking-gift-section">
              <div class="staking-section-header"><h2>Мои подарки</h2><span>${active.length}</span></div>
              <div class="staking-gift-grid">${active.map(stakeCard).join('')}</div>
          </section>` : `<div class="staking-empty">
-             <div class="staking-empty-symbol">${stakeGiftSVG}</div>
+             <div class="staking-empty-symbol">${stakingGiftPNG}</div>
              <h2>Добавьте подарки, чтобы начать зарабатывать</h2>
              <p>Замороженные подарки не получится продать, отправить или использовать в крафте.</p>
          </div>`}
         <button class="staking-deposit-button" type="button" onclick="openStakeGiftPicker()" ${d.enabled?'':'disabled'}>
-            ${stakeGiftSVG} Внести подарки
+            ${stakingGiftPNG} Внести подарки
         </button>
         <section class="staking-stats">
             <div class="staking-stat"><div><b>Ваш стейк</b><strong class="green">${total} GRAM</strong></div>
@@ -132,7 +141,7 @@ function renderStaking() {
             <div class="staking-stat"><div><b>Начисление за сутки</b><strong class="green">+${stakeFormat(d.estimated_daily_gram)} GRAM</strong></div></div>
         </section>
         <section class="staking-claim-card">
-            <span class="staking-claim-icon">${stakeGiftSVG}</span>
+            <span class="staking-claim-icon">${stakingGiftPNG}</span>
             <div><small>Всего заработано</small><strong>${stakeFormat(Number(d.earned_pending_gram)+Number(d.earned_claimed_gram))} GRAM</strong>
                 <small>Доступно: ${stakeFormat(d.earned_pending_gram)} GRAM</small></div>
             <button type="button" onclick="claimStakingRewards()" ${Number(d.earned_pending_gram)>=Number(d.settings.claim_minimum_gram)?'':'disabled'}>
@@ -151,10 +160,10 @@ const stakingTutorialSlides = [
 function showStakingTutorial(step=0) {
     stakeUi.tutorialStep = Math.min(stakingTutorialSlides.length-1,Math.max(0,step));
     const slide = stakingTutorialSlides[stakeUi.tutorialStep];
-    const art=slide.kind==='gift'?stakingIconSVG:
+    const art=slide.kind==='gift'?stakingMachinePNG:
         slide.kind==='activate'?'<span class="staking-tutorial-play">▶ Activate Staking</span>':
         slide.kind==='limit'?'<div class="staking-tutorial-limit">Ваш стейк <b>32/50 GRAM</b><hr>Лимит стейкинга <b>50 GRAM</b></div>':
-        '<div class="staking-tutorial-deposit">'+stakeGiftSVG+'<span>Внести подарки</span></div>';
+        '<div class="staking-tutorial-deposit">'+stakingGiftPNG+'</div>';
     sheet('Стейкинг', `<div class="staking-tutorial">
         <div class="staking-tutorial-art ${esc(slide.kind)}">${art}</div>
         <h2>${esc(slide.title)}</h2>
