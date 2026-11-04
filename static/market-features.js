@@ -55,10 +55,9 @@ function paintCollectionMarketFeatures(grid) {
 
     const offer = document.createElement('article');
     offer.className = 'collection-offer-card';
-    // The collection preview must always be the *collection* thumbnail,
-    // never a random model/gift illustration.
-    const collectionArt = imageURL(collection.photo_url) || fragmentCollectionImage(giftCollectionSlug(collection.name));
-    offer.innerHTML = `<img src="${esc(collectionArt)}" alt="${esc(collection.name)}" width="120" height="120">
+    // Keep the original Crafter offer frog, not a collection gift image.
+    // The offer mascot must remain visible even when there are no active offers.
+    offer.innerHTML = `<img src="/static/assets/offer-magnate.webp" alt="Crafter offers" width="120" height="120">
         <strong data-best-offer>—</strong><small data-offer-status>Лучшее предложение</small>
         <button type="button" class="offer-sell" disabled>Продать сейчас</button>
         <button type="button" class="offer-open">Офферы <span>0</span></button>`;
