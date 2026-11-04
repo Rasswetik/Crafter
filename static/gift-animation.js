@@ -3,6 +3,14 @@ function fragmentGiftPath(gift) {
     return link ? 'https://nft.fragment.com/gift/' + link.split('/').pop().toLowerCase() : '';
 }
 
+function giftCollectionSlug(name) {
+    return String(name || '').normalize('NFKD').replace(/[^a-z0-9]/gi, '').toLowerCase();
+}
+
+function fragmentCollectionImage(slug) {
+    return slug ? 'https://fragment.com/file/gifts/' + slug + '/thumb.webp' : '';
+}
+
 function giftAssetPart(value) {
     return encodeURIComponent(value).replace(/'/g, '%27');
 }
@@ -12,9 +20,10 @@ function giftPicture(gift, large = false) {
     const model = giftAnimationPath(gift);
     const original = imageURL(gift.image);
     const exact = fragment ? [fragment + '.webp', fragment + (large ? '.large.jpg' : '.medium.jpg')] : [];
+    const proxy = fragment ? '/media/fragment/' + fragment.split('/').pop() : '';
     const scalable = model ? model + '.svg' : '';
-    const sharp = large ? (fragment ? [fragment + '.large.jpg', ...exact] : [scalable]) : [];
-    const urls = [...new Set([...sharp, original, ...exact, scalable, model && model + '.png?size=512'].filter(Boolean))];
+    const sharp = large ? (fragment ? [proxy, original, fragment + '.large.jpg', ...exact] : [scalable, model && model + '.png']) : [];
+    const urls = [...new Set([...sharp, original, ...exact, proxy, scalable, model && model + '.png', fragmentCollectionImage(giftCollectionSlug(gift.name))].filter(Boolean))];
     return `src="${esc(urls.shift() || '')}" data-gift-fallback="${esc(JSON.stringify(urls))}" onerror="nextGiftPicture(this)"`;
 }
 
@@ -218,7 +227,7 @@ function mountGiftAnimation(art, gift, stage) {
     const backdrop = prepareGiftBackdrop(art, gift, stage);
     backdrop.then(ready => {
         const path = giftAnimationPath(gift);
-        if (!ready || !path || !gift.backdrop || !art.isConnected) return;
+        if (!ready || !path || fragmentGiftPath(gift) || !gift.backdrop || !art.isConnected) return;
         const vector = new Image();
         vector.src = path + '.svg';
         vector.decode().then(() => {

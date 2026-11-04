@@ -164,7 +164,8 @@ function showForgeResult(status, result, usedGifts = []) {
         ${gift ? '' : '<h2>Проигрыш</h2>'}
         ${gift ? `<figure class="forge-result-gift">
             <div class="forge-result-art">${giftPattern(gift)}<img ${giftPicture(gift, true)} alt=""></div>
-            <figcaption><b>${esc(gift.name)} ${gift.number ? '#' + esc(gift.number) : ''}</b>
+            <figcaption><b><button type="button" class="gift-collection-link" aria-label="Открыть коллекцию ${esc(gift.name)}">
+                ${esc(gift.name)} ${gift.number ? '#' + esc(gift.number) : ''}${icon('chevron')}</button></b>
                 <span>${esc(gift.model)}</span></figcaption>
         </figure>`
             : `<div class="forge-loss-art"><img src="${brokenGiftImage}" alt="Разбитый подарок"></div>`}
@@ -181,6 +182,7 @@ function showForgeResult(status, result, usedGifts = []) {
             <button class="forge-again" onclick="renderCraft()">Ещё раз</button>
         </div>`;
     if (gift) {
+        status.querySelector('.gift-collection-link').addEventListener('click', () => openGiftCollection(gift, false));
         const art = status.querySelector('.forge-result-art');
         mountGiftAnimation(art, gift, status.closest('.craft-page'));
     }

@@ -11,21 +11,51 @@ let state={page:'market',me:null,gifts:[],catalog:{collections:[],attributes:{}}
 let tg=window.Telegram?.WebApp;
 async function api(path,body){const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),path.startsWith('market')?18000:12000);try{const response=await fetch('/api/'+path,{method:body===undefined?'GET':'POST',signal:controller.signal,headers:{'Content-Type':'application/json','X-Telegram-Init-Data':tg?.initData||''},...(body!==undefined?{body:JSON.stringify(body)}:{})});const data=await response.json();if(!response.ok){const error=Error(data.error||'Ошибка запроса');error.status=response.status;throw error}return data}catch(e){if(e.name==='AbortError')throw Error('Сервер долго не отвечает. Попробуйте ещё раз.');throw e}finally{clearTimeout(timer)}}
 function toast(msg){let el=document.querySelector('#toast');el.textContent=msg;el.style.display='block';clearTimeout(window.toastTimer);window.toastTimer=setTimeout(()=>el.style.display='none',3500)}
-function sheet(title,html){document.querySelector('#sheet-title').textContent=title;document.querySelector('#sheet-body').innerHTML=html;document.querySelector('#sheet').showModal()}
-function closeSheet(){document.querySelector('#sheet').close()}
 const appSheet = document.querySelector('#sheet');
-let sheetBackdropPress = false;
-function isSheetBackdrop(event) {
-    if (event.target !== appSheet) return false;
-    const bounds = appSheet.getBoundingClientRect();
-    return event.clientX < bounds.left || event.clientX >= bounds.right ||
-        event.clientY < bounds.top || event.clientY >= bounds.bottom;
+let sheetCloseTimer;
+let sheetPressOutside = false;
+
+function sheet(title, html) {
+    clearTimeout(sheetCloseTimer);
+    appSheet.classList.remove('sheet-closing');
+    document.querySelector('#sheet-title').textContent = title;
+    document.querySelector('#sheet-body').innerHTML = html;
+    if (!appSheet.open) appSheet.showModal();
 }
-appSheet.addEventListener('pointerdown', event => { sheetBackdropPress = isSheetBackdrop(event); });
+
+function closeSheet() {
+    if (!appSheet.open || appSheet.classList.contains('sheet-closing')) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        appSheet.close();
+        return;
+    }
+    appSheet.classList.add('sheet-closing');
+    sheetCloseTimer = setTimeout(() => {
+        appSheet.close();
+        appSheet.classList.remove('sheet-closing');
+    }, 180);
+}
+
+function outsideSheet(point) {
+    const rect = appSheet.getBoundingClientRect();
+    return point.clientX < rect.left || point.clientX >= rect.right ||
+        point.clientY < rect.top || point.clientY >= rect.bottom;
+}
+function startSheetPress(point) {
+    sheetPressOutside = appSheet.open && outsideSheet(point);
+}
+function endSheetPress(point) {
+    if (appSheet.open && sheetPressOutside && outsideSheet(point)) closeSheet();
+    sheetPressOutside = false;
+}
+document.addEventListener('pointerdown', startSheetPress, true);
+document.addEventListener('pointerup', endSheetPress, true);
+document.addEventListener('touchstart', event => startSheetPress(event.touches[0]), {capture:true, passive:true});
+document.addEventListener('touchend', event => endSheetPress(event.changedTouches[0]), {capture:true, passive:true});
 appSheet.addEventListener('click', event => {
-    if (sheetBackdropPress && isSheetBackdrop(event)) closeSheet();
-    sheetBackdropPress = false;
+    if (event.target === appSheet && event.detail && outsideSheet(event)) closeSheet();
 });
+appSheet.addEventListener('cancel', event => {event.preventDefault(); closeSheet();});
 function avatar(){const u=state.me?.user;return imageURL(u?.photo_url)?`<img src="${esc(imageURL(u.photo_url))}" alt="Аватар">`:esc((u?.first_name||'Г')[0])}
 function nav(){document.querySelector('#nav').innerHTML=[['market','market','Маркет'],['gifts','gift','Мои подарки'],['craft','craft','Крафт']].map(([page,i,label])=>`<button onclick="go('${page}')" class="${state.page===page?'active':''}">${icon(i)}${label}</button>`).join('')+`<button class="profile-nav ${['profile','admin'].includes(state.page)?'active':''}" onclick="go('profile')" aria-label="Профиль"><span class="avatar">${avatar()}</span></button>`}
 async function go(page){if(state.crafting)return;state.page=page;nav();const el=document.querySelector('#main');el.innerHTML='<div class="loader">Загрузка…</div>';try{if(page==='market'){const data=await api('market?'+marketParams());if(state.page!==page)return;state.marketCursor=data.next_offset||20;state.marketHasMore=data.has_more??data.gifts.length>=20;state.marketWarning=data.warning||'';state.marketUnit=data.price_unit||'TON';if(data.sort_by)state.order=data.sort_by;state.gifts=data.gifts;state.source=data.source||(data.demo?'demo':'portals');renderMarket()}if(page==='gifts'){state.inventory=(await api('inventory')).gifts;if(state.page!==page)return;renderGifts()}if(page==='craft'){state.inventory=(await api('inventory')).gifts;if(state.page!==page)return;renderCraft();updateCraftQuote()}if(page==='profile')renderProfile();if(page==='admin')await renderAdmin()}catch(e){el.innerHTML=`<div class="error">${esc(e.message)}</div><button class="secondary" onclick="go('${page}')">Повторить</button>`}}
@@ -44,6 +74,6 @@ async function adminAction(action,button){button.disabled=true;try{await api('ad
 function adminModels(key){let data=state.catalog.attributes[key]||{};let models=data.models||data.model||{};let entries=Array.isArray(models)?models.map(m=>[m.name,m.floor_price]):Object.entries(models);document.querySelector('#model-list').innerHTML=entries.length?entries.map(([name,p])=>`<label class="model-row"><input type="checkbox" value="${esc(name)}" ${state.selection[key]?.includes(name)?'checked':''} onchange="changeModel(${arg(key)},this)"><span>${esc(name)}</span><b style="margin-left:auto">${money(typeof p==='object'?p.floor_price:p)} ◆</b></label>`).join(''):'<p class="sub">Нет моделей в ответе API для этой коллекции.</p>'}
 function changeModel(key,el){let values=new Set(state.selection[key]||[]);el.checked?values.add(el.value):values.delete(el.value);state.selection[key]=[...values]}
 async function saveModels(){try{await api('admin/selection',{selection:state.selection});toast('Выбор моделей сохранён')}catch(e){toast(e.message)}}
-async function boot(){try{state.me=await api('me');state.catalogReady=api('catalog').then(data=>{state.catalog=data;return data}).catch(()=>state.catalog);api('referral',{}).catch(()=>{});await go(restoreCraftDraft() ? 'craft' : 'market')}catch(e){document.querySelector('#main').innerHTML=`<div class="empty">${icon('shield')}<h2>Не удалось загрузить приложение</h2><p>${esc(e.message)}</p><button class="secondary" onclick="location.reload()">Повторить</button></div>`}}
+async function boot(){try{state.me=await api('me');state.catalogReady=api('catalog').then(data=>{state.catalog=data;return data}).catch(()=>state.catalog);api('referral',{}).catch(()=>{});if (!await openCollectionFromUrl()) await go(restoreCraftDraft() ? 'craft' : 'market')}catch(e){document.querySelector('#main').innerHTML=`<div class="empty">${icon('shield')}<h2>Не удалось загрузить приложение</h2><p>${esc(e.message)}</p><button class="secondary" onclick="location.reload()">Повторить</button></div>`}}
 
 

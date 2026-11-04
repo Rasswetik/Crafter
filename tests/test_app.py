@@ -265,3 +265,41 @@ def test_telegram_bot_settings_connect_start_and_menu(client, monkeypatch):
     backup = client.get('/api/admin/database/backup', headers=signed())
     assert backup.status_code == 200
     assert token.encode() not in backup.data and webhook['secret_token'].encode() not in backup.data
+
+
+def test_collection_overview_counts_local_and_demo_purchases(client):
+    now = int(time.time())
+    collection = {'id': 'snoop', 'name': 'Snoop Dogg', 'photo_url': '/static/assets/snoop.webp',
+                  'floor_price': '5', 'price_unit': 'TON'}
+    purchase = {'gift': {'name': 'Snoop Dogg'}, 'price': '3.25', 'scope': 'application'}
+    demo_purchase = {'name': 'Snoop Dogg', 'price': '1.15', 'demo': True}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('INSERT INTO cache VALUES (?, ?, ?)', ('thermos:collections', json.dumps([collection]), now))
+        db.execute('INSERT INTO cache VALUES (?, ?, ?)', (
+            'thermos:attributes:snoop', json.dumps({'models': [{'name': 'Emerald', 'image_url': '/model.svg'}]}), now))
+        for i, (kind, payload, created) in enumerate([
+            ('buy', purchase, now), ('buy', demo_purchase, now - 90000),
+            ('craft', purchase, now), ('buy', {'name': 'Other', 'price': '40'}, now),
+        ]):
+            db.execute('INSERT INTO history VALUES (?, ?, ?, ?, ?)',
+                       (str(i), 42, kind, json.dumps(payload), created))
+    result = client.get('/api/collections/snoop/overview', headers=signed())
+    assert result.status_code == 200
+    assert result.json['volume_24h'] == '3.25'
+    assert result.json['volume_total'] == '4.40'
+    assert result.json['models'] == [{'name': 'Emerald', 'image': '/model.svg'}]
+    assert b'id="collection-screen"' in client.get('/collections/snoop').data
+
+
+def test_fragment_media_validates_numbered_slug_and_serves_image(client, monkeypatch):
+    import fragment_media
+
+    def image(slug):
+        assert slug == 'nailbracelet-284453'
+        return b'\xff\xd8\xff', 'image/jpeg'
+
+    monkeypatch.setattr(fragment_media, 'fragment_image', image)
+    result = client.get('/media/fragment/nailbracelet-284453')
+    assert result.status_code == 200 and result.content_type == 'image/jpeg'
+    assert result.headers['Cache-Control'] == 'public, max-age=86400'
+    assert client.get('/media/fragment/127.0.0.1').status_code == 404

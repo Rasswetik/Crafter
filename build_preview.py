@@ -5,6 +5,7 @@ from app import CRAFT_GIFT_LIMIT, DEMO_GIFTS
 root=Path(__file__).parent
 def build_preview():
     html=(root/'templates/index.html').read_text().replace('<script async src="https://telegram.org/js/telegram-web-app.js"></script>','')
+    html = html.replace("{% include 'collection.html' %}", (root/'templates/collection.html').read_text())
     html=html.replace('<link rel="stylesheet" href="/static/style.css">','<style>'+(root/'static/style.css').read_text()+'</style>')
     mock=r'''
     const previewGifts=GIFTS;
@@ -26,6 +27,15 @@ const previewCatalog=CATALOG_SEED;
      else if(route==='inventory')data={gifts:demoState.inventory,demo:true};
      else if(route==='history')data={items:demoState.history};
      else if(route==='catalog')data={collections:previewCatalog.collections,attributes:{},source:'snapshot'};
+     else if(route.endsWith('/overview')&&route.startsWith('collections/')){
+        const slug=decodeURIComponent(route.split('/')[1]),collection=previewCatalog.collections.find(c=>String(c.id)===slug);
+        if(!collection){ok=false;data={error:'Коллекция не найдена'}}
+        else{
+            const buys=demoState.history.filter(h=>h.kind==='buy'&&(h.data.gift||h.data).name===collection.name);
+            const total=rows=>rows.reduce((sum,h)=>sum+Number(h.data.price??h.data.gift?.price??0),0);
+            data={collection,models:collection.models||[],volume_24h:total(buys.filter(h=>h.created>Date.now()/1000-86400)),volume_total:total(buys)};
+        }
+     }
      else if(route.startsWith('collections/')){let slug=decodeURIComponent(route.split('/')[1]);data={models:previewCatalog.collections.find(c=>c.id===slug)?.models||[]}}
      else if(route==='admin/users')data={users:[{id:5257227756,name:'Гошан',username:'goshan_wow',balance:String(demoState.balance),gifts:demoState.inventory.length}]};
      else if(route.endsWith('/balance')){demoState.balance=Number(body.balance);data={ok:true}}

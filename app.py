@@ -167,6 +167,13 @@ def create_app(config=None):
         return dict(id=n['id'],name=n.get('name','Gift'),collection_id=n.get('collection_id',''),model=attrs.get('model',''),symbol=attrs.get('symbol',attrs.get('pattern','')),backdrop=attrs.get('backdrop',''),price=str(n.get('price') or n.get('floor_price') or '0'),number=n.get('external_collection_number',''),image=n.get('photo_url',''))
     @app.get('/')
     def index():return render_template('index.html')
+    @app.get('/collections/<slug>')
+    def collection_page(slug):
+        return render_template('index.html')
+
+    from fragment_media import serve_fragment_gift
+    app.add_url_rule('/media/fragment/<slug>', view_func=serve_fragment_gift)
+
     @app.get('/preview')
     def preview():
         from build_preview import build_preview
@@ -237,6 +244,46 @@ def create_app(config=None):
             return [dict(name=m['name'],image=m.get('image_url',''),price=thermos.ton(m.get('stats',{}).get('floor')),price_unit='TON',price_source='thermos') for m in collection_attributes(slug).get('models',[])]
         live,_=cached('models:'+slug)
         return live or next((c.get('models',[]) for c in catalog_seed['collections'] if c['id']==slug or c['short_name']==slug),[])
+    @app.get('/api/collections/<slug>/overview')
+    @auth()
+    def collection_overview(slug):
+        try:
+            collection = catalog_collection(slug)
+        except (OSError, ValueError):
+            collection = None
+        snapshot = next((item for item in catalog_seed['collections']
+                         if str(item['id']) == slug or canonical_name(item['name']) == canonical_name(slug)), None)
+        collection = collection or snapshot
+        if not collection:
+            abort(404, description='Коллекция не найдена')
+        name = canonical_name(collection['name'])
+        totals = [Decimal(0), Decimal(0)]
+        cutoff = int(time.time()) - 86400
+        for row in db().execute("SELECT payload,created FROM history WHERE kind='buy'"):
+            entry = json.loads(row['payload'])
+            gift = entry.get('gift') or entry
+            if canonical_name(gift.get('name', '')) != name:
+                continue
+            try:
+                paid = Decimal(str(entry.get('price', gift.get('price'))))
+            except InvalidOperation:
+                continue
+            if paid.is_finite() and paid > 0:
+                totals[1] += paid
+                if row['created'] >= cutoff:
+                    totals[0] += paid
+        models = (snapshot or {}).get('models', [])
+        attrs, _ = cached('thermos:attributes:' + str(collection['id']), {})
+        if attrs.get('models'):
+            models = [dict(name=item['name'], image=item.get('image_url', '')) for item in attrs['models'] if item.get('name')]
+        if not models:
+            try:
+                models = collection_models(str(collection['id']))
+            except (OSError, ValueError):
+                models = []
+        return dict(collection={k: v for k, v in collection.items() if k != 'models'},
+                    models=models, volume_24h=str(totals[0]), volume_total=str(totals[1]))
+
     @app.get('/api/collections/<slug>/models')
     @auth()
     def models(slug):return {'models':collection_models(slug)}

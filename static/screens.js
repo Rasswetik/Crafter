@@ -48,8 +48,6 @@ function slot(index, gifts) {
 
 const baseSheet=sheet;
 sheet=function(title,html){document.querySelector('#sheet').classList.remove('gift-picker');baseSheet(title,html)};
-const baseCloseSheet=closeSheet;
-closeSheet=function(){document.querySelector('#sheet').classList.remove('gift-picker');baseCloseSheet()};
 
 function pickGift() {
     if (state.crafting) return;
