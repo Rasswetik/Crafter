@@ -79,7 +79,7 @@ function stakeDate(ts) {
 }
 function stakeCard(entry) {
     const gift = entry.gift;
-    return `<button type="button" class="stake-gift-card" onclick="openStakedGift('${esc(entry.id)}')"
+    return `<button type="button" class="stake-gift-card" onclick="openStakedGift(${arg(entry.id)})"
         aria-label="${esc(gift.name)} #${esc(gift.number || '')}">
         <span class="stake-gift-art" style="background:${giftBackdrop(gift)}">
             <img ${giftPicture(gift)} alt="" loading="lazy">
@@ -103,7 +103,7 @@ function renderStaking() {
         <h1>Стейкинг подарков</h1>
         <strong class="staking-apr">${esc(d.settings.apr_percent)}% APR</strong>
         <p>Замораживайте подарки и получайте внутренние GRAM-награды за полные сутки стейкинга.</p>
-        <button class="staking-activate" type="button" onclick="showStakingTutorial()">Activate Staking</button>
+        <button class="staking-activate" type="button" onclick="showStakingTutorial()" ${d.enabled?'':'disabled'}>Activate Staking</button>
     </section>` : `<div class="staking-main">
         <div class="staking-heading">
             <span class="staking-eyebrow">CRAFTER · STAKING</span>
@@ -122,7 +122,7 @@ function renderStaking() {
              <h2>Добавьте подарки, чтобы начать зарабатывать</h2>
              <p>Замороженные подарки не получится продать, отправить или использовать в крафте.</p>
          </div>`}
-        <button class="staking-deposit-button" type="button" onclick="openStakeGiftPicker()">
+        <button class="staking-deposit-button" type="button" onclick="openStakeGiftPicker()" ${d.enabled?'':'disabled'}>
             ${stakeGiftSVG} Внести подарки
         </button>
         <section class="staking-stats">
@@ -194,7 +194,7 @@ function openStakeGiftPicker() {
             <p>Недоступны подарки с продажи и находящиеся в стейкинге.</p></div>
         <div class="staking-picker-list">
             ${gifts.map(g=>`<button type="button" class="staking-picker-row" data-stake-gift="${esc(g.id)}"
-                onclick="toggleStakeGift('${esc(g.id)}')">
+                onclick="toggleStakeGift(${arg(g.id)})">
                 <span class="staking-pick-check"></span>
                 <span class="staking-picker-art" style="background:${giftBackdrop(g)}">
                     <img ${giftPicture(g)} alt="" loading="lazy">
@@ -252,7 +252,7 @@ function openStakedGift(id) {
             <div><span>Разблокировка</span><b>${stakeDate(entry.unlock_at)}</b></div>
             <div><span>Начислено дней</span><b>${entry.settled_days}</b></div>
         </div>
-        <button type="button" class="primary" onclick="withdrawStakedGift('${esc(entry.id)}')" ${entry.can_unstake?'':'disabled'}>
+        <button type="button" class="primary" onclick="withdrawStakedGift(${arg(entry.id)})" ${entry.can_unstake?'':'disabled'}>
             ${entry.can_unstake?'Вывести из стейкинга':'Вывод будет доступен '+stakeDate(entry.unlock_at)}
         </button>
     </div>`);
