@@ -24,51 +24,59 @@ def install_offer_display(app, db, auth, canonical_name):
     @app.get('/api/market/offers')
     @auth()
     def collection_offers():
-        collection = request.args.get('collection', '')
-        if not collection or len(collection) > 120 or ',' in collection:
-            abort(400, description='Выберите одну коллекцию')
-        model = request.args.get('model', '')[:150].casefold()
-        backdrop = request.args.get('backdrop', '')[:150].casefold()
-        symbol = request.args.get('symbol', '')[:150].casefold()
-        # The old quotes table contains *indicative* prices, not funded buyers.
-        # Showing those as executable "sell now" offers strands the seller.
-        # Only reserved, active crafter_offers are actionable.
-        key = canonical_name(collection)
-        owned = []
-        for owned_row in db().execute("""SELECT nft_id,payload FROM inventory
-                WHERE user_id=? AND status IN ('unlisted','listed')""", (g.user['id'],)):
-            gift = json.loads(owned_row['payload'])
-            if not gift.get('catalog_only') and canonical_name(gift.get('name', '')) == key:
-                owned.append((owned_row['nft_id'], gift))
-        general, specific = [], []
+        collection=request.args.get('collection','').strip()
+        if not collection or len(collection)>120 or ',' in collection:
+            abort(400,description='Выберите одну коллекцию')
+        choices={}
+        for trait in ('model','backdrop','symbol'):
+            raw=request.args.get(trait,'')
+            values={part.strip().casefold() for part in raw.split(',') if part.strip()}
+            if len(raw)>1000 or len(values)>20 or any(len(x)>150 for x in values):
+                abort(400,description='Выберите до 20 значений атрибута')
+            choices[trait]=values
+        key=canonical_name(collection)
+        owned=[]
+        for gift_row in db().execute("""SELECT nft_id,payload FROM inventory
+                WHERE user_id=? AND status IN ('unlisted','listed')""",(g.user['id'],)):
+            gift=json.loads(gift_row['payload'])
+            if (gift.get('catalog_only') or
+                key not in (canonical_name(gift.get('name','')),
+                            canonical_name(gift.get('collection_id','')))):
+                continue
+            owned.append((gift_row['nft_id'],gift))
+        general,specific=[],[]
         for row in db().execute("""SELECT id,model,backdrop,symbol,price,remaining,buyer_id
             FROM crafter_offers WHERE collection_key=? AND status='active'
-            AND lot_id IS NULL AND remaining>0
-            AND (expires_at IS NULL OR expires_at>?)""", (key, int(time.time()))):
-            quote = {field: row[field] for field in ('id','model','backdrop','symbol')}
-            quote['price_gram'] = row['price']
-            quote['quantity'] = row['remaining']
-            quote['executable'] = int(row['buyer_id'] != g.user['id'] and any(
-                all(not row[trait] or str(gift.get(trait, '')).casefold() == row[trait].casefold()
-                    for trait in ('model','backdrop','symbol')) and not db().execute(
-                    'SELECT 1 FROM inventory WHERE user_id=? AND nft_id=?',
-                    (row['buyer_id'], gift_id)).fetchone()
-                for gift_id, gift in owned))
-            if not any(quote[trait] for trait in ('model','backdrop','symbol')):
+              AND lot_id IS NULL AND remaining>0
+              AND (expires_at IS NULL OR expires_at>?)""",(key,int(time.time()))):
+            quote={name:row[name] for name in ('id','model','backdrop','symbol')}
+            quote.update(price_gram=row['price'],quantity=row['remaining'])
+            eligible=[]
+            if row['buyer_id']!=g.user['id']:
+                for gift_id,gift in owned:
+                    if any(row[trait] and str(gift.get(trait,'')).casefold()!=row[trait].casefold()
+                           for trait in ('model','backdrop','symbol')):
+                        continue
+                    if db().execute('SELECT 1 FROM inventory WHERE user_id=? AND nft_id=?',
+                                    (row['buyer_id'],gift_id)).fetchone():
+                        continue
+                    eligible.append(gift_id)
+            quote['eligible_ids']=eligible
+            quote['executable']=int(bool(eligible))
+            if not any(row[k] for k in ('model','backdrop','symbol')):
                 general.append(quote)
-            elif (not model or quote['model'].casefold() == model) and all(
-                not selected or not quote[trait] or quote[trait].casefold() == selected
-                for trait, selected in (('backdrop', backdrop), ('symbol', symbol))
-            ):
+            elif all(not choices[k] or not row[k] or row[k].casefold() in choices[k]
+                     for k in ('model','backdrop','symbol')):
                 specific.append(quote)
-        for group in (general, specific):
-            group.sort(key=lambda offer: Decimal(offer['price_gram']), reverse=True)
-        matching = specific + general if model else general + specific
-        best = next((offer for offer in matching if offer['executable']), None)
-        if not best:
-            best = matching[0] if matching else None
-        return {'best': best, 'general': general[:10],
-                'specific': specific[:10], 'count': len(general) + len(specific)}
+        all_offers=general+specific
+        all_offers.sort(key=lambda row:Decimal(row['price_gram']),reverse=True)
+        for group in (general,specific):
+            group.sort(key=lambda row:Decimal(row['price_gram']),reverse=True)
+        best=next((row for row in all_offers if row['executable']),None)
+        if best is None and all_offers:
+            best=all_offers[0]
+        return {'best':best,'general':general[:10],'specific':specific[:10],
+                'count':len(all_offers)}
 
 
 def install_trading_offers(app, db, auth, record, canonical_name, notify_sale,
@@ -272,7 +280,8 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale,
                         if not owned:
                             abort(409, description='Подарок недоступен')
                         gift = json.loads(owned['payload'])
-                        if (gift.get('catalog_only') or canonical_name(gift.get('name','')) != row['collection_key'] or
+                        if (gift.get('catalog_only') or row['collection_key'] not in (
+                            canonical_name(gift.get('name','')),canonical_name(gift.get('collection_id',''))) or
                                 any(row[k] and str(gift.get(k,'')).casefold() != row[k].casefold()
                                     for k in ('model','backdrop','symbol'))):
                             abort(409, description='Подарок не подходит под условия оффера')
