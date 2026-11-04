@@ -218,15 +218,15 @@ def create_app(config=None):
             if ref!=g.user['id'] and row:db().execute('UPDATE users SET referrer=? WHERE id=? AND referrer IS NULL AND created>=?',(ref,g.user['id'],int(time.time())-60));db().commit()
         return {'ok':True}
     def public_catalog():
-        rows,updated=cached('thermos:collections',[])
-        if rows and time.time()-updated<300:return rows
         import thermos
+        rows,updated=cached('thermos:collections',[])
+        if rows and time.time()-updated<300:return thermos.unique_collections(rows)
         try:
             rows=thermos.collections()
             db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',('thermos:collections',json.dumps(rows),int(time.time())));db().commit()
         except Exception:
             if not rows:raise
-        return rows
+        return thermos.unique_collections(rows)
     @app.get('/api/catalog')
     @auth()
     def catalog():
@@ -238,7 +238,8 @@ def create_app(config=None):
         return dict(collections=collections,attributes=attributes,updated_at=updated,demo=app.config['DEMO_MODE'],source='portals' if updated else 'snapshot',snapshot_updated_at=catalog_seed.get('updated_at'))
     def canonical_name(value):
         text=unicodedata.normalize('NFKC',str(value)).casefold()
-        return re.sub(r"[^\w]",'',text)
+        name=re.sub(r"[^\w]",'',text)
+        return 'ufcstrike' if name=='ufcmysterybox' else name
     def catalog_collection(value):
         return next((c for c in public_catalog() if str(value) in (str(c['id']),str(c.get('short_name',''))) or canonical_name(value)==canonical_name(c['name'])),None)
     def collection_attributes(slug):

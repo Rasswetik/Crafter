@@ -29,6 +29,21 @@ def test_selection_persists(client):
     assert client.post('/api/admin/selection',headers=signed(),json=data).status_code==200
     assert client.get('/api/admin/selection',headers=signed()).json==data
     assert client.post('/api/admin/selection',headers=signed(43),json=data).status_code==403
+def test_craft_targets_use_priced_collection_in_cached_duplicates(client):
+    collection_id = '5882260270843168924'
+    rows = [
+        {'id': collection_id, 'name': 'UFC Mystery Box', 'floor_price': '0', 'photo_url': ''},
+        {'id': collection_id, 'name': 'UFC Strike', 'floor_price': '17', 'photo_url': 'https://example.com/strike.png'},
+    ]
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('INSERT INTO cache VALUES (?, ?, ?)', ('thermos:collections', json.dumps(rows), int(time.time())))
+
+    response = client.get('/api/craft/targets', headers=signed())
+    assert response.status_code == 200
+    assert response.json['collections'] == [
+        {**rows[1], 'photo_url': '/static/assets/collection-ufc-strike.webp'},
+    ]
+
 @pytest.fixture
 def craft_inputs(client, monkeypatch):
     import thermos

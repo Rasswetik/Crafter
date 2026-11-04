@@ -121,7 +121,7 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
     display: grid;
     place-items: center;
     overflow: hidden;
-    background: #1d1d1d;
+    background: radial-gradient(ellipse at 50% 46%, #1e2b3b, #10151d 50%, #0b0e13 80%);
     transition: opacity .38s ease, visibility .38s;
 }
 
@@ -132,39 +132,85 @@ button img.gram-icon,.gift img.gram-icon,.cart-row-info img.gram-icon{display:in
 }
 
 .splash-frame {
-    position: relative;
-    width: min(100vw, 59.8dvh);
-    aspect-ratio: 970 / 1622;
+    display: grid;
+    justify-items: center;
+    width: min(100% - 24px, 480px, 100dvh);
+    gap: clamp(9px, 3dvh, 30px);
 }
 
-.splash-reference {
-    display: block;
+.splash-brand {
+    color: #f3f7fc;
+    font-size: clamp(24px, 5.8dvh, 50px);
+    font-weight: 800;
+    letter-spacing: -.055em;
+    line-height: 1;
+}
+
+.splash-art {
+    position: relative;
     width: 100%;
-    height: 100%;
-    object-fit: contain;
-    -webkit-mask-image: linear-gradient(transparent, #000 7%, #000 93%, transparent);
-    mask-image: linear-gradient(transparent, #000 7%, #000 93%, transparent);
+    aspect-ratio: 1.18;
+    isolation: isolate;
+}
+
+.splash-orbit {
+    position: absolute;
+    inset: 9% 10%;
+    border-radius: 50%;
+    border: 1px solid #a9c7ec29;
+    background: radial-gradient(ellipse at center, #6b97c655, transparent 68%);
+    box-shadow: 0 0 0 14px #99b9d608, 0 0 0 28px #99b9d605;
+    transform: rotate(-16deg);
+}
+
+.splash-magnate,.splash-gift {
+    position: absolute;
+    display: block;
+    height: auto;
+    filter: drop-shadow(0 8px 13px #05080d80);
+}
+
+.splash-magnate { width: 64%; left: 18%; top: 9%; }
+.splash-gift { width: 18%; filter: saturate(.2) drop-shadow(0 8px 13px #05080d80); }
+.splash-gift-watch { top: 13%; left: 2%; transform: rotate(-16deg); }
+.splash-gift-ring { top: 15%; right: 3%; width: 16%; transform: rotate(17deg); }
+.splash-gift-bonded { bottom: 5%; right: 3%; transform: rotate(-14deg); }
+
+.splash-status {
+    display: grid;
+    justify-items: center;
+    gap: 12px;
+    color: #c4d2e4;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
 }
 
 .splash-progress {
-    position: absolute;
-    left: 50%;
-    top: 86%;
-    width: min(30%, 112px);
-    height: 5px;
-    border-radius: 5px;
-    background: #f5f5f5;
-    transform: translate(-50%, -50%);
+    width: 108px;
+    height: 3px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: #9db6d13d;
+}
+
+.splash-progress::after {
+    content: '';
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: #b7d6f9;
     animation: splash-loading 1.15s ease-in-out infinite alternate;
 }
 
 @keyframes splash-loading {
-    from { opacity: .42; }
-    to { opacity: 1; }
+    to { transform: translateX(138%); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .splash-progress { animation: none; }
+    .splash-progress::after { animation: none; transform: translateX(69%); }
 }
 
 /* Match the main Crafter palette and keep the top bar and forge aligned. */
@@ -641,11 +687,16 @@ html { touch-action: pan-x pan-y; }
 .transfer-art { display:block; width:45px; aspect-ratio:1; overflow:hidden; border-radius:12px }
 .transfer-art img { display:block; width:100%; height:100%; object-fit:contain }
 .transfer-summary { display:flex; flex-wrap:wrap; justify-content:space-between; gap:5px; margin:17px 0 12px; color:#bbb; font-size:12px }
-.transfer-thumbs { display:flex; align-items:center; flex-wrap:wrap; gap:10px; margin:10px 0 20px }
-.transfer-selected { position:relative }
-.transfer-selected .transfer-art { width:64px }
-.transfer-selected>b { position:absolute; bottom:4px; inset-inline:0; text-align:center; font-size:11px; text-shadow:0 1px 3px #000 }
-.transfer-selected>button { position:absolute; top:-6px; right:-5px; border-radius:50%; width:22px; height:22px; padding:0; background:#414141 }
+.transfer-selected { position:relative; flex:none }
+.transfer-selected .transfer-art { width:64px; border-radius:14px }
+.transfer-selected>b {
+    position:absolute; bottom:0; inset-inline:0; padding:7px 3px 4px; border-radius:0 0 14px 14px;
+    text-align:center; font-size:11px; background:linear-gradient(transparent,#0009); pointer-events:none;
+}
+.transfer-selected>button {
+    position:absolute; top:-4px; right:-4px; display:grid; place-items:center;
+    border-radius:50%; width:22px; height:22px; padding:0; background:#414141; line-height:1;
+}
 .transfer-user { display:flex; gap:8px; padding-inline:12px }
 .transfer-match { position:relative; width:100%; text-align:left; padding:12px; margin:8px 0; border-radius:14px; background:#272727; border:1px solid transparent }
 .transfer-match.selected { border-color:#58cc73; background:#24402b }
@@ -732,6 +783,7 @@ dialog.transfer-recipient-sheet {
     padding:0;overflow:hidden;border:1px solid #353535;border-radius:24px;background:#181818;
 }
 .transfer-picker-sheet[open],.transfer-recipient-sheet[open] {display:flex;flex-direction:column}
+dialog.transfer-recipient-sheet {height:fit-content}
 .transfer-picker-sheet .sheet-head,.transfer-recipient-sheet .sheet-head {
     flex:none;margin:0;padding:16px 16px 13px;gap:8px;
 }
@@ -740,15 +792,15 @@ dialog.transfer-recipient-sheet {
 }
 .transfer-picker-sheet .sheet-head .close,.transfer-recipient-sheet .sheet-head .close {flex:none}
 .transfer-recipient-sheet #sheet-body {display:flex;flex-direction:column;flex:1;height:auto;min-height:0;overflow:hidden}
-.transfer-recipient-content {flex:1;min-height:0;overflow:auto;padding:0 16px 14px;overscroll-behavior:contain}
+.transfer-recipient-content {flex:1;min-height:0;overflow:auto;padding:0 16px 20px;overscroll-behavior:contain}
 .transfer-recipient-content>p:first-child {margin:0 0 13px}
-.transfer-preview {display:flex;align-items:flex-start;gap:9px;margin:5px 0 14px}
+.transfer-preview {display:flex;align-items:center;gap:10px;margin:5px 0 14px}
 .transfer-preview .transfer-thumbs {
-    display:flex;flex:1;min-width:0;max-height:125px;overflow:auto;align-content:flex-start;
-    margin:0;padding:6px 6px 3px 0;gap:8px;overscroll-behavior:contain;scrollbar-width:thin;
+    display:flex;min-width:0;overflow-x:auto;overflow-y:hidden;
+    margin:0;padding:5px 6px 5px 0;gap:10px;overscroll-behavior-inline:contain;scrollbar-width:thin;
 }
-.transfer-preview .transfer-art {width:54px;border-radius:12px}
-.transfer-preview .transfer-add {flex:none;margin:7px 0 0;background:#25344a;color:#71b9ff}
+.transfer-preview .transfer-thumbs:empty {display:none}
+.transfer-preview .transfer-add {flex:none;background:#25344a;color:#71b9ff}
 .transfer-anonymous {display:flex;gap:8px}
 .transfer-match {
     display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;
@@ -762,15 +814,9 @@ dialog.transfer-recipient-sheet {
 .transfer-avatar img {position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .transfer-match-name {min-width:0}
 .transfer-match-name b,.transfer-match-name small {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.transfer-message {display:block;margin-top:13px;font-size:13px;font-weight:700}
-.transfer-message span {margin-left:4px;font-size:11px;color:#9a9aa2;font-weight:400}
-.transfer-message textarea {
-    display:block;width:100%;margin-top:6px;padding:8px 11px;border:1px solid #3b3b3b;border-radius:12px;
-    resize:vertical;background:#222;color:inherit;font:inherit;font-weight:400;
-}
 .transfer-recipient-footer {flex:none;padding:10px 12px calc(10px + env(safe-area-inset-bottom));background:#242424}
 .transfer-recipient-footer .transfer-actions {margin:0}
-.transfer-recipient-footer .transfer-actions button {min-width:0;min-height:44px;border-radius:22px;font-size:clamp(11px,3.5vw,15px)}
+.transfer-recipient-footer .transfer-actions button {min-width:0;min-height:46px;padding:8px;border-radius:23px;font-size:clamp(11px,3.5vw,15px)}
 .transfer-recipient-footer .sub {margin:7px 4px 0}
 .transfer-filter-strip {display:flex;flex-wrap:wrap;gap:5px;overflow:visible;margin:8px 0}
 .transfer-filter-strip .sort {width:32px;height:32px;flex-basis:32px}
@@ -791,8 +837,5 @@ dialog.transfer-recipient-sheet {
 .wallet-history-filters button svg {width:12px;height:12px;color:#a7a7af}
 .bot-gift-styles {display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
 .bot-gift-styles button {padding:6px 9px;font-size:12px}
-@media (max-height:590px) {
-    .transfer-preview .transfer-thumbs {max-height:63px}
-}
 
 .gift-history-note {margin:0 0 9px 54px;color:#b6b6bf;font-size:12px;white-space:pre-wrap;overflow-wrap:anywhere}

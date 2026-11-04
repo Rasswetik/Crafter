@@ -10,7 +10,7 @@ function inventoryToolbarAction(action) {
 }
 
 function startGiftTransfer(id) {
-    transferDraft = {ids:new Set(id ? [id] : []), username:'', recipient:null, anonymous:false, message:'', request:null};
+    transferDraft = {ids:new Set(id ? [id] : []), username:'', recipient:null, anonymous:false, request:null};
     if (id) renderTransferRecipient();
     else renderTransferPicker(true);
 }
@@ -198,16 +198,13 @@ function renderTransferRecipient() {
             <p class="sub">Введите имя пользователя Telegram.</p>
             <div class="transfer-summary"><span>Выбранные подарки</span><b>${money(cartTotal(gifts))} GRAM · ${gifts.length} ${giftCountWord(gifts.length)}</b></div>
             <div class="transfer-preview">
-                <div class="transfer-thumbs" tabindex="0" aria-label="Выбранные подарки">${gifts.map(gift => `<div class="transfer-selected">${transferArt(gift)}<b>#${esc(gift.number)}</b>
-                    <button type="button" onclick="removeTransferGift(${arg(gift.id)})" aria-label="Убрать подарок">×</button></div>`).join('')}</div>
+                <div class="transfer-thumbs" tabindex="0" aria-label="Выбранные подарки">${gifts.map(gift => `<div class="transfer-selected">${transferArt(gift)}${gift.number ? `<b>#${esc(gift.number)}</b>` : ''}
+                    <button type="button" onclick="removeTransferGift(${arg(gift.id)})" aria-label="Убрать ${esc(gift.name)}${gift.number ? ' #' + esc(gift.number) : ''}">×</button></div>`).join('')}</div>
                 <button class="circle transfer-add" onclick="renderTransferPicker()" aria-label="Добавить подарки">${icon('plus')}</button>
             </div>
             <label class="search-box transfer-user"><span aria-hidden="true">@</span><input id="transfer-username" value="${esc(draft.username)}" maxlength="33" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Имя пользователя Telegram" aria-label="Имя пользователя Telegram"></label>
             <div id="transfer-recipient"></div>
             <label class="transfer-anonymous"><input class="transfer-checkbox" type="checkbox" ${draft.anonymous ? 'checked' : ''} onchange="transferDraft.anonymous=this.checked"> Отправить анонимно</label>
-            <label class="transfer-message">Сообщение к подарку <span>необязательно</span>
-                <textarea maxlength="300" rows="2" placeholder="Напишите получателю" oninput="transferDraft.message=this.value">${esc(draft.message)}</textarea>
-            </label>
         </div>
         <div class="transfer-recipient-footer">
             <div class="transfer-actions"><button class="secondary" onclick="closeSheet()">Назад</button>
@@ -230,10 +227,10 @@ function renderTransferRecipient() {
 
 function removeTransferGift(id) {
     if (transferDraft.sending) return;
-    const scroll = document.querySelector('.transfer-thumbs').scrollTop;
+    const scroll = document.querySelector('.transfer-thumbs').scrollLeft;
     transferDraft.ids.delete(id);
     renderTransferRecipient();
-    document.querySelector('.transfer-thumbs').scrollTop = scroll;
+    document.querySelector('.transfer-thumbs').scrollLeft = scroll;
 }
 
 async function findTransferRecipient(input, draft) {
@@ -268,15 +265,14 @@ async function submitGiftTransfer() {
     const draft = transferDraft;
     if (!draft?.recipient || !draft.ids.size || draft.sending) return;
     const ids = [...draft.ids].sort();
-    const message = draft.message.trim();
-    const key = JSON.stringify([draft.recipient.id, draft.anonymous, message, ids]);
+    const key = JSON.stringify([draft.recipient.id, draft.anonymous, ids]);
     if (draft.request?.key !== key) draft.request = {key, id:globalThis.crypto?.randomUUID?.() || paymentRequestId('crafter-gift-transfer:' + Date.now() + ':' + ids.join('|'))};
     const panel = document.querySelector('#transfer-status');
     draft.sending = true;
     paintTransferRecipient(draft.recipient);
     try {
         await api('inventory/transfer', {gift_ids:ids, recipient_id:draft.recipient.id, username:draft.recipient.username,
-            anonymous:draft.anonymous, message, request_id:draft.request.id});
+            anonymous:draft.anonymous, request_id:draft.request.id});
         state.inventory = state.inventory.filter(gift => !ids.includes(gift.id));
         if (draft === transferDraft) closeSheet();
         if (state.page === 'gifts') await renderGifts();

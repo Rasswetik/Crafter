@@ -13,6 +13,21 @@ def request(path, body=None):
 def ton(value):
     return str(Decimal(str(value or '0'))/Decimal(1000000000))
 
+COLLECTION_PREVIEWS = {
+    '5834651202612102354': '/static/assets/collection-durovs-glasses.webp',
+    '5882260270843168924': '/static/assets/collection-ufc-strike.webp',
+}
+
+def unique_collections(rows):
+    by_id = {}
+    for row in rows:
+        key = str(row['id'])
+        existing = by_id.get(key)
+        if existing is None or (not Decimal(existing['floor_price'] or '0') and Decimal(row['floor_price'] or '0') > 0):
+            by_id[key] = row
+    return [dict(row, photo_url=COLLECTION_PREVIEWS[key]) if key in COLLECTION_PREVIEWS else row
+            for key, row in by_id.items()]
+
 def collections():
     return [dict(id=str(c['id']),short_name=str(c['id']),name=c['name'],photo_url=c['image_url'],floor_price=ton(c.get('stats',{}).get('floor')),price_unit='TON') for c in request('collections')]
 

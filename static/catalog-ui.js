@@ -13,7 +13,13 @@ const priorSheet=sheet;sheet=function(title,html){document.querySelector('#sheet
 async function openCatalogSheet(kind){
  const titles={collection:'Коллекция',model:'Модель',backdrop:'Фон',symbol:'Символ',target:'Что скрафтить'};
  let rows=[];const collection=state.catalog.collections.find(c=>c.id===state.collection||c.short_name===state.collection);
- if(kind==='collection'||kind==='target') rows=state.catalog.collections.map(c=>({value:c.id,name:c.name,image:c.photo_url,price:c.floor_price,unit:['snapshot','thermos'].includes(state.catalog.source)?'TON':'GRAM'}));
+ if(kind==='target'){
+    try {
+        const {collections}=await api('craft/targets');
+        rows=collections.map(c=>({value:c.id,name:c.name,image:c.photo_url,price:c.floor_price,unit:'TON'}));
+    } catch(e) {toast(e.message);return}
+ }
+ else if(kind==='collection') rows=state.catalog.collections.map(c=>({value:c.id,name:c.name,image:c.photo_url,price:c.floor_price,unit:['snapshot','thermos'].includes(state.catalog.source)?'TON':'GRAM'}));
  else if(selectedCollections().length > 1) {toast('Для фильтра по атрибутам выберите одну коллекцию');return}
  else if(kind==='model'&&collection){try{const data=await api('collections/'+encodeURIComponent(collection.short_name||collection.id)+'/models');rows=data.models.map(m=>({value:m.name,name:m.name,image:m.image,price:m.price,unit:m.price_unit|| (m.price_source==='snapshot-estimate'?'TON':'GRAM')}))}catch(e){toast(e.message);return}}
  else if(collection){try{const attrs=await api('collections/'+encodeURIComponent(collection.id)+'/attributes'+(kind==='backdrop'?'?source=portals':''));const group=attrs[kind==='backdrop'?'backdrops':'symbols']||[];rows=group.map(m=>({value:m.name,name:m.name,image:m.image_url,background:kind==='backdrop'?giftBackdrop({backdrop:m.name,background:m}):'',price:m.portal_floor??Number(m.stats?.floor||0)/1e9,unit:m.portal_floor!=null?'GRAM':'TON'}))}catch(e){toast(e.message);return}}
@@ -27,7 +33,7 @@ function catalogRowSelected(value) {
         ? selectedCollections(state.sheetValue).includes(String(value))
         : state.sheetValue === value;
 }
-function pickCatalogRow(value){if(state.sheetKind==='target'){const c=state.catalog.collections.find(x=>x.id===value);if(c){state.target={id:c.id,name:c.name,image:c.photo_url};state.quote=null;closeSheet();renderCraft();updateCraftQuote()}return}if(state.page==='market' && state.sheetKind==='collection'){
+function pickCatalogRow(value){if(state.sheetKind==='target'){const c=state.catalogRows.find(x=>x.value===value);if(c){state.target={id:c.value,name:c.name,image:c.image};state.quote=null;closeSheet();renderCraft();updateCraftQuote()}return}if(state.page==='market' && state.sheetKind==='collection'){
  const ids=new Set(selectedCollections(state.sheetValue));
  if(ids.has(String(value)))ids.delete(String(value));
  else if(ids.size<20)ids.add(String(value));
@@ -315,5 +321,15 @@ async function localBuyGift(id){if(state.buying)return;state.buying=true;const b
 function craftGiftById(id){state.selected=[id];state.quote=null;closeSheet();go('craft')}
 
 state.targetOrder='desc';const targetSheet=openCatalogSheet;openCatalogSheet=async function(kind){state.targetOrder='desc';await targetSheet(kind);if(document.querySelector('#catalog-rows')){document.querySelector('.catalog-columns').innerHTML='<span>'+({target:'КОЛЛЕКЦИЯ',collection:'КОЛЛЕКЦИЯ',model:'МОДЕЛЬ',backdrop:'ФОН',symbol:'СИМВОЛ'}[kind]||'')+'</span><button class="target-order" onclick="toggleTargetOrder()">ФЛОР ↓</button>';sortTargets()}};
-function sortTargets(){state.catalogRows.sort((a,b)=>(Number(a.price)-Number(b.price))*(state.targetOrder==='desc'?-1:1));renderCatalogRows(document.querySelector('.catalog-search input')?.value||'');const el=document.querySelector('.target-order');if(el)el.textContent='ФЛОР '+(state.targetOrder==='desc'?'↓':'↑')}
+function sortTargets(){
+    const descending=state.targetOrder==='desc';
+    state.catalogRows.sort((a,b)=>{
+        const left=Number(a.price)||0, right=Number(b.price)||0;
+        if(left<=0||right<=0) return Number(right>0)-Number(left>0);
+        return descending?right-left:left-right;
+    });
+    renderCatalogRows(document.querySelector('.catalog-search input')?.value||'');
+    const order=document.querySelector('.target-order');
+    if(order)order.textContent='ФЛОР '+(descending?'↓':'↑');
+}
 function toggleTargetOrder(){state.targetOrder=state.targetOrder==='desc'?'asc':'desc';sortTargets()}
