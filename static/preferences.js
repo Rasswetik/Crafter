@@ -108,7 +108,14 @@ const crafterTranslationPairs = [
     ['Использовать для крафта','Use for crafting'],['Отправить подарок','Send gift'],
     ['Цвет','Color'],['По умолчанию','Default'],
     ['Крафтить','Craft'],['Подарки сгорят','Gifts will be lost'],
-    ['Крафт не удался','Craft failed']
+    ['Крафт не удался','Craft failed'],
+    ['Добавьте до','Add up to'],['подарков','gifts'],['чтобы скрафтить','to craft'],
+    ['Если крафт не удастся,','If crafting fails,'],['подарки сгорят','gifts will be lost'],
+    ['Флор коллекции в TON','Collection floor in TON'],
+    ['Сумма флоров / флор цели × 95%','Sum of floor prices / target floor × 95%'],
+    ['Выбранные подарки списываются. При успехе результат появляется в инвентаре Crafter. Операция работает с подарками приложения; передачу NFT в Telegram она не выполняет.',
+     'Selected gifts are consumed. If successful, the reward appears in your Crafter inventory. Crafting does not transfer NFTs in Telegram.'],
+    ['Нет активных офферов','No active offers'],['Поиск по истории','Search history']
 ];
 const crafterRuEn = new Map(crafterTranslationPairs);
 const crafterEnRu = new Map(crafterTranslationPairs.map(pair=>[pair[1],pair[0]]));
@@ -120,13 +127,16 @@ function crafterTranslateValue(raw) {
     const dict = lang === 'en' ? crafterRuEn : crafterEnRu;
     let output = dict.get(clean);
     if (output === undefined) {
-        const variable = [
+        const variable = lang === 'en' ? [
           [/^Уровень рефералов (\d+)$/, n => 'Referral level ' + n],
           [/^До уровня (\d+)$/, n => 'Until level ' + n],
+          [/^Добавьте до (\d+) подарков, чтобы скрафтить$/, n => 'Add up to ' + n + ' gifts to craft'],
+          [/^Выбрано подарков: (\d+)$/, n => 'Gifts selected: ' + n]
+        ] : [
           [/^Referral level (\d+)$/, n => 'Уровень рефералов ' + n],
           [/^Until level (\d+)$/, n => 'До уровня ' + n],
-          [/^Добавьте до (\d+) подарков, чтобы скрафтить$/, n => 'Add up to ' + n + ' gifts to craft'],
-          [/^Add up to (\d+) gifts to craft$/, n => 'Добавьте до ' + n + ' подарков, чтобы скрафтить']
+          [/^Add up to (\d+) gifts to craft$/, n => 'Добавьте до ' + n + ' подарков, чтобы скрафтить'],
+          [/^Gifts selected: (\d+)$/, n => 'Выбрано подарков: ' + n]
         ];
         for (const [regex, transform] of variable) {
             const match = clean.match(regex);
