@@ -35,3 +35,5 @@ jobs:
           for file in static/*.js; do node --check "$file"; done
       - name: Craft renderer checks
         run: node tests/test_cube.cjs
+      - name: Gift dialog, share links and offer UI checks
+        run: node tests/test_gift_share.cjs
