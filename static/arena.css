@@ -1,0 +1,107 @@
+.arena-rules-button { display: none }
+#app.arena-view > header { justify-content: flex-start }
+#app.arena-view > header > :not(.arena-rules-button) { display: none }
+#app.arena-view > header > .arena-rules-button {
+    display: inline-flex; align-items: center; gap: 5px; padding: 7px 12px;
+    border: 1px solid #ffffff13; border-radius: 24px; background: #29292d; color: #f3f3f4;
+    font-size: 13px; font-weight: 650;
+}
+.arena-tile { margin-top: 12px; background: radial-gradient(ellipse at 88% 40%, #7e35b4, #29163e 64%, #22152e) }
+.arena-tile-icon { position: absolute; top: 15%; right: 7%; width: 26%; color: #dbb4ff; transform: rotate(-8deg) }
+.arena-tile-icon svg { width: 100%; max-height: 120px }
+#app.arena-view #main { padding-bottom: calc(218px + env(safe-area-inset-bottom)) }
+.arena-page {
+    --arena-panel: #202023; --arena-edge: #ffffff12; --arena-muted: #a5a4b1; --arena-text: #f8f7ff;
+    --arena-dock: #17171bf5; --arena-control: #36353d;
+    max-width: 540px; margin: 0 auto; color: var(--arena-text);
+}
+.arena-table { border-radius: 16px; padding: 7px; background: var(--arena-panel); border: 1px solid var(--arena-edge) }
+.arena-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 6px 9px; font-size: 12px; color: var(--arena-muted) }
+.arena-meta b { color: #62aaff }
+#arena-phase { text-align: right; font-variant-numeric: tabular-nums }
+.arena-board { display: block; width: 100%; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: radial-gradient(ellipse at 50% 45%, #2e253a, #131218 75%) }
+.arena-board text { fill: #fff; text-anchor: middle; font-weight: 700; font-family: inherit }
+.arena-board .arena-empty-field { fill: #bdafcb; font-size: 4px; dominant-baseline: middle }
+.arena-avatar-letters { dominant-baseline: central }
+#arena-puck { filter: drop-shadow(0 .75px 1px #1c1d1499) }
+#arena-puck-name { font-size: 3px; paint-order: stroke; stroke: #1e1a27; stroke-width: .45px; stroke-linejoin: round }
+.arena-roster-heading { display: flex; align-items: baseline; justify-content: space-between; margin: 12px 0 6px }
+.arena-roster-heading h2 { margin: 0; font-size: 17px }
+.arena-roster-heading span, .arena-roster-heading small, .arena-no-players { color: var(--arena-muted); font-size: 12px }
+.arena-players { display: grid; gap: 6px }
+.arena-player {
+    display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center;
+    text-align: left; gap: 8px; padding: 9px; border-radius: 13px; border: 1px solid var(--arena-edge);
+    background: var(--arena-panel); color: var(--arena-text);
+}
+.arena-avatar {
+    display: inline-grid; place-items: center; width: 36px; height: 36px; overflow: hidden;
+    border-radius: 50%; background: var(--arena-avatar, #7441b4); color: white; font-size: 13px; font-weight: 800;
+}
+.arena-avatar img { width: 100%; height: 100%; object-fit: cover }
+.arena-player-info, .arena-winner > span:nth-child(2) { display: grid; gap: 3px; min-width: 0 }
+.arena-player-info b, .arena-winner b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis }
+.arena-player-info small, .arena-winner small { color: var(--arena-muted) }
+.arena-player > strong { font-size: 12px }
+.arena-player-items { grid-column: 2 / -1; display: flex; gap: 4px; overflow-x: auto }
+.arena-player-items span { flex: 0 0 28px; height: 28px; border-radius: 7px; display: grid; place-items: center }
+.arena-player-items img { width: 23px; height: 23px; object-fit: contain }
+.arena-mini-gram { background: #1682f5 }
+.arena-mini-gram img { width: 16px; height: 16px }
+.arena-winner {
+    width: 100%; margin-top: 8px; padding: 9px 11px; border-radius: 13px; display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) auto; gap: 9px; align-items: center; text-align: left;
+    border: 1px solid var(--arena-edge); background: var(--arena-panel); color: var(--arena-text);
+}
+.arena-winner.current { background: linear-gradient(120deg, #224b3f, #234231 55%, #343066); color: #fff }
+.arena-winner.current small { color: #baf4d6 }
+.arena-winner > strong { font-size: 22px }
+.arena-dock {
+    position: fixed; bottom: calc(98px + env(safe-area-inset-bottom)); z-index: 4;
+    left: 50%; transform: translateX(-50%); width: min(calc(100% - 32px), 540px); padding: 8px 7px;
+    border: 1px solid var(--arena-edge); border-radius: 14px; background: var(--arena-dock);
+}
+.arena-modes, .arena-actions { display: flex; align-items: center; gap: 5px; flex-wrap: wrap }
+.arena-modes { margin-bottom: 6px }
+.arena-modes button, .arena-actions button, .arena-room {
+    min-height: 33px; padding: 0 9px; border-radius: 20px; border: 1px solid var(--arena-edge);
+    background: var(--arena-control); color: var(--arena-text); font-size: 12px; font-weight: 700;
+}
+.arena-actions button { flex: 1 1 auto; white-space: nowrap }
+.arena-actions button:disabled { opacity: .45; cursor: default }
+.arena-actions button span { color: #8bc6ff }
+.arena-actions .arena-pencil { flex: 0 0 33px; padding: 0; font-size: 17px }
+.arena-modes button[aria-pressed="true"], .arena-room { background: #1d75db; color: #fff }
+.arena-room { display: inline-flex; align-items: center; margin-left: auto }
+.arena-actions .arena-choose-gifts { background: #f2f4fb; color: #21212d }
+#arena-available { display: block; padding: 6px 3px 0; color: var(--arena-muted); font-variant-numeric: tabular-nums }
+.arena-sheet-copy p { line-height: 1.48; margin: 0 0 13px }
+.arena-sheet-copy button { width: 100% }
+.arena-sheet-total { display: block; margin-bottom: 12px; font-size: 22px }
+.arena-prizes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
+.arena-prizes > * { min-width: 0; display: grid; gap: 5px; place-items: center; padding: 9px; border-radius: 13px; color: white; text-align: center }
+.arena-prizes img { width: min(90px, 70%); aspect-ratio: 1; object-fit: contain }
+.arena-gram-prize { background: radial-gradient(ellipse at top left, #76cdff, #147deb) }
+.arena-detail-art { display: grid; place-items: center; border-radius: 14px; margin-bottom: 10px; padding: 15px }
+.arena-detail-art img { width: 135px; height: 135px; object-fit: contain }
+.arena-settings, .arena-gift-picker { display: grid; gap: 8px }
+.arena-settings label, .arena-gift-picker label {
+    min-height: 44px; display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; border-radius: 10px; padding: 6px 10px; background: #ffffff0d; border: 1px solid #8883;
+}
+.arena-settings input:not([type=checkbox]) { width: 100px; margin-left: auto; text-align: right; font: inherit; color: inherit; padding: 6px }
+.arena-settings-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 5px }
+.arena-gift-picker label > span { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 7px }
+.arena-gift-picker label img { width: 32px; height: 32px; object-fit: contain }
+.arena-gift-picker label b { margin-right: auto }
+.arena-gift-picker label strong { white-space: nowrap; font-size: 12px }
+html[data-crafter-theme="light"] .arena-page {
+    --arena-panel: #fff; --arena-edge: #2a215018; --arena-muted: #605a73; --arena-text: #211b35;
+    --arena-dock: #faf7fff7; --arena-control: #eee9f7;
+}
+@media (min-width: 560px) {
+    .arena-dock { bottom: calc(120px + env(safe-area-inset-bottom)) }
+}
+@media (max-width: 380px) {
+    .arena-actions button { padding-inline: 7px; font-size: 11px }
+}

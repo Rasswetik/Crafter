@@ -8,12 +8,13 @@ let walletHistoryItems = [];
 let walletHistoryCursor;
 const walletHistoryFiltersState = {};
 const walletGroups = {
-    balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment','stake_claim']},
+    balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment','stake_claim','arena_stake','arena_refund','arena_result']},
     gifts: {label:'Подарки', kinds:['buy','sale','sell','listing_price','unlist','withdraw','transfer','craft','gift_granted','gift_received','gift_withdraw_requested','gift_withdraw_failed']},
     offers: {label:'Офферы', kinds:['offer_received','offer_created','offer_cancelled','offer_withdrawn','offer_accepted']},
 };
 const walletEventNames = {
     deposit:'Пополнение', withdraw_funds:'Вывод', balance_adjustment:'Корректировка баланса', stake_claim:'Награда стейкинга',
+    arena_stake:'Ставка Arena', arena_refund:'Возврат ставки Arena', arena_result:'Результат Arena',
     buy:'Покупка подарка', sale:'Продажа подарка', sell:'Выставление на продажу', listing_price:'Изменение цены',
     unlist:'Снятие с продажи', withdraw:'Вывод подарка', gift_withdraw_requested:'Заявка на вывод NFT',
     gift_withdraw_failed:'Вывод NFT не выполнен', transfer:'Отправка подарка',
@@ -400,6 +401,7 @@ function walletHistoryRow(item) {
         kind === 'sale' && data.proceeds != null && 'После комиссии: ' + money(data.proceeds) + ' GRAM',
         data.gifts?.length > 1 && `${data.gifts.length} шт.`,
         kind === 'craft' && (data.success ? 'Успешно' : 'Не удалось'),
+        kind === 'arena_result' && (data.success ? 'Победа' : 'Раунд завершён'),
         walletStatuses[status], time].filter(Boolean).join(' · ');
     const balanceDetail = data.balance_after != null ? 'Баланс: ' + money(data.balance_after) + ' GRAM' : '';
     return `<div class="wallet-history-row">

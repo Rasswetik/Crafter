@@ -15,6 +15,7 @@ def build_preview():
         return '<style>' + path.read_text(encoding='utf-8') + '</style>'
     html = re.sub(r'<link rel="stylesheet" href="/static/([^"?]+\.css)(?:\?[^"]*)?">', inline_style, html)
     mock=r'''
+    window.crafterOfflinePreview = true;
     const previewGifts=GIFTS;
 const previewCatalog=CATALOG_SEED;
     const previewQuotes = new Map();

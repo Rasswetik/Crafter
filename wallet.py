@@ -122,7 +122,7 @@ def install_wallet(app,db,auth,record,audit):
     @app.get(MANIFEST_PATH)
     def ton_manifest():
         c=config();root=origin(c)
-        response=jsonify(url=root,name=c['app_name'],iconUrl=root+'/static/assets/splash-magnate.png')
+        response=jsonify(url=root,name=c['app_name'],iconUrl=root+'/static/assets/wallet-icon.png')
         response.headers['Access-Control-Allow-Origin']='*'
         response.headers['Access-Control-Allow-Methods']='GET, HEAD, OPTIONS'
         response.headers['Cache-Control']='no-cache, no-store, must-revalidate'

@@ -225,7 +225,7 @@ def create_app(config=None):
         refs=db().execute('SELECT count(*) FROM users WHERE referrer=?',(g.user['id'],)).fetchone()[0]
         username = bot_settings()['username']
         link = f"https://t.me/{username}?startapp=ref_{g.user['id']}" if username else None
-        inventory = [gift for gift in owned() if gift['status'] != 'staked']
+        inventory = [gift for gift in owned() if gift['status'] not in ('staked', 'arena')]
         valuation = {'GRAM': Decimal(0), 'TON': Decimal(0)}
         cached_floors = {}
         for key, unit in (('thermos:collections', 'TON'), ('collections', 'GRAM')):
@@ -245,9 +245,9 @@ def create_app(config=None):
             valuation[unit] += price
         bought = sold = games_played = 0
         volume = best_game_win = Decimal(0)
-        for row in db().execute("SELECT kind,payload FROM history WHERE user_id=? AND kind IN ('buy','sale','craft')", (g.user['id'],)):
+        for row in db().execute("SELECT kind,payload FROM history WHERE user_id=? AND kind IN ('buy','sale','craft','arena_result')", (g.user['id'],)):
             payload = json.loads(row['payload'])
-            if row['kind'] == 'craft':
+            if row['kind'] in ('craft', 'arena_result'):
                 games_played += 1
                 gift = payload.get('gift') or {}
                 if payload.get('success') and (payload.get('prize_value') or gift.get('price_unit') == 'GRAM'):
@@ -542,7 +542,7 @@ def create_app(config=None):
     @auth()
     def inventory():
         # A partner token belongs to the operator, NOT to all Mini App users.
-        gifts = [gift for gift in owned() if gift['status'] != 'staked']
+        gifts = [gift for gift in owned() if gift['status'] not in ('staked', 'arena')]
         symbols_by_collection = {}
         for gift in gifts:
             if gift.get('symbol') or gift.get('source_id') or gift.get('origin') not in ('admin-grant', 'application-craft'):
@@ -1136,6 +1136,8 @@ def create_app(config=None):
         {gift['id']: gift['price'] for gift in DEMO_GIFTS} if app.config['DEMO_MODE'] else {}
     )
     install_staking(app, db, auth, record, audit, staking_catalog, canonical_name, demo_stake_prices)
+    from arena import install_arena
+    install_arena(app, db, auth, record, staking_catalog, canonical_name, demo_stake_prices)
     from admin_user_tools import install_admin_user_tools
     install_admin_user_tools(app, db, auth, audit, record)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
