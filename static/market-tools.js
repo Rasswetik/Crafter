@@ -16,27 +16,38 @@ filters = function () {
     return html.replace('</label>', `</label><button class="circle market-tool ${active?'selected':''}"
         onclick="toggleMarketActivity()" aria-label="Активность маркета" aria-pressed="${active}">${icon('activity')}</button>`)
         .replace('</div><div class="filter-strip">', `${active ? '' : `<button class="circle market-tool ${bulkOpen?'selected':''}"
-            onclick="toggleBulkSelection()" aria-label="Массовое добавление в корзину" aria-expanded="${bulkOpen}">${icon('bulk')}</button>`}</div>
+            onclick="toggleBulkSelection()" data-bulk-toggle aria-label="Массовое добавление в корзину" aria-expanded="${bulkOpen}">${icon('bulk')}</button>`}</div>
             ${bulkOpen && !active ? bulkPanel() : ''}<div class="filter-strip">${active ? `<button class="filter-chip" onclick="openMarketActivityTypes()">Тип активности${activity.types.length ? ' · '+activity.types.length : ''}${icon('chevron')}</button>` : ''}`);
 };
 
 function bulkPanel() {
     return `<div class="market-bulk">
         <label class="market-bulk-control"><span>Выбрать лоты</span>
-            <input type="range" aria-label="Количество подарков" min="0" max="${BULK_LIMIT}" value="${bulkSelection.count}"
-                ${state.marketFilterPending ? 'disabled' : ''} oninput="changeBulkSelection(Number(this.value))">
+            <input type="range" aria-label="Количество подарков" min="0" max="${bulkSelection.max}" step="1" value="${bulkSelection.count}"
+                ${!bulkSelection.ready || !bulkSelection.max || state.marketFilterPending ? 'disabled' : ''} oninput="changeBulkSelection(Number(this.value))">
         </label>
         <div><b data-bulk-total>0 GRAM</b><small data-bulk-count>0 подарков</small></div>
     </div>`;
 }
 
+function newBulkSelection(expanded) {
+    return {signature:bulkFilterSignature(), count:0, max:0, added:new Set(), loading:false, ready:false, expanded};
+}
+
 function toggleBulkSelection() {
-    if (!bulkSelection) {
-        restoreCart();
-        bulkSelection = {signature:bulkFilterSignature(), count:0, added:new Set(), loading:false, expanded:false};
-    }
+    restoreCart();
+    if (!bulkSelection) bulkSelection = newBulkSelection(false);
     bulkSelection.expanded = !bulkSelection.expanded;
-    renderMarket();
+    const button = document.querySelector('[data-bulk-toggle]');
+    button?.classList.toggle('selected', bulkSelection.expanded);
+    button?.setAttribute('aria-expanded', String(bulkSelection.expanded));
+    if (bulkSelection.expanded) {
+        document.querySelector('#main .search')?.insertAdjacentHTML('afterend', bulkPanel());
+        paintBulkControls();
+        prepareBulkSelection();
+    } else {
+        document.querySelector('.market-bulk')?.remove();
+    }
 }
 
 function bulkFilterSignature() {
@@ -52,18 +63,17 @@ function resetBulkForFilters() {
         state.cartSelected.delete(id);
     }
     // Replace the object so in-flight pagination cannot add lots from the old filter.
-    bulkSelection = {signature:bulkFilterSignature(), count:0, added:new Set(), loading:false,
-        expanded:bulkSelection.expanded};
+    bulkSelection = newBulkSelection(bulkSelection.expanded);
     saveCart();
-    filterGrid();
-    paintBulkSummary([]);
+    updateMarketCartButtons();
+    paintBulkControls();
 }
 
 function marketBulkCandidates() {
     const collections = selectedCollections();
     const query = state.query.toLowerCase();
     const seen = new Set();
-    return state.gifts.filter(gift => !gift.catalog_only && Number(gift.price) > 0 &&
+    const filtered = state.gifts.filter(gift => !gift.catalog_only && Number(gift.price) > 0 &&
         ['GRAM', undefined].includes(gift.price_unit) &&
         (!collections.length || collections.includes(String(gift.collection_id)) || collections.includes(gift.name)) &&
         (!state.model || gift.model === state.model) && (!state.backdrop || gift.backdrop === state.backdrop) &&
@@ -74,6 +84,7 @@ function marketBulkCandidates() {
         seen.add(serial);
         return true;
     });
+    return state.sort ? filtered.sort((a,b) => Number(a.price)-Number(b.price)) : filtered;
 }
 
 function syncBulkSelection(bulk) {
@@ -94,7 +105,7 @@ function syncBulkSelection(bulk) {
     }
     const added = requested.filter(gift => state.cart.has(gift.id));
     saveCart();
-    filterGrid();
+    updateMarketCartButtons();
     paintBulkSummary(added);
 }
 
@@ -104,31 +115,72 @@ function paintBulkSummary(items) {
     if (!total || !count) return;
     total.textContent = money(cartTotal(items)) + ' GRAM';
     count.textContent = state.marketFilterPending ? 'Обновляем выдачу…' :
-        items.length + ' ' + giftCountWord(items.length);
+        bulkSelection?.loading ? 'Загружаем лоты…' : items.length + ' ' + giftCountWord(items.length);
 }
 
-async function changeBulkSelection(count) {
+function paintBulkControls() {
     const bulk = bulkSelection;
-    if (!bulk || state.cartBuying || state.marketFilterPending) return;
-    bulk.count = Math.max(0, Math.min(BULK_LIMIT, count));
+    const range = document.querySelector('.market-bulk input');
+    if (!bulk || !range) return;
+    range.max = bulk.max;
+    range.value = bulk.count;
+    range.disabled = !bulk.ready || !bulk.max || Boolean(state.marketFilterPending);
+    paintBulkSummary(marketBulkCandidates().slice(0, bulk.count).filter(item => state.cart.has(item.id)));
+}
+
+async function prepareBulkSelection() {
+    const bulk = bulkSelection;
+    if (!bulk?.expanded || bulk.loading || bulk.ready || state.marketFilterPending) return;
     const current = () => state.page === 'market' && bulkSelection === bulk && bulk.signature === bulkFilterSignature();
-    if (!current()) return;
-    syncBulkSelection(bulk);
-    if (bulk.loading) return;
     bulk.loading = true;
+    paintBulkControls();
     try {
-        for (let page = 0; current() && page < 5 && state.marketHasMore && marketBulkCandidates().length < bulk.count; page++) {
-            while (current() && state.marketLoading) await new Promise(resolve => setTimeout(resolve, 100));
-            if (!current() || marketBulkCandidates().length >= bulk.count || !state.marketHasMore) break;
+        // Resolve the range before enabling it so the thumb never jumps while dragged.
+        for (let page = 0; current() && page < 6 && state.marketHasMore && marketBulkCandidates().length < BULK_LIMIT; page++) {
+            while (current() && state.marketLoading) await new Promise(resolve => setTimeout(resolve, 75));
+            if (!current() || marketBulkCandidates().length >= BULK_LIMIT || !state.marketHasMore) break;
             const cursor = state.marketCursor;
             await loadMore();
             if (state.marketCursor === cursor) break;
-            if (current()) syncBulkSelection(bulk);
         }
     } finally {
         bulk.loading = false;
-        if (current()) syncBulkSelection(bulk);
+        if (current()) {
+            bulk.max = Math.min(BULK_LIMIT, marketBulkCandidates().length);
+            bulk.ready = true;
+            paintBulkControls();
+        }
     }
+}
+
+function changeBulkSelection(count) {
+    const bulk = bulkSelection;
+    if (!bulk?.ready || state.cartBuying || state.marketFilterPending || bulk.signature !== bulkFilterSignature()) return;
+    bulk.count = Math.max(0, Math.min(bulk.max, Math.round(count)));
+    syncBulkSelection(bulk);
+}
+
+function removePurchasedMarketLots(ids) {
+    const removed = new Set(ids);
+    const collectible = gift => gift?.number && gift.name.toLowerCase() + ':' + gift.number;
+    const serials = new Set(ids.map(id => collectible(state.gifts.find(gift => gift.id === id) || state.cart.get(id))).filter(Boolean));
+    for (const gift of [...state.gifts, ...state.cart.values()]) {
+        if (serials.has(collectible(gift))) removed.add(gift.id);
+    }
+    if (bulkSelection) {
+        const selected = marketBulkCandidates().slice(0, bulkSelection.count);
+        bulkSelection.count -= selected.filter(gift => removed.has(gift.id)).length;
+    }
+    state.gifts = state.gifts.filter(gift => !removed.has(gift.id));
+    for (const id of removed) {
+        state.cart.delete(id);
+        state.cartSelected.delete(id);
+        bulkSelection?.added.delete(id);
+    }
+    if (bulkSelection?.ready) bulkSelection.max = Math.min(BULK_LIMIT, marketBulkCandidates().length);
+    saveCart();
+    if (state.page === 'market') filterGrid();
+    paintBulkControls();
 }
 
 const activityTypes = {buy:'Покупка', sell:'Листинг', craft:'Крафт', lucky_craft:'Lucky Craft'};
@@ -243,7 +295,8 @@ renderMarket = function () {
         }
         refreshMarketActivity();
     } else if (bulkSelection?.expanded) {
-        paintBulkSummary(marketBulkCandidates().slice(0, bulkSelection.count).filter(item => state.cart.has(item.id)));
+        paintBulkControls();
+        prepareBulkSelection();
     }
 };
 
@@ -257,12 +310,8 @@ changedFilter = function () {
     }
     resetBulkForFilters();
     changedMarketToolsBase();
-    const range = document.querySelector('.market-bulk input');
-    if (range && bulkSelection) {
-        range.value = bulkSelection.count;
-        range.disabled = Boolean(state.marketFilterPending);
-        if (state.marketFilterPending) paintBulkSummary([]);
-    }
+    paintBulkControls();
+    prepareBulkSelection();
 };
 
 const goMarketToolsBase = go;

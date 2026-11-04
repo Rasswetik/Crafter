@@ -515,3 +515,15 @@ html { touch-action: pan-x pan-y; }
     .collection-banner-enter, .collection-banner-art .collection-model-enter { animation: none; }
     .market-tool { transition: none; }
 }
+
+.craft-material {
+    position: relative;
+    animation: crafting-tool-pop .42s cubic-bezier(.2,.85,.3,1.2) var(--material-delay, 0ms) both;
+}
+.craft-material > img { position: relative; }
+@keyframes crafting-tool-pop {
+    0% { opacity: 0; scale: .68; translate: 0 12px; }
+    70% { opacity: 1; scale: 1.09; translate: 0 -2px; }
+    100% { opacity: 1; scale: 1; translate: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .craft-material { animation: none; } }

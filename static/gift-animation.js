@@ -224,7 +224,7 @@ async function playGiftAnimation(art, gift, layer, dialog, backdrop) {
     }
 }
 
-function mountGiftAnimation(art, gift, stage) {
+function mountGiftAnimation(art, gift, stage, autoplay = true) {
     const backdrop = prepareGiftBackdrop(art, gift, stage);
     backdrop.then(ready => {
         const path = giftAnimationPath(gift);
@@ -249,5 +249,5 @@ function mountGiftAnimation(art, gift, stage) {
     replay.setAttribute('aria-label', 'Воспроизвести анимацию подарка');
     replay.addEventListener('click', () => playGiftAnimation(art, gift, layer, dialog, backdrop));
     art.append(layer, replay);
-    if (!giftAnimationMotion.matches) playGiftAnimation(art, gift, layer, dialog, backdrop);
+    if (autoplay && !giftAnimationMotion.matches) playGiftAnimation(art, gift, layer, dialog, backdrop);
 }

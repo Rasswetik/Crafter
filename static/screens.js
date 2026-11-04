@@ -17,7 +17,53 @@ function showFilterHelp(){sheet('Фильтры','<p class="sub">Выберит�
 function marketParams(offset=0){let p=new URLSearchParams({offset:String(offset)});if(state.query)p.set('search',state.query);if(state.collection)p.set('collection_id',state.collection);if(state.model)p.set('filter_by_models',state.model);if(state.backdrop)p.set('filter_by_backdrops',state.backdrop);if(state.symbol)p.set('filter_by_symbols',state.symbol);p.set('sort_by',state.sort?'price asc':'listed_at desc');return p}
 let filterTimer,filterRequest=0;
 function changedFilter(){if(state.page!=='market'||state.source==='demo'){filterGrid();return}clearTimeout(filterTimer);state.marketFilterPending=true;const ticket=++filterRequest;filterTimer=setTimeout(async()=>{try{let data=await api('market?'+marketParams());if(ticket!==filterRequest||state.page!=='market')return;state.gifts=data.gifts;state.marketCursor=data.next_offset||20;state.marketHasMore=data.has_more??data.gifts.length>=20;state.marketWarning=data.warning||'';state.marketUnit=data.price_unit||'TON';if(data.sort_by)state.order=data.sort_by;state.marketFilterPending=false;renderMarket()}catch(e){if(ticket===filterRequest&&state.page==='market')toast(e.message)}},300)}
-function filterGrid(){let gifts=state.page==='gifts'?state.inventory.filter(g=>g.status===state.inventoryStatus):state.gifts;const collections = selectedCollections();let filtered=gifts.filter(g=>(g.name+' '+g.number+' '+(g.model||'')).toLowerCase().includes(state.query.toLowerCase())&&(!collections.length||collections.includes(g.name)||collections.includes(String(g.collection_id)))&&(!state.model||g.model===state.model)&&(!state.backdrop||g.backdrop===state.backdrop)&&(!state.symbol||g.symbol===state.symbol));if(state.sort)filtered=[...filtered].sort((a,b)=>Number(a.price)-Number(b.price));const grid=document.querySelector('#gifts-grid');if(grid){grid.className='grid'+(state.list?' list':'');grid.innerHTML=filtered.length?filtered.map(g=>card(g)).join(''):`<div class="inventory-empty">${icon('gift')}<h2>${state.page==='gifts'?'Нет подарков':'Ничего не найдено'}</h2><p>${state.page==='gifts'?'Добавьте подарки или выберите другую вкладку':'Попробуйте изменить фильтры'}</p></div>`}}
+function filterGrid() {
+    const gifts = state.page === 'gifts' ? state.inventory.filter(gift => gift.status === state.inventoryStatus) : state.gifts;
+    const collections = selectedCollections();
+    const query = state.query.toLowerCase();
+    const filtered = gifts.filter(gift =>
+        (gift.name + ' ' + gift.number + ' ' + (gift.model || '')).toLowerCase().includes(query) &&
+        (!collections.length || collections.includes(gift.name) || collections.includes(String(gift.collection_id))) &&
+        (!state.model || gift.model === state.model) && (!state.backdrop || gift.backdrop === state.backdrop) &&
+        (!state.symbol || gift.symbol === state.symbol));
+    if (state.sort) filtered.sort((a, b) => Number(a.price) - Number(b.price));
+    const grid = document.querySelector('#gifts-grid');
+    if (!grid) return;
+    grid.className = 'grid' + (state.list ? ' list' : '');
+    const empty = `<div class="inventory-empty">${icon('gift')}<h2>${state.page === 'gifts' ? 'Нет подарков' : 'Ничего не найдено'}</h2>
+        <p>${state.page === 'gifts' ? 'Добавьте подарки или выберите другую вкладку' : 'Попробуйте изменить фильтры'}</p></div>`;
+    if (state.page === 'market' && filtered.length) updateMarketGrid(grid, filtered);
+    else if (filtered.length || !grid.firstElementChild?.classList.contains('inventory-empty')) {
+        grid.innerHTML = filtered.length ? filtered.map(gift => card(gift)).join('') : empty;
+    }
+}
+
+function updateMarketGrid(grid, gifts) {
+    const wanted = new Set(gifts.map(gift => gift.id));
+    const existing = new Map();
+    for (const node of [...grid.children]) {
+        const id = node.dataset.marketLot;
+        if (wanted.has(id)) existing.set(id, node);
+        else node.remove();
+    }
+    const template = document.createElement('template');
+    for (const [index, gift] of gifts.entries()) {
+        let node = existing.get(gift.id);
+        const version = JSON.stringify(gift);
+        if (node?.marketVersion !== version) {
+            template.innerHTML = card(gift);
+            const fresh = template.content.firstElementChild;
+            fresh.dataset.marketLot = gift.id;
+            fresh.marketVersion = version;
+            node?.replaceWith(fresh);
+            node = fresh;
+        }
+        const current = grid.children[index];
+        if (current !== node) grid.insertBefore(node, current || null);
+    }
+    while (grid.children.length > gifts.length) grid.lastElementChild.remove();
+}
+
 function renderMarket(){document.querySelector('#main').innerHTML=`<div class="market-categories"><button class="selected" onclick="state.marketTab='all';renderMarket()"><span>${icon('gift')}</span>Все</button><button class="${state.marketTab==='collections'?'selected':''}" onclick="state.marketTab='collections';renderCollections()"><span>${icon('market')}</span>Коллекции</button><button onclick="go('craft')"><span>${icon('hammer')}</span>Крафт</button></div>${filters()}${state.marketWarning?`<div class="notice">${esc(state.marketWarning)}</div>`:''}<div id="gifts-grid" class="grid"></div><button class="load-more" onclick="loadMore()">Показать ещё</button>${demoNote()}`;filterGrid()}
 function renderCollections(){renderMarket();document.querySelectorAll('.market-categories button').forEach((b,i)=>b.classList.toggle('selected',i===1));const c=state.catalog.collections.length?state.catalog.collections:[...new Map(state.gifts.map(g=>[g.collection_id,{id:g.collection_id,name:g.name,photo_url:g.image,floor_price:g.price}])).values()];document.querySelector('#gifts-grid').innerHTML=c.map(x=>`<button class="collection-card" onclick="openCollection(${arg(x.id)})"><img src="${esc(imageURL(x.photo_url))}" alt="${esc(x.name)}"><strong>${esc(x.name)}</strong><small>от ${money(x.floor_price)} ◆</small></button>`).join('')}
 function openCollection(id){state.collection=id;state.marketTab='all';renderMarket();changedFilter()}

@@ -5,9 +5,36 @@ function restoreCart(){if(!state.me||state.cartUser===state.me.user.id)return;st
 function saveCart(){try{sessionStorage.setItem(cartKey(),JSON.stringify([...state.cart.values()]))}catch{}updateCartFloat()}
 function selectedCart(){return [...state.cart.values()].filter(g=>state.cartSelected.has(g.id))}
 function cartTotal(items){return items.reduce((c,g)=>c+Math.round(Number(g.price)*100),0)/100}
-const cartCard=card;card=function(g,action='detail'){restoreCart();let html=cartCard(g,action);if(state.page!=='market'||action!=='detail')return html;if(state.cart.has(g.id))state.cart.set(g.id,{...g});const added=state.cart.has(g.id);return html.replace(/<button class="basket"[\s\S]*?<\/button>/,`<button class="basket ${added?'in-cart':''}" onclick="toggleCart(${arg(g.id)})" aria-label="${added?'Убрать из корзины':'Добавить в корзину'}" aria-pressed="${added}">${icon(added?'check':'basket')}</button>`)};
-function toggleCart(id){if(state.cartBuying)return;restoreCart();if(state.cart.has(id)){state.cart.delete(id);state.cartSelected.delete(id)}else{const g=state.gifts.find(x=>x.id===id);if(!g)return;if(state.cart.size>=100)return toast('В корзину можно добавить до 100 подарков');state.cart.set(id,{...g});state.cartSelected.add(id)}saveCart();filterGrid()}
-function updateCartFloat(){document.querySelector('#cart-float')?.remove();if(!state.cart.size||state.page!=='market')return;const button=document.createElement('button');button.id='cart-float';button.className='cart-float';button.onclick=openCart;button.innerHTML=icon('basket')+`<span><b>${money(cartTotal([...state.cart.values()]))} GRAM</b><small>${state.cart.size} ${giftCountWord(state.cart.size)}</small></span>`;document.querySelector('#app').appendChild(button)}
+const cartCard=card;card=function(g,action='detail'){restoreCart();let html=cartCard(g,action);if(state.page!=='market'||action!=='detail')return html;if(state.cart.has(g.id))state.cart.set(g.id,{...g});const added=state.cart.has(g.id);return html.replace(/<button class="basket"[\s\S]*?<\/button>/,`<button class="basket ${added?'in-cart':''}" data-cart-id="${esc(g.id)}" onclick="toggleCart(${arg(g.id)})" aria-label="${added?'Убрать из корзины':'Добавить в корзину'}" aria-pressed="${added}">${icon(added?'check':'basket')}</button>`)};
+function toggleCart(id){if(state.cartBuying)return;restoreCart();if(state.cart.has(id)){state.cart.delete(id);state.cartSelected.delete(id)}else{const g=state.gifts.find(x=>x.id===id);if(!g)return;if(state.cart.size>=100)return toast('В корзину можно добавить до 100 подарков');state.cart.set(id,{...g});state.cartSelected.add(id)}saveCart();updateMarketCartButtons();paintBulkControls()}
+function updateMarketCartButtons() {
+    for (const button of document.querySelectorAll('#gifts-grid .basket[data-cart-id]')) {
+        const added = state.cart.has(button.dataset.cartId);
+        if (button.getAttribute('aria-pressed') === String(added)) continue;
+        button.classList.toggle('in-cart', added);
+        button.setAttribute('aria-pressed', String(added));
+        button.setAttribute('aria-label', added ? 'Убрать из корзины' : 'Добавить в корзину');
+        button.innerHTML = icon(added ? 'check' : 'basket');
+    }
+}
+
+function updateCartFloat() {
+    let button = document.querySelector('#cart-float');
+    if (!state.cart.size || state.page !== 'market') {
+        button?.remove();
+        return;
+    }
+    if (!button) {
+        button = document.createElement('button');
+        button.id = 'cart-float';
+        button.className = 'cart-float';
+        button.onclick = openCart;
+        button.innerHTML = icon('basket') + '<span><b></b><small></small></span>';
+        document.querySelector('#app').appendChild(button);
+    }
+    button.querySelector('b').textContent = money(cartTotal([...state.cart.values()])) + ' GRAM';
+    button.querySelector('small').textContent = state.cart.size + ' ' + giftCountWord(state.cart.size);
+}
 function giftCountWord(n){const a=n%10,b=n%100;return b>=11&&b<=14?'подарков':a===1?'подарок':a>=2&&a<=4?'подарка':'подарков'}
 const cartGrid=filterGrid;filterGrid=function(){cartGrid();updateCartFloat()};
 const cartGo=go;go=async function(page){document.querySelector('#app').classList.remove('cart-view');document.querySelector('#cart-float')?.remove();await cartGo(page);restoreCart();updateCartFloat()};
@@ -16,7 +43,7 @@ function renderCart(){const items=[...state.cart.values()],chosen=selectedCart()
 function selectCart(id){if(state.cartBuying)return;state.cartError='';state.cartSelected.has(id)?state.cartSelected.delete(id):state.cartSelected.add(id);renderCart()}
 function toggleAllCart(){if(state.cartBuying)return;state.cartError='';state.cartSelected=state.cartSelected.size===state.cart.size?new Set():new Set(state.cart.keys());renderCart()}
 function removeCartSelected(){if(state.cartBuying)return;for(const id of state.cartSelected)state.cart.delete(id);state.cartSelected.clear();saveCart();renderCart()}
-async function payCart(){if(state.cartBuying)return;const items=selectedCart();if(!items.length)return;const ids=items.map(g=>g.id).sort(),key='crafter-cart-payment:'+state.me.user.id+':'+ids.join('|');state.cartBuying=true;state.cartError='';renderCart();try{const result=await api('local/cart/buy',{gift_ids:ids,expected_total:String(cartTotal(items)),request_id:paymentRequestId(key)});for(const id of ids){state.cart.delete(id);state.cartSelected.delete(id)}state.me.balance=result.balance;state.me.inventory_count=(state.me.inventory_count||0)+result.gifts.length;state.gifts=state.gifts.filter(g=>!ids.includes(g.id));updateBalance();saveCart();toast('Покупка завершена')}catch(e){state.cartError=e.message;toast(e.message)}finally{state.cartBuying=false;renderCart()}}
+async function payCart(){if(state.cartBuying)return;const items=selectedCart();if(!items.length)return;const ids=items.map(g=>g.id).sort(),key='crafter-cart-payment:'+state.me.user.id+':'+ids.join('|');state.cartBuying=true;state.cartError='';renderCart();try{const result=await api('local/cart/buy',{gift_ids:ids,expected_total:String(cartTotal(items)),request_id:paymentRequestId(key)});removePurchasedMarketLots(ids);state.me.balance=result.balance;state.me.inventory_count=(state.me.inventory_count||0)+result.gifts.length;updateBalance();toast('Покупка завершена')}catch(e){state.cartError=e.message;toast(e.message)}finally{state.cartBuying=false;renderCart()}}
 
 function cartFunds(value){return Number(value).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})}
 let cartBalanceRequest=0;

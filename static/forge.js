@@ -169,11 +169,11 @@ function showForgeResult(status, result, usedGifts = []) {
                 <span>${esc(gift.model)}</span></figcaption>
         </figure>`
             : `<div class="forge-loss-art"><img src="${brokenGiftImage}" alt="Разбитый подарок"></div>`}
-        ${!gift && usedGifts.length ? `<section class="craft-materials" aria-labelledby="craft-materials-title">
-            <h3 id="craft-materials-title">Crafty Dolls</h3>
+        ${usedGifts.length ? `<section class="craft-materials" aria-labelledby="craft-materials-title">
+            <h3 id="craft-materials-title">Crafting Tools</h3>
             <div class="craft-materials-row">
-                ${usedGifts.map(item => `<div class="craft-material" style="background:${giftBackdrop(item)}">
-                    <img src="${esc(imageURL(item.image))}" alt="${esc(item.name)}">
+                ${usedGifts.map((item, index) => `<div class="craft-material" style="background:${giftBackdrop(item)};--material-delay:${index * 85}ms">
+                    ${giftPattern(item)}<img ${giftPicture(item)} alt="${esc(item.name)}">
                 </div>`).join('')}
             </div>
         </section>` : ''}
@@ -186,6 +186,9 @@ function showForgeResult(status, result, usedGifts = []) {
         const art = status.querySelector('.forge-result-art');
         mountGiftAnimation(art, gift, status.closest('.craft-page'));
     }
+    status.querySelectorAll('.craft-material').forEach((art, index) => {
+        mountGiftAnimation(art, usedGifts[index], null, false);
+    });
 }
 
 async function runCraft() {
