@@ -95,10 +95,15 @@ def install_wallet(app,db,auth,record,audit):
         return sum((Decimal(json.loads(row['payload'])['gram']) for row in rows),Decimal(0))
 
     def withdraw_allowance(uid, config, balance):
-        """Return actual, TON-backed availability; external wallet TON is not a Crafter deposit."""
-        backed=max(Decimal(0),verified_balance(config['network']))
+        """All earned internal GRAM are eligible, regardless of their origin.
+
+        A withdrawal still requires positive ledger balance and must respect
+        the operator's transaction and rolling daily limits. This does not
+        guarantee the operator's external TON wallet has enough liquidity.
+        """
+        deposit_metric=max(Decimal(0),verified_balance(config['network']))
         daily_left=max(Decimal(0),Decimal(config['withdraw_daily'])-used_withdrawal_quota(uid))
-        return backed,daily_left,max(Decimal(0),min(balance,backed,daily_left))
+        return deposit_metric,daily_left,max(Decimal(0),min(balance,daily_left))
     @app.get('/tonconnect-manifest.json')
     def ton_manifest():
         c=config();root=origin(c)
@@ -257,8 +262,8 @@ def install_wallet(app,db,auth,record,audit):
             if not w or w['network']!=c['network']:abort(409,description='Подключите кошелёк нужной сети')
             balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])
             backed,daily_left,allowed=withdraw_allowance(g.user['id'],c,balance)
-            if value>min(balance,backed):
-                abort(409,description='Вывод доступен только для GRAM из подтверждённых пополнений TON')
+            if value>balance:
+                abort(409,description='Недостаточно GRAM на внутреннем балансе Crafter')
             if value>Decimal(c['withdraw_max']):
                 abort(409,description='Сумма превышает лимит одной операции')
             if value>daily_left:
@@ -267,10 +272,13 @@ def install_wallet(app,db,auth,record,audit):
                 abort(409,description='Сумма превышает доступный баланс')
             nano=int(value/Decimal(c['gram_per_ton'])*1000000000)
             if nano<=0:abort(400)
-            p=dict(receiver=w['address'],sender=address(c['receiver']),network=c['network'],gram=str(value),nano=str(nano),ton=str(Decimal(nano)/1000000000),memo='crafter-withdraw:'+uuid.uuid4().hex)
+            # Historical payouts used to decrease wallet_balances as a second
+            # provenance ledger. New payouts debit only the authoritative
+            # demo_accounts balance; otherwise earnings from sales/offers
+            # cannot be withdrawn and may lead to negative provenance totals.
+            p=dict(receiver=w['address'],sender=address(c['receiver']),network=c['network'],gram=str(value),nano=str(nano),ton=str(Decimal(nano)/1000000000),memo='crafter-withdraw:'+uuid.uuid4().hex,funding_ledger_debited=False)
             db().execute('INSERT INTO ton_withdrawals VALUES(?,?,?,?,?,NULL)',(wid,g.user['id'],json.dumps(p),'queued',int(time.time())))
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-value),g.user['id']))
-            db().execute('UPDATE wallet_balances SET gram=? WHERE user_id=? AND network=?',(str(backed-value),g.user['id'],c['network']))
             record('withdraw_request',p)
         return dict(id=wid,status='queued')
     @app.post('/api/wallet/withdraw/<wid>/cancel')
@@ -299,12 +307,16 @@ def install_wallet(app,db,auth,record,audit):
             db().execute("""INSERT INTO demo_accounts(user_id,balance) VALUES(?,?)
                 ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance""",
                 (uid,str(current+gram)))
-            row_funded=db().execute('SELECT gram FROM wallet_balances WHERE user_id=? AND network=?',
-                                    (uid,wallet_network)).fetchone()
-            funded=Decimal(row_funded['gram']) if row_funded else Decimal(0)
-            db().execute("""INSERT INTO wallet_balances(user_id,network,gram) VALUES(?,?,?)
-                ON CONFLICT(user_id,network) DO UPDATE SET gram=excluded.gram""",
-                (uid,wallet_network,str(funded+gram)))
+            # Refund the old provenance ledger only for withdrawals created
+            # before this change; they were debited there at reservation time.
+            # New withdrawals are reserved ONLY in demo_accounts.
+            if p.get('funding_ledger_debited', True):
+                row_funded=db().execute('SELECT gram FROM wallet_balances WHERE user_id=? AND network=?',
+                                        (uid,wallet_network)).fetchone()
+                funded=Decimal(row_funded['gram']) if row_funded else Decimal(0)
+                db().execute("""INSERT INTO wallet_balances(user_id,network,gram) VALUES(?,?,?)
+                    ON CONFLICT(user_id,network) DO UPDATE SET gram=excluded.gram""",
+                    (uid,wallet_network,str(funded+gram)))
         return {'status':'cancelled'}
 
     @app.get('/api/admin/database/backup')
