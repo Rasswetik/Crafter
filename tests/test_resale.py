@@ -62,9 +62,13 @@ def test_resale_edit_withdraw_and_settle(client, telegram_messages):
     assert purchase.json['fee'] == '0.50'
     assert purchase.json['balance'] == '7.50'
     assert client.post('/api/resale/buy', headers=signed(43), json=payload).json == purchase.json
-    (method, notification), = telegram_messages
-    assert (method, notification['chat_id']) == ('sendMessage', 42)
-    assert 'You received: 12 Gram' in notification['text']
+    assert len(telegram_messages) == 2
+    seller_message = next(message for method,message in telegram_messages
+                          if method == 'sendMessage' and message['chat_id'] == 42)
+    buyer_message = next(message for method,message in telegram_messages
+                         if method == 'sendMessage' and message['chat_id'] == 43)
+    assert 'You received: 12 Gram' in seller_message['text']
+    assert 'Successfully purchased' in buyer_message['text']
     assert client.get(market_url, headers=signed(44)).json['gifts'] == []
     assert client.get('/api/inventory', headers=signed(42)).json['gifts'] == []
     acquired, = client.get('/api/inventory', headers=signed(43)).json['gifts']
@@ -133,9 +137,11 @@ def test_offer_card_prefers_exact_model_then_falls_back_to_collection(client):
         ])
     headers = signed()
     url = '/api/market/offers?collection=Snoop%20Dogg'
-    assert client.get(url, headers=headers).json['best']['price_gram'] == '12.00'
-    assert client.get(url + '&model=Emerald', headers=headers).json['best']['price_gram'] == '10.00'
-    assert client.get(url + '&model=Ruby', headers=headers).json['best']['price_gram'] == '12.00'
+    # Legacy price quotes are not backed by any buyer balance: they must not
+    # masquerade as executable offers or display a fake Sell Now button.
+    assert client.get(url, headers=headers).json['best'] is None
+    assert client.get(url + '&model=Emerald', headers=headers).json['best'] is None
+    assert client.get(url + '&model=Ruby', headers=headers).json['count'] == 0
     assert client.get('/api/market/offers?collection=Unknown', headers=headers).json['best'] is None
     assert client.get(url + ',Another', headers=headers).status_code == 400
 
