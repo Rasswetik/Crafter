@@ -4,6 +4,7 @@ function inventoryToolbarAction(action) {
     if (action === 'transfer') return startGiftTransfer();
     if (action === 'craft') return go('craft');
     if (action === 'add') return openGiftDeposit();
+    if (action === 'sell' || action === 'unlist') return startResale(action);
 }
 
 
@@ -169,9 +170,22 @@ function transferPickerRow(gift, index, checked) {
 function renderTransferPicker(first = false) {
     const draft = transferDraft;
     if (!draft || draft.sending) return;
-    const inventory = state.inventory.filter(gift => gift.status === 'unlisted');
-    draft.picking = new Set(inventory.filter(gift => draft.ids.has(gift.id)).map(gift => gift.id));
-    sheet('Выберите подарки для отправки', `
+    renderInventoryPicker({
+        title: 'Выберите подарки для отправки',
+        inventory: state.inventory.filter(gift => gift.status === 'unlisted'),
+        ids: draft.ids,
+        limit: TRANSFER_LIMIT,
+        onCancel: first ? closeSheet : renderTransferRecipient,
+        onApply: ids => {
+            draft.ids = ids;
+            renderTransferRecipient();
+        },
+    });
+}
+
+function renderInventoryPicker({title, inventory, ids, limit, onCancel, onApply}) {
+    const selectedIds = new Set(inventory.filter(gift => ids.has(gift.id)).map(gift => gift.id));
+    sheet(title, `
         <div class="transfer-picker-controls">
             <label class="search-box">${icon('search')}<input type="search" placeholder="Быстрый поиск" aria-label="Поиск подарков"></label>
             <div class="filter-strip transfer-filter-strip">
@@ -188,8 +202,8 @@ function renderTransferPicker(first = false) {
         </div>
         <div class="transfer-picker-list"></div>
         <dialog class="transfer-filter-dialog" aria-labelledby="transfer-filter-title"></dialog>
-        <div class="transfer-actions transfer-picker-footer"><button class="secondary" onclick="${first ? 'closeSheet()' : 'renderTransferRecipient()'}">Отмена</button>
-        <button class="primary" id="transfer-picker-apply" onclick="applyTransferPicker()">Выбрать</button></div>`);
+        <div class="transfer-actions transfer-picker-footer"><button type="button" class="secondary" data-picker-cancel>Отмена</button>
+        <button type="button" class="primary" id="transfer-picker-apply">Выбрать</button></div>`);
     const dialog = document.querySelector('#sheet');
     dialog.classList.add('transfer-picker-sheet');
     const panel = document.querySelector('#sheet-body');
@@ -207,15 +221,15 @@ function renderTransferPicker(first = false) {
     let observer, sort = false, visible = [];
 
     const paintSelection = () => {
-        const selected = visible.filter(gift => draft.picking.has(gift.id)).length;
+        const selected = visible.filter(gift => selectedIds.has(gift.id)).length;
         all.disabled = !visible.length;
         all.checked = !!selected && selected === visible.length;
         all.indeterminate = selected > 0 && !all.checked;
-        clear.disabled = !draft.picking.size;
-        clear.textContent = 'Снять выделение' + (draft.picking.size ? ' · ' + draft.picking.size : '');
+        clear.disabled = !selectedIds.size;
+        clear.textContent = 'Снять выделение' + (selectedIds.size ? ' · ' + selectedIds.size : '');
         count.textContent = '· ' + visible.length;
-        apply.disabled = !draft.picking.size;
-        apply.textContent = draft.picking.size ? 'Выбрать ' + draft.picking.size + ' ' + giftCountWord(draft.picking.size) : 'Выбрать подарки';
+        apply.disabled = !selectedIds.size;
+        apply.textContent = selectedIds.size ? 'Выбрать ' + selectedIds.size + ' ' + giftCountWord(selectedIds.size) : 'Выбрать подарки';
     };
 
     const paint = () => {
@@ -224,7 +238,7 @@ function renderTransferPicker(first = false) {
             [...filters].every(([key, values]) => values.has(gift[key])) &&
             [gift.name, gift.number, gift.model, gift.backdrop].some(value => String(value ?? '').toLowerCase().includes(query)));
         if (sort) visible.sort((a,b) => Number(a.floor_price || a.price || 0) - Number(b.floor_price || b.price || 0));
-        list.innerHTML = visible.map((gift, index) => transferPickerRow(gift, index, draft.picking.has(gift.id))).join('') ||
+        list.innerHTML = visible.map((gift, index) => transferPickerRow(gift, index, selectedIds.has(gift.id))).join('') ||
             '<p class="sub">Подходящих подарков нет</p>';
         paintSelection();
         observer?.disconnect();
@@ -285,33 +299,46 @@ function renderTransferPicker(first = false) {
     all.onchange = () => {
         if (all.checked) {
             for (const gift of visible) {
-                if (draft.picking.size >= TRANSFER_LIMIT) break;
-                draft.picking.add(gift.id);
+                if (selectedIds.size >= limit) break;
+                selectedIds.add(gift.id);
             }
-            if (visible.some(gift => !draft.picking.has(gift.id))) toast('Можно выбрать до 100 подарков');
+            if (visible.some(gift => !selectedIds.has(gift.id))) toast('Лимит выбора: ' + limit);
         } else {
-            visible.forEach(gift => draft.picking.delete(gift.id));
+            visible.forEach(gift => selectedIds.delete(gift.id));
         }
-        list.querySelectorAll('input').forEach(box => { box.checked = draft.picking.has(box.value); });
+        list.querySelectorAll('input').forEach(box => { box.checked = selectedIds.has(box.value); });
         paintSelection();
     };
     clear.onclick = () => {
-        draft.picking.clear();
+        selectedIds.clear();
         list.querySelectorAll('input').forEach(box => { box.checked = false; });
         paintSelection();
     };
     list.addEventListener('change', event => {
         const box = event.target;
         if (!box.matches('input[type=checkbox]')) return;
-        if (!box.checked) draft.picking.delete(box.value);
-        else if (draft.picking.size < TRANSFER_LIMIT) draft.picking.add(box.value);
+        if (!box.checked) selectedIds.delete(box.value);
+        else if (selectedIds.size < limit) selectedIds.add(box.value);
         else {
             box.checked = false;
-            toast('Можно выбрать до 100 подарков');
+            toast('Лимит выбора: ' + limit);
         }
         paintSelection();
     });
-    dialog.addEventListener('close', () => { observer?.disconnect(); filterDialog.close(); }, {once:true});
+    const cleanup = () => {
+        observer?.disconnect();
+        filterDialog.close();
+        dialog.removeEventListener('close', cleanup);
+    };
+    dialog.addEventListener('close', cleanup, {once:true});
+    panel.querySelector('[data-picker-cancel]').onclick = () => {
+        cleanup();
+        onCancel();
+    };
+    apply.onclick = () => {
+        cleanup();
+        onApply(selectedIds);
+    };
     paint();
 }
 
@@ -369,11 +396,6 @@ function paintTransferTraits(row, data) {
             badge.hidden = false;
         }
     }
-}
-
-function applyTransferPicker() {
-    transferDraft.ids = transferDraft.picking;
-    renderTransferRecipient();
 }
 
 function renderTransferRecipient() {

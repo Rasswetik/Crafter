@@ -13,11 +13,12 @@ filters = function () {
     let html = marketToolFilters();
     if (state.page !== 'market') return html;
     const active = Boolean(activity);
-    const bulkOpen = Boolean(bulkSelection?.expanded);
+    const internal = state.marketSource === 'crafter';
+    const bulkOpen = !internal && Boolean(bulkSelection?.expanded);
     if (active) html = html.replace(/<button[^>]*onclick="(?:openPriceFilters|openSort)\(\)"[^>]*>.*?<\/button>/g, '');
     return html.replace('</label>', `</label><button class="circle market-tool ${active?'selected':''}"
         onclick="toggleMarketActivity()" aria-label="Активность маркета" aria-pressed="${active}">${icon('activity')}</button>`)
-        .replace('</div><div class="filter-strip">', `${active ? '' : `<button class="circle market-tool ${bulkOpen?'selected':''}"
+        .replace('</div><div class="filter-strip">', `${active || internal ? '' : `<button class="circle market-tool ${bulkOpen?'selected':''}"
             onclick="toggleBulkSelection()" data-bulk-toggle aria-label="Массовое добавление в корзину" aria-expanded="${bulkOpen}">${icon('bulk')}</button>`}</div>
             ${bulkOpen && !active ? bulkPanel() : ''}<div class="filter-strip">${active ? `<button class="filter-chip" onclick="openMarketActivityTypes()">Тип активности${activity.types.length ? ' · '+activity.types.length : ''}${icon('chevron')}</button>` : ''}`);
 };
@@ -164,7 +165,7 @@ function changeBulkSelection(count) {
 
 function removePurchasedMarketLots(ids) {
     const removed = new Set(ids);
-    const collectible = gift => gift?.number && gift.name.toLowerCase() + ':' + gift.number;
+    const collectible = gift => !gift?.resale && gift?.number && gift.name.toLowerCase() + ':' + gift.number;
     const serials = new Set(ids.map(id => collectible(state.gifts.find(gift => gift.id === id) || state.cart.get(id))).filter(Boolean));
     for (const gift of [...state.gifts, ...state.cart.values()]) {
         if (serials.has(collectible(gift))) removed.add(gift.id);

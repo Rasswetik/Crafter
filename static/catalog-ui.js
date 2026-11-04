@@ -189,8 +189,8 @@ const currencyHTML=g=>(g.price_unit==='TON'||g.catalog_only)?'TON':gramIcon();
 Object.assign(state,{order:'listed_at desc',minPrice:'',maxPrice:''});
 const sortOptions=[['listed_at desc','Сначала новые'],['price asc','Цена: по возрастанию'],['price desc','Цена: по убыванию'],['external_collection_number asc','ID подарка: ↑'],['external_collection_number desc','ID подарка: ↓'],['model_rarity asc','Редкость модели: ↑'],['model_rarity desc','Редкость модели: ↓']];
 filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="openPriceFilters()" aria-label="Диапазон цены">${icon('filter')}</button><button class="sort ${state.order!=='listed_at desc'?'enabled':''}" onclick="openSort()" aria-label="Сортировка">${icon('sortOrder')}</button><span class="filter-divider"></span>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].filter(([key])=>!state.collectionPage||key!=='collection').map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?`<span>${k==='collection'?selectedCollections().length:1}</span>`:''}${icon('chevron')}</button>`).join('')}</div>`};
-renderMarket=function(){document.querySelector('#main').innerHTML=`${filters()}<div id="gifts-grid" class="grid"></div><button class="load-more" onclick="loadMore()">Показать ещё</button>${demoNote()}`;filterGrid()};
-marketParams=function(offset=0){const p=new URLSearchParams({offset:String(offset),sort_by:state.order,price_unit:state.marketUnit||'GRAM'});for(const [key,value] of [['search',state.query],['collection_id',state.collection],['filter_by_models',state.model],['filter_by_backdrops',state.backdrop],['filter_by_symbols',state.symbol],['min_price',state.minPrice],['max_price',state.maxPrice]])if(value!==''&&value!=null)p.set(key,value);return p};
+renderMarket=function(){document.querySelector('#main').innerHTML=`${resaleMarketTabs()}${filters()}<div id="gifts-grid" class="grid"></div><button class="load-more" onclick="loadMore()">Показать ещё</button>${demoNote()}`;filterGrid()};
+marketParams=function(offset=0){const p=new URLSearchParams({offset:String(offset),sort_by:state.order,price_unit:state.marketUnit||'GRAM'});if(state.marketSource==='crafter')p.set('source','crafter');for(const [key,value] of [['search',state.query],['collection_id',state.collection],['filter_by_models',state.model],['filter_by_backdrops',state.backdrop],['filter_by_symbols',state.symbol],['min_price',state.minPrice],['max_price',state.maxPrice]])if(value!==''&&value!=null)p.set(key,value);return p};
 function openSort(){state.draftOrder=state.order;sheet('Сортировка',`<div class="sort-options">${sortOptions.map(([v,n])=>`<button class="sort-option" onclick="chooseSort(${arg(v)})" data-order="${esc(v)}"><span class="sort-radio ${v===state.draftOrder?'checked':''}"></span>${n}</button>`).join('')}</div><button class="primary sort-apply" onclick="applySort()">Применить</button>`);document.querySelector('#sheet').classList.add('sort-sheet')}
 function chooseSort(v){state.draftOrder=v;document.querySelectorAll('.sort-option').forEach(el=>el.querySelector('.sort-radio').classList.toggle('checked',el.dataset.order===v))}
 function applySort(){state.order=state.draftOrder;state.sort=false;closeSheet();if(state.page==='market')renderMarket();changedFilter()}
@@ -238,7 +238,7 @@ function giftCollection(gift) {
 }
 
 function chooseLuckyGift(id) {
-    const gift = state.gifts.find(item => item.id === id);
+    const gift = state.gifts.find(item => item.id === id && !item.resale);
     const collection = gift && giftCollection(gift);
     if (!gift?.number || gift.catalog_only || !collection) return toast('Лот недоступен для Lucky Craft');
     state.target = {id: collection.id, listingId: gift.id, number: gift.number, name: gift.name, image: gift.image};
@@ -276,6 +276,7 @@ detail = function (id) {
 
 function showGiftDetail(gift, source) {
     const own = source === 'inventory';
+    const listed = own && gift.status === 'listed';
     state.detailGift = gift;
     const canOpenTelegram = Boolean(telegramGiftLink(gift));
     const eyeLabel = canOpenTelegram ? 'Открыть подарок в Telegram' : 'Нет ссылки на подарок в Telegram';
@@ -307,19 +308,22 @@ function showGiftDetail(gift, source) {
                 <strong data-trait-price="${key}">—</strong>
             </div>`).join('')}
             <div><span>Мин. цена</span><strong>${esc(productFloor(gift))}</strong></div>
-            ${own ? '<div><span>Лучшее предложение</span><strong></strong></div>' : ''}
+            ${listed ? `<div class="owned-listing-price"><span>Цена продажи</span><strong>${money(gift.listing_price ?? gift.price)} GRAM</strong>
+                <button type="button" onclick="startResale('edit', ${arg(gift.id)})">Редактировать</button></div>` : ''}
+            ${gift.resale ? '<div><span>Источник</span><strong>Своя продажа</strong></div>' : ''}
         </div>
-        ${own ? `<div class="product-actions owned-gift-actions">
+        ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` : own ? `<div class="product-actions owned-gift-actions">
             <button class="secondary" onclick="toast('Вывод пока недоступен')">Вывод</button>
-            <button class="primary" onclick="toast('Продажа пока недоступна')">Продать</button>
+            <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>
         </div>` : source === 'market' ? `<div class="market-gift-actions">
-            ${gift.number && !gift.catalog_only ? `<button class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
+            ${gift.number && !gift.catalog_only && !gift.resale ? `<button class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">
                 <span class="lucky-craft-copy"><strong>Lucky Craft</strong><small>За свои подарки</small></span>
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3c7-1 14 3 16 10l-1 1c-1-2-3-4-5-5L6 21a1.5 1.5 0 0 1-2-2L13 8C11 6 8 5 5 4Z" fill="currentColor"/></svg>
             </button>` : ''}
+            ${gift.own_listing ? `<button class="primary" onclick="openListedInventory()">Управлять в инвентаре</button>` : `
             <button id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
             <span>Купить подарок</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
-        </button></div>` : ''}`);
+        </button>`}</div>` : ''}`);
     document.querySelector('#sheet').classList.add('purchase-sheet');
     // Show the already-known gift immediately; network estimates and animation never block opening.
     const panel = document.querySelector('#sheet-body .product-properties');
@@ -339,7 +343,41 @@ const serverFilterGrid=filterGrid;filterGrid=function(){if(state.page!=='gifts')
 const localRequestIds=new Map();
 function paymentRequestId(key){if(localRequestIds.has(key))return localRequestIds.get(key);let rid;try{rid=sessionStorage.getItem(key)}catch{}if(!rid){if(globalThis.crypto?.randomUUID)rid=crypto.randomUUID();else if(globalThis.crypto?.getRandomValues)rid=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');else rid=Date.now().toString(36)+Math.random().toString(36).slice(2);try{sessionStorage.setItem(key,rid)}catch{}}localRequestIds.set(key,rid);return rid}
 function purchaseError(message){let el=document.querySelector('#purchase-error');if(!el){el=document.createElement('p');el.id='purchase-error';el.className='purchase-error';el.setAttribute('role','alert');document.querySelector('#sheet-body')?.appendChild(el)}el.textContent=message}
-async function localBuyGift(id){if(state.buying)return;state.buying=true;const button=document.querySelector('#buy-gift');if(button){button.disabled=true;button.setAttribute('aria-busy','true')}document.querySelector('#purchase-error')?.remove();try{const result=await api('local/buy',{id,expected_price:state.detailGift?.price,request_id:paymentRequestId('crafter-purchase:'+state.me.user.id+':'+id)});removePurchasedMarketLots([id]);state.me.balance=result.balance;state.me.inventory_count=(state.me.inventory_count||0)+1;state.inventory=[...state.inventory.filter(g=>g.id!==result.gift.id),{...result.gift,status:'unlisted'}];updateBalance();closeSheet();toast('Подарок добавлен в инвентарь')}catch(e){purchaseError(e.message||'Не удалось купить подарок')}finally{state.buying=false;if(button){button.disabled=false;button.removeAttribute('aria-busy')}}}
+async function localBuyGift(id) {
+    if (state.buying) return;
+    const gift = state.detailGift;
+    if (!gift || gift.id !== id || gift.own_listing) return;
+    state.buying = true;
+    const button = document.querySelector('#buy-gift');
+    if (button) {
+        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
+    }
+    document.querySelector('#purchase-error')?.remove();
+    const requestKey = 'crafter-purchase:' + state.me.user.id + ':' + id + (gift.resale ? ':' + gift.price : '');
+    try {
+        const result = await api(gift.resale ? 'resale/buy' : 'local/buy', {
+            id, expected_price: gift.price, request_id: paymentRequestId(requestKey),
+        });
+        removePurchasedMarketLots([id]);
+        state.me.balance = result.balance;
+        state.me.inventory_count = (state.me.inventory_count || 0) + 1;
+        state.inventory = [...state.inventory.filter(item => item.id !== result.gift.id), {...result.gift, status: 'unlisted'}];
+        updateBalance();
+        if (button?.isConnected) closeSheet();
+        toast('Подарок добавлен в инвентарь');
+    } catch (e) {
+        if (button?.isConnected) purchaseError(e.message || 'Не удалось купить подарок');
+        if (gift.resale && e.status === 409 && state.page === 'market') changedFilter();
+    } finally {
+        state.buying = false;
+        if (button) {
+            button.disabled = false;
+            button.removeAttribute('aria-busy');
+        }
+    }
+}
+
 
 function craftGiftById(id){state.selected=[id];state.quote=null;closeSheet();go('craft')}
 

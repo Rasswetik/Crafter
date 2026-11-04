@@ -87,7 +87,7 @@ async function openMarketBanner(banner) {
 async function openBannerLuckyCraft() {
     await state.catalogReady;
     if (state.page !== 'market') return;
-    const gifts = state.gifts.filter(gift => gift.number && !gift.catalog_only && giftCollection(gift));
+    const gifts = state.gifts.filter(gift => gift.number && !gift.catalog_only && !gift.resale && giftCollection(gift));
     sheet('Lucky Craft', `<p class="sub">Выберите лот, который хотите скрафтить.</p>
         <div class="banner-lucky-gifts">${gifts.length ? gifts.map(gift =>
             `<button class="catalog-row" onclick="chooseLuckyGift(${arg(gift.id)})">

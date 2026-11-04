@@ -10,6 +10,7 @@ from urllib.error import HTTPError, URLError
 from flask import Flask, request, jsonify, render_template, g, abort
 from dotenv import load_dotenv
 from database import Postgres
+from resale import cap_funded_balance, install_resale
 load_dotenv()
 ROOT = Path(__file__).parent
 
@@ -204,13 +205,51 @@ def create_app(config=None):
         if postgres_url:
             db().execute('SELECT 1').fetchone()
         return {'ok': True}
+    def positive_price(value):
+        try:
+            price = Decimal(str(value))
+        except (InvalidOperation, ValueError):
+            return None
+        return price if price.is_finite() and price > 0 else None
+
     @app.get('/api/me')
     @auth()
     def me():
         refs=db().execute('SELECT count(*) FROM users WHERE referrer=?',(g.user['id'],)).fetchone()[0]
         username = bot_settings()['username']
         link = f"https://t.me/{username}?startapp=ref_{g.user['id']}" if username else None
-        return dict(user=g.user,is_admin=g.is_admin,demo=app.config['DEMO_MODE'],inventory_count=sum(1 for gift in owned() if gift['status'] != 'staked'),balance=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0],inventory_value_ton=str(sum(Decimal(x['price']) for x in owned() if x.get('price_unit')=='TON')),inventory_value=str(sum(Decimal(x['price']) for x in owned() if x.get('price_unit')!='TON')),bought=db().execute("SELECT count(*) FROM history WHERE user_id=? AND kind='buy'",(g.user['id'],)).fetchone()[0],sold=0,volume='0',referrals=refs,referral_level=1,referral_progress=min(refs*10,100),invite_link=link)
+        inventory = [gift for gift in owned() if gift['status'] != 'staked']
+        valuation = {'GRAM': Decimal(0), 'TON': Decimal(0)}
+        cached_floors = {}
+        for key, unit in (('thermos:collections', 'TON'), ('collections', 'GRAM')):
+            for collection in cached(key, [])[0]:
+                price = positive_price(collection.get('floor_price'))
+                if price:
+                    cached_floors[canonical_name(collection.get('name') or '')] = (price, unit)
+        for gift in inventory:
+            price = positive_price(gift.get('price'))
+            unit = 'TON' if gift.get('price_unit') == 'TON' else 'GRAM'
+            if price is None:
+                price = positive_price(gift.get('floor_price'))
+                if price and gift.get('source_price_unit') in valuation:
+                    unit = gift['source_price_unit']
+            if price is None:
+                price, unit = cached_floors.get(canonical_name(gift.get('name') or ''), (Decimal(0), unit))
+            valuation[unit] += price
+        bought = sold = 0
+        volume = Decimal(0)
+        for row in db().execute("SELECT kind,payload FROM history WHERE user_id=? AND kind IN ('buy','sale')", (g.user['id'],)):
+            bought += row['kind'] == 'buy'
+            sold += row['kind'] == 'sale'
+            price = positive_price(json.loads(row['payload']).get('price'))
+            if price:
+                volume += price
+        balance = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (g.user['id'],)).fetchone()[0]
+        return dict(user=g.user, is_admin=g.is_admin, demo=app.config['DEMO_MODE'],
+                    inventory_count=len(inventory), balance=balance, inventory_value_ton=str(valuation['TON']),
+                    inventory_value=str(valuation['GRAM']), bought=bought, sold=sold, volume=str(volume),
+                    referrals=refs, referral_level=1, referral_progress=min(refs * 10, 100), invite_link=link)
+
     @app.post('/api/referral')
     @auth()
     def referral():
@@ -285,7 +324,7 @@ def create_app(config=None):
             if canonical_name(gift.get('name', '')) != name:
                 continue
             try:
-                paid = Decimal(str(gift.get('price') if gift.get('origin') == 'local-purchase' else entry.get('price', gift.get('price'))))
+                paid = Decimal(str(gift.get('price') if gift.get('origin') == 'local-purchase' and entry.get('scope') != 'crafter' else entry.get('price', gift.get('price'))))
             except InvalidOperation:
                 continue
             if paid.is_finite() and paid > 0:
@@ -340,6 +379,8 @@ def create_app(config=None):
     @app.get('/api/market')
     @auth()
     def market():
+        if request.args.get('source') == 'crafter':
+            return resale_market()
         collection_ids = list(dict.fromkeys(request.args.get('collection_id', '').split(',')))
         multi_collection = len(collection_ids) > 1
         if multi_collection and (len(collection_ids) > 20 or any(not item or len(item) > 100 for item in collection_ids)):
@@ -442,7 +483,7 @@ def create_app(config=None):
                 price = None
                 if kind == 'buy':
                     try:
-                        paid = Decimal(str(gift.get('price') if gift.get('origin') == 'local-purchase' else entry.get('price', gift.get('price'))))
+                        paid = Decimal(str(gift.get('price') if gift.get('origin') == 'local-purchase' and entry.get('scope') != 'crafter' else entry.get('price', gift.get('price'))))
                     except InvalidOperation:
                         continue
                     if not paid.is_finite() or paid <= 0:
@@ -639,7 +680,11 @@ def create_app(config=None):
             db().execute('DELETE FROM craft_quotes WHERE id=?',(qid,))
         return result
     def owned():
-        return [{**json.loads(r['payload']),'status':r['status']} for r in db().execute('SELECT payload,status FROM inventory WHERE user_id=?',(g.user['id'],))]
+        rows = db().execute('''SELECT i.payload,i.status,l.price AS listing_price
+            FROM inventory i LEFT JOIN crafter_listings l ON l.seller_id=i.user_id AND l.gift_id=i.nft_id
+            WHERE i.user_id=?''', (g.user['id'],))
+        return [{**json.loads(row['payload']), 'status': row['status'],
+                 'listing_price': row['listing_price']} for row in rows]
     def record(kind,payload,*,uid=None):
         db().execute('INSERT INTO history VALUES(?,?,?,?,?)',(uuid.uuid4().hex,g.user['id'] if uid is None else uid,kind,json.dumps(payload),int(time.time())))
     @app.get('/api/history')
@@ -741,6 +786,8 @@ def create_app(config=None):
                     if not price.is_finite() or price<=0 or price>1000000:abort(400,description='Некорректная цена')
                     gift['price']=str(price);db().execute("UPDATE inventory SET status='listed',payload=? WHERE user_id=? AND nft_id=?",(json.dumps(gift),g.user['id'],nft))
                 elif action=='unlist':
+                    if gift['listing_price'] is not None:
+                        abort(409, description='Снимите лот через продажу Crafter')
                     if gift['status'] != 'listed':abort(409,description='Подарок не выставлен на продажу')
                     db().execute("UPDATE inventory SET status='unlisted' WHERE user_id=? AND nft_id=?",(g.user['id'],nft))
                 else:
@@ -778,6 +825,7 @@ def create_app(config=None):
             if price>balance:abort(409,description='Недостаточно GRAM на локальном балансе')
             collectible_key = market_collectible_key(gift)
             gift={**gift,'source_price':gift['price'],'price':str(price),'source_price_unit':source_unit,'price_unit':'GRAM','id':'local-'+uuid.uuid4().hex,'source_id':source_id,'source_number':gift.get('number'),'number':gift_number(gift.get('collection_id') or gift['name'],gift.get('number')),'origin':'local-purchase'}
+            cap_funded_balance(db(), g.user['id'], balance - price)
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-price),g.user['id']))
             db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],gift['id'],json.dumps(gift),'unlisted'))
             db().execute('INSERT INTO local_sold VALUES(?)',(source_id,))
@@ -828,6 +876,7 @@ def create_app(config=None):
                 db().execute('INSERT INTO local_sold VALUES(?)',(source_id,))
                 record('buy',dict(gift=reward,price=reward['price'],scope='application'))
                 rewards.append(reward)
+            cap_funded_balance(db(), g.user['id'], balance - total)
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-total),g.user['id']))
             db().executemany('INSERT INTO local_sold VALUES(?) ON CONFLICT DO NOTHING', [(key,) for key in keys])
             result=dict(ok=True,gifts=rewards,balance=str(balance-total),total=str(total),scope='application')
@@ -845,6 +894,7 @@ def create_app(config=None):
             if balance<Decimal(nft['price']):abort(409,description='Не хватает тестового баланса')
             reward={**nft,'id':'purchased-'+uuid.uuid4().hex,'number':secrets.randbelow(999999)}
             db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
+            cap_funded_balance(db(), g.user['id'], balance - Decimal(nft['price']))
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-Decimal(nft['price'])),g.user['id']))
             record('buy',reward)
         return {'ok':True,'gift':reward,'demo':True}
@@ -953,6 +1003,7 @@ def create_app(config=None):
     install_telegram_deposits(app, db, auth, audit, record, bot_settings)
     from wallet import install_wallet
     install_wallet(app,db,auth,record,audit)
+    resale_market = install_resale(app, db, auth, record, canonical_name)
     from banners import install_banners
     install_banners(app, db, auth, audit)
     from staking import install_staking
