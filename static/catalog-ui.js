@@ -28,7 +28,7 @@ async function openCatalogSheet(kind){
  }
  else if(state.page==='market' && state.marketSource==='crafter'){
     rows=(state.marketFacets?.[kind] || []).map(row => {
-        if (kind !== 'collection') return {...row,unit:'GRAM'};
+        if (kind !== 'collection') return {...row,unit:'GRAM',background:kind==='backdrop' && row.background ? giftBackdrop({backdrop:row.name,background:row.background}) : row.background};
         const matched = state.catalog.collections.find(item =>
             String(item.id) === String(row.value) ||
             giftCollectionSlug(item.name) === giftCollectionSlug(row.name));
@@ -68,36 +68,32 @@ function catalogArtworkURLs(row) {
         return [...new Set([proxy,direct,official].filter(Boolean))];
     }
     const trait=kind==='model'?'model':kind==='symbol'?'symbol':null;
-    let exactGift='';
     if(trait){
-        const inventory=state.inventory||[];
-        const marketplace=state.gifts||[];
-        const all=state.page==='gifts' ? inventory : [...marketplace,...inventory];
-        const match=all.find(gift=>{
-            if(String(gift[trait]||'').toLocaleLowerCase()!==String(row.name).toLocaleLowerCase())
-                return false;
-            if(collectionName && giftCollectionSlug(gift.name)!==collectionSlug)
-                return false;
-            return Boolean(imageURL(gift.image));
-        });
-        exactGift=imageURL(match?.image);
+        // A listing image contains the assembled gift (model + background + symbol).
+        // Filter thumbnails must instead be the isolated transparent PNG.
+        const matches=[...(state.inventory||[]),...(state.gifts||[])].filter(g=>
+            String(g[trait]||'').toLocaleLowerCase()===String(row.name).toLocaleLowerCase());
+        const distinctCollections=[...new Set(matches.map(g=>g.name).filter(Boolean))];
+        const exactCollection=collectionName || row.collection_name ||
+            (distinctCollections.length===1 ? distinctCollections[0] : '');
+        const part=value=>encodeURIComponent(String(value||'').trim());
+        const isolated=exactCollection && row.name ?
+            'https://api.changes.tg/'+trait+'/'+part(exactCollection)+'/'+part(row.name)+'.png?size=128' : '';
+        // Portals' models endpoint can also return an isolated PNG. Use it only
+        // after our exact-model URL; never take a thumbnail from an NFT listing.
+        const catalogAsset=state.page==='gifts'||state.marketSource==='crafter' ? '' : listed;
+        return [...new Set([isolated,catalogAsset].filter(Boolean))];
     }
-    const name=collectionName || (state.page==='gifts' ?
-        (state.inventory||[]).find(g=>String(g[kind]||'')===String(row.name))?.name : '');
-    const part=value=>encodeURIComponent(String(value||'').trim());
-    const exact=name && row.name && trait ?
-        'https://api.changes.tg/'+trait+'/'+part(name)+'/'+part(row.name)+'.png' : '';
-    // Start with a model/symbol matching this exact trait, not collection art.
-    // Model / symbol rows must never silently become an unrelated collection image.
-    if(trait) return [...new Set([exactGift,listed,exact].filter(Boolean))];
     return [];
 }
 function catalogRowArtwork(row) {
     const kind = state.sheetKind;
     const urls = catalogArtworkURLs(row);
-    const background = kind==='backdrop' && row.background &&
-        /^(?:linear-gradient|radial-gradient|#[0-9a-f]{3,8}|rgb|hsl)/i.test(row.background) ?
-        ' style="background:'+esc(row.background)+'"' : '';
+    const backgroundColor = kind==='backdrop' && (typeof row.background==='string' ? row.background :
+        row.background ? giftBackdrop({backdrop:row.name,background:row.background}) : '');
+    const background = backgroundColor &&
+        /^(?:linear-gradient|radial-gradient|#[0-9a-f]{3,8}|rgb|hsl)/i.test(backgroundColor) ?
+        ' style="background:'+esc(backgroundColor)+'"' : '';
     const img = urls.length ?
         '<img loading="lazy" src="'+esc(urls[0])+'" data-gift-fallback="'+
             esc(JSON.stringify(urls.slice(1)))+
