@@ -190,3 +190,23 @@
 #sheet.offer-sheet .sheet-head > .close {display:none!important;}
 #sheet.purchase-sheet .sheet-head,
 #sheet.offer-sheet .sheet-head {min-height:0;}
+
+
+/* All gift attribute filters can be dismissed by backdrop or Escape. */
+#sheet.catalog-sheet .sheet-head > .close {display:none!important;}
+#sheet.catalog-sheet .sheet-head {min-height:8px;}
+/* Make the Telegram paper airplane unmistakable and centered. */
+#sheet.purchase-sheet .gift-detail-tools .gift-send-tool {
+    color:#fff;
+    background:rgba(32,149,235,.84);
+    border-color:#ffffff42;
+}
+#sheet.purchase-sheet .gift-detail-tools .gift-send-tool svg {
+    width:20px!important;
+    height:20px!important;
+    fill:currentColor;
+    stroke:none;
+}
+#sheet.purchase-sheet .gift-detail-tools .gift-send-tool:disabled {
+    background:#474b50;opacity:.45;
+}
