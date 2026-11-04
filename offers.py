@@ -126,7 +126,8 @@ def install_trading_offers(app, db, auth, record, canonical_name, notify_sale):
     def offer_inbox():
         uid = g.user['id']
         expire_user_offers(uid)
-        rows = db().execute("""SELECT * FROM crafter_offers WHERE buyer_id=? OR seller_id=?
+        rows = db().execute("""SELECT * FROM crafter_offers
+            WHERE (buyer_id=? OR seller_id=?) AND status='active'
             ORDER BY created DESC,id DESC LIMIT 150""", (uid, uid)).fetchall()
         return {'received': [public(row) for row in rows if row['seller_id'] == uid],
                 'placed': [public(row) for row in rows if row['buyer_id'] == uid and row['lot_id']],

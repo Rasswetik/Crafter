@@ -154,7 +154,8 @@ async function renderOffersInbox(body) {
     updateBalance();
     const tabs = [['received','Получено'], ['placed','Размещено'], ['collections','Коллекции']];
     const paint = () => {
-        const list = data[offerInboxTab];
+        // Only ongoing offers belong in these tabs; settled ones remain in history.
+        const list = (data[offerInboxTab] || []).filter(item => item.status === 'active');
         body.innerHTML = `<div class="segment offer-inbox-tabs">${tabs.map(([key,label]) =>
             `<button type="button" data-offer-tab="${key}" class="${key === offerInboxTab ? 'selected' : ''}">
                 ${label} <span>${data[key].filter(item => item.status === 'active').length}</span></button>`).join('')}</div>

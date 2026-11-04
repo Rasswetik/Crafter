@@ -85,6 +85,20 @@ def install_wallet(app,db,auth,record,audit):
     def verified_balance(network):
         row=db().execute('SELECT gram FROM wallet_balances WHERE user_id=? AND network=?',(g.user['id'],network)).fetchone()
         return Decimal(row[0]) if row else Decimal(0)
+
+    def used_withdrawal_quota(uid, now=None):
+        """Only pending and completed payouts use the rolling 24-hour allowance."""
+        cutoff=(int(time.time()) if now is None else int(now))-86400
+        rows=db().execute("""SELECT payload FROM ton_withdrawals
+            WHERE user_id=? AND created>? AND status IN ('queued','processing','confirmed')""",
+            (uid,cutoff)).fetchall()
+        return sum((Decimal(json.loads(row['payload'])['gram']) for row in rows),Decimal(0))
+
+    def withdraw_allowance(uid, config, balance):
+        """Return actual, TON-backed availability; external wallet TON is not a Crafter deposit."""
+        backed=max(Decimal(0),verified_balance(config['network']))
+        daily_left=max(Decimal(0),Decimal(config['withdraw_daily'])-used_withdrawal_quota(uid))
+        return backed,daily_left,max(Decimal(0),min(balance,backed,daily_left))
     @app.get('/tonconnect-manifest.json')
     def ton_manifest():
         c=config();root=origin(c)
@@ -96,11 +110,15 @@ def install_wallet(app,db,auth,record,audit):
     def wallet_info():
         c=config();row=db().execute('SELECT address,network FROM connected_wallets WHERE user_id=?',(g.user['id'],)).fetchone()
         balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])
-        paid=min(balance,verified_balance(c['network']))
+        backed,daily_left,paid=withdraw_allowance(g.user['id'],c,balance)
         dep=[dict(id=r['id'],status=r['status'],created=r['created'],**json.loads(r['payload'])) for r in db().execute('SELECT * FROM ton_deposits WHERE user_id=? ORDER BY created DESC LIMIT 30',(g.user['id'],))]
         withdrawals=[dict(id=r['id'],status=r['status'],created=r['created'],**json.loads(r['payload'])) for r in db().execute('SELECT * FROM ton_withdrawals WHERE user_id=? ORDER BY created DESC LIMIT 30',(g.user['id'],))]
         connected = dict(row, display_address=friendly_address(row['address'], row['network'])) if row else None
-        return dict(config=public(c),connected=connected,balance=str(balance),withdrawable=str(paid),deposits=dep,withdrawals=withdrawals,manifest_url=origin(c)+'/tonconnect-manifest.json')
+        return dict(config=public(c),connected=connected,balance=str(balance),
+                    withdrawable=str(paid),funded_balance=str(backed),
+                    withdraw_daily_remaining=str(daily_left),
+                    deposits=dep,withdrawals=withdrawals,
+                    manifest_url=origin(c)+'/tonconnect-manifest.json')
     @app.get('/api/wallet/balance')
     @auth()
     def connected_balance():
@@ -216,27 +234,79 @@ def install_wallet(app,db,auth,record,audit):
     def withdraw():
         c=config();ready(c)
         if not c['withdraw_enabled']:abort(409,description='Вывод временно отключён')
-        data=request.get_json() or {};rid=data.get('request_id');value=amount(data.get('gram'))
+        data=request.get_json(silent=True)
+        if not isinstance(data,dict):abort(400,description='Некорректные параметры вывода')
+        rid=data.get('request_id')
+        value=amount(data.get('gram'))
         if not isinstance(rid,str) or not 1<=len(rid)<=80:abort(400)
+        try:
+            if Decimal(str(data.get('gram'))) != value:
+                abort(400,description='Введите сумму вывода с точностью до 0,01 GRAM')
+        except (InvalidOperation,ValueError):
+            abort(400,description='Укажите корректную сумму вывода')
         wid='w-'+str(g.user['id'])+'-'+rid
         with db():
             db().execute('BEGIN IMMEDIATE')
-            old=db().execute('SELECT id,status FROM ton_withdrawals WHERE id=?',(wid,)).fetchone()
-            if old:return dict(old)
+            old=db().execute('SELECT id,status,payload FROM ton_withdrawals WHERE id=? AND user_id=?',
+                             (wid,g.user['id'])).fetchone()
+            if old:
+                if Decimal(json.loads(old['payload'])['gram']) != value:
+                    abort(409,description='Идентификатор заявки уже использован для другой суммы')
+                return {'id':old['id'],'status':old['status']}
             w=db().execute('SELECT * FROM connected_wallets WHERE user_id=?',(g.user['id'],)).fetchone()
             if not w or w['network']!=c['network']:abort(409,description='Подключите кошелёк нужной сети')
-            balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0]);paid=verified_balance(c['network'])
-            if value>min(balance,paid):abort(409,description='Для вывода доступны только подтверждённые пополнения TON')
-            used=sum(Decimal(json.loads(r[0])['gram']) for r in db().execute("SELECT payload FROM ton_withdrawals WHERE user_id=? AND created>? AND status!='cancelled'",(g.user['id'],int(time.time())-86400)))
-            if value>Decimal(c['withdraw_max']) or used+value>Decimal(c['withdraw_daily']):abort(409,description='Превышен лимит вывода')
+            balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])
+            backed,daily_left,allowed=withdraw_allowance(g.user['id'],c,balance)
+            if value>min(balance,backed):
+                abort(409,description='Вывод доступен только для GRAM из подтверждённых пополнений TON')
+            if value>Decimal(c['withdraw_max']):
+                abort(409,description='Сумма превышает лимит одной операции')
+            if value>daily_left:
+                abort(409,description='Суточный лимит вывода исчерпан')
+            if value>allowed:
+                abort(409,description='Сумма превышает доступный баланс')
             nano=int(value/Decimal(c['gram_per_ton'])*1000000000)
             if nano<=0:abort(400)
             p=dict(receiver=w['address'],sender=address(c['receiver']),network=c['network'],gram=str(value),nano=str(nano),ton=str(Decimal(nano)/1000000000),memo='crafter-withdraw:'+uuid.uuid4().hex)
             db().execute('INSERT INTO ton_withdrawals VALUES(?,?,?,?,?,NULL)',(wid,g.user['id'],json.dumps(p),'queued',int(time.time())))
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-value),g.user['id']))
-            db().execute('UPDATE wallet_balances SET gram=? WHERE user_id=? AND network=?',(str(paid-value),g.user['id'],c['network']))
+            db().execute('UPDATE wallet_balances SET gram=? WHERE user_id=? AND network=?',(str(backed-value),g.user['id'],c['network']))
             record('withdraw_request',p)
         return dict(id=wid,status='queued')
+    @app.post('/api/wallet/withdraw/<wid>/cancel')
+    @auth()
+    def cancel_queued_withdrawal(wid):
+        # A queued withdrawal has never been prepared for TON signing.
+        # Processing/confirmed requests must NOT be refunded without chain verification.
+        uid=g.user['id']
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            row=db().execute('SELECT payload,status FROM ton_withdrawals WHERE id=? AND user_id=?',
+                             (wid,uid)).fetchone()
+            if not row:
+                abort(404,description='Заявка не найдена')
+            if row['status']=='cancelled':
+                return {'status':'cancelled'}
+            if row['status']!='queued':
+                abort(409,description='Отменить можно только заявку, ещё не отправленную на обработку')
+            p=json.loads(row['payload'])
+            gram=Decimal(p['gram'])
+            wallet_network=p['network']
+            db().execute("UPDATE ton_withdrawals SET status='cancelled' WHERE id=? AND user_id=? AND status='queued'",
+                         (wid,uid))
+            account=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(uid,)).fetchone()
+            current=Decimal(account['balance']) if account else Decimal(0)
+            db().execute("""INSERT INTO demo_accounts(user_id,balance) VALUES(?,?)
+                ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance""",
+                (uid,str(current+gram)))
+            row_funded=db().execute('SELECT gram FROM wallet_balances WHERE user_id=? AND network=?',
+                                    (uid,wallet_network)).fetchone()
+            funded=Decimal(row_funded['gram']) if row_funded else Decimal(0)
+            db().execute("""INSERT INTO wallet_balances(user_id,network,gram) VALUES(?,?,?)
+                ON CONFLICT(user_id,network) DO UPDATE SET gram=excluded.gram""",
+                (uid,wallet_network,str(funded+gram)))
+        return {'status':'cancelled'}
+
     @app.get('/api/admin/database/backup')
     @auth(admin=True)
     def database_backup():
