@@ -43,7 +43,7 @@ async function renderEventsPage() {
         if(state.page==='events') main.innerHTML='<section class="crafter-events-page"><p class="sub">'+esc(error.message)+'</p><button class="secondary" onclick="renderEventsPage()">Повторить</button></section>';
     }
 }
-async function openCrafterEvent(eventId) {
+async function openCrafterEvent(eventId, focusLeaderboard = false) {
     const main=document.querySelector('#main');
     if(!main || state.page!=='events')return;
     main.innerHTML='<section class="crafter-events-page"><p class="sub">Загружаем лидерборд…</p></section>';
@@ -70,7 +70,7 @@ async function openCrafterEvent(eventId) {
                     </div>`).join('') || '<p class="sub">Награды появятся после объявления организатора.</p>'}
                 </div>
             </section>
-            <section class="crafter-event-section">
+            <section class="crafter-event-section" id="crafter-event-ranking">
                 <h2>${esc(event.metric_label)} <small>Топ игроков</small></h2>
                 ${visible ? `<div class="crafter-event-leaderboard">
                     ${leaders.map(player=>`<div class="crafter-event-leader">
@@ -84,6 +84,13 @@ async function openCrafterEvent(eventId) {
                     </div>` : '<p class="sub">Организатор пока скрыл рейтинг этого события.</p>'}
             </section>
         </section>`;
+        if(focusLeaderboard){
+            const ranking=main.querySelector('#crafter-event-ranking');
+            if(ranking)requestAnimationFrame(()=>{
+                if(state.page==='events'&&ranking.isConnected)
+                    ranking.scrollIntoView({behavior:'smooth',block:'start'});
+            });
+        }
     } catch(error) {
         if(state.page==='events') main.innerHTML='<section class="crafter-events-page"><button class="crafter-event-back" onclick="renderEventsPage()">‹ Все ивенты</button><p>'+esc(error.message)+'</p></section>';
     }
