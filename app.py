@@ -128,15 +128,19 @@ def create_app(config=None):
                 raw=request.headers.get('X-Telegram-Init-Data','')
                 try:
                     if raw:
-                        tokens = dict.fromkeys(filter(None, (app.config['BOT_TOKEN'], bot_settings().get('token'))))
-                        for token in tokens:
+                        # The environment token is normally enough. Do not query
+                        # bot settings in PostgreSQL on every authenticated poll.
+                        primary = app.config['BOT_TOKEN']
+                        if primary:
                             try:
-                                g.user = verify_telegram(raw, token)
-                                break
+                                g.user = verify_telegram(raw, primary)
                             except ValueError:
-                                continue
-                        else:
-                            raise ValueError('signature')
+                                pass
+                        if 'user' not in g:
+                            fallback = bot_settings().get('token')
+                            if not fallback or fallback == primary:
+                                raise ValueError('signature')
+                            g.user = verify_telegram(raw, fallback)
                     elif app.config['DEMO_MODE']:g.user={'id':1,'first_name':'Гошан','username':'goshan_wow'}
                     else:abort(401,description='Откройте приложение через Telegram')
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):abort(401,description='Недействительная авторизация Telegram')
