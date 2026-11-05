@@ -1,0 +1,114 @@
+/* Hub: two game choices, attached Craft event banner, and gentle premium motion. */
+.crafter-games{display:grid;gap:13px;padding-top:8px}
+.crafter-games .crafter-game-tile{margin:0;transform-style:preserve-3d;perspective:580px}
+.crafter-games .crafter-pepe-tile{
+  background:radial-gradient(ellipse at 75% 35%,#486b59 0%,#263b35 54%,#1c2928 100%);
+  border-color:#78b3a03b;
+}
+.crafter-games .crafter-pepe-tile .crafter-game-label{max-width:55%}
+.crafter-pepe-motion{
+  position:absolute;
+  right:0;
+  top:4%;
+  bottom:0;
+  width:52%;
+  display:grid;
+  place-items:center;
+  perspective:550px;
+  pointer-events:none;
+  z-index:0;
+}
+.crafter-pepe-picture{
+  display:block;
+  width:99%;
+  height:96%;
+  max-width:none;
+  object-fit:contain;
+  object-position:center bottom;
+  filter:drop-shadow(0 12px 10px #071b1288);
+  transform-origin:50% 70%;
+  animation:crafter-pepe-hover 4.6s ease-in-out infinite;
+  backface-visibility:hidden;
+}
+@keyframes crafter-pepe-hover{
+  0%,100%{transform:translate3d(0,1%,0) rotate(-3deg) rotateY(-3deg) scale(1)}
+  40%{transform:translate3d(0,-5%,0) rotate(3deg) rotateY(4deg) scale(1.045)}
+  70%{transform:translate3d(-2%,-1%,0) rotate(-1deg) rotateY(-2deg) scale(1.01)}
+}
+.crafter-pepe-tile:hover .crafter-pepe-picture,
+.crafter-pepe-tile:focus-visible .crafter-pepe-picture{
+  animation-duration:2.8s;
+}
+.crafter-swords-tile{
+  background:radial-gradient(ellipse at 88% 40%,#68339c,#281936 66%,#191424)!important;
+}
+.crafter-swords-motion{
+  top:12%;
+  right:5%;
+  width:38%;
+  height:80%;
+  color:#d8bdff;
+  transform:none!important;
+  filter:drop-shadow(0 9px 14px #150b28b0);
+}
+.crafter-animated-swords{
+  display:block;
+  width:100%;
+  height:100%;
+  max-height:none!important;
+  overflow:visible;
+}
+.crafter-animated-swords .sword{
+  transform-box:view-box;
+  transform-origin:50px 74px;
+  backface-visibility:hidden;
+}
+.crafter-animated-swords .sword-left{animation:crafter-sword-left 4s ease-in-out infinite}
+.crafter-animated-swords .sword-right{animation:crafter-sword-right 4s ease-in-out infinite}
+.crafter-animated-swords .sword-left .sword-blade{fill:#9edbff;stroke:#f5faff;stroke-width:1.5}
+.crafter-animated-swords .sword-right .sword-blade{fill:#d5adff;stroke:#f8e9ff;stroke-width:1.5}
+.crafter-animated-swords .sword-shine{color:#fff;opacity:.88}
+.crafter-animated-swords .sword-hilt{fill:#343748;stroke:#e5ecff;stroke-width:2}
+.crafter-animated-swords .sword-crossguard{fill:#b3c3e5;stroke:#f5f8ff;stroke-width:1}
+.crafter-animated-swords .sword-pommel{fill:#79b5d4;stroke:#e9edff;stroke-width:1}
+@keyframes crafter-sword-left{
+  0%,100%{transform:rotate(-39deg) translateY(0)}
+  30%{transform:rotate(-48deg) translateY(-2px)}
+  55%{transform:rotate(-30deg) translateY(0)}
+  72%{transform:rotate(-41deg) translateY(1px)}
+}
+@keyframes crafter-sword-right{
+  0%,100%{transform:rotate(39deg) translateY(0)}
+  30%{transform:rotate(48deg) translateY(-2px)}
+  55%{transform:rotate(30deg) translateY(0)}
+  72%{transform:rotate(41deg) translateY(1px)}
+}
+.crafter-hub-craft-banner,
+.craft-event-banner{display:block;width:100%;min-width:0;margin:1px 0 7px}
+.crafter-hub-craft-banner[hidden],
+.craft-event-banner[hidden]{display:none!important}
+.crafter-hub-craft-banner .ice-banner-stage,
+.craft-event-banner .ice-banner-stage{
+  box-shadow:0 4px 18px #080d168c;
+}
+.craft-page .craft-event-banner{
+  position:relative;
+  z-index:3;
+  flex:0 0 auto;
+  margin:5px 0 14px;
+}
+#main .craft-page:has(.craft-event-banner:not([hidden])) .forge{
+  margin-top:clamp(20px,6dvh,50px);
+}
+@media(max-width:365px){
+  .crafter-pepe-motion{width:50%}
+  .crafter-swords-motion{width:37%;right:4%}
+  .crafter-game-tile{padding:18px;min-height:192px}
+}
+@media(prefers-reduced-motion:reduce){
+  .crafter-pepe-picture,
+  .crafter-animated-swords .sword-left,
+  .crafter-animated-swords .sword-right{animation:none!important}
+  .crafter-animated-swords .sword-left{transform:rotate(-39deg)}
+  .crafter-animated-swords .sword-right{transform:rotate(39deg)}
+}
