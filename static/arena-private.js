@@ -58,14 +58,28 @@ function arenaOpenPrivateLobby() {
         if (view !== arena.view || state.page !== 'arena') return;
         const root = document.querySelector('#arena-private-list');
         if (!root) return;
-        root.innerHTML = data.rooms.length ? data.rooms.map(room =>
-            '<button class="arena-private-room-card" type="button" onclick="arenaEnterPrivateRoom(' +
-            arg(room.token) + ')">' +
-            '<span><strong>' + esc(room.name) + '</strong>' +
-            '<small>' + room.members + '/' + room.max_players +
-            ' участников · ' + arenaFormat(room.min_bet) + '–' +
-            arenaFormat(room.max_bet) + ' GRAM</small></span><b>Открыть ›</b></button>'
-        ).join('') : '<p class="arena-private-muted">У вас пока нет групп. Создайте свою или перейдите по приглашению.</p>';
+
+        const total = document.querySelector('#arena-private-total');
+        if (total) total.textContent = data.rooms.length + ' групп';
+        root.innerHTML = data.rooms.length ? data.rooms.map(room => {
+            const initial = esc([...room.name.trim()][0] || 'G').toUpperCase();
+            return '<button class="arena-private-room-card" type="button" ' +
+                'onclick="arenaEnterPrivateRoom(' + arg(room.token) + ')">' +
+                '<span class="arena-private-room-icon">' + initial + '</span>' +
+                '<span class="arena-private-room-body"><span class="arena-private-room-name">' +
+                '<strong>' + esc(room.name) + '</strong><small class="arena-private-room-role">' +
+                (room.is_owner ? 'Владелец' : 'Участник') + '</small></span>' +
+                '<span class="arena-private-room-detail">' +
+                '<span>' + room.members + '/' + room.max_players + ' игроков</span>' +
+                '<span>' + room.bet_seconds + ' сек.</span>' +
+                '<span>' + arenaFormat(room.min_bet) + '–' + arenaFormat(room.max_bet) +
+                ' GRAM</span>' +
+                (room.bot_enabled ? '<span class="arena-private-room-bot">Бот: ' +
+                    esc(room.bot_name) + '</span>' : '') +
+                '</span></span><span class="arena-private-room-arrow">›</span></button>';
+        }).join('') : '<div class="arena-private-group-empty"><span>♙</span>' +
+            '<strong>Здесь пока пусто</strong><p>Создайте комнату и отправьте ' +
+            'приглашение друзьям.</p></div>';
     }).catch(error => {
         if (view === arena.view) {
             const root = document.querySelector('#arena-private-list');
