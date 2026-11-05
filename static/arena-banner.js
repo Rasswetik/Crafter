@@ -4,7 +4,14 @@ const ICE_BANNER_FONTS = {
     rounded: 'ui-rounded, "SF Pro Rounded", -apple-system, Arial, sans-serif',
     mono: 'ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace',
     serif: 'Georgia, "Times New Roman", serif',
-    condensed: '"Arial Narrow", "Roboto Condensed", Arial, sans-serif'
+    condensed: '"Arial Narrow", "Roboto Condensed", Arial, sans-serif',
+    heavy: 'Impact, "Arial Black", sans-serif',
+    bold: '"Arial Black", "Helvetica Neue", Arial, sans-serif',
+    geometric: '"Trebuchet MS", Verdana, Arial, sans-serif',
+    clean: 'Verdana, Tahoma, Arial, sans-serif',
+    classic: 'Tahoma, Arial, sans-serif',
+    display: '"SF Pro Display", -apple-system, Arial, sans-serif',
+    futuristic: 'Eurostile, "Trebuchet MS", Arial, sans-serif'
 };
 let iceBannerTickInterval = null;
 
@@ -20,20 +27,38 @@ function iceBannerTime(seconds, format) {
 
 function iceBannerUpdateClocks() {
     document.querySelectorAll('.ice-banner-countdown[data-end]').forEach(node => {
-        const offset = Number(node.dataset.offset || 0);
-        const now = (Date.now() - offset) / 1000;
-        const start = Number(node.dataset.start);
-        const end = Number(node.dataset.end);
-        const target = now < start ? start : end;
-        const mode = now < start ? 'start' : now < end ? 'end' : 'done';
-        const timer = mode === 'done' ? '00:00' : iceBannerTime(target - now, node.dataset.format);
-        const rendered = (node.dataset.prefix || '') + timer;
-        if (node.textContent !== rendered) node.textContent = rendered;
-        node.setAttribute('aria-label', (mode === 'start' ? 'До начала: ' :
-            mode === 'end' ? 'До окончания: ' : 'Событие завершено: ') + timer);
+        const offset=Number(node.dataset.offset||0);
+        const now=(Date.now()-offset)/1000;
+        const start=Number(node.dataset.start);
+        const end=Number(node.dataset.end);
+        const target=now<start?start:end;
+        const mode=now<start?'start':now<end?'end':'done';
+        const timer=iceBannerTime(Math.max(0,target-now),node.dataset.format);
+        const digits=node.querySelector('.ice-clock-digits');
+        if(digits&&digits.textContent!==timer)digits.textContent=timer;
+        node.setAttribute('aria-label',(mode==='start'?'До начала: ':
+            mode==='end'?'До окончания: ':'Событие завершено: ')+timer);
     });
 }
-
+function iceBannerRichText(node,value) {
+    const inline=document.createElement('span');
+    inline.className='ice-banner-inline';
+    const parts=String(value||'').split(/(\{GRAM\})/gi);
+    for(const part of parts) {
+        if(part.toUpperCase()==='{GRAM}') {
+            const icon=document.createElement('img');
+            icon.src='/static/assets/gram.svg';
+            icon.alt='GRAM';
+            icon.className='ice-gram-inline';
+            icon.draggable=false;
+            inline.append(icon);
+        } else if(part) {
+            inline.append(document.createTextNode(part));
+        }
+    }
+    node.append(inline);
+    return inline;
+}
 function iceBannerStartClock() {
     if (iceBannerTickInterval != null) return;
     iceBannerTickInterval = setInterval(() => {
