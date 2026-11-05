@@ -21,29 +21,41 @@ function giftAssetPart(value) {
     return encodeURIComponent(value).replace(/'/g, '%27');
 }
 
+const failedGiftPictureURLs = new Map();
+
 function giftPicture(gift, large = false) {
     const fragment = fragmentGiftPath(gift);
     const model = giftAnimationPath(gift);
+    // Prefer the real gift media returned by the marketplace. Do not invoke
+    // /media/fragment for each grid tile: missing NFTs blocked Flask workers
+    // with two sequential remote image timeouts per request.
     const original = imageURL(gift.image);
-    const exact = fragment ? [fragment + '.webp', fragment + (large ? '.large.jpg' : '.medium.jpg')] : [];
-    const proxy = fragment ? '/media/fragment/' + fragment.split('/').pop() : '';
+    const verifiedOriginal = original.startsWith('/media/fragment/') ? '' : original;
     const scalable = model ? model + '.svg' : '';
-    const awarded = gift.origin === 'application-craft' && gift.source_id ? original : '';
-    const sharp = large ? (fragment ? [proxy, original, fragment + '.large.jpg', ...exact] : [scalable, model && model + '.png']) : [];
-    // Individual NFT cards must resolve to their own collectible or EXACT model.
-    // A generic collection thumbnail is not a valid model fallback.
-    const urls = [...new Set([awarded, ...sharp, proxy, original, ...exact, scalable, model && model + '.png'].filter(Boolean))];
+    const exact = fragment ? (large ?
+        [fragment + '.large.jpg', fragment + '.webp', fragment + '.medium.jpg'] :
+        [fragment + '.webp', fragment + '.medium.jpg']) : [];
+    // Never substitute a different collectible or a random collection PNG.
+    const urls = [...new Set([verifiedOriginal, scalable, model && model + '.png',
+        ...exact].filter(Boolean))];
     return `src="${esc(urls.shift() || '')}" data-gift-fallback="${esc(JSON.stringify(urls))}" onerror="nextGiftPicture(this)"`;
 }
 
 function nextGiftPicture(image) {
-    const urls = JSON.parse(image.dataset.giftFallback);
-    if (!urls.length) {
-        image.hidden = true;
+    // A missing asset can appear in many cards. Avoid retrying it across rerenders.
+    if (image.src) failedGiftPictureURLs.set(image.src, Date.now());
+    const urls = JSON.parse(image.dataset.giftFallback || '[]');
+    while (urls.length) {
+        const url = urls.shift();
+        const absolute = new URL(url, location.href).href;
+        const failedAt = failedGiftPictureURLs.get(absolute) || 0;
+        if (failedAt && Date.now() - failedAt < 120000) continue;
+        image.dataset.giftFallback = JSON.stringify(urls);
+        image.src = url;
         return;
     }
-    image.dataset.giftFallback = JSON.stringify(urls.slice(1));
-    image.src = urls[0];
+    image.hidden = true;
+    if (failedGiftPictureURLs.size > 1000) failedGiftPictureURLs.clear();
 }
 
 function giftSymbolPath(gift) {
