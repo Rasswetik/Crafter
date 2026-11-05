@@ -78,17 +78,22 @@ def install_private_arena(app, db, auth, record, tools):
             CREATE INDEX IF NOT EXISTS arena_private_stake_order
                 ON arena_private_stakes(token, round_no, position);
         """)
-        for sql in (
+        migrations = (
             "ALTER TABLE arena_private_rooms ADD COLUMN bot_enabled INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE arena_private_rooms ADD COLUMN bot_name TEXT NOT NULL DEFAULT 'Crafter'",
             "ALTER TABLE arena_private_rooms ADD COLUMN bot_avatar TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE arena_private_rooms ADD COLUMN bot_avatar_version INTEGER NOT NULL DEFAULT 0",
-        ):
-            try:
-                db().execute(sql)
-            except Exception as exc:
-                if 'already exists' not in str(exc).lower() and 'duplicate column' not in str(exc).lower():
-                    raise
+        )
+        if hasattr(db(), 'transaction'):
+            # PostgreSQL must avoid DuplicateColumn inside an open transaction.
+            for sql in migrations:
+                db().execute(sql.replace('ADD COLUMN ', 'ADD COLUMN IF NOT EXISTS ', 1))
+        else:
+            columns = {row['name'] for row in db().execute('PRAGMA table_info(arena_private_rooms)')}
+            for sql in migrations:
+                column = sql.split('ADD COLUMN ', 1)[1].split(' ', 1)[0]
+                if column not in columns:
+                    db().execute(sql)
 
     def room_bot_uid(token):
         digest = hashlib.sha256(token.encode('ascii')).digest()
