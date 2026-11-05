@@ -203,10 +203,16 @@ def install_private_arena(app, db, auth, record, tools):
         fee = (bank - players[winner]['gram']) * FEE_BPS // 10000
         payout = bank - fee
         gifts = []
+        # Private bot stake is owner-funded. Its NFT prize goes to the room
+        # owner rather than being stranded in a negative bot account.
+        gift_recipient = room['owner_id'] if winner == room_bot_uid(token) else winner
         for uid, player in players.items():
             for gift in player['gifts']:
-                release_gift(uid, gift['id'], winner)
+                release_gift(uid, gift['id'], gift_recipient)
                 gifts.append(gift)
+        if winner == room_bot_uid(token) and gifts:
+            record('arena_bot_prize', {'private_room': token, 'round_id': number,
+                                      'gifts': gifts}, uid=room['owner_id'])
         set_balance(winner, balance(winner) + Decimal(gram(payout)))
         restore_backing(winner, [entry for entry in entries if entry['user_id'] == winner])
         for uid in players:
