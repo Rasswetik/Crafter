@@ -1,0 +1,43 @@
+
+.crafter-events-admin{display:grid;gap:14px}
+.crafter-events-admin .panel{padding:16px;border-radius:18px;margin:0;min-width:0}
+.crafter-events-admin .panel h3{margin:0 0 10px}
+.crafter-event-add{width:auto;min-height:42px;margin-top:9px;padding:10px 16px}
+.crafter-admin-event-list{display:grid;gap:10px}
+.crafter-admin-event-card{display:grid;grid-template-columns:94px minmax(0,1fr) auto;align-items:center;gap:10px;padding:9px;border:1px solid #363039;border-radius:14px;background:#222125;min-width:0}
+.crafter-admin-event-cover{display:block;width:94px;height:70px;object-fit:cover;border-radius:10px}
+.crafter-admin-event-info{min-width:0;display:grid;gap:4px}
+.crafter-admin-event-info strong{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crafter-admin-event-info span,.crafter-admin-event-info small{font-size:11px;line-height:1.4;color:#bbb0c4}
+.crafter-admin-event-card>button{min-height:35px;font-size:12px;padding:6px 10px}
+.crafter-event-editor{scroll-margin-top:16px}
+.crafter-event-form{display:grid;gap:15px}
+.crafter-event-form label{display:grid;gap:7px;font-size:12px;font-weight:700;color:#ccc4d5;min-width:0}
+.crafter-event-form .field{margin:0;width:100%;box-sizing:border-box}
+.crafter-event-form textarea{font:inherit;line-height:1.45;padding:10px}
+.crafter-event-form input[type=file]{max-width:100%;font-size:12px}
+.crafter-event-form input[type=color]{width:100%;height:44px;padding:4px;border:1px solid #57455d;border-radius:12px;background:#24232a}
+.crafter-event-admin-hero{display:block;width:100%;max-width:400px;aspect-ratio:16/9;object-fit:cover;border-radius:15px}
+.crafter-event-form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px}
+.crafter-event-checks{display:flex;flex-wrap:wrap;gap:12px;padding:12px;border:1px solid #453750;border-radius:13px;background:#29242e}
+.crafter-event-checks label,.crafter-event-remove-image{display:flex!important;align-items:center;gap:6px}
+.crafter-event-form h4{margin:5px 0 0;font-size:15px}
+.crafter-event-prize-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.crafter-event-prize-edit{display:grid;align-content:start;gap:10px;min-width:0;border:1px solid #44334a;background:#25232b;border-radius:15px;padding:10px}
+.crafter-event-prize-edit>img{display:block;width:100%;aspect-ratio:1.2;object-fit:contain;border-radius:9px;background:#302a37}
+.crafter-event-image-empty{display:grid;place-items:center;aspect-ratio:1.2;border:1px dashed #705d78;border-radius:9px;color:#9b87a6;font-size:11px}
+.crafter-event-form-actions{display:flex;flex-wrap:wrap;gap:9px}
+.crafter-event-form-actions button{min-height:42px;width:auto;padding:10px 14px}
+.crafter-event-delete{color:#ff9797!important}
+.crafter-event-save-state{font-size:12px;color:#ff9b9b;margin:0}
+@media(max-width:550px){
+ .crafter-admin-event-card{grid-template-columns:66px minmax(0,1fr);gap:8px}
+ .crafter-admin-event-cover{width:66px;height:64px}
+ .crafter-admin-event-card>button{grid-column:2;justify-self:start}
+ .crafter-event-prize-grid{grid-template-columns:1fr}
+ .crafter-event-prize-edit{grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:start}
+ .crafter-event-prize-edit>strong{grid-column:1/-1}
+ .crafter-event-prize-edit>img,.crafter-event-prize-edit>.crafter-event-image-empty{width:80px;height:80px;grid-row:2/4}
+ .crafter-event-prize-edit>label{grid-column:2}
+ .crafter-event-prize-edit>.crafter-event-remove-image{grid-column:1/-1}
+}
