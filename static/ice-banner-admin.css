@@ -52,3 +52,22 @@
   .ice-editor-buttons{gap:6px}
   .ice-editor-buttons button{font-size:11px;padding:8px 10px}
 }
+
+/* One-tap transparent clock background control. */
+.ice-editor-properties-grid .ice-timer-bg-toggle{
+  display:flex!important;
+  align-items:center;
+  gap:10px;
+  grid-column:1/-1;
+  border:1px solid #80c5e259;
+  border-radius:12px;
+  padding:11px 13px;
+  background:#193a4b;
+  color:#e8faff;
+  font-size:13px;
+}
+.ice-editor-properties-grid .ice-timer-bg-toggle input{
+  width:18px;height:18px;
+  flex:0 0 18px;
+  accent-color:#56c5ef;
+}
