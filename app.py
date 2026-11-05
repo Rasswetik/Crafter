@@ -1160,6 +1160,8 @@ def create_app(config=None):
     install_banners(app, db, auth, audit)
     from events import install_events
     install_events(app, db, auth, audit)
+    from arena_banner import install_arena_banner
+    install_arena_banner(app, db, auth, audit)
     from staking import install_staking
     def staking_catalog():
         import thermos
