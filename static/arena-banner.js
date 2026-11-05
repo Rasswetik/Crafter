@@ -149,6 +149,32 @@ function iceBannerResizeCanvas(stage,banner,handle,options){
     });
 }
 
+
+/* Backgrounds are explicit: a solid color must never be obscured by a CSS fallback gradient. */
+function iceBannerApplyBackground(stage, banner) {
+    const first=/^#[0-9a-f]{6}$/i.test(banner.background_color||'') ?
+        banner.background_color : '#075b9e';
+    const second=/^#[0-9a-f]{6}$/i.test(banner.background_second_color||'') ?
+        banner.background_second_color : '#48bee5';
+    const mode=banner.background_mode || (banner.background_asset ? 'image' : 'solid');
+    const source=/^\/media\/ice-banner\/[0-9a-f]{32}\.(?:gif|webp)$/.test(banner.background_asset||'')
+        ? banner.background_asset : '';
+    stage.style.backgroundColor=first;
+    stage.style.backgroundRepeat='no-repeat';
+    stage.style.backgroundPosition='center';
+    if(mode==='image' && source) {
+        const alpha=Math.round(Math.max(0,Math.min(.9,Number(banner.background_tint)||0))*255)
+          .toString(16).padStart(2,'0');
+        stage.style.backgroundImage='linear-gradient('+first+alpha+','+first+alpha+'), url("'+source+'")';
+        stage.style.backgroundSize='100% 100%, '+(banner.background_fit==='contain'?'contain':'cover');
+    } else if(mode==='gradient') {
+        stage.style.backgroundImage='linear-gradient(110deg,'+first+','+second+')';
+        stage.style.backgroundSize='100% 100%';
+    } else {
+        stage.style.backgroundImage='none';
+        stage.style.backgroundSize='auto';
+    }
+}
 function iceBannerMount(container, banner, options = {}) {
     if (!container) return;
     container.replaceChildren();
@@ -176,13 +202,7 @@ function iceBannerMount(container, banner, options = {}) {
     stage.style.marginInline = 'auto';
     stage.style.height = Math.max(70, Math.min(280, Number(banner.height) || 112)) + 'px';
     stage.style.borderRadius = (Number(banner.radius) || 0) + 'px';
-    stage.style.backgroundColor = banner.background_color || '#085e98';
-    if (/^\/media\/ice-banner\/[0-9a-f]{32}\.(?:gif|webp)$/.test(banner.background_asset || '')) {
-        stage.style.backgroundImage = 'linear-gradient(110deg,#03192e28,#49bbf510),url("' +
-            banner.background_asset + '")';
-        stage.style.backgroundSize = 'cover,' + (banner.background_fit || 'cover');
-        stage.style.backgroundPosition = 'center';
-    }
+    iceBannerApplyBackground(stage,banner);
     const offset = Date.now() - Number(options.serverTime || Date.now() / 1000) * 1000;
     const sorted = [...(banner.layers || [])].sort((a,b) => Number(a.z) - Number(b.z));
     for (const layer of sorted) {
@@ -216,9 +236,11 @@ function iceBannerMount(container, banner, options = {}) {
                 const img = document.createElement('img');
                 img.src = layer.asset;
                 img.alt = layer.text || '';
-                img.loading = 'lazy';
+                img.loading = 'eager';
+                img.decoding = 'async';
                 img.draggable = false;
                 img.style.objectFit = layer.fit || 'contain';
+                img.style.objectPosition='center center';
                 el.append(img);
             } else {
                 el.classList.add('ice-banner-missing-image');
