@@ -187,6 +187,69 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
   panel.addEventListener('click',iceEditClick);
   iceList();iceProperties();icePaint();
 }
+
+function iceApplyLiveLayer(field,l) {
+  const stage=document.querySelector('#ice-banner-preview .ice-banner-stage');
+  const el=stage&&[...stage.querySelectorAll('.ice-banner-layer')].find(x=>x.dataset.bannerLayer===l.id);
+  if(!el)return icePaint();
+  if(field==='color'){
+    el.style.color=l.color;
+    el.style.webkitTextStroke=Number(l.stroke_width||0)+'px '+l.color;
+  }else if(field==='stroke_width'){
+    el.style.webkitTextStroke=Number(l.stroke_width||0)+'px '+l.color;
+  }else if(field==='font_weight'){
+    el.style.fontWeight=String(l.font_weight);
+  }else if(field==='font'){
+    el.style.fontFamily=ICE_BANNER_FONTS[l.font]||ICE_BANNER_FONTS.system;
+  }else if(field==='font_size'){
+    el.style.fontSize='clamp(9px,'+(Number(l.font_size)/4)+'cqw,'+Number(l.font_size)+'px)';
+  }else if(field==='bg_color'||field==='bg_opacity'){
+    const alpha=Math.round(Number(l.bg_opacity)*255).toString(16).padStart(2,'0');
+    el.style.background=Number(l.bg_opacity)<=0?'transparent':l.bg_color+alpha;
+  }else if(field==='radius'){
+    el.style.borderRadius=l.radius+'px';
+  }else if(field==='align'){
+    el.style.justifyContent={left:'flex-start',center:'center',right:'flex-end'}[l.align]||'center';
+    el.style.textAlign=l.align;
+  }else if(field==='format'){
+    el.dataset.format=l.format;
+    iceBannerUpdateClocks();
+  }else if(['x','y','w','h'].includes(field)){
+    el.style[{x:'left',y:'top',w:'width',h:'height'}[field]]=l[field]+'%';
+  }else if(field==='z'){
+    el.style.zIndex=String(Number(l.z)+1);
+  }else if(field==='fit'){
+    const img=el.querySelector('img');
+    if(img)img.style.objectFit=l.fit;
+  }else if(field==='text'){
+    if(l.type==='timer'){
+      el.querySelector('.ice-banner-inline')?.remove();
+      if(l.text){
+        const tmp=document.createElement('div');
+        iceBannerRichText(tmp,l.text+' ');
+        el.insertBefore(tmp.firstElementChild,el.querySelector('.ice-clock-digits'));
+      }
+    }else if(l.type==='title'||l.type==='text'){
+      el.querySelector('.ice-banner-inline')?.remove();
+      iceBannerRichText(el,l.text||'');
+    }
+  }
+}
+function iceApplyLiveCanvas(field,b) {
+  const stage=document.querySelector('#ice-banner-preview .ice-banner-stage');
+  if(!stage)return icePaint();
+  if(field==='width_pct')stage.style.width=Number(b.width_pct)+'%';
+  else if(field==='height')stage.style.height=Number(b.height)+'px';
+  else if(field==='radius')stage.style.borderRadius=Number(b.radius)+'px';
+  else if(field==='background_color')stage.style.backgroundColor=b.background_color;
+  else if(['background_asset','background_fit'].includes(field))icePaint();
+  else if(field==='start_at'||field==='end_at'){
+    stage.querySelectorAll('.ice-banner-countdown').forEach(el=>{
+      el.dataset.start=b.start_at;el.dataset.end=b.end_at;
+    });
+    iceBannerUpdateClocks();
+  }else if(field==='title')icePaint();
+}
 function iceEditInput(e){
   const hexField=e.target.dataset.iceColorHex;
   if(hexField){
@@ -197,7 +260,7 @@ function iceEditInput(e){
     l[hexField]=color;
     const picker=document.querySelector('[data-ice-layer="'+hexField+'"]');
     if(picker)picker.value=color;
-    iceDirty();icePaint();
+    iceDirty();iceApplyLiveLayer(hexField,l);
     return;
   }
   const global=e.target.dataset.iceGlobal,field=e.target.dataset.iceLayer;
@@ -215,7 +278,7 @@ function iceEditInput(e){
       b.layers.forEach(l=>{if(l.type==='title'&&l.text===old)l.text=value;});
     }
     b[global]=value;
-    iceDirty();icePaint();
+    iceDirty();iceApplyLiveCanvas(global,b);
     if(global==='title')iceList();
   }else if(field){
     const l=iceSelected();if(!l)return;
@@ -234,7 +297,7 @@ function iceEditInput(e){
       const checkbox=document.querySelector('[data-ice-toggle-bg]');
       if(checkbox)checkbox.checked=Number(value)>0;
     }
-    iceDirty();icePaint();
+    iceDirty();iceApplyLiveLayer(field,l);
     if(field==='text'||field==='z')iceList();
   }
 }
