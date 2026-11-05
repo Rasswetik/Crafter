@@ -12,14 +12,14 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-@lru_cache(maxsize=32)
+@lru_cache(maxsize=256)
 def fragment_image(slug):
     opener = build_opener(NoRedirect)
     for extension in ('.large.jpg', '.webp'):
         req = Request('https://nft.fragment.com/gift/' + slug + extension,
                       headers={'Accept': 'image/jpeg,image/webp,image/png'})
         try:
-            with opener.open(req, timeout=3) as response:
+            with opener.open(req, timeout=2) as response:
                 data = response.read(2_000_001)
         except (URLError, TimeoutError, OSError):
             continue
@@ -31,16 +31,19 @@ def fragment_image(slug):
             return data, 'image/webp'
         if data.startswith(b'\x89PNG\r\n\x1a\n'):
             return data, 'image/png'
-    raise LookupError(slug)
+    # Cache failures too. Exceptions are not cached by functools.lru_cache.
+    return None, None
 
 
 def serve_fragment_gift(slug):
     if not re.fullmatch(r'[a-z0-9]{1,60}-[1-9][0-9]{0,14}', slug):
         abort(404)
-    try:
-        data, content_type = fragment_image(slug)
-    except LookupError:
-        abort(404)
+    data, content_type = fragment_image(slug)
+    if data is None:
+        return Response(status=404, headers={
+            'Cache-Control': 'public, max-age=600',
+            'X-Content-Type-Options': 'nosniff',
+        })
     return Response(data, mimetype=content_type, headers={
         'Cache-Control': 'public, max-age=86400',
         'X-Content-Type-Options': 'nosniff',
