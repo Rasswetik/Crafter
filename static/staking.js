@@ -86,29 +86,36 @@ go = async function(page, eventId = null) {
         }
     }
 };
+const crafterArenaSwordArt = '<svg class="crafter-animated-swords" viewBox="0 0 100 100" aria-hidden="true">'+
+'<g class="sword sword-left"><path class="sword-blade" d="M50 7 43 23 43 65 57 65 57 23Z"/>'+
+'<path class="sword-shine" d="M50 12V64" stroke="currentColor" stroke-width="2" />'+
+'<path class="sword-crossguard" d="M28 67Q50 76 72 67L70 61 55 65H45L30 61Z"/>'+
+'<path class="sword-hilt" d="M46 69H54V87H46Z"/><circle cx="50" cy="91" r="5" class="sword-pommel"/></g>'+
+'<g class="sword sword-right"><path class="sword-blade" d="M50 7 43 23 43 65 57 65 57 23Z"/>'+
+'<path class="sword-shine" d="M50 12V64" stroke="currentColor" stroke-width="2" />'+
+'<path class="sword-crossguard" d="M28 67Q50 76 72 67L70 61 55 65H45L30 61Z"/>'+
+'<path class="sword-hilt" d="M46 69H54V87H46Z"/><circle cx="50" cy="91" r="5" class="sword-pommel"/></g></svg>';
+
 function renderGamesHub() {
     document.querySelector('#main').innerHTML = `<section class="crafter-games">
-        <div class="crafter-games-top"><h1>Игры</h1></div>
-        <button class="crafter-game-tile" onclick="go('craft')" type="button">
+        <button class="crafter-game-tile crafter-pepe-tile" onclick="go('craft')" type="button">
             <span class="crafter-game-label"><strong>Крафты</strong>
                 <span>Соберите подарки и выберите цель</span>
                 <span class="crafter-game-open">Играть</span></span>
             <span class="crafter-game-emblem">${anvilArt('crafter-game-anvil')}</span>
-            ${magnateArt('crafter-game-art')}
+            <span class="crafter-pepe-motion" aria-hidden="true"><img class="crafter-pepe-picture" src="/static/assets/crafter-pepe.webp" alt="" loading="eager" decoding="async"></span>
         </button>
-        ${window.crafterOfflinePreview ? '' : `<button class="crafter-game-tile arena-tile" onclick="go('arena')" type="button">
+        <div class="crafter-hub-craft-banner arena-event-banner-slot" id="craft-hub-banner" hidden></div>
+        ${window.crafterOfflinePreview ? '' : `<button class="crafter-game-tile arena-tile crafter-swords-tile" onclick="go('arena')" type="button">
             <span class="crafter-game-label"><strong>Arena</strong>
                 <span>Один раунд. Один победитель.</span>
                 <span class="crafter-game-open">Играть</span></span>
-            <span class="arena-tile-icon">${gameNavIcons.arena}</span>
+            <span class="arena-tile-icon crafter-swords-motion">${crafterArenaSwordArt}</span>
         </button>`}
-        <button class="crafter-events-entry" type="button" onclick="go('events')">
-            <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4c0 5-3.1 8-8 8S4 13 4 8V4Zm0 2H2v2c0 3 2 5 5 5m13-7h2v2c0 3-2 5-5 5M12 16v4m-5 0h10"/></svg></span>
-            <span><strong>Лидерборды и ивенты</strong><small>События, награды и рейтинг игроков</small></span>
-            <span aria-hidden="true">›</span>
-        </button>
     </section>`;
+    if(typeof crafterCraftBannerMount==='function')crafterCraftBannerMount('craft-hub-banner');
 }
+
 function stakeFormat(n) {
     const number = Number(n);
     if (!Number.isFinite(number)) return '0';
