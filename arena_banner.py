@@ -26,6 +26,8 @@ def default_banner():
         'title': 'Ледяная охота', 'start_at': now + 1800, 'end_at': now + 88200,
         'height': 112, 'width_pct': 100, 'radius': 22, 'background_color': '#075b9e',
         'background_asset': '', 'background_fit': 'cover',
+        'background_mode': 'solid', 'background_second_color': '#48bee5',
+        'background_tint': 0,
         'layers': [
             {'id': 'headline', 'type': 'title', 'text': 'Ледяная охота',
              'x': 4, 'y': 19, 'w': 53, 'h': 60, 'font': 'rounded',
@@ -167,6 +169,12 @@ def install_arena_banner(app, db, auth, audit):
         title = data.get('title', '')
         if not isinstance(title, str) or len(title) > 90:
             abort(400, description='Название: максимум 90 символов')
+        try:
+            background_tint = float(data.get('background_tint', 0))
+        except (TypeError, ValueError, OverflowError):
+            abort(400, description='Некорректное наложение цвета')
+        if not 0 <= background_tint <= 0.9:
+            abort(400, description='Цветное наложение: от 0 до 0.9')
         return {
             'enabled': enabled,
             'event_id': event_id, 'rooms': room,
@@ -179,6 +187,11 @@ def install_arena_banner(app, db, auth, audit):
             'background_asset': asset_url(data.get('background_asset', '')),
             'background_fit': (data.get('background_fit')
                                if data.get('background_fit') in ('cover', 'contain') else 'cover'),
+            'background_mode': (data.get('background_mode', 'image' if data.get('background_asset') else 'solid')
+                                if data.get('background_mode', 'solid') in ('solid', 'gradient', 'image')
+                                else 'solid'),
+            'background_second_color': color(data.get('background_second_color', '#48bee5'), 'Второй цвет градиента'),
+            'background_tint': round(background_tint, 2),
             'layers': [clean_layer(layer, identifiers) for layer in layers],
         }
 
