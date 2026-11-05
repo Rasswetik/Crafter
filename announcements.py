@@ -73,7 +73,7 @@ def clean(data):
 
 
 def install_announcements(app,db,auth,audit):
-    with db():
+    with app.app_context(), db():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS crafter_announcements (
                 id TEXT PRIMARY KEY,
