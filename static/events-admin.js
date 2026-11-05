@@ -18,6 +18,7 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
     content.innerHTML = `<div class="crafter-events-admin">
         <section class="panel">
             <h3>Лидерборды и ивенты</h3>
+            <button class="secondary" type="button" onclick="openAdminSection('ice_banner')">Редактор баннера над Ice Arena</button>
             <p class="sub">Создавайте события с PNG-обложками и изображениями наград. Укажите сроки, цвет, показатель топа и видимость. Результаты строятся по реальным операциям Crafter.</p>
             <button type="button" class="primary crafter-event-add" data-new>+ Создать ивент</button>
         </section>
