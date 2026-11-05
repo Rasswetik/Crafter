@@ -405,6 +405,61 @@ function arenaPrivateInventoryRender() {
         '<button type="button" class="arena-private-info-text" onclick="arenaPrivateSettings()">' +
         'Назад к настройкам</button></div></div>');
 }
+
+function arenaPrivateInventoryToggle(giftId) {
+    const chosen = arenaPrivate.inventorySelected;
+    const list = arenaPrivate.inventoryMode === 'owner'
+        ? arenaPrivate.inventoryData?.owner_gifts : arenaPrivate.inventoryData?.bot_gifts;
+    if (!chosen || !list?.some(gift => gift.id === giftId && gift.status === 'unlisted')) return;
+    if (chosen.has(giftId)) chosen.delete(giftId);
+    else {
+        if (chosen.size >= 15) return toast('Можно выбрать максимум 15 NFT за раз');
+        chosen.add(giftId);
+    }
+    document.querySelectorAll('.arena-private-item').forEach(button => {
+        if (button.dataset.giftId !== giftId) return;
+        const yes = chosen.has(giftId);
+        button.classList.toggle('is-selected', yes);
+        button.setAttribute('aria-pressed', String(yes));
+        const check = button.querySelector('.arena-private-item-check');
+        if (check) check.textContent = yes ? '✓' : '+';
+    });
+    const button = document.querySelector('.arena-private-inventory-transfer');
+    if (button) {
+        button.disabled = !chosen.size;
+        button.textContent = (arenaPrivate.inventoryMode === 'owner'
+            ? 'Передать боту' : 'Вернуть себе') + (chosen.size ? ' · ' + chosen.size + ' NFT' : '');
+    }
+}
+
+async function arenaPrivateInventoryMove() {
+    const info = arenaPrivate.info;
+    const chosen = [...(arenaPrivate.inventorySelected || [])];
+    if (!info?.is_owner || !chosen.length || arenaPrivate.pending) return;
+    const action = arenaPrivate.inventoryMode === 'owner' ? 'deposit' : 'withdraw';
+    const token = info.token;
+    arenaPrivate.pending = true;
+    const button = document.querySelector('.arena-private-inventory-transfer');
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Передача…';
+    }
+    try {
+        await api('arena/private/' + token + '/bot-gifts', {action, gift_ids: chosen});
+        if (arena.privateToken !== token) return;
+        arenaPrivate.inventorySelected = new Set();
+        toast(action === 'deposit' ? 'Подарки переданы боту' : 'Подарки возвращены вам');
+        await arenaPrivateInventoryReload(token);
+    } catch (error) {
+        toast(error.message);
+        if (button?.isConnected) {
+            button.disabled = false;
+            button.textContent = action === 'deposit' ? 'Передать боту' : 'Вернуть себе';
+        }
+    } finally {
+        arenaPrivate.pending = false;
+    }
+}
 function arenaPrivateBotAvatarPreview(event) {
     const input = event.currentTarget;
     const file = input.files?.[0];
