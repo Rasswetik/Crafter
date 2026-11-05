@@ -169,12 +169,17 @@ function arenaPrivateInfo() {
             row('Отсчёт ставок', info.bet_seconds + ' сек.') +
             row('Минимальная ставка', arenaFormat(info.min_bet) + ' GRAM') +
             row('Максимальная ставка', arenaFormat(info.max_bet) + ' GRAM') +
+            row('Бот', info.bot_enabled ? (info.bot_name + ' · включён') : 'Выключен') +
+            (info.is_owner ? row('Баланс бота', arenaFormat(info.bot_balance || '0') + ' GRAM') : '') +
             row('Комиссия', '8% с GRAM соперников') +
             row('Создана', created) + '</div>' +
             '<p class="arena-private-info-note">Ставки принимаются в GRAM и подарках NFT. ' +
             'Отсчёт начинается после ставки второго игрока. Шанс выигрыша ' +
             'пропорционален ставке; без соперника за 5 минут ставка возвращается. ' +
-            'Бот Crafter в приватных играх не участвует.</p>' +
+            (info.bot_enabled
+                ? 'В этой группе играет бот «' + esc(info.bot_name) + '» с отдельным балансом, пополненным владельцем. ' +
+                  'Если бот выигрывает NFT, подарки получает владелец группы.</p>'
+                : 'Бот в этой группе выключен.</p>') +
             '<div class="arena-private-info-actions">' +
             (info.is_owner ? '<button type="button" class="arena-private-info-primary" ' +
             'onclick="arenaPrivateSettings()">⚙ Настройки группы</button>' : '') +
