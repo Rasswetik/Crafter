@@ -26,14 +26,14 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
             <h3>События <small>${data.events.length}</small></h3>
             <div class="crafter-admin-event-list">
                 ${data.events.map(item => `<article class="crafter-admin-event-card">
-                    <img class="crafter-admin-event-cover" src="${esc(item.image_url)}" loading="lazy" alt="">
+                    ${item.image_url?'<img class="crafter-admin-event-cover" src="'+esc(item.image_url)+'" loading="lazy" alt="">':'<span class="crafter-admin-event-cover crafter-admin-event-no-cover">#</span>'}
                     <div class="crafter-admin-event-info">
                         <strong>${esc(item.title)}</strong>
                         <span>${esc(item.metric_label)} · ${crafterEventAdminDate(item.start_at)} – ${crafterEventAdminDate(item.end_at)}</span>
                         <small>${item.enabled ? status[item.status] : 'Скрыто'} · ${item.show_leaderboard ? 'Рейтинг включён' : 'Рейтинг скрыт'}</small>
                     </div>
                     <button type="button" class="secondary" data-edit="${esc(item.id)}">Изменить</button>
-                </article>`).join('') || '<p class="sub">Пока нет событий. Создайте первое, чтобы оно появилось в разделе «Игры».</p>'}
+                </article>`).join('') || '<p class="sub">Пока нет событий. Создайте первое для Arena или Крафтов.</p>'}
             </div>
         </section>
         <section class="panel crafter-event-editor" data-event-editor hidden></section>
@@ -57,8 +57,8 @@ function crafterEditEvent(item) {
     editor.hidden = false;
     editor.innerHTML = `<h3>${item ? 'Изменить ивент' : 'Новый ивент'}</h3>
         <form class="crafter-event-form">
-            <label>Обложка события (PNG, WebP или JPEG до 5 МБ)
-                <input type="file" name="image" accept="image/png,image/jpeg,image/webp" ${item ? '' : 'required'}>
+            <label>Необязательная обложка (на странице топа не показывается)
+                <input type="file" name="image" accept="image/png,image/jpeg,image/webp">
             </label>
             ${item ? `<img class="crafter-event-admin-hero" src="${esc(event.image_url)}" alt="">` : ''}
             <label>Название<input class="field" name="title" maxlength="90" required value="${esc(event.title)}"></label>
@@ -80,18 +80,23 @@ function crafterEditEvent(item) {
                 <label><input name="enabled" type="checkbox" value="1" ${event.enabled?'checked':''}> Показывать событие в приложении</label>
                 <label><input name="show_leaderboard" type="checkbox" value="1" ${event.show_leaderboard?'checked':''}> Показывать рейтинг игроков</label>
             </div>
-            <h4>Награды и изображения для мест 1–3</h4>
-            <p class="sub">Награды здесь отображаются визуально. Выдача GRAM/NFT выполняется отдельно, автоматически ничего не списывается.</p>
+            <h4>Награды для мест 1–3</h4>
+            <p class="sub">GIF проигрывается рядом с местом, GRAM показывается SVG-значком, Telegram NFT привязывается ссылкой. Выдача призов остаётся ручной.</p>
             <div class="crafter-event-prize-grid">
-            ${[1,2,3].map(place => {
-                const prize = event.prizes[place-1] || {};
-                return `<div class="crafter-event-prize-edit">
-                    <strong>Место №${place}</strong>
-                    ${prize.image_url ? `<img src="${esc(prize.image_url)}" alt="Награда ${place}">` : '<div class="crafter-event-image-empty">PNG награды</div>'}
-                    <label>Награда<input class="field" name="prize_${place}" maxlength="120" value="${esc(prize.label || '')}" placeholder="Например, NFT или 100 GRAM"></label>
-                    <label>PNG награды<input type="file" accept="image/png,image/jpeg,image/webp" name="prize_image_${place}"></label>
-                    ${prize.image_url ? `<label class="crafter-event-remove-image"><input type="checkbox" name="remove_prize_image_${place}" value="1"> Убрать изображение</label>` : ''}
-                </div>`;
+            ${[1,2,3].map(place=>{
+                const prize=event.prizes[place-1]||{};
+                return '<div class="crafter-event-prize-edit"><strong>Место №'+place+'</strong>'+
+                    (prize.image_url?'<img src="'+esc(prize.image_url)+'" alt="Награда '+place+'">':
+                        '<div class="crafter-event-image-empty">Награда</div>')+
+                    '<label>Тип награды<select class="field" name="prize_type_'+place+'">'+
+                    [['none','Без награды'],['gram','GRAM · SVG'],['image','PNG / GIF'],['telegram','Telegram NFT по ссылке']].map(([type,label])=>
+                      '<option value="'+type+'" '+((prize.type||'none')===type?'selected':'')+'>'+label+'</option>').join('')+
+                    '</select></label>'+
+                    '<label>Описание / сумма<input class="field" name="prize_'+place+'" maxlength="120" value="'+esc(prize.label||'')+'" placeholder="Например, 100 GRAM"></label>'+
+                    '<label>Telegram NFT (t.me/nft/Название-номер)<input class="field" type="url" name="prize_link_'+place+'" value="'+esc(prize.telegram_url||'')+'" placeholder="https://t.me/nft/PlushPepe-171"></label>'+
+                    '<label>Загрузить PNG / WebP / GIF<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" name="prize_image_'+place+'"></label>'+
+                    (prize.image_url?'<label class="crafter-event-remove-image"><input type="checkbox" name="remove_prize_image_'+place+'" value="1"> Удалить загруженную картинку</label>':'')+
+                '</div>';
             }).join('')}
             </div>
             <p class="crafter-event-save-state" role="status"></p>
