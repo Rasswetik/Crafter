@@ -399,7 +399,7 @@ html[data-crafter-theme="light"] .arena-highlight-win { color: #23232a }
     color: white; background: #303035; font-weight: 700;
 }
 html[data-crafter-theme="light"] .arena-room-tabs { background: #ebeaf0 }
-html[data-crafter-theme="light"] html[data-crafter-theme="light"] .arena-private-intro,
+html[data-crafter-theme="light"] .arena-private-intro,
 html[data-crafter-theme="light"] .arena-private-room-card,
 html[data-crafter-theme="light"] .arena-private-invite-rules { background: #f5f4fa; color: #222 }
 html[data-crafter-theme="light"] .arena-private-heading strong { color: #222 }
