@@ -204,6 +204,9 @@ function arenaPrivateSettings() {
     if (!info?.is_owner || info.token !== arena.privateToken) {
         return toast('Настройки доступны только владельцу группы');
     }
+    arenaPrivate.botImageReset = false;
+    if (arenaPrivate.avatarPreviewUrl) URL.revokeObjectURL(arenaPrivate.avatarPreviewUrl);
+    arenaPrivate.avatarPreviewUrl = null;
     const field = (label, name, value, extra) =>
         '<label>' + label + '<input name="' + name + '" value="' +
         esc(String(value)) + '" ' + extra + ' required></label>';
@@ -223,6 +226,33 @@ function arenaPrivateSettings() {
               'type="text" inputmode="decimal"') +
         field('Максимальная ставка, GRAM', 'max_bet', info.max_bet,
               'type="text" inputmode="decimal"') + '</div>' +
+        '<section class="arena-private-bot-editor">' +
+        '<div class="arena-private-bot-top"><div><strong>Бот в группе</strong>' +
+        '<small>Автоматические ставки от имени бота</small></div>' +
+        '<label class="arena-private-bot-switch"><input type="checkbox" name="bot_enabled" ' +
+        (info.bot_enabled ? 'checked' : '') + '><span></span></label></div>' +
+        '<div class="arena-private-bot-identity">' +
+        '<img class="arena-private-bot-preview" id="arena-private-bot-preview" alt="Аватар бота" ' +
+        'src="' + esc(info.bot_photo || '/static/assets/arena-crafter-bot.jpg') + '">' +
+        '<div class="arena-private-bot-photo-actions">' +
+        '<label class="arena-private-bot-upload">Загрузить аватар' +
+        '<input name="bot_avatar" type="file" accept="image/*" ' +
+        'onchange="arenaPrivateBotAvatarPreview(event)"></label>' +
+        '<button type="button" onclick="arenaPrivateBotAvatarReset()">Сбросить</button>' +
+        '</div></div>' +
+        field('Имя бота', 'bot_name', info.bot_name || 'Crafter',
+              'type="text" maxlength="24" minlength="2"') +
+        '<p class="arena-private-info-note">Аватар виден участникам в ставках и результатах. ' +
+        'Бот использует только GRAM, выделенные владельцем. При его победе NFT зачисляются владельцу группы.</p>' +
+        '<div class="arena-private-bot-bank"><div><span>Баланс бота</span>' +
+        '<strong id="arena-private-bot-balance">' + arenaFormat(info.bot_balance || 0) +
+        ' GRAM</strong></div>' +
+        '<label>Сумма, GRAM<input name="bot_fund_amount" type="text" inputmode="decimal" ' +
+        'value="1" placeholder="1"></label>' +
+        '<div class="arena-private-bot-fund-actions">' +
+        '<button type="button" onclick="arenaPrivateBotFunds(\'deposit\')">Пополнить</button>' +
+        '<button type="button" onclick="arenaPrivateBotFunds(\'withdraw\')">Вернуть остаток</button>' +
+        '</div></div></section>' +
         '<p class="arena-private-info-note">Настройки применяются к новым ставкам. ' +
         'При активных ставках изменение лимитов и таймера доступно после завершения раунда. ' +
         'Название можно менять в любое время.</p>' +
@@ -249,14 +279,24 @@ async function arenaSavePrivateSettings(event) {
         bet_seconds: Number(value('bet_seconds')),
         max_players: Number(value('max_players')),
         min_bet: value('min_bet'),
-        max_bet: value('max_bet')
+        max_bet: value('max_bet'),
+        bot_enabled: Boolean(form.elements['bot_enabled'].checked),
+        bot_name: value('bot_name')
     };
     const button = form.querySelector('[type=submit]');
     arenaPrivate.pending = true;
     button.disabled = true;
     button.textContent = 'Сохранение…';
     try {
-        const updated = await api('arena/private/' + info.token + '/settings', body);
+        let updated = await api('arena/private/' + info.token + '/settings', body);
+        const file = form.elements['bot_avatar']?.files?.[0];
+        if (file || arenaPrivate.botImageReset) {
+            const avatar = file ? await arenaPrivateBotFileToImage(file) : null;
+            updated = {
+                ...updated,
+                ...await api('arena/private/' + info.token + '/bot-avatar', {image: avatar})
+            };
+        }
         if (arena.privateToken === info.token) {
             arenaPrivate.info = {...info, ...updated};
             if (arena.data?.private_room?.token === info.token) {
