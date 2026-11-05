@@ -1,5 +1,5 @@
 /* Visual editor for the Ice Arena event banner. */
-let iceEdit={banner:null,events:[],selected:'',busy:false,timerOpacity:new Map()};
+let iceEdit={banner:null,events:[],selected:'',busy:false,timerOpacity:new Map(),previewMode:false};
 
 function iceLocal(ts){
   const d=new Date(Number(ts)*1000);
@@ -63,6 +63,7 @@ function iceProperties(){
     (isText?'<div class="ice-editor-text-input">'+
       iceFields(l.type==='timer'?'Надпись перед часами':'Текст баннера','text',l.text,'text','maxlength="140"')+
       '<button type="button" class="secondary" data-ice-insert="gram" title="Вставить значок GRAM рядом с текстом">+ Значок GRAM ◇</button>'+
+      (l.type!=='timer'?'<button type="button" class="secondary" data-ice-edit-text="true">Редактировать на холсте</button>':'')+
       '<small>Символ {GRAM} заменяется официальной иконкой GRAM в баннере.</small></div>'+
       iceSelect('Шрифт','font',l.font,fonts)+
       iceSlider('Размер букв, px','font_size',l.font_size,10,72,1)+
@@ -92,7 +93,10 @@ function iceProperties(){
 function icePaint(){
   const root=document.querySelector('#ice-banner-preview');if(!root)return;
   iceBannerMount(root,iceEdit.banner,{
-    editable:true,selected:iceEdit.selected,serverTime:Date.now()/1000,
+    editable:!iceEdit.previewMode,
+    previewOnly:iceEdit.previewMode,
+    selected:iceEdit.previewMode?null:iceEdit.selected,
+    serverTime:Date.now()/1000,
     onSelect(id){
       iceEdit.selected=id;
       root.querySelectorAll('.ice-banner-layer').forEach(node=>
@@ -118,6 +122,7 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
   const [data,ev]=await Promise.all([api('admin/arena/banner'),api('admin/events')]);
   if(!content?.isConnected)return;
   iceEdit={banner:data.banner,events:ev.events,selected:data.banner.layers[0]?.id||'',busy:false,
+    previewMode:false,
     timerOpacity:new Map(data.banner.layers.filter(l=>l.type==='timer'&&Number(l.bg_opacity)>0)
       .map(l=>[l.id,Number(l.bg_opacity)]))};
   const b=iceEdit.banner;
@@ -135,6 +140,9 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
     <section class="panel ice-editor-preview-panel">
       <h3>Предпросмотр как в приложении</h3>
       <p class="sub">Нажмите на текст и потяните его; синие маркеры по углам меняют размер. Двойной клик редактирует надпись. Маркеры по краям полотна меняют размеры всего баннера.</p>
+      <div class="ice-editor-buttons">
+        <button type="button" class="secondary" data-ice-toggle-preview="true">Предпросмотр без рамок</button>
+      </div>
       <div id="ice-banner-preview" class="ice-editor-preview"></div>
     </section>
     <section class="panel">
@@ -347,8 +355,21 @@ function iceEditChange(e){
   }
 }
 function iceEditClick(e){
-  const button=e.target.closest('[data-ice-save],[data-ice-add],[data-ice-pick],[data-ice-action],[data-ice-clear],[data-ice-insert]');
+  const button=e.target.closest('[data-ice-save],[data-ice-add],[data-ice-pick],[data-ice-action],[data-ice-clear],[data-ice-insert],[data-ice-edit-text],[data-ice-toggle-preview]');
   if(!button)return;
+  if(button.dataset.iceTogglePreview==='true'){
+    iceEdit.previewMode=!iceEdit.previewMode;
+    button.textContent=iceEdit.previewMode?'Вернуться к редактированию':'Предпросмотр без рамок';
+    icePaint();
+    return;
+  }
+  if(button.dataset.iceEditText==='true'){
+    if(iceEdit.previewMode)iceEdit.previewMode=false;
+    icePaint();
+    const layer=document.querySelector('#ice-banner-preview .ice-banner-layer.is-selected');
+    if(layer)layer.dispatchEvent(new MouseEvent('dblclick',{bubbles:true}));
+    return;
+  }
   if(button.dataset.iceInsert==='gram'){
     const l=iceSelected();
     if(!l||!['title','text','timer'].includes(l.type))return;
