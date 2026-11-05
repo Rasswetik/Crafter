@@ -24,6 +24,13 @@ MAX_PLAYERS = 32
 MAX_GIFTS = 20
 MAX_REQUESTS = 80
 MAX_AMOUNT = Decimal('1000000')
+FEE_BPS = 800
+BOT_UID = -1
+BOT_JOIN_MS = 4_000
+BOT_INTERVAL_MS = 2_000
+BOT_CUTOFF_MS = 2_000
+BOT_MAX_STAKES = 4
+BOT_DEFAULTS = {'enabled': False, 'limit': '200'}
 
 
 def clock():
@@ -53,7 +60,18 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 PRIMARY KEY (round_id, user_id, request_id)
             );
             CREATE INDEX IF NOT EXISTS arena_stake_order ON arena_stakes(round_id, position);
+            CREATE TABLE IF NOT EXISTS arena_round_terms (
+                round_id INTEGER PRIMARY KEY, fee_bps INTEGER NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS arena_fees (
+                round_id INTEGER PRIMARY KEY, gram TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS arena_bot_funding (
+                admin_id INTEGER NOT NULL, request_id TEXT NOT NULL, intent TEXT NOT NULL,
+                PRIMARY KEY (admin_id, request_id)
+            );
         """)
+        db().execute("INSERT INTO demo_accounts VALUES(?, '0') ON CONFLICT DO NOTHING", (BOT_UID,))
 
     def latest_round():
         return db().execute('SELECT * FROM arena_rounds ORDER BY id DESC LIMIT 1').fetchone()
@@ -92,10 +110,11 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
             SELECT u.id,u.name,a.photo_url FROM users u LEFT JOIN user_avatars a ON a.user_id=u.id
             WHERE u.id IN ({placeholders})
         """, list(players))}
+        profiles[BOT_UID] = {'name': 'Crafter', 'photo_url': '/static/assets/arena-crafter-bot.jpg'}
         total = sum(player['value'] for player in players.values())
         return [
             {'id': str(uid), 'name': profiles[uid]['name'] or 'Игрок',
-             'photo': profiles[uid]['photo_url'], 'gram': gram(player['gram']),
+             'photo': profiles[uid]['photo_url'], 'is_bot': uid == BOT_UID, 'gram': gram(player['gram']),
              'value': gram(player['value']), 'chance': round(100 * player['value'] / total, 4),
              'gifts': player['gifts']}
             for uid, player in players.items()
@@ -146,23 +165,28 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         winner = round_row['winner_id']
         bank = sum(player['gram'] for player in players.values())
         bank_value = sum(player['value'] for player in players.values())
+        fee = (bank - players[winner]['gram']) * round_fee(round_row['id']) // 10_000
+        if fee:
+            db().execute('INSERT INTO arena_fees VALUES(?,?)', (round_row['id'], gram(fee)))
+        payout = bank - fee
         gifts = []
         for uid, player in players.items():
             for gift in player['gifts']:
                 release_gift(uid, gift['id'], winner)
                 gifts.append(gift)
-        set_balance(winner, balance(winner) + Decimal(gram(bank)))
+        set_balance(winner, balance(winner) + Decimal(gram(payout)))
         restore_backing(winner, [entry for entry in entries if entry['user_id'] == winner])
         for uid in players:
             record('arena_result', {
                 'round_id': round_row['id'], 'success': uid == winner,
-                'prize_value': gram(bank_value) if uid == winner else None,
-                'gram': gram(bank if uid == winner else 0),
+                'prize_value': gram(bank_value - fee) if uid == winner else None,
+                'gram': gram(payout if uid == winner else 0),
+                'fee_gram': gram(fee if uid == winner else 0),
                 'gifts': gifts if uid == winner else [],
             }, uid=uid)
         public = players_public(players)
         result = {'round_id': round_row['id'], 'winner': next(p for p in public if p['id'] == str(winner)),
-                  'gram': gram(bank), 'value': gram(bank_value), 'gifts': gifts}
+                  'gram': gram(payout), 'value': gram(bank_value - fee), 'fee_gram': gram(fee), 'gifts': gifts}
         db().execute('UPDATE arena_rounds SET finished_at=?,result=? WHERE id=?',
                      (now, json.dumps(result), round_row['id']))
         return latest_round()
@@ -189,7 +213,11 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 return award(round_row, now)
         elif end is None and round_row['wait_until'] is not None and now >= round_row['wait_until']:
             return refund(round_row, stakes(round_row['id']), now)
-        return round_row
+        return bot_tick(round_row, now)
+
+    def round_fee(round_id):
+        row = db().execute('SELECT fee_bps FROM arena_round_terms WHERE round_id=?', (round_id,)).fetchone()
+        return row['fee_bps'] if row else 0
 
     def snapshot(round_row, now, uid):
         players = totals(stakes(round_row['id']))
@@ -206,6 +234,8 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 'target': str(round_row['winner_id']) if end is not None and now >= end + AIM_MS else None,
                 'players': players_public(players), 'bank': gram(sum(p['value'] for p in players.values())),
                 'last_result': json.loads(previous['result']) if previous else None,
+                'fee_bps': round_fee(round_row['id']) if players else FEE_BPS,
+                'bot_enabled': bot_settings()['enabled'],
                 'balance': str(balance(uid)), 'viewer': str(uid), 'gift_limit': MAX_GIFTS,
                 'can_cancel': phase == 'waiting' and uid in players}
 
@@ -241,6 +271,85 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 'id': row['nft_id'], 'value': units(price),
             }
         return result
+
+    def place_stake(round_id, uid, rid, intent, cash, gifts, entries, players, now):
+        connection = db()
+        for gift_id in gifts:
+            connection.execute("UPDATE inventory SET status='arena' WHERE user_id=? AND nft_id=?", (uid, gift_id))
+        backing = {}
+        if cash:
+            remaining = balance(uid) - Decimal(gram(cash))
+            backing = cap_funded_balance(connection, uid, remaining)
+            set_balance(uid, remaining)
+        connection.execute('INSERT INTO arena_stakes VALUES(?,?,?,?,?,?,?,?)',
+                           (round_id, uid, rid, len(entries), intent, cash,
+                            json.dumps(list(gifts.values())), json.dumps(backing)))
+        if not entries:
+            connection.execute('INSERT INTO arena_round_terms VALUES(?,?)', (round_id, FEE_BPS))
+            connection.execute('UPDATE arena_rounds SET wait_until=? WHERE id=?', (now + WAIT_MS, round_id))
+        if len(players) == 1 and uid not in players:
+            connection.execute('UPDATE arena_rounds SET bet_until=? WHERE id=?', (now + BET_MS, round_id))
+        record('arena_stake', {'round_id': round_id, 'gram': gram(-cash),
+                              'gifts': list(gifts.values())}, uid=uid)
+
+    def bot_settings():
+        row = db().execute("SELECT payload FROM settings WHERE key='arena_bot'").fetchone()
+        return {**BOT_DEFAULTS, **(json.loads(row['payload']) if row else {})}
+
+    def bot_target():
+        roll = secrets.randbelow(100)
+        if roll < 5:
+            return 1000
+        if roll >= 95:
+            return 7000
+        return 3000 + secrets.randbelow(1001)
+
+    def bot_tick(round_row, now):
+        end = round_row['bet_until']
+        if (round_row['finished_at'] is not None or round_row['wait_until'] is None or
+                (end is not None and now >= end - BOT_CUTOFF_MS)):
+            return round_row
+        settings = bot_settings()
+        if not settings['enabled'] or not round_fee(round_row['id']):
+            return round_row
+        if now < round_row['wait_until'] - WAIT_MS + BOT_JOIN_MS:
+            return round_row
+        round_id = round_row['id']
+        entries = stakes(round_id)
+        players = totals(entries)
+        bot = players.get(BOT_UID)
+        if not bot and len(players) != 1:
+            return round_row
+        moves = [entry for entry in entries if entry['user_id'] == BOT_UID]
+        if len(moves) >= BOT_MAX_STAKES:
+            return round_row
+        latest = json.loads(moves[-1]['intent']) if moves else None
+        if latest and now < latest['at'] + BOT_INTERVAL_MS:
+            return round_row
+        target = latest['target'] if latest else bot_target()
+        already = bot['value'] if bot else 0
+        humans = sum(player['value'] for uid, player in players.items() if uid != BOT_UID)
+        needed = min(humans * target // (10_000 - target), units(Decimal(settings['limit']))) - already
+        if needed <= 0:
+            return round_row
+
+        cash = max(0, units(balance(BOT_UID)))
+        gifts = {}
+        slots = MAX_GIFTS - (len(bot['gifts']) if bot else 0)
+        if slots and (cash < needed or secrets.randbelow(3) != 0):
+            stock = available_gifts(BOT_UID, floor_prices())
+            for gift in sorted(stock.values(), key=gift_order, reverse=True):
+                if gift['value'] <= needed:
+                    gifts[gift['id']] = gift
+                    needed -= gift['value']
+                    if len(gifts) >= slots or needed == 0:
+                        break
+        cash = min(needed, cash)
+        if not (cash or gifts):
+            return round_row
+        intent = json.dumps({'target': target, 'at': now})
+        place_stake(round_id, BOT_UID, 'bot-' + str(len(moves)), intent, cash, gifts, entries, players, now)
+        return latest_round()
 
     @app.get('/api/arena')
     @auth()
@@ -319,20 +428,7 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 gifts = available_gifts(uid, floor_prices(), ids) if ids else {}
             if len(gifts) != len(ids):
                 abort(409, description='Один из подарков уже недоступен для ставки')
-            for gift_id in ids:
-                connection.execute("UPDATE inventory SET status='arena' WHERE user_id=? AND nft_id=?", (uid, gift_id))
-            backing = cap_funded_balance(connection, uid, before - cash) if cash else {}
-            if cash:
-                set_balance(uid, before - cash)
-            connection.execute('INSERT INTO arena_stakes VALUES(?,?,?,?,?,?,?,?)',
-                               (round_id, uid, rid, len(entries), intent, units(cash),
-                                json.dumps(list(gifts.values())), json.dumps(backing)))
-            if not entries:
-                connection.execute('UPDATE arena_rounds SET wait_until=? WHERE id=?', (now + WAIT_MS, round_id))
-            if len(players) == 1 and uid not in players:
-                connection.execute('UPDATE arena_rounds SET bet_until=? WHERE id=?', (now + BET_MS, round_id))
-            record('arena_stake', {'round_id': round_id, 'gram': gram(-units(cash)),
-                                   'gifts': list(gifts.values())})
+            place_stake(round_id, uid, rid, intent, units(cash), gifts, entries, players, now)
             return snapshot(latest_round(), now, uid)
 
     @app.post('/api/arena/cancel')
@@ -352,6 +448,66 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 abort(409, description='У вас нет ставки в этом раунде')
             return snapshot(refund(round_row, entries, now), now, uid)
 
+    def bot_admin_status(uid):
+        stock = available_gifts(uid, floor_prices())
+        return {**bot_settings(), 'balance': str(balance(BOT_UID)), 'admin_balance': str(balance(uid)),
+                'gift_count': db().execute("SELECT count(*) FROM inventory WHERE user_id=? AND status='unlisted'",
+                                           (BOT_UID,)).fetchone()[0],
+                'fees': str(sum((Decimal(row['gram']) for row in db().execute('SELECT gram FROM arena_fees')),
+                                Decimal(0))),
+                'gifts': sorted(stock.values(), key=gift_order)}
+
+    @app.get('/api/admin/arena')
+    @auth(admin=True)
+    def arena_bot_admin():
+        return bot_admin_status(g.user['id'])
+
+    @app.post('/api/admin/arena')
+    @auth(admin=True)
+    def arena_bot_update():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400)
+        enabled, limit, amount = data.get('enabled'), decimal_amount(data.get('limit')), decimal_amount(data.get('amount'))
+        ids, rid = data.get('gift_ids', []), data.get('request_id')
+        if (type(enabled) is not bool or limit is None or not UNIT <= limit <= MAX_AMOUNT or Decimal(gram(units(limit))) != limit or
+                amount is None or not 0 <= amount <= MAX_AMOUNT or Decimal(gram(units(amount))) != amount or
+                not isinstance(ids, list) or len(ids) > MAX_GIFTS or
+                any(not isinstance(item, str) or not 1 <= len(item) <= 200 for item in ids) or len(set(ids)) != len(ids) or
+                not isinstance(rid, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', rid)):
+            abort(400, description='Проверьте лимит, сумму и подарки')
+        uid = g.user['id']
+        settings = {'enabled': enabled, 'limit': str(limit)}
+        intent = json.dumps({**settings, 'amount': str(amount), 'gift_ids': sorted(ids)})
+        with db():
+            connection = db()
+            connection.execute('BEGIN IMMEDIATE')
+            previous = connection.execute('SELECT intent FROM arena_bot_funding WHERE admin_id=? AND request_id=?',
+                                          (uid, rid)).fetchone()
+            if previous:
+                if previous['intent'] != intent:
+                    abort(409, description='Этот запрос уже использован')
+                return bot_admin_status(uid)
+            before = balance(uid)
+            if amount > before:
+                abort(409, description='Недостаточно GRAM на вашем балансе')
+            gifts = available_gifts(uid, floor_prices(), ids) if ids else {}
+            if len(gifts) != len(ids):
+                abort(409, description='Один из подарков недоступен')
+            for gift_id in ids:
+                connection.execute("UPDATE inventory SET user_id=? WHERE user_id=? AND nft_id=?",
+                                   (BOT_UID, uid, gift_id))
+            if amount:
+                cap_funded_balance(connection, uid, before - amount)
+                set_balance(uid, before - amount)
+                set_balance(BOT_UID, balance(BOT_UID) + amount)
+            if amount or gifts:
+                record('arena_bot_fund', {'gram': str(-amount), 'gifts': list(gifts.values())}, uid=uid)
+            connection.execute("INSERT INTO settings VALUES('arena_bot', ?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
+                               (json.dumps(settings),))
+            connection.execute('INSERT INTO arena_bot_funding VALUES(?,?,?)', (uid, rid, intent))
+            return bot_admin_status(uid)
+
     def sweep():
         while True:
             try:
@@ -366,7 +522,10 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                         due = row['wait_until']
                     else:
                         due = row['bet_until'] + (PLAY_MS if row['winner_id'] is not None else 0)
-                    if due is not None and now >= due:
+                    bot_due = row and row['finished_at'] is None and row['wait_until'] is not None and (
+                        row['bet_until'] is None or now < row['bet_until'] - BOT_CUTOFF_MS
+                    ) and bot_settings()['enabled']
+                    if (due is not None and now >= due) or bot_due:
                         with db():
                             db().execute('BEGIN IMMEDIATE')
                             advance(clock())

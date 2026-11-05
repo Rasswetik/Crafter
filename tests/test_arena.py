@@ -78,18 +78,21 @@ def test_round_draw_and_concurrent_settlement(client, monkeypatch):
     assert all(result['phase'] == 'result' for result in results)
     winner = results[1]['last_result']
     assert winner['winner']['id'] == '43'
-    assert winner['gram'] == '3.000000'
-    assert Decimal(results[1]['balance']) == 3
+    assert winner['gram'] == '2.920000'
+    assert winner['fee_gram'] == '0.080000'
+    assert winner['value'] == '5.920000'
+    assert Decimal(results[1]['balance']) == Decimal('2.92')
     assert [gift['id'] for gift in client.get('/api/inventory', headers=signed(43)).json['gifts']] == [nft]
     with sqlite3.connect(client.application.config['DATABASE']) as db:
         assert db.execute("SELECT COUNT(*) FROM history WHERE kind='arena_result'").fetchone()[0] == 2
+        assert db.execute("SELECT gram FROM arena_fees WHERE round_id=?", (round_id,)).fetchone()[0] == '0.080000'
         assert Decimal(db.execute('SELECT gram FROM wallet_balances WHERE user_id=43').fetchone()[0]) == 2
 
     now += arena.RESULT_MS
     retry = stake(client, 43, round_id, 'all-in', 'all')
     assert retry.status_code == 200 and retry.json['round_id'] == round_id + 1
     assert retry.json['last_result'] == winner
-    assert Decimal(retry.json['balance']) == 3
+    assert Decimal(retry.json['balance']) == Decimal('2.92')
 
 
 def test_waiting_refunds_restore_escrow_on_timeout_or_cancel(client, monkeypatch):
@@ -144,3 +147,66 @@ def test_quick_gift_rechecks_cheapest_and_price_without_double_staking(client, m
     assert quick(second['id'], 4_000_000, 'next').json['bank'] == '7.000000'
     assert client.get('/api/arena/gifts', headers=signed()).json['gifts'] == []
     assert Decimal(status(client, 42)['balance']) == 2
+
+
+def test_funded_bot_joins_and_adjusts_with_gram_and_nft(client, monkeypatch):
+    now = 2_000_000
+    monkeypatch.setattr(arena, 'clock', lambda: now)
+    monkeypatch.setattr(arena.secrets, 'randbelow', lambda limit: {100: 50, 1001: 500, 3: 1}[limit])
+    prepare(client, 42, '210')
+    prepare(client, 43, '200')
+    gift = add_gift(client, 42)
+    funding = {'enabled': True, 'limit': '75', 'amount': '200', 'gift_ids': [gift], 'request_id': 'seed'}
+    assert client.post('/api/admin/arena', headers=signed(43), json=funding).status_code == 403
+    funded = client.post('/api/admin/arena', headers=signed(42), json=funding)
+    assert funded.status_code == 200, funded.json
+    assert Decimal(funded.json['balance']) == 200 and funded.json['gift_count'] == 1
+    assert Decimal(client.post('/api/admin/arena', headers=signed(42), json=funding).json['balance']) == 200
+    assert client.post('/api/admin/arena', headers=signed(42), json={**funding, 'amount': '201'}).status_code == 409
+
+    round_id = status(client, 43)['round_id']
+    assert status(client, 43)['players'] == []
+    assert stake(client, 43, round_id, 'first', '1').json['phase'] == 'waiting'
+    now += arena.BOT_JOIN_MS - 1
+    assert len(status(client, 43)['players']) == 1
+    now += 1
+    joined = status(client, 43)
+    bot = joined['players'][1]
+    assert bot['is_bot'] and bot['name'] == 'Crafter'
+    assert bot['photo'] == '/static/assets/arena-crafter-bot.jpg'
+    assert bot['chance'] == 35.0 and bot['gifts'] == []
+    assert joined['bet_until'] == now + arena.BET_MS
+
+    assert stake(client, 43, round_id, 'top-up', '100').status_code == 200
+    now += arena.BOT_INTERVAL_MS
+    adjusted = status(client, 43)['players'][1]
+    assert adjusted['chance'] == 35.0
+    assert [item['id'] for item in adjusted['gifts']] == [gift]
+    assert Decimal(adjusted['gram']) > Decimal(bot['gram'])
+    assert status(client, 43)['players'][1] == adjusted
+    now = joined['bet_until'] - arena.BOT_CUTOFF_MS
+    assert stake(client, 43, round_id, 'late-top-up', '50').status_code == 200
+    assert status(client, 43)['players'][1]['gram'] == adjusted['gram']
+    monkeypatch.setattr(arena.secrets, 'randbelow', lambda total: total - 1)
+    now = joined['bet_until'] + arena.PLAY_MS
+    result = status(client, 43)['last_result']
+    assert result['winner']['is_bot'] and result['fee_gram'] == '12.080000'
+    admin = client.get('/api/admin/arena', headers=signed(42)).json
+    assert Decimal(admin['balance']) == Decimal('338.92')
+    assert admin['gift_count'] == 1 and Decimal(admin['fees']) == Decimal('12.08')
+
+
+def test_in_progress_round_keeps_pre_update_terms(client, monkeypatch):
+    now = 3_000_000
+    monkeypatch.setattr(arena, 'clock', lambda: now)
+    monkeypatch.setattr(arena.secrets, 'randbelow', lambda total: 0)
+    prepare(client, 42, '10')
+    prepare(client, 43, '10')
+    round_id = status(client, 42)['round_id']
+    assert stake(client, 42, round_id, 'first', '1').status_code == 200
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('DELETE FROM arena_round_terms WHERE round_id=?', (round_id,))
+    assert status(client, 42)['fee_bps'] == 0
+    second = stake(client, 43, round_id, 'second', '2').json
+    now = second['bet_until'] + arena.PLAY_MS
+    assert status(client, 42)['last_result']['gram'] == '3.000000'

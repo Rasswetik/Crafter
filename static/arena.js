@@ -29,7 +29,11 @@ function arenaRules() {
         <p>В одной комнате можно ставить GRAM и подарки из «Моих подарков».</p>
         <p>Когда ставки сделают двое игроков, начнётся 15-секундный отсчёт. До его конца можно присоединиться или увеличить ставку.</p>
         <p>Шанс победы равен вашей доле банка. После закрытия ставок сервер случайно определяет победителя с учётом этих шансов. Шайба останавливается в зоне победителя.</p>
-        <p>Победитель получает все поставленные GRAM и подарки. Пока в раунде один игрок, он может отменить ставку. Если за 5 минут соперник не появится, ставка вернётся автоматически.</p>
+        <p>Победитель получает свой взнос и подарки. ${arena.data?.fee_bps === 0
+            ? 'Этот раунд проходит без комиссии.'
+            : 'Arena удерживает 8% с GRAM, выигранных у соперников.'}</p>
+        <p>Если включён Crafter, он помечен как «Бот» и может поставить свои GRAM или NFT и увеличить ставку до закрытия раунда. Его шанс рассчитывается так же, как у других игроков.</p>
+        <p>Пока в раунде один игрок, он может отменить ставку. Если за 5 минут соперник не появится, ставка вернётся автоматически.</p>
     </div>`);
 }
 
@@ -75,6 +79,7 @@ function enterArena(main) {
                 </div>
             </div>
             <div id="arena-actions" class="arena-actions"></div>
+            <small id="arena-terms" class="arena-terms"></small>
             <button id="arena-cancel" type="button" hidden onclick="arenaCancel()">Вернуть ставку</button>
         </div>
     </section>`;
@@ -117,6 +122,10 @@ function arenaApply(data, sent) {
     }
     arena.data = data;
     arena.serverOrigin = (performance.now() + sent) / 2 - data.server_time;
+    document.querySelector('#arena-terms').textContent = [
+        data.fee_bps ? (data.fee_bps / 100) + '% с выигранных GRAM' : '',
+        data.bot_enabled ? 'Crafter может вступить в раунд' : '',
+    ].filter(Boolean).join(' · ');
     state.me.balance = data.balance;
     updateBalance();
     const key = JSON.stringify([data.round_id, data.players]);
@@ -261,6 +270,10 @@ function arenaAnimateBoard(now, data) {
     if (done) arena.boardMotion = null;
 }
 
+function arenaBotBadge(player) {
+    return player.is_bot ? ' <span class="arena-bot-badge">Бот</span>' : '';
+}
+
 function arenaAvatar(player) {
     const photo = imageURL(player.photo);
     return `<span class="arena-avatar">${photo ? `<img src="${esc(photo)}" alt="">` : esc(arenaBadge(player))}</span>`;
@@ -274,7 +287,7 @@ function arenaRenderPlayers(data) {
         const [dark, light] = arenaPalette[i % arenaPalette.length];
         return `<button class="arena-player" type="button" onclick="arenaPlayer(${i})"
             style="--arena-team:${light};--arena-avatar:linear-gradient(150deg,${light},${dark})">
-            ${arenaAvatar(player)}<span class="arena-player-info"><b>${esc(player.name)}</b>
+            ${arenaAvatar(player)}<span class="arena-player-info"><b>${esc(player.name)}${arenaBotBadge(player)}</b>
             <small>${arenaFormat(player.chance)}% шанс</small></span><strong>${arenaFormat(player.value)} GRAM</strong>
             ${player.gifts.length || Number(player.gram) ? `<span class="arena-player-items">
                 ${Number(player.gram) ? `<span class="arena-mini-gram">${arenaGramIcon}<b>${arenaFormat(player.gram)}</b></span>` : ''}
@@ -314,7 +327,7 @@ function arenaQueueResult(data, previous) {
         : performance.now();
     arena.resultOpenTimer = setTimeout(() => {
         if (arena.view !== view) return;
-        arenaShowPrizes(result.winner.name + ' выиграл', result.value, result.gram, result.gifts, result.winner);
+        arenaShowPrizes(result.winner.name + ' выиграл', result.value, result.gram, result.gifts, result.winner, result.fee_gram);
         clearTimeout(arena.resultCloseTimer);
         arena.resultCloseTimer = setTimeout(() => {
             if (arena.view === view && appSheet.open &&
@@ -331,14 +344,15 @@ function arenaPrizeCards(gram, gifts) {
             <small>${arenaGiftValue(gift)} GRAM</small></span></button>`).join('')}</div>`;
 }
 
-function arenaShowPrizes(title, total, gram, gifts, winner = null) {
-    arena.detail = {title, total, gram, gifts, winner};
+function arenaShowPrizes(title, total, gram, gifts, winner = null, fee = '0') {
+    arena.detail = {title, total, gram, gifts, winner, fee};
     const multiplier = winner?.value > 0 ? arenaFormat(Number((total / winner.value).toFixed(2))) : '';
     sheet(title, `<div class="${winner ? 'arena-win-panel' : 'arena-stake-panel'}">
         ${winner ? `<div class="arena-win-avatar">${arenaAvatar(winner)}
-            <p>Ставка ${arenaFormat(winner.value)} GRAM · шанс ${arenaFormat(winner.chance)}%</p></div>` : ''}
+            <p>${arenaBotBadge(winner)} Ставка ${arenaFormat(winner.value)} GRAM · шанс ${arenaFormat(winner.chance)}%</p></div>` : ''}
         <strong class="arena-sheet-total">${arenaFormat(total)} GRAM
             ${multiplier ? `<span>${multiplier}×</span>` : ''}</strong>
+        ${Number(fee) > 0 ? `<p class="arena-fee-detail">Комиссия ${Number(fee) < .01 ? '&lt;0,01' : arenaFormat(fee)} GRAM</p>` : ''}
         ${arenaPrizeCards(gram, gifts)}
     </div>`);
 }
@@ -355,7 +369,7 @@ function arenaGiftInfo(index) {
         ${[['Модель', gift.model], ['Фон', gift.backdrop], ['Узор', gift.symbol?.name || gift.symbol],
             ['Оценка', arenaGiftValue(gift) + ' GRAM']].map(([label, value]) =>
         `<div class="detail-row"><span>${label}</span><b>${esc(value || '—')}</b></div>`).join('')}
-        <button class="secondary" type="button" onclick="arenaShowPrizes(arena.detail.title,arena.detail.total,arena.detail.gram,arena.detail.gifts,arena.detail.winner)">Назад</button></div>`);
+        <button class="secondary" type="button" onclick="arenaShowPrizes(arena.detail.title,arena.detail.total,arena.detail.gram,arena.detail.gifts,arena.detail.winner,arena.detail.fee)">Назад</button></div>`);
 }
 
 const arenaWall = 4;

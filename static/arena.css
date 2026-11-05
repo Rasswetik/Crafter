@@ -87,10 +87,19 @@ html[data-crafter-theme="light"] .arena-page {
     display: inline-flex; align-items: center; gap: 7px; min-height: 34px;
     background: #142638; border: 1px solid #273b4d; color: #fff;
 }
-#nav.games-nav .nav-main > button[data-game-page="arena"].active .stake-nav-icon {
-    background: #281b34; border-color: #a052d068; color: #c362f2;
+#nav.games-nav .nav-main > button[data-game-page="arena"].active {
+    color:#dfabff!important; background:#352146!important; border-color:#a052d088!important;
 }
-#nav.games-nav .nav-main > button[data-game-page="arena"].active .nav-label { color: #c362f2 }
+html[data-crafter-theme="light"] #nav.games-nav .nav-main > button[data-game-page="arena"].active {
+    color:#733aa2!important; background:#f0e1fc!important; border-color:#c292e1!important;
+}
+.arena-bot-badge {
+    display:inline-block; padding:1px 5px; border-radius:6px; background:#7546ad;
+    color:#fff; font-size:10px; font-weight:700; vertical-align:middle;
+}
+.arena-terms { display:block; margin:6px 3px 0; color:var(--arena-muted); font-size:10px }
+.arena-terms:empty { display:none }
+.arena-fee-detail { margin:-8px 0 10px; text-align:center; color:#d5e4dc; font-size:12px }
 .arena-mode-tabs { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--arena-edge); border-radius: 22px }
 .arena-mode-tabs button { width: 40px; min-height: 31px; border: 0; background: transparent; display: grid; place-items: center }
 .arena-mode-tabs svg, .arena-mode-tabs img { width: 17px; height: 17px }
