@@ -622,3 +622,95 @@ html[data-crafter-theme="light"] .arena-private-bot-bank > div:first-child stron
 .arena-private-form .arena-private-bot-upload { display: flex; align-items: center; justify-content: center }
 html[data-crafter-theme="light"] .arena-private-info-bot { background: #eeeaf4 }
 html[data-crafter-theme="light"] .arena-private-info-bot strong { color: #30223c }
+
+
+/* Private Arena — bot NFT vault, owner-only transfer interface. */
+.arena-private-bot-inventory-open {
+    width: 100%; min-height: 46px; display: flex; align-items: center;
+    justify-content: center; border: 1px solid #a777de58;
+    background: linear-gradient(140deg,#3d3050,#30253c);
+    border-radius: 14px; padding: 10px 13px; color: #efddff;
+    font-size: 12px; font-weight: 800; line-height: 1.35;
+}
+.arena-private-inventory { display: grid; gap: 13px; color: #fff; padding-bottom: 8px }
+.arena-private-inventory-balance {
+    min-height: 108px; padding: 17px; border-radius: 18px;
+    background: radial-gradient(ellipse at 92% 5%,#725198 0%,#37283f 55%,#29252e 100%);
+    display: flex; align-items: center; justify-content: space-between;
+    border: 1px solid #caa4f429;
+}
+.arena-private-inventory-balance > div { display: grid; gap: 5px }
+.arena-private-inventory-balance small { color: #d3bcdd; font-size: 10px; font-weight: 800; letter-spacing: .09em }
+.arena-private-inventory-balance strong { font-size: 23px; font-weight: 850; font-variant-numeric: tabular-nums }
+.arena-private-inventory-balance div span { font-size: 12px; color: #bdaaca }
+.arena-private-inventory-symbol { font-size: 42px; line-height: 1; color: #ecd5ff; opacity: .9 }
+.arena-private-inventory-counts { display: flex; gap: 12px; justify-content: space-between; color: #b0a7b9; font-size: 12px; font-weight: 650 }
+.arena-private-inventory-tabs {
+    display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 5px;
+    padding: 4px; border-radius: 14px; background: #2b2931;
+}
+.arena-private-inventory-tabs button {
+    min-width: 0; padding: 11px 6px; border: 0; border-radius: 11px;
+    background: transparent; color: #a9a4b4; font-size: 12px; font-weight: 800;
+}
+.arena-private-inventory-tabs button[aria-selected="true"] { background: #8b5bc3; color: white }
+.arena-private-inventory-hint { margin: 0; color: #a6a0ae; font-size: 12px; line-height: 1.55 }
+.arena-private-inventory-grid {
+    display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px;
+    max-height: min(45vh,410px); min-height: 80px; overflow-y: auto;
+    overscroll-behavior: contain; padding: 2px;
+}
+.arena-private-item {
+    min-width: 0; text-align: left; position: relative;
+    display: flex; flex-direction: column; gap: 5px;
+    align-items: stretch; padding: 8px;
+    border-radius: 15px; border: 1px solid #ffffff14;
+    background: #28262f; color: #f5f1fa;
+}
+.arena-private-item.is-selected {
+    border-color: #af80ea; background: #41314f;
+    box-shadow: inset 0 0 0 1px #ad7bde51;
+}
+.arena-private-item.is-locked { opacity: .65; cursor: not-allowed }
+.arena-private-item-image {
+    position: relative; border-radius: 11px; aspect-ratio: 1.15; overflow: hidden;
+    background: radial-gradient(circle at 50% 45%,#51415e,#242029 84%);
+    display: flex; align-items: center; justify-content: center; font-size: 30px;
+}
+.arena-private-item-image img { height: 100%; width: 100%; object-fit: contain; display: block }
+.arena-private-item-name {
+    display: block; font-weight: 800; font-size: 12px; line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.arena-private-item-model {
+    display: block; color: #a9a3b4; font-size: 11px; line-height: 1.2;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.arena-private-item-check, .arena-private-item-status {
+    position: absolute; top: 13px; right: 13px;
+    min-width: 22px; height: 22px; border-radius: 30px;
+    display: grid; place-items: center; font-size: 12px; font-weight: 900;
+    border: 1px solid #fff5; background: #1e1a25ae; color: #fff;
+}
+.arena-private-item.is-selected .arena-private-item-check { background: #9a6cd2 }
+.arena-private-item-status {
+    right: 10px; width: auto; padding: 0 8px; background: #44404f; border: 0; font-size: 10px;
+}
+.arena-private-inventory-empty { grid-column: 1 / -1; padding: 28px 10px; color: #a8a1b0; font-size: 13px; text-align: center }
+.arena-private-inventory-bottom { display: grid; gap: 7px; padding-top: 3px }
+.arena-private-inventory-transfer {
+    min-height: 50px; border-radius: 15px; border: none;
+    background: #a278e6; color: #1b1228; font-size: 14px; font-weight: 850;
+}
+.arena-private-inventory-transfer:disabled { background: #433b4b; color: #8d8397; opacity: .75 }
+.arena-private-inventory-error { color: #d2bfdd; font-size: 13px; line-height: 1.55; padding: 16px 0 }
+#sheet:has(.arena-private-inventory) #sheet-body { max-height: min(78vh,780px); overflow-y: auto }
+html[data-crafter-theme="light"] .arena-private-inventory-tabs { background: #e9e3ef }
+html[data-crafter-theme="light"] .arena-private-inventory-tabs button:not([aria-selected="true"]) { color: #6a6176 }
+html[data-crafter-theme="light"] .arena-private-item { background: #eee9f4; color: #29232f; border-color: #d9d0e4 }
+html[data-crafter-theme="light"] .arena-private-item-model { color: #675e72 }
+@media(max-width:355px) {
+    .arena-private-item { padding: 6px }
+    .arena-private-inventory-grid { gap: 6px }
+    .arena-private-inventory-tabs button { font-size: 11px }
+}
