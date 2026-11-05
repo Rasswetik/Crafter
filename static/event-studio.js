@@ -336,3 +336,253 @@ function studioPaintPreview(){
    target.dataset.editable=isEditable?'yes':'no';
  }
 }
+
+function studioRenderPrizes(root){
+ const event=crafterStudio.event,rank=crafterStudio.rank;
+ const prize=event.prizes[rank-1]||{place:rank,type:'none',label:''};
+ const types=[['none','Без награды'],['gram','GRAM (значок)'],
+  ['telegram','Telegram NFT (по ссылке)'],['collection','Обычный подарок — коллекция'],
+  ['model','Конкретная модель'],['image','Своё PNG / GIF']];
+ root.innerHTML='<h4>Призы для 100 мест</h4>'+
+  '<p class="sub">Выберите место и укажите награду. Изображение загружается отдельно; для Telegram NFT достаточно ссылки.</p>'+
+  '<div class="studio-fields">'+
+  studioInput('rank','Призовое место (1–100)',rank,'prize','number',1,100)+
+  studioSelect('type','Тип награды',prize.type||'none',types,'prize')+
+  studioInput('label','Надпись / количество',prize.label||'','prize')+
+  ((prize.type==='telegram')?studioInput('telegram_url','https://t.me/nft/…',
+   prize.telegram_url||'','prize'):'')+
+  (['collection','model'].includes(prize.type)?studioInput('collection','Коллекция',
+   prize.collection||'','prize'):'')+
+  ((prize.type==='model')?studioInput('model','Модель',prize.model||'','prize'):'')+
+  ((prize.type==='image')?'<label>PNG / WebP / GIF<input type="file" '+
+   'accept="image/png,image/jpeg,image/webp,image/gif" data-studio-upload="prize"></label>':'')+
+  '</div>'+
+  '<div class="studio-prize-preview"><b>Предпросмотр награды</b>'+
+   studioPrizePreview(prize)+'</div>'+
+  '<div class="studio-prize-jumps">'+
+  Array.from({length:Math.max(10,event.prizes.length)},(_,i)=>{
+   const r=i+1;
+   if(r>100)return '';
+   const p=event.prizes[i];
+   return '<button type="button" data-studio-rank="'+r+'" class="'+(r===rank?'active':'')+'">'+
+    r+(p&&p.type!=='none'?' 🎁':'')+'</button>';
+  }).join('')+'</div>'+
+  '<button type="button" class="primary" data-studio-action="save-prizes">Сохранить награды</button>';
+}
+function studioPrize(rank){
+ const list=crafterStudio.event.prizes;
+ while(list.length<rank)list.push({place:list.length+1,label:'',type:'none',
+  telegram_url:'',telegram_slug:'',collection:'',model:'',image_url:null});
+ return list[rank-1];
+}
+function studioConvertValue(target){
+ if(target.type==='checkbox')return target.checked;
+ const val=target.value;
+ if(target.type==='number'||target.type==='range'){
+  const n=Number(val);
+  return Number.isFinite(n)?n:0;
+ }
+ return val;
+}
+function studioInputChanged(event){
+ const t=event.target;
+ const scope=t.dataset.studioScope,key=t.dataset.studioKey;
+ if(!scope||!key||!crafterStudio)return;
+ if(scope==='prize'&&key==='rank'){
+    const rank=Math.max(1,Math.min(100,Number(t.value)||1));
+    crafterStudio.rank=rank;
+    studioPrize(rank);
+    studioPaintInspector();
+    return;
+ }
+ let target;
+ if(scope==='style')target=crafterStudio.page.style;
+ else if(scope==='block')target=studioBlock();
+ else if(scope==='banner')target=studioBlock()?.banner;
+ else if(scope==='layer')target=studioLayer();
+ else if(scope==='prize')target=studioPrize(crafterStudio.rank);
+ if(!target)return;
+ let value=studioConvertValue(t);
+ if(scope==='prize'&&key==='type'){
+    target.type=value;
+    if(value!=='image')crafterStudio.prizeFiles.delete(crafterStudio.rank);
+ }
+ target[key]=value;
+ if(scope==='style'&&key==='rank_count'){
+    const block=studioRankBlock();if(block)block.rank_count=Math.min(100,Number(value)||10);
+ }
+ studioDirty();
+ studioPaintPreview();
+}
+function studioChange(event){
+ const t=event.target;
+ if(t.id==='studio-device'){
+    const node=document.getElementById('studio-preview');
+    if(node)node.style.width=t.value;
+    return;
+ }
+ if(t.id==='studio-snap'){crafterStudio.snap=t.checked;return;}
+ if(t.id==='studio-bgdrag'){crafterStudio.backgroundDrag=t.checked;return;}
+ if(t.dataset.studioUpload){
+    const file=t.files?.[0];
+    if(file)studioUpload(file,t.dataset.studioUpload);
+    return;
+ }
+ if(t.dataset.studioScope&&t.dataset.studioKey){
+    studioInputChanged(event);
+    if(t.dataset.studioScope==='prize'&&t.dataset.studioKey==='type')studioPaintInspector();
+ }
+}
+function studioClick(event){
+ const button=event.target.closest('[data-studio-action],[data-studio-select],'+
+  '[data-studio-move],[data-studio-layer],[data-studio-add-layer],[data-studio-rank]');
+ if(!button)return;
+ const studio=crafterStudio;
+ if(button.dataset.studioSelect){
+    studio.selected=button.dataset.studioSelect;
+    studio.layer=studioBlock()?.banner?.layers?.[0]?.id||'';
+    studioPaintList();studioPaintInspector();studioPaintPreview();return;
+ }
+ if(button.dataset.studioLayer){
+    studio.layer=button.dataset.studioLayer;
+    studioPaintInspector();studioPaintPreview();return;
+ }
+ if(button.dataset.studioRank){
+    studio.rank=Number(button.dataset.studioRank);
+    studioPaintInspector();return;
+ }
+ if(button.dataset.studioMove){
+    const blocks=studio.page.blocks;
+    const index=blocks.findIndex(b=>b.id===button.dataset.studioMove);
+    const destination=index+Number(button.dataset.dir);
+    if(index>=0&&destination>=0&&destination<blocks.length){
+        [blocks[index],blocks[destination]]=[blocks[destination],blocks[index]];
+        studioDirty();studioPaintList();studioPaintPreview();
+    }
+    return;
+ }
+ if(button.dataset.studioAddLayer){
+    const block=studioBlock();
+    if(!block?.banner)return;
+    if(block.banner.layers.length>=20)return toast('До 20 слоёв в одном баннере');
+    const type=button.dataset.studioAddLayer;
+    const layer=studioFreshLayer(type,type==='title'?'Заголовок':type==='text'?'Текст':'');
+    layer.z=Math.min(99,1+Math.max(0,...block.banner.layers.map(l=>Number(l.z))));
+    block.banner.layers.push(layer);studio.layer=layer.id;
+    studioDirty();studioPaintInspector();studioPaintPreview();return;
+ }
+ const action=button.dataset.studioAction;
+ if(action==='back'){
+    if(studio.dirty&&!confirm('Есть несохранённые изменения. Вернуться?'))return;
+    renderAdminEvents();return;
+ }
+ if(action==='save'){studioSavePage();return;}
+ if(action==='prizes'){studio.selected='prizes';studioPaintList();studioPaintInspector();return;}
+ if(action==='style'){studio.selected='global';studioPaintList();studioPaintInspector();return;}
+ if(action==='preview'){
+    studio.previewMode=!studio.previewMode;
+    button.textContent=studio.previewMode?'Вернуться в редактор':'Без рамок';
+    studioPaintPreview();return;
+ }
+ if(action==='add'){
+    if(studio.page.blocks.length>=24)return toast('Максимум 24 блока');
+    const kind=document.getElementById('studio-add-kind')?.value||'text';
+    const block=studioFreshBlock(kind);
+    studio.page.blocks.push(block);studio.selected=block.id;
+    studio.layer=block.banner?.layers?.[0]?.id||'';
+    studioDirty();studioPaintList();studioPaintInspector();studioPaintPreview();
+    return;
+ }
+ if(action==='remove'){
+    const index=studio.page.blocks.findIndex(b=>b.id===studio.selected);
+    if(index<0)return;
+    studio.page.blocks.splice(index,1);
+    studio.selected=studio.page.blocks[Math.max(0,index-1)]?.id||'global';
+    studio.layer=studioBlock()?.banner?.layers?.[0]?.id||'';
+    studioDirty();studioPaintList();studioPaintInspector();studioPaintPreview();
+    return;
+ }
+ if(action==='clone'){
+    if(studio.page.blocks.length>=24)return toast('Максимум 24 блока');
+    const block=studioBlock();
+    if(!block)return;
+    const copy=structuredClone(block);
+    copy.id='b'+crypto.randomUUID().replaceAll('-','').slice(0,26);
+    if(copy.banner)copy.banner.layers.forEach(l=>l.id='layer'+crypto.randomUUID().replaceAll('-','').slice(0,19));
+    const index=studio.page.blocks.indexOf(block);
+    studio.page.blocks.splice(index+1,0,copy);
+    studio.selected=copy.id;studio.layer=copy.banner?.layers?.[0]?.id||'';
+    studioDirty();studioPaintList();studioPaintInspector();studioPaintPreview();
+    return;
+ }
+ if(action==='remove-layer'){
+    const block=studioBlock();
+    block.banner.layers=block.banner.layers.filter(l=>l.id!==studio.layer);
+    studio.layer=block.banner.layers[0]?.id||'';
+    studioDirty();studioPaintInspector();studioPaintPreview();return;
+ }
+ if(action==='save-prizes'){studioSavePrizes();return;}
+}
+async function studioUpload(file,where){
+ if(file.size>8*1024*1024)return toast('Изображение/GIF до 8 МБ');
+ if(where==='prize'){
+    crafterStudio.prizeFiles.set(crafterStudio.rank,file);
+    studioSetStatus('PNG/GIF выбран; нажмите «Сохранить награды»');
+    return;
+ }
+ const block=studioBlock();
+ const layer=studioLayer();
+ const form=new FormData();form.append('file',file);
+ studioSetStatus('Загружаем '+file.name+'…');
+ try{
+    const data=await api('admin/arena/banner/asset',form);
+    if(where==='background') {
+       block.banner.background_asset=data.url;
+       block.banner.background_mode='image';
+    }else if(where==='layer'&&layer){
+       layer.asset=data.url;
+    }
+    studioDirty();studioPaintInspector();studioPaintPreview();
+ }catch(error){studioSetStatus(error.message);toast(error.message);}
+}
+async function studioSavePage(){
+ const id=crafterStudio.event.id;
+ const button=document.querySelector('[data-studio-action="save"]');
+ if(button)button.disabled=true;
+ try{
+   const result=await api('admin/events/'+id+'/page',crafterStudio.page);
+   crafterStudio.page=result.page;
+   crafterStudio.dirty=false;
+   studioSetStatus('Макет ивента сохранён');
+   toast('Страница события обновлена');
+   studioPaintList();studioPaintInspector();studioPaintPreview();
+ }catch(e){studioSetStatus(e.message);toast(e.message);}
+ finally{if(button)button.disabled=false;}
+}
+async function studioSavePrizes(){
+ const studio=crafterStudio,ev=studio.event;
+ const body=new FormData();
+ body.set('title',ev.title);body.set('description',ev.description||'');
+ body.set('metric',ev.metric);body.set('accent',ev.accent);
+ body.set('start_at',String(ev.start_at));body.set('end_at',String(ev.end_at));
+ body.set('sort_order',String(ev.sort_order||0));
+ if(ev.enabled)body.set('enabled','1');
+ if(ev.show_leaderboard)body.set('show_leaderboard','1');
+ const prizes=ev.prizes.map(p=>({
+    type:p.type||'none',label:p.label||'',
+    telegram_url:p.telegram_url||'',
+    collection:p.collection||'',model:p.model||''
+ }));
+ body.set('prizes_json',JSON.stringify(prizes));
+ for(const [rank,file] of studio.prizeFiles)body.append('prize_image_'+rank,file);
+ studioSetStatus('Сохраняем награды…');
+ try{
+    await api('admin/events/'+ev.id,body);
+    const result=await api('admin/events');
+    studio.event=result.events.find(x=>x.id===ev.id)||ev;
+    studio.prizeFiles.clear();
+    studioSetStatus('Призы сохранены: '+prizes.length+' мест');
+    toast('Награды ивента сохранены');
+    studioPaintInspector();studioPaintPreview();
+ }catch(e){studioSetStatus(e.message);toast(e.message);}
+}
