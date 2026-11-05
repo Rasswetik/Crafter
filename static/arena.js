@@ -91,10 +91,11 @@ function enterArena(main, privateToken = null) {
                 </g>
             </svg></div>
         </div>
+        <div id="arena-private-toolbar" class="arena-private-toolbar" ${privateToken ? '' : 'hidden'}></div>
         <div class="arena-roster-heading"><h2>Игроки <small id="arena-count">0</small><small id="arena-round"></small></h2>
             <div class="arena-room-tabs" role="group" aria-label="Комнаты арены">
                 <button type="button" onclick="arenaSwitchRoom(1)" aria-pressed="${privateToken ? 'false' : 'true'}">Комната 1</button>
-                <button type="button" onclick="arenaSwitchRoom(2)" aria-pressed="${privateToken ? 'true' : 'false'}">2</button>
+                <button type="button" onclick="arenaSwitchRoom(2)" aria-pressed="${privateToken ? 'true' : 'false'}">Комната 2</button>
             </div></div>
         <div id="arena-players" class="arena-players"></div>
         <div class="arena-dock">
