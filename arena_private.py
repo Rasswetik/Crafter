@@ -306,6 +306,54 @@ def install_private_arena(app, db, auth, record, tools):
             'private_room': public_room(room, joined=True),
         }
 
+    def bot_tick(room, round_row, now):
+        if (not room['bot_enabled'] or round_row['finished_at'] is not None or
+                round_row['wait_until'] is None or
+                (round_row['bet_until'] is not None and now >= round_row['bet_until'] - BOT_CUTOFF_MS)):
+            return round_row
+        if now < round_row['wait_until'] - WAIT_MS + BOT_DELAY_MS:
+            return round_row
+        token, number = room['token'], round_row['round_no']
+        bot_id = room_bot_uid(token)
+        entries = round_entries(token, number)
+        players = totals(entries)
+        humans = {uid: player for uid, player in players.items() if uid != bot_id}
+        if not humans:
+            return round_row
+        own = players.get(bot_id)
+        if not own and (len(players) >= room['player_limit'] or len(humans) != 1):
+            return round_row
+        moves = [entry for entry in entries if entry['user_id'] == bot_id]
+        if len(moves) >= BOT_MAX_STAKES:
+            return round_row
+        last = json.loads(moves[-1]['intent']) if moves else None
+        if last and now < last['at'] + BOT_INTERVAL_MS:
+            return round_row
+        roll = last['target'] if last else 3000 + secrets.randbelow(1601)
+        human_stakes = sum(player['value'] for player in humans.values())
+        desired = human_stakes * roll // (10000 - roll)
+        already = own['value'] if own else 0
+        cash_available = max(0, units(balance(bot_id)))
+        target = min(desired - already, room['max_value'] - already, cash_available)
+        if not own and target < room['min_value']:
+            return round_row
+        if target <= 0:
+            return round_row
+        remaining = balance(bot_id) - Decimal(gram(target))
+        backing = cap_funded_balance(db(), bot_id, remaining)
+        set_balance(bot_id, remaining)
+        db().execute(
+            'INSERT INTO arena_private_stakes VALUES(?,?,?,?,?,?,?,?,?)',
+            (token, number, bot_id, 'bot-' + str(len(moves)), len(entries),
+             json.dumps({'at': now, 'target': roll}), target, '[]', json.dumps(backing)))
+        if len(humans) == 1 and own is None:
+            db().execute(
+                'UPDATE arena_private_rounds SET bet_until=? WHERE token=? AND round_no=?',
+                (now + room['bet_seconds'] * 1000, token, number))
+        record('arena_stake', {'round_id': number, 'private_room': token,
+                               'gram': gram(-target), 'gifts': [], 'is_bot': True}, uid=bot_id)
+        return round_for(room)
+
     def parse_amount(value):
         if not isinstance(value, str) or not AMOUNT_RE.fullmatch(value):
             abort(400, description='Некорректная сумма GRAM')
@@ -589,7 +637,10 @@ def install_private_arena(app, db, auth, record, tools):
                         'OR (x.winner_id IS NOT NULL AND x.bet_until + ? <= ?))) '
                         'OR (x.finished_at IS NULL AND x.bet_until IS NULL '
                         'AND x.wait_until IS NOT NULL AND x.wait_until <= ?) '
-                        'LIMIT 50', (RESULT_MS, now, now, PLAY_MS, now, now)).fetchall()
+                        'OR (r.bot_enabled=1 AND x.finished_at IS NULL AND '
+                        'x.wait_until IS NOT NULL AND '
+                        '(x.bet_until IS NULL OR x.bet_until > ?)) '
+                        'LIMIT 50', (RESULT_MS, now, now, PLAY_MS, now, now, now + BOT_CUTOFF_MS)).fetchall()
                     for row in due:
                         with db():
                             db().execute('BEGIN IMMEDIATE')
@@ -597,6 +648,10 @@ def install_private_arena(app, db, auth, record, tools):
                                 'SELECT * FROM arena_private_rooms WHERE token=?',
                                 (row['token'],)).fetchone()
                             if room:
+                                now_tick = clock()
+                                current = round_for(room)
+                                if current and room['bot_enabled']:
+                                    bot_tick(room, current, now_tick)
                                 advance(room, clock())
             except Exception:
                 app.logger.exception('Private Arena settlement failed')
