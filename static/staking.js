@@ -33,7 +33,7 @@ nav = function() {
 const stakeGoBefore = go;
 let stakeCountdownTimer;
 let stakeServerTimeOffset = 0;
-go = async function(page, eventId = null) {
+go = async function(page, eventId = null, focusLeaderboard = true) {
     if (state.crafting) return;
     document.querySelector('#app')?.classList.toggle('staking-view', page === 'staking');
     document.querySelector('#app')?.classList.toggle('arena-view', page === 'arena');
@@ -66,7 +66,7 @@ go = async function(page, eventId = null) {
         return;
     }
     if (page === 'events') {
-        if (eventId) await openCrafterEvent(eventId, true);
+        if (eventId) await openCrafterEvent(eventId, focusLeaderboard);
         else await renderEventsPage();
         return;
     }
