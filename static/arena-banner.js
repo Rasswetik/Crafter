@@ -340,11 +340,18 @@ async function iceArenaLoadBanner(view, privateRoom = false) {
         const response = await api('arena/banner?room=' + (privateRoom ? 'private' : 'public'));
         if (view !== arena.view || !holder.isConnected) return;
         if (response.banner) {
-            holder.hidden = false;
-            iceBannerMount(holder,response.banner,{serverTime:response.server_time});
-            holder.setAttribute('title',response.banner.title || 'Событие Ice Arena');
-        } else {
+            const signature=JSON.stringify(response.banner);
+            holder.hidden=false;
+            // Most polls return an identical banner. Preserve the DOM to avoid
+            // resetting animated GIFs and causing repeated image downloads.
+            if(holder.dataset.bannerSignature!==signature) {
+                holder.dataset.bannerSignature=signature;
+                iceBannerMount(holder,response.banner,{serverTime:response.server_time});
+            }
+            holder.setAttribute('title',response.banner.title || 'Событие Arena');
+        } else if (!holder.hidden) {
             holder.hidden = true;
+            holder.dataset.bannerSignature='';
             holder.replaceChildren();
         }
     } catch (error) {
