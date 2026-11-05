@@ -33,7 +33,7 @@ function arenaRules() {
             ? 'Этот раунд проходит без комиссии.'
             : 'Arena удерживает 8% с GRAM, выигранных у соперников.'}</p>
         <p>Если включён Crafter, он помечен как «Бот» и может поставить свои GRAM или NFT и увеличить ставку до закрытия раунда. Его шанс рассчитывается так же, как у других игроков.</p>
-        <p>Пока в раунде один игрок, он может отменить ставку. Если за 5 минут соперник не появится, ставка вернётся автоматически.</p>
+        <p>Если за 5 минут соперник не появится, ставка вернётся автоматически.</p>
     </div>`);
 }
 
@@ -79,8 +79,6 @@ function enterArena(main) {
                 </div>
             </div>
             <div id="arena-actions" class="arena-actions"></div>
-            <small id="arena-terms" class="arena-terms"></small>
-            <button id="arena-cancel" type="button" hidden onclick="arenaCancel()">Вернуть ставку</button>
         </div>
     </section>`;
     arenaRenderControls();
@@ -122,10 +120,6 @@ function arenaApply(data, sent) {
     }
     arena.data = data;
     arena.serverOrigin = (performance.now() + sent) / 2 - data.server_time;
-    document.querySelector('#arena-terms').textContent = [
-        data.fee_bps ? (data.fee_bps / 100) + '% с выигранных GRAM' : '',
-        data.bot_enabled ? 'Crafter может вступить в раунд' : '',
-    ].filter(Boolean).join(' · ');
     state.me.balance = data.balance;
     updateBalance();
     const key = JSON.stringify([data.round_id, data.players]);
@@ -134,7 +128,7 @@ function arenaApply(data, sent) {
         arenaRenderBoard(data, old);
         arenaRenderPlayers(data);
     }
-    if (!old || old.round_id !== data.round_id || old.phase !== data.phase || old.can_cancel !== data.can_cancel ||
+    if (!old || old.round_id !== data.round_id || old.phase !== data.phase ||
             old.balance !== data.balance) arenaRenderControls();
     if (arena.mode === 'gifts' && (!old || old.round_id !== data.round_id || data.phase === 'result' && old.phase !== 'result')) {
         arenaRefreshGifts(true);
@@ -528,9 +522,6 @@ function arenaRenderControls() {
     document.querySelectorAll('.arena-modes [data-mode]').forEach(button => {
         button.setAttribute('aria-pressed', String(button.dataset.mode === arena.mode));
     });
-    const cancel = document.querySelector('#arena-cancel');
-    cancel.hidden = !data?.can_cancel;
-    cancel.disabled = !open;
     const cheapest = arena.gifts[0];
     const giftsOpen = open && arenaGiftSlots() > 0;
     root.classList.toggle('arena-gift-actions', arena.mode === 'gifts');
@@ -832,21 +823,5 @@ async function arenaStake(amount, giftIds = [], round = arena.data?.round_id, qu
             arenaRenderControls();
             if (giftIds.length) arenaRefreshGifts(true);
         }
-    }
-}
-
-async function arenaCancel() {
-    if (!arena.data?.can_cancel || arena.pending) return;
-    const view = arena.view, sent = performance.now();
-    arena.pending = true;
-    arenaRenderControls();
-    try {
-        const data = await api('arena/cancel', {round_id: arena.data.round_id});
-        if (view === arena.view) arenaApply(data, sent);
-    } catch (error) {
-        if (view === arena.view) toast(error.message);
-    } finally {
-        arena.pending = false;
-        if (state.page === 'arena') arenaRenderControls();
     }
 }

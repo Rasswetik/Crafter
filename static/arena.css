@@ -97,8 +97,6 @@ html[data-crafter-theme="light"] #nav.games-nav .nav-main > button[data-game-pag
     display:inline-block; padding:1px 5px; border-radius:6px; background:#7546ad;
     color:#fff; font-size:10px; font-weight:700; vertical-align:middle;
 }
-.arena-terms { display:block; margin:6px 3px 0; color:var(--arena-muted); font-size:10px }
-.arena-terms:empty { display:none }
 .arena-fee-detail { margin:-8px 0 10px; text-align:center; color:#d5e4dc; font-size:12px }
 .arena-mode-tabs { display: inline-flex; gap: 3px; padding: 3px; border: 1px solid var(--arena-edge); border-radius: 22px }
 .arena-mode-tabs button { width: 40px; min-height: 31px; border: 0; background: transparent; display: grid; place-items: center }
@@ -119,7 +117,6 @@ html[data-crafter-theme="light"] #nav.games-nav .nav-main > button[data-game-pag
     border-radius: 9px; overflow: hidden;
 }
 .arena-quick-art { position: relative }
-#arena-cancel { margin-top: 4px; padding: 4px; font-size: 12px; color: var(--arena-muted) }
 
 .arena-player { border-radius: 17px; gap: 8px 10px; padding: 10px; overflow: hidden }
 .arena-player-info small::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: var(--arena-team) }
