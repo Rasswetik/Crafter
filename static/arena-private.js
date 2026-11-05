@@ -354,6 +354,57 @@ function arenaPrivateInventoryTab(mode) {
     arenaPrivate.inventorySelected = new Set();
     arenaPrivateInventoryRender();
 }
+
+function arenaPrivateInventoryRender() {
+    const inv = arenaPrivate.inventoryData, info = arenaPrivate.info;
+    if (!inv || !info?.is_owner || info.token !== arena.privateToken) return;
+    const mine = arenaPrivate.inventoryMode === 'owner';
+    const list = mine ? inv.owner_gifts : inv.bot_gifts;
+    const chosen = arenaPrivate.inventorySelected || new Set();
+    const locked = list.filter(item => item.status !== 'unlisted').length;
+    const items = list.map(item => {
+        const unavailable = item.status !== 'unlisted';
+        const checked = chosen.has(item.id);
+        const photo = imageURL(item.image);
+        return '<button type="button" class="arena-private-item ' +
+            (checked ? 'is-selected ' : '') + (unavailable ? 'is-locked' : '') +
+            '" data-gift-id="' + esc(item.id) + '" aria-pressed="' + checked + '" ' +
+            (unavailable ? 'disabled' : 'onclick="arenaPrivateInventoryToggle(' + arg(item.id) + ')"') +
+            '><span class="arena-private-item-image">' +
+            (photo ? '<img src="' + esc(photo) + '" alt="" loading="lazy">' : '🎁') +
+            '</span><span class="arena-private-item-name">' + esc(item.name) + '</span>' +
+            '<span class="arena-private-item-model">' +
+            esc(item.model || (item.number ? '#' + item.number : 'NFT')) + '</span>' +
+            (unavailable ? '<span class="arena-private-item-status">В ставке</span>' :
+                '<span class="arena-private-item-check">' + (checked ? '✓' : '+') + '</span>') +
+            '</button>';
+    }).join('');
+    sheet('Инвентарь · ' + info.bot_name,
+        '<div class="arena-private-inventory">' +
+        '<div class="arena-private-inventory-balance">' +
+        '<div><small>БАЛАНС БОТА</small><strong>' + arenaFormat(inv.bot_balance || 0) +
+        ' GRAM</strong><span>' + esc(info.bot_name || 'Crafter') + '</span></div>' +
+        '<span class="arena-private-inventory-symbol">◇</span></div>' +
+        '<div class="arena-private-inventory-counts"><span>' + inv.bot_gifts.length +
+        ' NFT у бота</span><span>' + inv.owner_gifts.length + ' ваших NFT</span></div>' +
+        '<div class="arena-private-inventory-tabs" role="tablist">' +
+        '<button type="button" role="tab" aria-selected="' + mine +
+        '" onclick="arenaPrivateInventoryTab(&quot;owner&quot;)">Мои подарки</button>' +
+        '<button type="button" role="tab" aria-selected="' + !mine +
+        '" onclick="arenaPrivateInventoryTab(&quot;bot&quot;)">Инвентарь бота</button></div>' +
+        '<p class="arena-private-inventory-hint">' +
+        (mine ? 'Выберите подарки, которые хотите передать боту для ставок.' :
+                'Выберите свободные подарки, которые хотите вернуть себе.') +
+        (locked ? ' ' + locked + ' NFT сейчас в ставке.' : '') + '</p>' +
+        '<div class="arena-private-inventory-grid">' +
+        (items || '<div class="arena-private-inventory-empty">Пока нет подарков</div>') +
+        '</div><div class="arena-private-inventory-bottom">' +
+        '<button type="button" class="arena-private-inventory-transfer" disabled ' +
+        'onclick="arenaPrivateInventoryMove()">' +
+        (mine ? 'Передать боту' : 'Вернуть себе') + '</button>' +
+        '<button type="button" class="arena-private-info-text" onclick="arenaPrivateSettings()">' +
+        'Назад к настройкам</button></div></div>');
+}
 function arenaPrivateBotAvatarPreview(event) {
     const input = event.currentTarget;
     const file = input.files?.[0];
