@@ -606,3 +606,19 @@ html[data-crafter-theme="light"] .arena-private-bot-bank > div:first-child stron
     .arena-private-bot-identity { gap: 8px; padding: 7px }
     .arena-private-bot-editor { padding: 12px 10px }
 }
+
+/* Bot identity inside the private room Info sheet. */
+.arena-private-info-bot {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+    border-radius: 16px; background: #2a2633; border: 1px solid #a37ed22a;
+}
+.arena-private-info-bot img {
+    display: block; width: 46px; height: 46px; flex: 0 0 46px;
+    border-radius: 14px; object-fit: cover; background: #443950;
+}
+.arena-private-info-bot > div { display: grid; gap: 4px; min-width: 0 }
+.arena-private-info-bot strong { font-size: 14px; color: #f5f0fa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.arena-private-info-bot small { font-size: 11px; color: #b3a5c6 }
+.arena-private-form .arena-private-bot-upload { display: flex; align-items: center; justify-content: center }
+html[data-crafter-theme="light"] .arena-private-info-bot { background: #eeeaf4 }
+html[data-crafter-theme="light"] .arena-private-info-bot strong { color: #30223c }
