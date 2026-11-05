@@ -87,14 +87,18 @@ go = async function(page, eventId = null, focusLeaderboard = true) {
     }
 };
 const crafterArenaSwordArt = '<svg class="crafter-animated-swords" viewBox="0 0 100 100" aria-hidden="true">'+
-'<g class="sword sword-left"><path class="sword-blade" d="M50 7 43 23 43 65 57 65 57 23Z"/>'+
-'<path class="sword-shine" d="M50 12V64" stroke="currentColor" stroke-width="2" />'+
-'<path class="sword-crossguard" d="M28 67Q50 76 72 67L70 61 55 65H45L30 61Z"/>'+
-'<path class="sword-hilt" d="M46 69H54V87H46Z"/><circle cx="50" cy="91" r="5" class="sword-pommel"/></g>'+
-'<g class="sword sword-right"><path class="sword-blade" d="M50 7 43 23 43 65 57 65 57 23Z"/>'+
-'<path class="sword-shine" d="M50 12V64" stroke="currentColor" stroke-width="2" />'+
-'<path class="sword-crossguard" d="M28 67Q50 76 72 67L70 61 55 65H45L30 61Z"/>'+
-'<path class="sword-hilt" d="M46 69H54V87H46Z"/><circle cx="50" cy="91" r="5" class="sword-pommel"/></g></svg>';
+'<defs><linearGradient id="crafter-ice-steel"><stop stop-color="#efffff"/><stop offset=".4" stop-color="#6ed4ff"/><stop offset="1" stop-color="#2387c9"/></linearGradient>'+
+'<linearGradient id="crafter-violet-steel"><stop stop-color="#fff6ff"/><stop offset=".4" stop-color="#cb9cff"/><stop offset="1" stop-color="#8751d8"/></linearGradient>'+
+'<linearGradient id="crafter-guard"><stop stop-color="#f3feff"/><stop offset=".55" stop-color="#acbcd0"/><stop offset="1" stop-color="#50617e"/></linearGradient></defs>'+
+'<g class="sword sword-left"><path class="sword-blade" d="M50 5 43 23 44.3 67H55.7L57 23Z" fill="url(#crafter-ice-steel)"/>'+
+'<path d="M50 9V65" stroke="#f5ffff" stroke-width="1.5" opacity=".9"/>'+
+'<path class="sword-crossguard" d="M26 69 32 61 45 65 50 67 55 65 68 61 74 69 57 74 53 78H47L43 74Z" fill="url(#crafter-guard)"/>'+
+'<path class="sword-hilt" d="M46.5 77H53.5V91H46.5Z" fill="#314869"/><circle cx="50" cy="94" r="4" fill="#88dcfa" stroke="#efffff" stroke-width="1.3"/></g>'+
+'<g class="sword sword-right"><path class="sword-blade" d="M50 5 43 23 44.3 67H55.7L57 23Z" fill="url(#crafter-violet-steel)"/>'+
+'<path d="M50 9V65" stroke="#f5ffff" stroke-width="1.5" opacity=".9"/>'+
+'<path class="sword-crossguard" d="M26 69 32 61 45 65 50 67 55 65 68 61 74 69 57 74 53 78H47L43 74Z" fill="url(#crafter-guard)"/>'+
+'<path class="sword-hilt" d="M46.5 77H53.5V91H46.5Z" fill="#4f3965"/><circle cx="50" cy="94" r="4" fill="#d0aaff" stroke="#efffff" stroke-width="1.3"/></g>'+
+'</svg>';
 
 function renderGamesHub() {
     document.querySelector('#main').innerHTML = `<section class="crafter-games">
