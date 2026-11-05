@@ -144,8 +144,12 @@ function renderCraft() {
     const quote = state.quote?.key === craftQuoteKey(state.selected, state.target?.id, state.target?.listingId) ? state.quote : null;
     const pending = !quote && gifts.length > 0 && Boolean(state.target);
     const chance = quote?.chance ?? (pending ? null : 0);
+    // Preserve a running event GIF across quote/slot updates.
+    const previousBanner = document.querySelector('#craft-event-banner .ice-banner-stage');
+    const previousSignature = document.getElementById('craft-event-banner')?.dataset.bannerSignature || '';
     document.querySelector('#main').innerHTML = `
         <section class="craft-page">
+            <div class="arena-event-banner-slot craft-event-banner" id="craft-event-banner" hidden></div>
             <div class="forge" id="forge">
                 ${Array.from({length: CRAFT_GIFT_LIMIT}, (_, index) => slot(index, gifts)).join('')}
                 <div class="anvil${pending ? ' chance-pending' : ''}">
@@ -172,6 +176,15 @@ function renderCraft() {
                 </button>
             </div>
         </section>`;
+    if(previousBanner) {
+        const container=document.getElementById('craft-event-banner');
+        if(container){
+            container.append(previousBanner);
+            container.hidden=false;
+            container.dataset.bannerSignature=previousSignature;
+        }
+    }
+    if(typeof crafterCraftBannerMount==='function')crafterCraftBannerMount('craft-event-banner');
 }
 
 function applyPicker() {
