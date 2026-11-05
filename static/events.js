@@ -15,23 +15,25 @@ function crafterEventDuration(seconds) {
     return (days?days+'д ':'')+hours+':'+minutes+':'+secondsPart;
 }
 function crafterEventUpdateClock() {
-    const clock=document.getElementById('crafter-event-clock');
-    if(!clock||!crafterCurrentEvent)return;
+    const clocks=document.querySelectorAll('.crafter-event-countdown');
+    if(!clocks.length||!crafterCurrentEvent)return;
     const now=Date.now()/1000,ev=crafterCurrentEvent;
     let label,target;
     if(now<ev.start_at){label='До начала';target=ev.start_at;}
     else if(now<ev.end_at){label='До конца';target=ev.end_at;}
     else{label='Завершён';target=now;}
-    const labelNode=clock.querySelector('small'),timeNode=clock.querySelector('b');
-    if(labelNode)labelNode.textContent=label;
-    if(timeNode)timeNode.textContent=crafterEventDuration(target-now);
+    for(const clock of clocks){
+        const labelNode=clock.querySelector('small'),timeNode=clock.querySelector('b');
+        if(labelNode&&!clock.closest('.crafter-event-layout-timer'))labelNode.textContent=label;
+        if(timeNode)timeNode.textContent=crafterEventDuration(target-now);
+    }
 }
 function crafterEventStartClock(event) {
     clearInterval(crafterEventClockTimer);
     crafterCurrentEvent=event;
     crafterEventUpdateClock();
     crafterEventClockTimer=setInterval(()=>{
-        if(state.page==='events'&&!document.hidden&&document.getElementById('crafter-event-clock'))
+        if(state.page==='events'&&!document.hidden&&document.querySelector('.crafter-event-countdown'))
             crafterEventUpdateClock();
         else if(state.page!=='events'){
             clearInterval(crafterEventClockTimer);
@@ -45,10 +47,18 @@ function crafterEventPrizeVisual(prize) {
     if(prize.type==='gram'){
         image='<img src="/static/assets/gram.svg" alt="GRAM" loading="lazy">';
     }else if(prize.type==='telegram'&&/^[A-Za-z][A-Za-z0-9]{1,70}-[0-9]{1,10}$/.test(prize.telegram_slug||'')){
-        const slug=prize.telegram_slug;
+        const slug=prize.telegram_slug.toLowerCase();
         image='<span class="crafter-event-nft-animation" data-event-nft="'+esc(slug)+'">'+
-            '<img loading="lazy" src="https://nft.fragment.com/gift/'+esc(slug.toLowerCase())+
-            '.webp" alt="NFT '+esc(slug)+'" onerror="this.hidden=true"></span>';
+            '<img loading="lazy" src="https://nft.fragment.com/gift/'+esc(slug)+
+            '.webp" alt="Telegram NFT" onerror="if(!this.dataset.fallback){this.dataset.fallback=1;this.src=this.src.replace(/\.webp$/,\'.medium.jpg\');}else{this.src=\'/static/assets/gifts-empty-market.webp\';this.onerror=null;}"></span>';
+    }else if(prize.type==='collection'&&prize.collection){
+        const collection=String(prize.collection).replace(/[^a-z0-9]/gi,'').toLowerCase();
+        image='<img src="https://fragment.com/file/gifts/'+encodeURIComponent(collection)+
+            '/thumb.webp" loading="lazy" alt="Подарок" onerror="this.src=\'/static/assets/gifts-empty-market.webp\';this.onerror=null;">';
+    }else if(prize.type==='model'&&prize.collection&&prize.model){
+        image='<img src="https://api.changes.tg/model/'+encodeURIComponent(prize.collection)+
+            '/'+encodeURIComponent(prize.model)+'.png?size=128" loading="lazy" alt="Модель подарка" '+
+            'onerror="this.src=\'/static/assets/gifts-empty-market.webp\';this.onerror=null;">';
     }else if(prize.image_url && /^\/media\/event\/[a-f0-9]{32}\/prize\//.test(prize.image_url)){
         image='<img loading="lazy" src="'+esc(prize.image_url)+'" alt="Награда">';
     }
@@ -97,11 +107,18 @@ async function openCrafterEvent(eventId,focusLeaderboard=false) {
     if(!main||state.page!=='events')return;
     main.innerHTML='<section class="crafter-events-page"><p class="sub">Загружаем рейтинг…</p></section>';
     try{
-        const result=await api('events/'+encodeURIComponent(eventId));
+        const [result,layout]=await Promise.all([
+            api('events/'+encodeURIComponent(eventId)),
+            api('events/'+encodeURIComponent(eventId)+'/page').catch(()=>({page:null}))
+        ]);
         if(state.page!=='events')return;
         const event=result.event,leaders=result.leaders||[];
         crafterCurrentEvent=event;
-        const maxRank=Math.max(leaders.length,3);
+        if(layout.page&&typeof crafterEventPageView==='function'){
+            crafterEventPageView(main,event,leaders,layout.page);
+            return;
+        }
+        const maxRank=Math.min(100,Math.max(leaders.length,(event.prizes||[]).length,3));
         const byRank=new Map(leaders.map(player=>[player.rank,player]));
         const prizes=new Map((event.prizes||[]).map(p=>[p.place,p]));
         main.innerHTML='<section class="crafter-events-page crafter-event-detail" style="--event-accent:'+esc(event.accent)+'">'+
