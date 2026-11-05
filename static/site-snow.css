@@ -1,0 +1,36 @@
+/* Noninteractive, composited snow for all Crafter pages. */
+.crafter-snowfall{
+    position:fixed;
+    inset:0;
+    width:100vw;
+    height:100dvh;
+    overflow:hidden;
+    pointer-events:none!important;
+    z-index:850;
+    contain:strict;
+    isolation:isolate;
+}
+.crafter-snowflake{
+    position:absolute;
+    left:var(--snow-x);
+    top:-30px;
+    display:block;
+    font-size:var(--snow-size);
+    line-height:1;
+    color:#f2fbff;
+    opacity:0;
+    text-shadow:0 0 5px rgba(190,228,255,.5);
+    animation:crafter-snowfall-fall var(--snow-duration) linear var(--snow-delay) infinite;
+    will-change:transform,opacity;
+    user-select:none;
+}
+@keyframes crafter-snowfall-fall{
+    0%{transform:translate3d(0,-30px,0);opacity:0}
+    7%{opacity:var(--snow-opacity)}
+    90%{opacity:var(--snow-opacity)}
+    100%{transform:translate3d(var(--snow-drift),calc(100dvh + 45px),0);opacity:0}
+}
+.crafter-snow-paused .crafter-snowflake{animation-play-state:paused}
+@media(prefers-reduced-motion:reduce){
+    .crafter-snowfall{display:none!important}
+}
