@@ -1,0 +1,54 @@
+/* Visual Ice Arena event/banner composer in the administrator dashboard. */
+.ice-editor{display:grid;gap:13px;max-width:100%;min-width:0}
+.ice-editor .panel{margin:0;padding:17px;border-radius:18px}
+.ice-editor .panel>h3{margin:0 0 10px;font-size:18px}
+.ice-editor .sub{line-height:1.5}
+.ice-editor label{display:grid;gap:7px;min-width:0;font-size:12px;color:#c9dbe7;font-weight:700}
+.ice-editor .field{width:100%;min-width:0;margin:0;box-sizing:border-box}
+.ice-editor input[type="color"]{height:41px;width:100%;padding:3px;border-radius:11px;border:1px solid #61869a;background:#1e374a}
+.ice-editor input[type="file"]{font-size:11px;max-width:100%;padding:7px 0}
+.ice-editor-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));gap:12px}
+.ice-editor-preview-panel{
+  background:linear-gradient(145deg,#193449,#0c202f)!important;
+  border:1px solid #5bafcc48!important;
+}
+.ice-editor-preview-panel h3{color:#d0f6ff}
+.ice-editor-preview{
+  width:min(100%,540px);
+  margin:14px auto;
+  padding:13px;
+  box-sizing:border-box;
+  border:1px dashed #8bdafc60;
+  border-radius:17px;
+  background:linear-gradient(#142d3e,#111c29);
+}
+.ice-editor-buttons{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:12px 0}
+.ice-editor-buttons button{width:auto;min-height:39px;padding:8px 12px;margin:0;font-size:12px;font-weight:750}
+.ice-editor-buttons>.primary{background:#59c5f1;color:#062538}
+.ice-editor-create button{background:#224a61;color:#d9f8ff;border:1px solid #77d2f64d;border-radius:12px}
+.ice-editor-check{display:flex!important;align-items:center;gap:7px}
+.ice-editor-check input{accent-color:#56cbf4}
+.ice-editor-layer-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:7px;margin:12px 0 18px}
+.ice-list-item{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;
+  gap:5px;align-items:center;text-align:left;min-width:0;
+  padding:12px;border:1px solid #548ca445;border-radius:12px;background:#203243;color:#eaf7ff;
+}
+.ice-list-item>span{font-size:10px;color:#b0d0dd;grid-column:1/-1}
+.ice-list-item>strong{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ice-list-item>small{font-size:10px;color:#9bbfd0}
+.ice-list-item.active{background:#205a7e;border-color:#8ae8ff;box-shadow:inset 0 0 0 1px #93dbff30}
+.ice-editor-properties-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,155px),1fr));gap:12px}
+.ice-editor #ice-editor-properties{border-top:1px solid #78bcdb33;padding-top:13px}
+.ice-editor #ice-editor-properties h4{margin:0 0 14px}
+.ice-asset-chip{display:flex;gap:10px;align-items:center}
+.ice-asset-chip img{width:80px;height:60px;object-fit:contain;background:#132b3b;border-radius:10px}
+.ice-asset-chip button{min-height:33px;padding:6px 9px;border-radius:10px;background:#244357;color:#e6f8ff}
+.ice-editor-status{font-size:12px;color:#9bdcf8;margin:10px 0 0;line-height:1.45}
+@media(max-width:440px){
+  .ice-editor .panel{padding:12px}
+  .ice-editor-preview{padding:6px}
+  .ice-editor-properties-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .ice-editor-buttons{gap:6px}
+  .ice-editor-buttons button{font-size:11px;padding:8px 10px}
+}
