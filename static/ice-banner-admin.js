@@ -28,39 +28,64 @@ function iceList(){
     }[l.type])+'</span><strong>'+esc(l.text||'Изображение')+'</strong><small>z'+l.z+
     '</small></button>').join('')||'<p class="sub">Слои пока не добавлены.</p>';
 }
+
+function iceSlider(label,field,value,min,max,step){
+  return '<label class="ice-editor-slider">'+label+
+    '<span class="ice-editor-slider-row"><input type="range" data-ice-layer="'+field+
+    '" min="'+min+'" max="'+max+'" step="'+step+'" value="'+Number(value||0)+'">'+
+    '<output data-ice-readout="'+field+'">'+Number(value||0)+'</output></span></label>';
+}
+function iceColor(label,field,value){
+  return '<label class="ice-editor-color-field">'+label+
+    '<span class="ice-editor-color-row"><input type="color" data-ice-layer="'+field+
+    '" value="'+esc(value||'#ffffff')+'">'+
+    '<input class="field" type="text" maxlength="7" spellcheck="false" data-ice-color-hex="'+
+    field+'" value="'+esc(value||'#ffffff')+'" aria-label="'+label+'"></span></label>';
+}
 function iceProperties(){
   const root=document.querySelector('#ice-editor-properties'),l=iceSelected();
   if(!root)return;
-  if(!l){root.innerHTML='<p class="sub">Выберите слой или добавьте новый.</p>';return;}
-  root.innerHTML='<h4>Параметры слоя</h4><div class="ice-editor-properties-grid">'+
-    (l.type==='image'?'<label>Загрузить PNG / GIF<input data-ice-file="layer" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>'+
+  if(!l){root.innerHTML='<p class="sub">Выберите объект на холсте или добавьте новый.</p>';return;}
+  const isText=['title','text','timer'].includes(l.type);
+  const fonts=[['system','Системный'],['display','SF Pro Display'],['rounded','Скруглённый'],
+    ['heavy','Impact · массивный'],['bold','Arial Black · жирный'],
+    ['geometric','Trebuchet · геометрический'],['clean','Verdana · чёткий'],
+    ['classic','Tahoma · компактный'],['condensed','Узкий'],
+    ['serif','Georgia · с засечками'],['mono','Моноширинный'],
+    ['futuristic','Техно']];
+  root.innerHTML='<h4>Параметры слоя</h4>'+
+    '<p class="ice-editor-hint">Тяните за синие углы элемента прямо на холсте. Двойной клик по надписи — редактирование текста на баннере.</p>'+
+    '<div class="ice-editor-properties-grid">'+
+    (l.type==='image'?'<label>PNG / WebP / GIF<input data-ice-file="layer" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>'+
       (l.asset?'<div class="ice-asset-chip"><img src="'+esc(l.asset)+'" alt=""><button type="button" data-ice-clear="layer">Очистить</button></div>':'')+
-      iceSelect('Масштабирование','fit',l.fit,[['contain','Целиком'],['cover','Заполнить']]):
-      iceFields(l.type==='timer'?'Текст перед таймером':'Надпись','text',l.text,'text','maxlength="140"'))+
-    iceSelect('Шрифт','font',l.font,[['system','Системный'],['rounded','Скруглённый'],
-      ['mono','Моноширинный'],['serif','С засечками'],['condensed','Узкий']])+
-    iceFields('Размер шрифта, px','font_size',l.font_size,'number','min="10" max="72"')+
-    iceSelect('Насыщенность','font_weight',l.font_weight,[[400,'Обычный'],[500,'Средний'],
-      [600,'Полужирный'],[700,'Жирный'],[800,'Очень жирный'],[900,'Максимальный']])+
-    (l.type==='timer'?
-      '<label class="ice-editor-check ice-timer-bg-toggle"><input type="checkbox" data-ice-toggle-bg '+
-      (Number(l.bg_opacity)>0?'checked':'')+'> Фон часов</label>'+
-      iceSelect('Формат часов','format',l.format,[
-        ['hh:mm:ss','00:00:59'],['mm:ss','00:59'],['days','1д 00:00:59']]):'')+
-    iceSelect('Выравнивание','align',l.align,[['left','Слева'],['center','По центру'],['right','Справа']])+
-    iceFields('Цвет текста','color',l.color,'color')+
-    iceFields('Цвет фона','bg_color',l.bg_color,'color')+
-    iceFields('Непрозрачность фона','bg_opacity',l.bg_opacity,'number',
-      'min="0" max="1" step=".05" '+(l.type==='timer'&&Number(l.bg_opacity)===0?'disabled':''))+
-    iceFields('Скругление','radius',l.radius,'number','min="0" max="90"')+
+      iceSelect('Масштабирование','fit',l.fit,[['contain','Целиком'],['cover','Заполнить']]):'')+
+    (l.type==='gram'?'<p class="ice-editor-gram-help">Значок GRAM можно растягивать и перемещать как отдельный объект.</p>':'')+
+    (isText?'<div class="ice-editor-text-input">'+
+      iceFields(l.type==='timer'?'Надпись перед часами':'Текст баннера','text',l.text,'text','maxlength="140"')+
+      '<button type="button" class="secondary" data-ice-insert="gram" title="Вставить значок GRAM рядом с текстом">+ Значок GRAM ◇</button>'+
+      '<small>Символ {GRAM} заменяется официальной иконкой GRAM в баннере.</small></div>'+
+      iceSelect('Шрифт','font',l.font,fonts)+
+      iceSlider('Размер букв, px','font_size',l.font_size,10,72,1)+
+      iceSlider('Насыщенность шрифта','font_weight',l.font_weight,400,900,50)+
+      iceSlider('Дополнительная толщина букв, px','stroke_width',l.stroke_width??0,0,3,.1)+
+      (l.type==='timer'?
+        '<label class="ice-editor-check ice-timer-bg-toggle"><input type="checkbox" data-ice-toggle-bg '+
+        (Number(l.bg_opacity)>0?'checked':'')+'> Фон часов</label>'+
+        iceSelect('Формат отсчёта','format',l.format,[
+          ['hh:mm:ss','00:00:59'],['mm:ss','00:59'],['days','1д 00:00:59']]):'')+
+      iceSelect('Выравнивание','align',l.align,[['left','Слева'],['center','По центру'],['right','Справа']])+
+      iceColor(l.type==='timer'?'Цвет цифр таймера':'Цвет надписи','color',l.color):'')+
+    iceColor('Цвет подложки','bg_color',l.bg_color)+
+    iceSlider('Прозрачность подложки','bg_opacity',l.bg_opacity,0,1,.05)+
+    iceFields('Скругление, px','radius',l.radius,'number','min="0" max="90"')+
     iceFields('X, %','x',l.x,'number','min="0" max="100" step=".1"')+
     iceFields('Y, %','y',l.y,'number','min="0" max="100" step=".1"')+
-    iceFields('Ширина, %','w',l.w,'number','min="1" max="100" step=".1"')+
-    iceFields('Высота, %','h',l.h,'number','min="1" max="100" step=".1"')+
-    iceFields('Приоритет слоя','z',l.z,'number','min="0" max="99"')+
+    iceFields('Ширина элемента, %','w',l.w,'number','min="3" max="100" step=".1"')+
+    iceFields('Высота элемента, %','h',l.h,'number','min="3" max="100" step=".1"')+
+    iceFields('Порядок слоя','z',l.z,'number','min="0" max="99"')+
     '</div><div class="ice-editor-buttons">'+
-    '<button type="button" class="secondary" data-ice-action="up">Вперёд</button>'+
-    '<button type="button" class="secondary" data-ice-action="down">Назад</button>'+
+    '<button type="button" class="secondary" data-ice-action="up">Выше</button>'+
+    '<button type="button" class="secondary" data-ice-action="down">Ниже</button>'+
     '<button type="button" class="secondary" data-ice-action="copy">Копировать</button>'+
     '<button type="button" class="secondary" data-ice-action="remove">Удалить</button></div>';
 }
