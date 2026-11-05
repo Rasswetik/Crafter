@@ -9,6 +9,7 @@ import uuid
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 from io import BytesIO
+from PIL import Image, UnidentifiedImageError
 
 from flask import abort, request, send_file
 
@@ -50,6 +51,13 @@ def install_events(app, db, auth, audit):
                 image BYTEA NOT NULL,
                 PRIMARY KEY(event_id,place)
             );
+            CREATE TABLE IF NOT EXISTS crafter_event_prize_gifs (
+                event_id TEXT NOT NULL,
+                place INTEGER NOT NULL,
+                image_key TEXT NOT NULL,
+                image BYTEA NOT NULL,
+                PRIMARY KEY(event_id,place)
+            );
             CREATE INDEX IF NOT EXISTS crafter_events_visible
                 ON crafter_events(enabled,sort_order);
             CREATE INDEX IF NOT EXISTS crafter_events_history
@@ -68,13 +76,24 @@ def install_events(app, db, auth, audit):
         item['metric_label'] = METRICS[item['metric']][1]
         item['score_unit'] = METRICS[item['metric']][2]
         item['image_url'] = '/media/event/{}/{}.webp'.format(item['id'], item.pop('image_key'))
-        item['prizes'] = [
-            {'place': place, 'label': label,
-             'image_url': ('/media/event/{}/prize/{}/{}.webp'.format(
-                 item['id'], place, prizes_by_event[item['id']][place])
-                 if place in prizes_by_event[item['id']] else None)}
-            for place, label in enumerate(json.loads(item['prizes']), 1)
-        ]
+        raw_prizes = json.loads(item['prizes'])
+        prize_slots = []
+        for place, original in enumerate(raw_prizes[:3], 1):
+            prize = original.copy() if isinstance(original, dict) else {'label': str(original)}
+            kind = prize.get('type', 'image')
+            if kind not in ('image', 'gram', 'telegram', 'none'):
+                kind = 'image'
+            image_key, mime = prizes_by_event[item['id']].get(place, (None, None))
+            prize_slots.append({
+                'place': place, 'label': str(prize.get('label', ''))[:120],
+                'type': kind,
+                'telegram_url': prize.get('telegram_url', '') if kind == 'telegram' else '',
+                'telegram_slug': prize.get('telegram_slug', '') if kind == 'telegram' else '',
+                'image_url': ('/media/event/{}/prize/{}/{}.{}'.format(
+                    item['id'], place, image_key, 'gif' if mime == 'image/gif' else 'webp')
+                    if image_key else None),
+            })
+        item['prizes'] = prize_slots
         now = int(time.time())
         item['status'] = ('upcoming' if now < item['start_at'] else
                           'finished' if now > item['end_at'] else 'active')
@@ -89,10 +108,13 @@ def install_events(app, db, auth, audit):
         ids = [row['id'] for row in rows]
         prizes_by_event = defaultdict(dict)
         if ids:
-            # All prizes are a maximum of three per event.
+            id_set = set(ids)
             for image in db().execute('SELECT event_id,place,image_key FROM crafter_event_prize_images'):
-                if image['event_id'] in ids:
-                    prizes_by_event[image['event_id']][image['place']] = image['image_key']
+                if image['event_id'] in id_set:
+                    prizes_by_event[image['event_id']][image['place']] = (image['image_key'], 'image/webp')
+            for image in db().execute('SELECT event_id,place,image_key FROM crafter_event_prize_gifs'):
+                if image['event_id'] in id_set:
+                    prizes_by_event[image['event_id']][image['place']] = (image['image_key'], 'image/gif')
         return [metadata(row, prizes_by_event) for row in rows]
 
     def ranking(event, limit=50):
@@ -185,6 +207,25 @@ def install_events(app, db, auth, audit):
         prize_labels = [form.get('prize_{}'.format(i), '').strip() for i in (1, 2, 3)]
         if any(len(label) > 120 for label in prize_labels):
             abort(400, description='Описание награды: до 120 символов')
+        prizes = []
+        for place, label in enumerate(prize_labels, 1):
+            kind = form.get('prize_type_{}'.format(place), 'image')
+            if kind not in ('image', 'gram', 'telegram', 'none'):
+                abort(400, description='Выберите вид награды')
+            telegram_url = form.get('prize_link_{}'.format(place), '').strip()
+            slug = ''
+            if kind == 'telegram':
+                match = re.fullmatch(
+                    r'https://(?:t\.me|telegram\.me)/nft/([A-Za-z][A-Za-z0-9]{1,70}-[0-9]{1,10})/?',
+                    telegram_url)
+                if not match:
+                    abort(400, description='Ссылка должна иметь вид https://t.me/nft/PlushPepe-123')
+                slug = match.group(1)
+                telegram_url = 'https://t.me/nft/' + slug
+            else:
+                telegram_url = ''
+            prizes.append({'label': label, 'type': kind, 'telegram_url': telegram_url,
+                           'telegram_slug': slug})
         enabled = int(form.get('enabled') == '1')
         show_leaderboard = int(form.get('show_leaderboard') == '1')
         upload_names = ['image', 'prize_image_1', 'prize_image_2', 'prize_image_3']
@@ -196,9 +237,21 @@ def install_events(app, db, auth, audit):
                 if file.stream.tell() > MAX_IMAGE_SIZE:
                     abort(413, description='Изображение не должно превышать 5 МБ')
                 file.stream.seek(0)
-                uploads[name] = artwork(file)
+                if name != 'image':
+                    raw = file.stream.read()
+                    file.stream.seek(0)
+                    try:
+                        with Image.open(BytesIO(raw)) as image:
+                            if image.format == 'GIF':
+                                if image.width * image.height > 4_000_000 or getattr(image, 'n_frames', 1) > 180:
+                                    abort(400, description='GIF: до 180 кадров и 4 МП')
+                                uploads[name] = ('image/gif', raw)
+                                continue
+                    except (OSError, ValueError, UnidentifiedImageError):
+                        abort(400, description='Загрузите PNG, WebP, JPEG или GIF')
+                uploads[name] = ('image/webp', artwork(file))
         values = (title, description, metric, start_at, end_at, enabled, accent,
-                  show_leaderboard, sort_order, json.dumps(prize_labels, ensure_ascii=False))
+                  show_leaderboard, sort_order, json.dumps(prizes, ensure_ascii=False))
         if event_id is not None:
             validate_id(event_id)
         with db():
@@ -210,7 +263,7 @@ def install_events(app, db, auth, audit):
                     abort(409, description='Можно создать до 50 событий')
                 event_id = uuid.uuid4().hex
                 db().execute('INSERT INTO crafter_events VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                             (event_id, *values, uuid.uuid4().hex, uploads['image']))
+                             (event_id, *values, uuid.uuid4().hex, uploads['image'][1]))
             else:
                 if not db().execute('SELECT id FROM crafter_events WHERE id=?', (event_id,)).fetchone():
                     abort(404, description='Событие не найдено')
@@ -219,17 +272,28 @@ def install_events(app, db, auth, audit):
                     sort_order=?,prizes=? WHERE id=?''', (*values, event_id))
                 if 'image' in uploads:
                     db().execute('UPDATE crafter_events SET image_key=?,image=? WHERE id=?',
-                                 (uuid.uuid4().hex, uploads['image'], event_id))
+                                 (uuid.uuid4().hex, uploads['image'][1], event_id))
             for place in (1, 2, 3):
-                if form.get('remove_prize_image_{}'.format(place)) == '1':
+                if (form.get('remove_prize_image_{}'.format(place)) == '1'
+                        or prizes[place - 1]['type'] in ('gram', 'telegram', 'none')):
                     db().execute('DELETE FROM crafter_event_prize_images WHERE event_id=? AND place=?',
                                  (event_id, place))
+                    db().execute('DELETE FROM crafter_event_prize_gifs WHERE event_id=? AND place=?',
+                                 (event_id, place))
                 key = 'prize_image_{}'.format(place)
-                if key in uploads:
-                    db().execute('''INSERT INTO crafter_event_prize_images VALUES(?,?,?,?)
+                if key in uploads and prizes[place - 1]['type'] == 'image':
+                    mime, payload = uploads[key]
+                    target = ('crafter_event_prize_gifs' if mime == 'image/gif'
+                              else 'crafter_event_prize_images')
+                    other = ('crafter_event_prize_images' if mime == 'image/gif'
+                             else 'crafter_event_prize_gifs')
+                    db().execute('DELETE FROM ' + other + ' WHERE event_id=? AND place=?',
+                                 (event_id, place))
+                    db().execute('INSERT INTO ' + target + """
+                        (event_id,place,image_key,image) VALUES(?,?,?,?)
                         ON CONFLICT(event_id,place) DO UPDATE SET
-                        image_key=excluded.image_key,image=excluded.image''',
-                                 (event_id, place, uuid.uuid4().hex, uploads[key]))
+                        image_key=excluded.image_key,image=excluded.image""",
+                                 (event_id, place, uuid.uuid4().hex, payload))
         audit('Crafter leaderboard event saved')
         return {'id': event_id}
 
@@ -240,6 +304,7 @@ def install_events(app, db, auth, audit):
         with db():
             db().execute('BEGIN IMMEDIATE')
             db().execute('DELETE FROM crafter_event_prize_images WHERE event_id=?', (event_id,))
+            db().execute('DELETE FROM crafter_event_prize_gifs WHERE event_id=?', (event_id,))
             if not db().execute('DELETE FROM crafter_events WHERE id=?', (event_id,)).rowcount:
                 abort(404, description='Событие не найдено')
         audit('Crafter leaderboard event deleted')
