@@ -39,23 +39,13 @@
     border-radius: 50%; background: var(--arena-avatar, #7441b4); color: white; font-size: 13px; font-weight: 800;
 }
 .arena-avatar img { width: 100%; height: 100%; object-fit: cover }
-.arena-player-info, .arena-winner > span:nth-child(2) { display: grid; gap: 3px; min-width: 0 }
-.arena-player-info b, .arena-winner b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis }
-.arena-player-info small, .arena-winner small { color: var(--arena-muted) }
+.arena-player-info { display: grid; gap: 3px; min-width: 0 }
+.arena-player-info b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis }
+.arena-player-info small { color: var(--arena-muted) }
 .arena-player > strong { font-size: 12px }
 .arena-player-items { grid-column: 2 / -1; display: flex; gap: 4px; overflow-x: auto }
-.arena-player-items span { flex: 0 0 28px; height: 28px; border-radius: 7px; display: grid; place-items: center }
-.arena-player-items img { width: 23px; height: 23px; object-fit: contain }
 .arena-mini-gram { background: #1682f5 }
 .arena-mini-gram img { width: 16px; height: 16px }
-.arena-winner {
-    width: 100%; margin-top: 8px; padding: 9px 11px; border-radius: 13px; display: grid;
-    grid-template-columns: 36px minmax(0, 1fr) auto; gap: 9px; align-items: center; text-align: left;
-    border: 1px solid var(--arena-edge); background: var(--arena-panel); color: var(--arena-text);
-}
-.arena-winner.current { background: linear-gradient(120deg, #224b3f, #234231 55%, #343066); color: #fff }
-.arena-winner.current small { color: #baf4d6 }
-.arena-winner > strong { font-size: 22px }
 .arena-dock {
     position: fixed; bottom: calc(98px + env(safe-area-inset-bottom)); z-index: 4;
     left: 50%; transform: translateX(-50%); width: min(calc(100% - 32px), 540px); padding: 8px 7px;
@@ -79,10 +69,9 @@
 .arena-sheet-total { display: block; margin-bottom: 12px; font-size: 22px }
 .arena-prizes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px }
 .arena-prizes > * { min-width: 0; display: grid; gap: 5px; place-items: center; padding: 9px; border-radius: 13px; color: white; text-align: center }
-.arena-prizes img { width: min(90px, 70%); aspect-ratio: 1; object-fit: contain }
+.arena-gram-prize img { width: min(90px, 70%); aspect-ratio: 1; object-fit: contain }
 .arena-gram-prize { background: radial-gradient(ellipse at top left, #76cdff, #147deb) }
-.arena-detail-art { display: grid; place-items: center; border-radius: 14px; margin-bottom: 10px; padding: 15px }
-.arena-detail-art img { width: 135px; height: 135px; object-fit: contain }
+.arena-detail-art { position: relative; width: min(100%, 230px); aspect-ratio: 1; margin: 0 auto 10px; border-radius: 16px; overflow: hidden }
 html[data-crafter-theme="light"] .arena-page {
     --arena-panel: #fff; --arena-edge: #2a215018; --arena-muted: #605a73; --arena-text: #211b35;
     --arena-dock: #faf7fff7; --arena-control: #eee9f7;
@@ -120,15 +109,17 @@ html[data-crafter-theme="light"] .arena-page {
     flex: 0 0 clamp(26px, 8vw, 34px); aspect-ratio: 1; display: grid; place-items: center;
     border-radius: 9px; overflow: hidden;
 }
-.arena-quick-art img { width: 100%; height: 100%; object-fit: contain }
+.arena-quick-art { position: relative }
 #arena-cancel { margin-top: 4px; padding: 4px; font-size: 12px; color: var(--arena-muted) }
 
 .arena-player { border-radius: 17px; gap: 8px 10px; padding: 10px; overflow: hidden }
 .arena-player-info small::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 5px; border-radius: 50%; background: var(--arena-team) }
 .arena-player-items { grid-column: 1 / -1; margin: 1px -10px -10px; padding: 9px 10px; background: #ffffff08 }
-.arena-player-items span { position: relative; flex-basis: 40px; height: 40px; overflow: hidden }
-.arena-player-items span img { width: 29px; height: 29px }
-.arena-player-items span b { position: absolute; bottom: 0; inset-inline: 0; text-align: center; font-size: 10px; background: #1415208c; color: white }
+.arena-player-items > span {
+    position: relative; flex: 0 0 40px; height: 40px; overflow: hidden;
+    border-radius: 8px; display: grid; place-items: center;
+}
+.arena-player-items > span b { position: absolute; bottom: 0; inset-inline: 0; text-align: center; font-size: 10px; background: #1415208c; color: white }
 
 .arena-loading .arena-board { background: #313133 }
 .arena-loading .arena-meta > span, .arena-loading .arena-roster-heading > *, .arena-loading .arena-modes > *,
@@ -202,7 +193,6 @@ html[data-crafter-theme="light"] .arena-page {
 .arena-picker-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 7px }
 .arena-gift-tile, .arena-gift-skeleton { position: relative; display: grid; place-items: center; aspect-ratio: 1; padding: 0; border-radius: 16px; overflow: hidden }
 .arena-gift-skeleton { background: #353535 }
-.arena-gift-tile > img { width: 100%; height: 100%; object-fit: contain }
 .arena-gift-check { position: absolute; right: 6px; top: 6px; border-radius: 6px; width: 19px; height: 19px; background: #181a26a6; border: 1px solid #ffffff55 }
 .arena-gift-tile[aria-pressed="true"] .arena-gift-check { background: #168aff; border-color: transparent }
 .arena-gift-tile[aria-pressed="true"] .arena-gift-check::after { content: ''; display: block; width: 10px; height: 5px; border: solid white; border-width: 0 0 2px 2px; transform: translate(3px, 4px) rotate(-45deg) }
@@ -229,10 +219,32 @@ html[data-crafter-theme="light"] .arena-page {
 
 #sheet:has(.arena-win-panel) { background: radial-gradient(ellipse at top, #305f43, #171d1b 75%) }
 .arena-win-avatar { display: grid; place-items: center; padding: 8px 0 20px }
+.arena-win-avatar p { margin: 11px 0 0; color: #d5e4dc; text-align: center; font-size: 13px }
 .arena-win-avatar .arena-avatar { width: 104px; height: 104px; font-size: 32px; box-shadow: 0 0 0 7px #97f8bb20 }
 .arena-win-panel .arena-sheet-total { text-align: center }
 .arena-win-panel .arena-sheet-total span { display: inline-block; border-radius: 16px; background: #168aff; color: #fff; padding: 4px 9px; font-size: 14px }
 .arena-win-panel .arena-prizes > * { border-radius: 17px }
+.arena-gift-art {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    overflow: hidden; color: #fff9;
+}
+.arena-gift-art > svg { width: 34%; height: 34% }
+.arena-gift-art > img {
+    position: absolute; inset: 0; display: block; width: 100%; height: 100%;
+    object-fit: cover; object-position: center;
+}
+.arena-gift-art > img[hidden] { display: none }
+.arena-gift-art.arena-gift-loaded > svg { visibility: hidden }
+.arena-prizes > .arena-prize-gift {
+    position: relative; display: grid; align-items: end; justify-items: stretch;
+    aspect-ratio: 1; overflow: hidden; padding: 0;
+}
+.arena-prize-info {
+    position: relative; padding: 16px 5px 6px; display: grid; gap: 2px;
+    background: linear-gradient(transparent, #13151ce8); text-shadow: 0 1px 3px #000;
+    font-size: clamp(11px, 3.4vw, 15px);
+}
+.arena-prize-info small { color: #fff; font-size: .85em }
 
 .arena-cash-actions { flex-wrap: nowrap; gap: clamp(3px, 1.5vw, 7px) }
 .arena-cash-actions > button {
