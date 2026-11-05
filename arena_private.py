@@ -2,11 +2,15 @@
 import json
 import re
 import secrets
+import hashlib
+import base64
+import io
 import threading
 import time
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
 
-from flask import abort, g, request
+from flask import abort, g, request, Response
+from PIL import Image, UnidentifiedImageError
 
 from resale import cap_funded_balance
 
@@ -19,6 +23,11 @@ FINISH_MS = 4_000
 FEE_BPS = 800
 MAX_GIFTS = 20
 MAX_REQUESTS = 80
+BOT_DELAY_MS = 4000
+BOT_INTERVAL_MS = 3000
+BOT_CUTOFF_MS = 2000
+BOT_MAX_STAKES = 3
+BOT_DEFAULT_PHOTO = '/static/assets/arena-crafter-bot.jpg'
 MAX_AMOUNT = Decimal('1000000')
 UNIT = Decimal('0.000001')
 TOKEN_RE = re.compile(r'[A-Za-z0-9_-]{24}\Z')
@@ -69,6 +78,52 @@ def install_private_arena(app, db, auth, record, tools):
             CREATE INDEX IF NOT EXISTS arena_private_stake_order
                 ON arena_private_stakes(token, round_no, position);
         """)
+        for sql in (
+            "ALTER TABLE arena_private_rooms ADD COLUMN bot_enabled INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE arena_private_rooms ADD COLUMN bot_name TEXT NOT NULL DEFAULT 'Crafter'",
+            "ALTER TABLE arena_private_rooms ADD COLUMN bot_avatar TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE arena_private_rooms ADD COLUMN bot_avatar_version INTEGER NOT NULL DEFAULT 0",
+        ):
+            try:
+                db().execute(sql)
+            except Exception as exc:
+                if 'already exists' not in str(exc).lower() and 'duplicate column' not in str(exc).lower():
+                    raise
+
+    def room_bot_uid(token):
+        digest = hashlib.sha256(token.encode('ascii')).digest()
+        return -((int.from_bytes(digest[:8], 'big') & ((1 << 60) - 1)) + 100000)
+
+    def bot_photo(room):
+        if room['bot_avatar_version']:
+            return '/api/arena/private/' + room['token'] + '/bot-avatar?v=' + str(room['bot_avatar_version'])
+        return BOT_DEFAULT_PHOTO
+
+    def private_players_public(players, room):
+        bot_id = room_bot_uid(room['token'])
+        human = {uid: value for uid, value in players.items() if uid != bot_id}
+        human_rows = players_public(human)
+        profiles = {int(row['id']): row for row in human_rows}
+        total = sum(player['value'] for player in players.values())
+        output = []
+        for uid, player in players.items():
+            if uid == bot_id:
+                profile = {'id': str(uid), 'name': room['bot_name'],
+                           'photo': bot_photo(room), 'is_bot': True}
+            else:
+                profile = dict(profiles[uid])
+            profile.update({
+                'gram': gram(player['gram']), 'value': gram(player['value']),
+                'chance': round(100 * player['value'] / total, 4) if total else 0,
+                'gifts': player['gifts']
+            })
+            output.append(profile)
+        return output
+
+    def ensure_bot_account(room):
+        uid = room_bot_uid(room['token'])
+        db().execute("INSERT INTO demo_accounts VALUES(?, '0') ON CONFLICT DO NOTHING", (uid,))
+        return uid
 
     def valid_token(token):
         if not isinstance(token, str) or not TOKEN_RE.fullmatch(token):
@@ -95,7 +150,9 @@ def install_private_arena(app, db, auth, record, tools):
                 'joined': joined, 'members': members,
                 'bet_seconds': room['bet_seconds'], 'max_players': room['player_limit'],
                 'created_at': room['created'], 'round_no': room['current_round'],
-                'min_bet': gram(room['min_value']), 'max_bet': gram(room['max_value'])}
+                'min_bet': gram(room['min_value']), 'max_bet': gram(room['max_value']),
+                'bot_enabled': bool(room['bot_enabled']), 'bot_name': room['bot_name'],
+                'bot_photo': bot_photo(room)}
 
     def round_for(room):
         return db().execute(
@@ -161,7 +218,7 @@ def install_private_arena(app, db, auth, record, tools):
                 'fee_gram': gram(fee if uid == winner else 0),
                 'gifts': gifts if uid == winner else [],
             }, uid=uid)
-        public = players_public(players)
+        public = private_players_public(players, room)
         result = {
             'round_id': number,
             'winner': next(p for p in public if p['id'] == str(winner)),
@@ -240,10 +297,10 @@ def install_private_arena(app, db, auth, record, tools):
             'target': str(round_row['winner_id']) if
                 end is not None and now >= end + AIM_MS and round_row['winner_id'] is not None
                 else None,
-            'players': players_public(players),
+            'players': private_players_public(players, room),
             'bank': gram(sum(p['value'] for p in players.values())),
             'last_result': last_result, 'best_result': best_result,
-            'fee_bps': FEE_BPS, 'bot_enabled': False,
+            'fee_bps': FEE_BPS, 'bot_enabled': bool(room['bot_enabled']),
             'balance': str(balance(uid)), 'viewer': str(uid), 'gift_limit': MAX_GIFTS,
             'can_cancel': phase == 'waiting' and uid in players,
             'private_room': public_room(room, joined=True),
@@ -308,7 +365,9 @@ def install_private_arena(app, db, auth, record, tools):
             token = secrets.token_urlsafe(18)
             now = clock()
             db().execute(
-                'INSERT INTO arena_private_rooms VALUES(?,?,?,?,?,?,?,?,?)',
+                'INSERT INTO arena_private_rooms '
+                '(token,owner_id,name,bet_seconds,player_limit,min_value,max_value,current_round,created) '
+                'VALUES(?,?,?,?,?,?,?,?,?)',
                 (token, g.user['id'], name.strip(), seconds, player_limit,
                  minimum, maximum, 1, now))
             db().execute(
@@ -318,6 +377,7 @@ def install_private_arena(app, db, auth, record, tools):
                 'INSERT INTO arena_private_rounds(token,round_no,created,seed) '
                 'VALUES(?,?,?,?)', (token, 1, now, secrets.randbits(32)))
             room = room_for(token, member=True)
+            ensure_bot_account(room)
             result = public_room(room, joined=True)
             result['telegram_link'] = telegram_invite(token)
             result['web_link'] = request.url_root.rstrip('/') + '/?arena_room=' + token
