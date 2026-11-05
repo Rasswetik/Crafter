@@ -43,7 +43,7 @@ function studioFreshBlock(type){
     block.banner={title:'',height:112,width_pct:100,radius:19,
       background_color:'#165580',background_second_color:'#4eb4dd',
       background_mode:'gradient',background_asset:'',background_fit:'cover',
-      background_tint:0,background_focus_x:50,background_focus_y:50,
+      background_tint:0,background_focus_x:50,background_focus_y:50,link_target:'event',
       layers:[studioFreshLayer('text','Заголовок события')]};
  }
  if(type==='text')block.text='Напишите текст';
@@ -191,7 +191,7 @@ function studioBannerInspector(block){
   studioInput('background_tint','Затемнение изображения',b.background_tint,'banner','range',0,.9,.05)+
   studioInput('background_focus_x','Положение фона X',b.background_focus_x,'banner','number',0,100)+
   studioInput('background_focus_y','Положение фона Y',b.background_focus_y,'banner','number',0,100)+
-  '</div>'+layerList+layerFields;
+  studioSelect('link_target','Переход по баннеру',b.link_target||'event', [['event','Текущий ивент'],['craft','Крафты'],['arena','Arena'],['none','Без перехода']],'banner')+'</div><div class="studio-inspector-actions"><button type="button" class="secondary" data-studio-action="link-craft">Связать с баннером над Крафтами</button><button type="button" class="secondary" data-studio-action="link-arena">Связать с баннером над Arena</button></div>'+layerList+layerFields;
 }
 function studioPaintInspector(){
  const root=document.getElementById('studio-inspector');if(!root||!crafterStudio)return;
@@ -477,6 +477,7 @@ function studioClick(event){
     renderAdminEvents();return;
  }
  if(action==='save'){studioSavePage();return;}
+ if(action==='link-craft'||action==='link-arena'){studioLinkGlobalBanner(action==='link-craft'?'craft':'arena');return;}
  if(action==='prizes'){studio.selected='prizes';studioPaintList();studioPaintInspector();return;}
  if(action==='style'){studio.selected='global';studioPaintList();studioPaintInspector();return;}
  if(action==='preview'){
@@ -487,6 +488,7 @@ function studioClick(event){
  if(action==='add'){
     if(studio.page.blocks.length>=24)return toast('Максимум 24 блока');
     const kind=document.getElementById('studio-add-kind')?.value||'text';
+    if(kind==='banner'&&studio.page.blocks.filter(b=>b.type==='banner').length>=4)return toast('До 4 баннеров');
     const block=studioFreshBlock(kind);
     studio.page.blocks.push(block);studio.selected=block.id;
     studio.layer=block.banner?.layers?.[0]?.id||'';
@@ -506,6 +508,7 @@ function studioClick(event){
     if(studio.page.blocks.length>=24)return toast('Максимум 24 блока');
     const block=studioBlock();
     if(!block)return;
+    if(block.type==='banner'&&studio.page.blocks.filter(b=>b.type==='banner').length>=4)return toast('До 4 баннеров');
     const copy=structuredClone(block);
     copy.id='b'+crypto.randomUUID().replaceAll('-','').slice(0,26);
     if(copy.banner)copy.banner.layers.forEach(l=>l.id='layer'+crypto.randomUUID().replaceAll('-','').slice(0,19));
@@ -544,6 +547,19 @@ async function studioUpload(file,where){
     }
     studioDirty();studioPaintInspector();studioPaintPreview();
  }catch(error){studioSetStatus(error.message);toast(error.message);}
+}
+async function studioLinkGlobalBanner(kind){
+ const studio=crafterStudio,block=studioBlock();
+ if(!block?.banner)return toast('Выберите баннер');
+ if(!studio.event?.enabled)return toast('Сначала опубликуйте ивент');
+ const b=structuredClone(block.banner);
+ const payload={...b,enabled:true,event_id:studio.event.id,rooms:'all',hide_after_end:true,
+   title:b.title||studio.event.title,start_at:studio.event.start_at,end_at:studio.event.end_at};
+ try{
+   await api('admin/'+kind+'/banner',payload);
+   studioSetStatus('Баннер опубликован над '+(kind==='craft'?'Крафтами':'Arena'));
+   toast('Баннер связан с '+(kind==='craft'?'Крафтами':'Arena'));
+ }catch(e){studioSetStatus(e.message);toast(e.message);}
 }
 async function studioSavePage(){
  const id=crafterStudio.event.id;
