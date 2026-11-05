@@ -33,12 +33,16 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
                         <small>${item.enabled ? status[item.status] : 'Скрыто'} · ${item.show_leaderboard ? 'Рейтинг включён' : 'Рейтинг скрыт'}</small>
                     </div>
                     <button type="button" class="secondary" data-edit="${esc(item.id)}">Изменить</button>
+                    <button type="button" class="secondary" data-studio-open="${esc(item.id)}">Конструктор</button>
                 </article>`).join('') || '<p class="sub">Пока нет событий. Создайте первое для Arena или Крафтов.</p>'}
             </div>
         </section>
         <section class="panel crafter-event-editor" data-event-editor hidden></section>
     </div>`;
     content.querySelector('[data-new]').onclick = () => crafterEditEvent(null);
+    content.querySelectorAll('[data-studio-open]').forEach(button=>{
+        button.onclick=()=>crafterOpenEventStudio(button.dataset.studioOpen);
+    });
     content.querySelectorAll('[data-edit]').forEach(button => {
         button.onclick = () => crafterEditEvent(data.events.find(item => item.id === button.dataset.edit));
     });
@@ -60,7 +64,7 @@ function crafterEditEvent(item) {
             <label>Необязательная обложка (на странице топа не показывается)
                 <input type="file" name="image" accept="image/png,image/jpeg,image/webp">
             </label>
-            ${item ? `<img class="crafter-event-admin-hero" src="${esc(event.image_url)}" alt="">` : ''}
+            ${item&&event.image_url ? `<img class="crafter-event-admin-hero" src="${esc(event.image_url)}" alt="">` : ''}
             <label>Название<input class="field" name="title" maxlength="90" required value="${esc(event.title)}"></label>
             <label>Приветствие и описание (до 700 символов)
                 <textarea class="field" name="description" rows="3" maxlength="700" placeholder="Описание события и правила участия">${esc(event.description)}</textarea>
