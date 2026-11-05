@@ -90,8 +90,10 @@ function crafterEventPageView(main,event,leaders,page){
         }
         return '';
     };
+    const topBanners=blocks.map((block,index)=>block.type==='banner'?renderBlock(block,index):'').join('');
+    const rest=blocks.map((block,index)=>block.type==='banner'?'':renderBlock(block,index)).join('');
     main.innerHTML='<section class="crafter-events-page crafter-event-detail crafter-event-custom-layout">'+
-      blocks.map(renderBlock).join('')+'</section>';
+      (topBanners?'<div class="crafter-event-top-banners">'+topBanners+'</div>':'')+rest+'</section>';
     const root=main.querySelector('.crafter-event-custom-layout');
     if(!root)return;
     for(const [key,value] of Object.entries(declarations)){
@@ -104,6 +106,24 @@ function crafterEventPageView(main,event,leaders,page){
         const banner={...item.config,start_at:event.start_at,end_at:event.end_at,
             title:item.config.title||event.title};
         iceBannerMount(target,banner,{previewOnly:true,serverTime:Date.now()/1000});
+        const destination=banner.link_target||'event';
+        if(destination!=='none'){
+          const stage=target.querySelector('.ice-banner-stage');
+          if(stage){
+             stage.tabIndex=0;
+             stage.setAttribute('role','link');
+             stage.setAttribute('aria-label','Открыть '+(destination==='craft'?'Крафты':destination==='arena'?'Arena':'событие'));
+             const open=()=>{
+               if(destination==='craft')go('craft');
+               else if(destination==='arena')go('arena');
+               else go('events',event.id);
+             };
+             stage.addEventListener('click',open);
+             stage.addEventListener('keydown',e=>{
+               if(e.key==='Enter'||e.key===' '){e.preventDefault();open();}
+             });
+          }
+        }
     }
     crafterEventStartClock(event);
     if(typeof crafterLoadEventNFTAnimations==='function')crafterLoadEventNFTAnimations(root);
