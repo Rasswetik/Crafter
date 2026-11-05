@@ -182,11 +182,13 @@ function arenaPrivateInfo() {
             'пропорционален ставке; без соперника за 5 минут ставка возвращается. ' +
             (info.bot_enabled
                 ? 'В этой группе играет бот «' + esc(info.bot_name) + '» с отдельным балансом, пополненным владельцем. ' +
-                  'Если бот выигрывает NFT, подарки получает владелец группы.</p>'
+                  'Если бот выигрывает NFT, подарки попадают в его инвентарь. Владелец может забрать их.</p>'
                 : 'Бот в этой группе выключен.</p>') +
             '<div class="arena-private-info-actions">' +
             (info.is_owner ? '<button type="button" class="arena-private-info-primary" ' +
             'onclick="arenaPrivateSettings()">⚙ Настройки группы</button>' : '') +
+            (info.is_owner ? '<button type="button" class="arena-private-info-secondary" ' +
+            'onclick="arenaPrivateInventory()">🎁 Инвентарь бота</button>' : '') +
             '<button type="button" class="arena-private-info-secondary" ' +
             'onclick="arenaPrivateShareSheet(arenaPrivate.info)">Пригласить друзей</button>' +
             '<button type="button" class="arena-private-info-text" ' +
@@ -247,7 +249,9 @@ function arenaPrivateSettings() {
         field('Имя бота', 'bot_name', info.bot_name || 'Crafter',
               'type="text" maxlength="24" minlength="2"') +
         '<p class="arena-private-info-note">Аватар виден участникам в ставках и результатах. ' +
-        'Бот использует только GRAM, выделенные владельцем. При его победе NFT зачисляются владельцу группы.</p>' +
+        'Бот использует GRAM и NFT, переданные владельцем. Выигранные NFT хранятся в инвентаре бота, пока владелец не заберёт их.</p>' +
+        '<button type="button" class="arena-private-bot-inventory-open" ' +
+        'onclick="arenaPrivateInventory()">🎁 Инвентарь бота · Передать или забрать NFT</button>' +
         '<div class="arena-private-bot-bank"><div><span>Баланс бота</span>' +
         '<strong id="arena-private-bot-balance">' + arenaFormat(info.bot_balance || 0) +
         ' GRAM</strong></div>' +
