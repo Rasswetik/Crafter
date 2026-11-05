@@ -12,7 +12,7 @@ const gameNavIcons = {games: gamesHubIcon, gift: stakingGiftIcon, staking: staki
 nav = function() {
     const root = document.querySelector('#nav');
     if (!root) return;
-    const inGames = Boolean(state.gamesMode || ['games','craft','arena'].includes(state.page));
+    const inGames = Boolean(state.gamesMode || ['games','craft','arena','events'].includes(state.page));
     const sidePage = inGames ? 'market' : 'games';
     const sideLabel = inGames ? 'Маркет' : 'Игры';
     const destinations = inGames ? [
@@ -41,9 +41,9 @@ go = async function(page) {
     if (state.page === 'arena') leaveArena();
     // Games is a navigation context, not a permanent extra tab. Keep Hub available
     // while visiting the profile from a game; Market leaves Games mode.
-    if (['games', 'craft', 'arena'].includes(page)) state.gamesMode = true;
+    if (['games', 'craft', 'arena', 'events'].includes(page)) state.gamesMode = true;
     else if (page === 'market' || page === 'gifts' || page === 'staking') state.gamesMode = false;
-    if (!['games', 'staking', 'arena'].includes(page)) {
+    if (!['games', 'staking', 'arena', 'events'].includes(page)) {
         document.querySelector('#app')?.classList.toggle('games-view', Boolean(state.gamesMode));
         return stakeGoBefore(page);
     }
@@ -63,6 +63,10 @@ go = async function(page) {
         const invite = typeof arenaInviteToken === 'function' && arenaInviteToken();
         if (invite) arenaShowInvite(invite);
         else enterArena(main);
+        return;
+    }
+    if (page === 'events') {
+        await renderEventsPage();
         return;
     }
     stakeUi.status = null;
@@ -97,6 +101,11 @@ function renderGamesHub() {
                 <span class="crafter-game-open">Играть</span></span>
             <span class="arena-tile-icon">${gameNavIcons.arena}</span>
         </button>`}
+        <button class="crafter-events-entry" type="button" onclick="go('events')">
+            <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4c0 5-3.1 8-8 8S4 13 4 8V4Zm0 2H2v2c0 3 2 5 5 5m13-7h2v2c0 3-2 5-5 5M12 16v4m-5 0h10"/></svg></span>
+            <span><strong>Лидерборды и ивенты</strong><small>События, награды и рейтинг игроков</small></span>
+            <span aria-hidden="true">›</span>
+        </button>
     </section>`;
 }
 function stakeFormat(n) {
