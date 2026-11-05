@@ -1,97 +1,123 @@
-/* Public image-backed Crafter events and genuine leaderboards. */
-const crafterEventStatus = {
-    active:'ИДЁТ СЕЙЧАС',upcoming:'СКОРО',finished:'ЗАВЕРШЁН'
-};
+/* Compact event leaderboard: title, countdown, and prize at each rank. */
+let crafterEventClockTimer = null;
+let crafterCurrentEvent = null;
 
-function crafterEventDate(seconds) {
-    return new Date(Number(seconds)*1000).toLocaleDateString('ru-RU', {
-        day:'numeric',month:'short',year:'numeric'
-    });
+function crafterEventDate(ts) {
+    return new Date(Number(ts)*1000).toLocaleDateString('ru-RU',{day:'numeric',month:'short',year:'numeric'});
 }
-function crafterEventPhoto(url) {
-    return typeof url === 'string' && url.startsWith('/media/event/') ? esc(url) : '';
+function crafterEventDuration(seconds) {
+    const t=Math.max(0,Math.floor(seconds));
+    const pad=n=>String(n).padStart(2,'0');
+    const days=Math.floor(t/86400);
+    const hours=pad(Math.floor(t/3600)%24);
+    const minutes=pad(Math.floor(t/60)%60);
+    const secondsPart=pad(t%60);
+    return (days?days+'д ':'')+hours+':'+minutes+':'+secondsPart;
 }
-function crafterEventStyle(event) {
-    return '--event-accent:'+esc(event.accent || '#9366dd');
+function crafterEventUpdateClock() {
+    const clock=document.getElementById('crafter-event-clock');
+    if(!clock||!crafterCurrentEvent)return;
+    const now=Date.now()/1000,ev=crafterCurrentEvent;
+    let label,target;
+    if(now<ev.start_at){label='До начала';target=ev.start_at;}
+    else if(now<ev.end_at){label='До конца';target=ev.end_at;}
+    else{label='Завершён';target=now;}
+    const labelNode=clock.querySelector('small'),timeNode=clock.querySelector('b');
+    if(labelNode)labelNode.textContent=label;
+    if(timeNode)timeNode.textContent=crafterEventDuration(target-now);
 }
-function crafterEventCard(event) {
-    return `<button type="button" class="crafter-event-card" style="${crafterEventStyle(event)}"
-        onclick="openCrafterEvent('${esc(event.id)}')">
-        <span class="crafter-event-cover"><img loading="lazy" src="${crafterEventPhoto(event.image_url)}" alt="">
-            <span class="crafter-event-status">${crafterEventStatus[event.status] || ''}</span></span>
-        <span class="crafter-event-caption"><strong>${esc(event.title)}</strong>
-            <small>${esc(event.metric_label)} · ${crafterEventDate(event.start_at)} — ${crafterEventDate(event.end_at)}</small>
-            <span class="crafter-event-view">Подробнее ›</span>
-        </span></button>`;
+function crafterEventStartClock(event) {
+    clearInterval(crafterEventClockTimer);
+    crafterCurrentEvent=event;
+    crafterEventUpdateClock();
+    crafterEventClockTimer=setInterval(()=>{
+        if(state.page==='events'&&!document.hidden&&document.getElementById('crafter-event-clock'))
+            crafterEventUpdateClock();
+        else if(state.page!=='events'){
+            clearInterval(crafterEventClockTimer);
+            crafterEventClockTimer=null;
+        }
+    },1000);
+}
+function crafterEventPrizeVisual(prize) {
+    if(!prize || prize.type==='none')return '';
+    let image='';
+    if(prize.type==='gram'){
+        image='<img src="/static/assets/gram.svg" alt="GRAM" loading="lazy">';
+    }else if(prize.type==='telegram'&&/^[A-Za-z][A-Za-z0-9]{1,70}-[0-9]{1,10}$/.test(prize.telegram_slug||'')){
+        const slug=prize.telegram_slug;
+        image='<span class="crafter-event-nft-animation" data-event-nft="'+esc(slug)+'">'+
+            '<img loading="lazy" src="https://nft.fragment.com/gift/'+esc(slug.toLowerCase())+
+            '.webp" alt="NFT '+esc(slug)+'" onerror="this.hidden=true"></span>';
+    }else if(prize.image_url && /^\/media\/event\/[a-f0-9]{32}\/prize\//.test(prize.image_url)){
+        image='<img loading="lazy" src="'+esc(prize.image_url)+'" alt="Награда">';
+    }
+    if(!image&&!prize.label)return '';
+    const content='<span class="crafter-rank-prize-label">'+esc(prize.label||'Награда')+'</span>'+
+        '<span class="crafter-rank-prize-art">'+image+'</span>';
+    if(prize.type==='telegram' && /^https:\/\/t\.me\/nft\/[A-Za-z0-9-]+$/.test(prize.telegram_url||'')){
+        return '<a class="crafter-rank-prize" href="'+esc(prize.telegram_url)+
+            '" target="_blank" rel="noopener noreferrer" title="Информация о Telegram NFT">'+content+'</a>';
+    }
+    return '<span class="crafter-rank-prize" title="'+esc(prize.label||'Награда')+'">'+content+'</span>';
+}
+function crafterEventLeader(player,rank,prize) {
+    const name=player?.name||'Место свободно';
+    const photo=player?.photo_url?imageURL(player.photo_url):'';
+    const avatar=photo?'<img src="'+esc(photo)+'" loading="lazy" alt="">':
+        esc(Array.from(name)[0]||'?');
+    const score=player?esc(player.score)+' <small>'+esc(crafterCurrentEvent.score_unit)+'</small>':'—';
+    return '<article class="crafter-event-leader'+(rank<=3?' crafter-event-podium':'')+'">'+
+        '<span class="crafter-event-rank">'+rank+'</span>'+
+        '<span class="crafter-event-avatar">'+avatar+'</span>'+
+        '<div class="crafter-event-leader-info"><strong>'+esc(name)+'</strong>'+
+        '<span class="crafter-event-score">'+score+'</span></div>'+
+        (prize?crafterEventPrizeVisual(prize):'')+'</article>';
 }
 async function renderEventsPage() {
     const main=document.querySelector('#main');
-    if (!main || state.page !== 'events') return;
-    main.innerHTML='<section class="crafter-events-page"><h1>Лидерборды и ивенты</h1><p class="sub">Загружаем события…</p></section>';
-    try {
-        const response=await api('events');
-        if (state.page !== 'events') return;
-        const events=response.events || [];
-        main.innerHTML=`<section class="crafter-events-page">
-            <div class="crafter-events-heading"><button type="button" onclick="go('games')" aria-label="Назад к играм">‹</button>
-                <div><small>CRAFTER · EVENTS</small><h1>Лидерборды и ивенты</h1></div></div>
-            <div class="crafter-events-grid">
-                ${events.map(crafterEventCard).join('') || '<div class="crafter-events-empty">Пока нет опубликованных событий. Новые ивенты появятся здесь.</div>'}
-            </div>
-        </section>`;
-    } catch(error) {
-        if(state.page==='events') main.innerHTML='<section class="crafter-events-page"><p class="sub">'+esc(error.message)+'</p><button class="secondary" onclick="renderEventsPage()">Повторить</button></section>';
+    if(!main||state.page!=='events')return;
+    clearInterval(crafterEventClockTimer);
+    main.innerHTML='<section class="crafter-events-page"><p class="sub">Загружаем события…</p></section>';
+    try{
+        const data=await api('events');
+        if(state.page!=='events')return;
+        const events=data.events||[];
+        main.innerHTML='<section class="crafter-events-page crafter-events-list">'+
+            (events.map(e=>'<button type="button" class="crafter-event-list-row" onclick="openCrafterEvent('+arg(e.id)+')">'+
+                '<strong>'+esc(e.title)+'</strong><span>'+esc(e.metric_label)+
+                '</span><small>'+crafterEventDate(e.end_at)+'</small></button>').join('')||
+                '<p class="crafter-events-empty">Нет опубликованных событий.</p>')+'</section>';
+    }catch(error){
+        if(state.page==='events')main.innerHTML='<section class="crafter-events-page"><p>'+esc(error.message)+'</p></section>';
     }
 }
-async function openCrafterEvent(eventId, focusLeaderboard = false) {
+async function openCrafterEvent(eventId,focusLeaderboard=false) {
     const main=document.querySelector('#main');
-    if(!main || state.page!=='events')return;
-    main.innerHTML='<section class="crafter-events-page"><p class="sub">Загружаем лидерборд…</p></section>';
-    try {
-        const {event,leaders}=await api('events/'+encodeURIComponent(eventId));
+    if(!main||state.page!=='events')return;
+    main.innerHTML='<section class="crafter-events-page"><p class="sub">Загружаем рейтинг…</p></section>';
+    try{
+        const result=await api('events/'+encodeURIComponent(eventId));
         if(state.page!=='events')return;
-        const visible=event.show_leaderboard;
-        main.innerHTML=`<section class="crafter-events-page crafter-event-detail" style="${crafterEventStyle(event)}">
-            <button class="crafter-event-back" type="button" onclick="renderEventsPage()">‹ Все ивенты</button>
-            <div class="crafter-event-hero">
-                <img src="${crafterEventPhoto(event.image_url)}" alt="">
-                <span class="crafter-event-status">${crafterEventStatus[event.status] || ''}</span>
-            </div>
-            <div class="crafter-event-title"><small>CRAFTER · EVENT</small><h1>${esc(event.title)}</h1>
-                <p>${esc(event.description || '')}</p>
-                <span>${crafterEventDate(event.start_at)} — ${crafterEventDate(event.end_at)}</span></div>
-            <section class="crafter-event-section">
-                <h2>Награды</h2>
-                <div class="crafter-event-prizes">
-                    ${event.prizes.filter(p=>p.label||p.image_url).map(prize=>`<div class="crafter-event-prize">
-                        <span class="crafter-event-place">№${prize.place}</span>
-                        ${prize.image_url ? `<img src="${crafterEventPhoto(prize.image_url)}" alt="">` : '<span class="crafter-event-prize-empty">★</span>'}
-                        <strong>${esc(prize.label || 'Награда')}</strong>
-                    </div>`).join('') || '<p class="sub">Награды появятся после объявления организатора.</p>'}
-                </div>
-            </section>
-            <section class="crafter-event-section" id="crafter-event-ranking">
-                <h2>${esc(event.metric_label)} <small>Топ игроков</small></h2>
-                ${visible ? `<div class="crafter-event-leaderboard">
-                    ${leaders.map(player=>`<div class="crafter-event-leader">
-                        <span class="crafter-event-rank">${player.rank}</span>
-                        <span class="crafter-event-avatar">
-                            ${imageURL(player.photo_url) ? `<img loading="lazy" src="${esc(imageURL(player.photo_url))}" alt="">` : esc(Array.from(player.name || '?')[0].toUpperCase())}
-                        </span>
-                        <strong>${esc(player.name)}</strong>
-                        <b>${esc(player.score)} <small>${esc(event.score_unit)}</small></b>
-                    </div>`).join('') || '<p class="crafter-events-empty">Участников пока нет. Рейтинг появится после первых результатов.</p>'}
-                    </div>` : '<p class="sub">Организатор пока скрыл рейтинг этого события.</p>'}
-            </section>
-        </section>`;
-        if(focusLeaderboard){
-            const ranking=main.querySelector('#crafter-event-ranking');
-            if(ranking)requestAnimationFrame(()=>{
-                if(state.page==='events'&&ranking.isConnected)
-                    ranking.scrollIntoView({behavior:'smooth',block:'start'});
-            });
-        }
-    } catch(error) {
-        if(state.page==='events') main.innerHTML='<section class="crafter-events-page"><button class="crafter-event-back" onclick="renderEventsPage()">‹ Все ивенты</button><p>'+esc(error.message)+'</p></section>';
+        const event=result.event,leaders=result.leaders||[];
+        crafterCurrentEvent=event;
+        const maxRank=Math.max(leaders.length,3);
+        const byRank=new Map(leaders.map(player=>[player.rank,player]));
+        const prizes=new Map((event.prizes||[]).map(p=>[p.place,p]));
+        main.innerHTML='<section class="crafter-events-page crafter-event-detail" style="--event-accent:'+esc(event.accent)+'">'+
+            '<header class="crafter-event-header"><div class="crafter-event-name">'+
+            '<h1>'+esc(event.title)+'</h1>'+
+            (event.description?'<p>'+esc(event.description)+'</p>':'')+
+            '</div><div class="crafter-event-countdown" id="crafter-event-clock" aria-live="off">'+
+            '<small>До конца</small><b>00:00:00</b></div></header>'+
+            '<div class="crafter-event-rank-list" id="crafter-event-ranking">'+
+            (event.show_leaderboard?Array.from({length:maxRank},(_,i)=>crafterEventLeader(byRank.get(i+1),i+1,prizes.get(i+1))).join(''):
+                '<p class="crafter-events-empty">Рейтинг временно скрыт.</p>')+'</div>'+
+            '</section>';
+        crafterEventStartClock(event);
+        if(typeof crafterLoadEventNFTAnimations==='function')crafterLoadEventNFTAnimations(main);
+        // Direct links from banners show the top immediately, no hero or jump animation.
+    }catch(error){
+        if(state.page==='events')main.innerHTML='<section class="crafter-events-page"><p>'+esc(error.message)+'</p></section>';
     }
 }
