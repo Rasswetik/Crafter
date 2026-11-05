@@ -14,6 +14,7 @@ const CRAFTER_POPUP_FONTS={
   futuristic:'"Trebuchet MS",Arial,sans-serif'
 };
 let crafterPopupActive=null;
+let crafterAnnouncementEntryStarted=false;
 function crafterCloseAnnouncement(){
  const dialog=crafterPopupActive;
  if(!dialog)return;
@@ -116,6 +117,8 @@ function crafterShowAnnouncement(cfg,preview=false){
  },delay*1000);
 }
 async function crafterAnnouncementsOnEnter(){
+ if(crafterAnnouncementEntryStarted)return;
+ crafterAnnouncementEntryStarted=true;
  try{
   const result=await api('announcements/entry',{});
   if(!result.announcement)return;
