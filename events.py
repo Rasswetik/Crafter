@@ -328,6 +328,7 @@ def install_events(app, db, auth, audit):
             db().execute('BEGIN IMMEDIATE')
             db().execute('DELETE FROM crafter_event_prize_images WHERE event_id=?', (event_id,))
             db().execute('DELETE FROM crafter_event_prize_gifs WHERE event_id=?', (event_id,))
+            db().execute('DELETE FROM crafter_event_pages WHERE event_id=?', (event_id,))
             if not db().execute('DELETE FROM crafter_events WHERE id=?', (event_id,)).rowcount:
                 abort(404, description='Событие не найдено')
         audit('Crafter leaderboard event deleted')
