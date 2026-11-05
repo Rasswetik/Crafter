@@ -89,3 +89,42 @@ dialog#sheet.catalog-sheet .catalog-footer button{
  dialog#sheet.catalog-sheet .catalog-value>b{font-size:14px}
  dialog#sheet.catalog-sheet .catalog-row{gap:7px}
 }
+
+/* Four marketplace banners share one line on desktop; phones retain swipe mode. */
+.market-banner-strip{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:12px;
+  width:100%;
+  min-width:0;
+  margin:8px 0 17px;
+}
+.market-banner-tile{
+  position:relative;
+  display:block;
+  width:100%;
+  aspect-ratio:3 / 1;
+  min-width:0;
+  min-height:100px;
+  overflow:hidden;
+  padding:0;
+  border:1px solid #ffffff19;
+  border-radius:18px;
+  background:#232830;
+  box-shadow:inset 0 1px #ffffff13;
+}
+.market-banner-tile img{
+  display:block;
+  width:100%;height:100%;
+  object-fit:cover;
+  transition:filter .15s ease;
+}
+.market-banner-tile:is(button):hover img{filter:brightness(1.08)}
+.market-banner-tile:is(button):focus-visible{
+  outline:2px solid #86d6ff;
+  outline-offset:3px;
+}
+@media(min-width:1100px) and (max-width:1349px){
+ .market-banner-strip{gap:8px}
+ .market-banner-tile{border-radius:13px;min-height:76px}
+}
