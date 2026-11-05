@@ -475,6 +475,107 @@ def install_private_arena(app, db, auth, record, tools):
             result['bot_balance'] = str(balance(room_bot_uid(token)))
             return result
 
+    @app.post('/api/arena/private/<token>/bot-funds')
+    @auth()
+    def private_bot_funds(token):
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or data.get('action') not in ('deposit', 'withdraw'):
+            abort(400, description='Укажите действие с балансом')
+        amount = parse_amount(data.get('amount'))
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            room = room_for(token, member=True)
+            if room['owner_id'] != g.user['id']:
+                abort(403, description='Баланс бота может менять только владелец')
+            bot_id = ensure_bot_account(room)
+            owner = g.user['id']
+            transfer = Decimal(gram(amount))
+            if data['action'] == 'deposit':
+                if balance(owner) < transfer:
+                    abort(409, description='На вашем балансе недостаточно GRAM')
+                remaining = balance(owner) - transfer
+                backing = cap_funded_balance(db(), owner, remaining)
+                set_balance(owner, remaining)
+                set_balance(bot_id, balance(bot_id) + transfer)
+                restore_backing(bot_id, [{'backing': backing}])
+                record('arena_bot_fund', {'private_room': token, 'gram': str(-transfer),
+                       'bot_name': room['bot_name']}, uid=owner)
+            else:
+                if balance(bot_id) < transfer:
+                    abort(409, description='На балансе бота недостаточно GRAM')
+                current = round_for(room)
+                if current and current['finished_at'] is None and db().execute(
+                        'SELECT 1 FROM arena_private_stakes WHERE token=? AND round_no=? '
+                        'AND user_id=? LIMIT 1',
+                        (token, room['current_round'], bot_id)).fetchone():
+                    abort(409, description='Дождитесь завершения игры бота')
+                remaining = balance(bot_id) - transfer
+                backing = cap_funded_balance(db(), bot_id, remaining)
+                set_balance(bot_id, remaining)
+                set_balance(owner, balance(owner) + transfer)
+                restore_backing(owner, [{'backing': backing}])
+                record('arena_bot_fund', {'private_room': token, 'gram': str(transfer),
+                       'bot_name': room['bot_name'], 'action': 'withdraw'}, uid=owner)
+            result = public_room(room, joined=True)
+            result['bot_balance'] = str(balance(bot_id))
+            result['owner_balance'] = str(balance(owner))
+            return result
+
+    @app.post('/api/arena/private/<token>/bot-avatar')
+    @auth()
+    def update_private_bot_avatar(token):
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description='Неверный формат изображения')
+        raw = data.get('image')
+        if raw is not None and (not isinstance(raw, str) or
+                len(raw) > 12000 or not raw.startswith('data:image/webp;base64,')):
+            abort(400, description='Выберите небольшое изображение WEBP')
+        encoded = ''
+        if raw:
+            try:
+                image_bytes = base64.b64decode(raw.split(',', 1)[1], validate=True)
+                if len(image_bytes) > 8500:
+                    abort(413, description='Размер аватара слишком большой')
+                with Image.open(io.BytesIO(image_bytes)) as picture:
+                    if picture.width > 256 or picture.height > 256 or picture.width < 16 or picture.height < 16:
+                        abort(400, description='Размер изображения должен быть 16–256 пикселей')
+                    picture.load()
+                    picture = picture.convert('RGB')
+                    picture.thumbnail((128, 128))
+                    output = io.BytesIO()
+                    picture.save(output, format='WEBP', quality=72, method=4)
+                    if output.tell() > 10000:
+                        abort(413, description='Слишком сложное изображение')
+                    encoded = base64.b64encode(output.getvalue()).decode('ascii')
+            except (ValueError, OSError, UnidentifiedImageError, base64.binascii.Error):
+                abort(400, description='Не удалось обработать изображение')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            room = room_for(token, member=True)
+            if room['owner_id'] != g.user['id']:
+                abort(403, description='Аватар может менять только владелец')
+            db().execute(
+                'UPDATE arena_private_rooms SET bot_avatar=?, bot_avatar_version=? '
+                'WHERE token=? AND owner_id=?',
+                (encoded, clock() if encoded else 0, token, g.user['id']))
+            updated = room_for(token, member=True)
+            result = public_room(updated, joined=True)
+            result['bot_balance'] = str(balance(ensure_bot_account(updated)))
+            return result
+
+    @app.get('/api/arena/private/<token>/bot-avatar')
+    def private_bot_avatar_image(token):
+        room = room_for(token)
+        if not room['bot_avatar']:
+            abort(404)
+        try:
+            data = base64.b64decode(room['bot_avatar'], validate=True)
+        except (ValueError, base64.binascii.Error):
+            abort(404)
+        return Response(data, mimetype='image/webp',
+                        headers={'Cache-Control': 'public, max-age=86400'})
+
     @app.get('/api/arena/private/<token>/invite')
     @auth()
     def private_invite(token):
