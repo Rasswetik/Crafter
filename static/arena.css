@@ -424,3 +424,32 @@ html[data-crafter-theme="light"] .arena-private-create { background: #29292e; co
     .arena-room-tabs button { padding: 7px 8px; min-width: 33px }
     .arena-private-top h2 { font-size: 18px }
 }
+
+/* Persistent group controls: Room 2 is a lobby until a group is opened. */
+.arena-private-toolbar {
+    margin: 10px 0 6px; padding: 8px; display: flex;
+    align-items: center; gap: 6px; min-width: 0;
+    border: 1px solid #ffffff1a; background: #232328;
+    border-radius: 16px;
+}
+.arena-private-toolbar[hidden] { display: none !important }
+.arena-private-toolbar .arena-private-current {
+    color: #bdbbc4; font-size: 12px; font-weight: 750;
+    min-width: 0; flex: 1 1 auto; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+}
+.arena-private-toolbar button {
+    flex: 0 0 auto; padding: 9px 10px; border: 0;
+    border-radius: 12px; background: #38383e; color: #f7f7f8;
+    font-size: 11px; font-weight: 750; white-space: nowrap;
+}
+.arena-private-toolbar button:last-child { background: #168aff; color: white }
+.arena-room-tabs button { padding: 8px 10px }
+@media (max-width: 385px) {
+    .arena-private-toolbar { flex-wrap: wrap }
+    .arena-private-toolbar .arena-private-current { flex-basis: 100% }
+    .arena-private-toolbar button { flex: 1 1 auto }
+    .arena-room-tabs { gap: 2px }
+    .arena-room-tabs button { min-width: 0; padding: 7px 6px; font-size: 11px }
+    .arena-roster-heading h2 { font-size: 15px }
+}
