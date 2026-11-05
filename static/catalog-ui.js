@@ -17,6 +17,30 @@ function resetCatalogDraft() {
 }
 
 const priorSheet=sheet;sheet=function(title,html){document.querySelector('#sheet').classList.remove('catalog-sheet');priorSheet(title,html)};
+const CRAFTER_CRAFT_KEYS=new Set(['jingle bells','jungle bells','puff mask','myth mask','resistance dog','desk calendar']);
+let catalogCraftOnly=false,catalogPreviousSelection='';
+function catalogToggleCraft(){
+ if(state.sheetKind!=='collection')return;
+ catalogCraftOnly=!catalogCraftOnly;
+ if(catalogCraftOnly){
+    catalogPreviousSelection=state.sheetValue||'';
+    const keys=state.catalogRows.filter(r=>CRAFTER_CRAFT_KEYS.has(String(r.name||'').trim().toLowerCase())).map(r=>String(r.value));
+    if(!keys.length){catalogCraftOnly=false;return toast('Крафтовые коллекции пока не загружены');}
+    state.sheetValue=keys.join(',');
+ }else state.sheetValue=catalogPreviousSelection;
+ document.querySelector('.catalog-craft-toggle')?.classList.toggle('active',catalogCraftOnly);
+ renderCatalogRows(document.querySelector('.catalog-search input')?.value||'');
+}
+function catalogPriceGram(r){
+ const price=String(r.unit||'').toUpperCase()==='GRAM'?Number(r.price):
+   Number(r.floor_gram??r.portal_floor??r.gram_floor);
+ return Number.isFinite(price)&&price>0?money(price)+' GRAM':'— GRAM';
+}
+function catalogVolumeText(r){
+ const v=r.volume_24h??r.volume24h??r.volume_24_hours;
+ return v!=null&&Number.isFinite(Number(v))?
+    'Объём за 24ч: '+money(Number(v))+' GRAM':'Объём за 24ч: —';
+}
 async function openCatalogSheet(kind){
  const titles={collection:'Коллекция',model:'Модель',backdrop:'Фон',symbol:'Символ',target:'Что скрафтить'};
  let rows=[];const collection=state.catalog.collections.find(c=>c.id===state.collection||c.short_name===state.collection);
