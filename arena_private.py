@@ -340,6 +340,10 @@ def install_private_arena(app, db, auth, record, tools):
         desired = human_stakes * roll // (10000 - roll)
         already = own['value'] if own else 0
         cash_available = max(0, units(balance(bot_id)))
+        if not own:
+            # The first bot bet must satisfy the room minimum, even when
+            # its adaptive percentage would otherwise calculate less.
+            desired = max(desired, room['min_value'])
         target = min(desired - already, room['max_value'] - already, cash_available)
         if not own and target < room['min_value']:
             return round_row
@@ -671,7 +675,8 @@ def install_private_arena(app, db, auth, record, tools):
             entries = round_entries(token, number)
             players = totals(entries)
             own = players.get(uid, {'gram': 0, 'gifts': [], 'value': 0})
-            if (len(players) >= room['player_limit'] and uid not in players or
+            human_count = sum(1 for player_id in players if player_id != room_bot_uid(token))
+            if ((human_count >= room['player_limit'] and uid not in players) or
                     sum(e['user_id'] == uid for e in entries) >= MAX_REQUESTS or
                     len(own['gifts']) + len(ids) > MAX_GIFTS):
                 abort(409, description='Лимит игроков или подарков достигнут')
