@@ -318,6 +318,14 @@ def install_private_arena(app, db, auth, record, tools):
             'private_room': public_room(room, joined=True),
         }
 
+    bot_floor_cache = {'updated': 0.0, 'values': {}}
+
+    def cached_bot_floors():
+        if time.monotonic() - bot_floor_cache['updated'] > 60:
+            bot_floor_cache['values'] = floor_prices()
+            bot_floor_cache['updated'] = time.monotonic()
+        return bot_floor_cache['values']
+
     def bot_tick(room, round_row, now):
         if (not room['bot_enabled'] or round_row['finished_at'] is not None or
                 round_row['wait_until'] is None or
@@ -345,29 +353,57 @@ def install_private_arena(app, db, auth, record, tools):
         human_stakes = sum(player['value'] for player in humans.values())
         desired = human_stakes * roll // (10000 - roll)
         already = own['value'] if own else 0
+        remaining_limit = room['max_value'] - already
+        if remaining_limit <= 0:
+            return round_row
+        minimum = max(0, room['min_value'] - already) if not own else 0
+        wanted = min(max(desired - already, minimum), remaining_limit)
         cash_available = max(0, units(balance(bot_id)))
-        if not own:
-            # The first bot bet must satisfy the room minimum, even when
-            # its adaptive percentage would otherwise calculate less.
-            desired = max(desired, room['min_value'])
-        target = min(desired - already, room['max_value'] - already, cash_available)
-        if not own and target < room['min_value']:
+        bot_gifts = {}
+        has_stock = db().execute(
+            "SELECT 1 FROM inventory WHERE user_id=? AND status='unlisted' LIMIT 1",
+            (bot_id,)).fetchone()
+        if has_stock and (cash_available < wanted or secrets.randbelow(3) == 0):
+            # Floor prices are cached to avoid market work in every sweep.
+            stock = available_gifts(bot_id, cached_bot_floors())
+            already_gifts = len(own['gifts']) if own else 0
+            if already_gifts < MAX_GIFTS:
+                affordable = sorted(
+                    (gift for gift in stock.values()
+                     if gift['value'] <= remaining_limit and gift['value'] <= max(wanted, minimum)),
+                    key=lambda gift: (abs(gift['value'] - wanted), gift['value']))
+                if affordable:
+                    gift = affordable[0]
+                    bot_gifts[gift['id']] = gift
+        gift_total = sum(gift['value'] for gift in bot_gifts.values())
+        cash = min(cash_available, max(0, wanted - gift_total), remaining_limit - gift_total)
+        if not own and gift_total + cash < minimum:
+            cash = min(cash_available, minimum - gift_total)
+        if gift_total + cash < minimum or gift_total + cash <= 0:
             return round_row
-        if target <= 0:
-            return round_row
-        remaining = balance(bot_id) - Decimal(gram(target))
-        backing = cap_funded_balance(db(), bot_id, remaining)
-        set_balance(bot_id, remaining)
+        for gift_id in bot_gifts:
+            if db().execute(
+                "UPDATE inventory SET status='arena' "
+                "WHERE user_id=? AND nft_id=? AND status='unlisted'",
+                (bot_id, gift_id)).rowcount != 1:
+                raise RuntimeError('Bot inventory gift was unavailable during placement')
+        backing = {}
+        if cash:
+            remaining = balance(bot_id) - Decimal(gram(cash))
+            backing = cap_funded_balance(db(), bot_id, remaining)
+            set_balance(bot_id, remaining)
         db().execute(
             'INSERT INTO arena_private_stakes VALUES(?,?,?,?,?,?,?,?,?)',
             (token, number, bot_id, 'bot-' + str(len(moves)), len(entries),
-             json.dumps({'at': now, 'target': roll}), target, '[]', json.dumps(backing)))
+             json.dumps({'at': now, 'target': roll}), cash,
+             json.dumps(list(bot_gifts.values())), json.dumps(backing)))
         if len(humans) == 1 and own is None:
             db().execute(
                 'UPDATE arena_private_rounds SET bet_until=? WHERE token=? AND round_no=?',
                 (now + room['bet_seconds'] * 1000, token, number))
         record('arena_stake', {'round_id': number, 'private_room': token,
-                               'gram': gram(-target), 'gifts': [], 'is_bot': True}, uid=bot_id)
+                               'gram': gram(-cash), 'gifts': list(bot_gifts.values()),
+                               'is_bot': True}, uid=bot_id)
         return round_for(room)
 
     def parse_amount(value):
