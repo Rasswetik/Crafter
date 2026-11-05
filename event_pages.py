@@ -150,7 +150,7 @@ def clean_page(data):
 
 
 def install_event_pages(app,db,auth,audit):
-    with db():
+    with app.app_context(), db():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS crafter_event_pages (
                 event_id TEXT PRIMARY KEY,
