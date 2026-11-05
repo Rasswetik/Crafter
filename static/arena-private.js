@@ -88,7 +88,7 @@ function arenaNewRoomForm() {
         '<label>Макс. ставка, GRAM<input name="max_bet" inputmode="decimal" ' +
         'type="text" required value="100" placeholder="100"></label></div>' +
         '<p>Отсчёт начинается после ставки второго игрока. GRAM и NFT учитываются ' +
-        'по стоимости в GRAM. Комиссия с выигрыша соперников — 8%.</p>' +
+        'по стоимости в GRAM.</p>' +
         '<button type="submit" class="arena-private-submit">Создать комнату</button></form>');
 }
 
@@ -138,8 +138,9 @@ function arenaEnterPrivateRoom(token) {
 
 function arenaRenderPrivateMeta(info) {
     const root = document.querySelector('#arena-private-meta');
-    if (!root || root.dataset.token === info.token) return;
-    root.dataset.token = info.token;
+    const key = info.token + ':' + info.members;
+    if (!root || root.dataset.roomKey === key) return;
+    root.dataset.roomKey = key;
     root.hidden = false;
     root.innerHTML = '<div class="arena-private-heading"><span><strong>' + esc(info.name) +
         '</strong><small>Приватная группа · ' + info.members + '/' + info.max_players +
