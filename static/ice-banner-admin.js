@@ -1,5 +1,5 @@
 /* Visual editor for the Ice Arena event banner. */
-let iceEdit={banner:null,events:[],selected:'',busy:false};
+let iceEdit={banner:null,events:[],selected:'',busy:false,timerOpacity:new Map()};
 
 function iceLocal(ts){
   const d=new Date(Number(ts)*1000);
@@ -42,12 +42,16 @@ function iceProperties(){
     iceFields('Размер шрифта, px','font_size',l.font_size,'number','min="10" max="72"')+
     iceSelect('Насыщенность','font_weight',l.font_weight,[[400,'Обычный'],[500,'Средний'],
       [600,'Полужирный'],[700,'Жирный'],[800,'Очень жирный'],[900,'Максимальный']])+
-    (l.type==='timer'?iceSelect('Формат часов','format',l.format,[
-      ['hh:mm:ss','00:00:59'],['mm:ss','00:59'],['days','1д 00:00:59']]):'')+
+    (l.type==='timer'?
+      '<label class="ice-editor-check ice-timer-bg-toggle"><input type="checkbox" data-ice-toggle-bg '+
+      (Number(l.bg_opacity)>0?'checked':'')+'> Фон часов</label>'+
+      iceSelect('Формат часов','format',l.format,[
+        ['hh:mm:ss','00:00:59'],['mm:ss','00:59'],['days','1д 00:00:59']]):'')+
     iceSelect('Выравнивание','align',l.align,[['left','Слева'],['center','По центру'],['right','Справа']])+
     iceFields('Цвет текста','color',l.color,'color')+
     iceFields('Цвет фона','bg_color',l.bg_color,'color')+
-    iceFields('Непрозрачность фона','bg_opacity',l.bg_opacity,'number','min="0" max="1" step=".05"')+
+    iceFields('Непрозрачность фона','bg_opacity',l.bg_opacity,'number',
+      'min="0" max="1" step=".05" '+(l.type==='timer'&&Number(l.bg_opacity)===0?'disabled':''))+
     iceFields('Скругление','radius',l.radius,'number','min="0" max="90"')+
     iceFields('X, %','x',l.x,'number','min="0" max="100" step=".1"')+
     iceFields('Y, %','y',l.y,'number','min="0" max="100" step=".1"')+
@@ -78,7 +82,9 @@ function icePaint(){
 async function renderIceBannerAdmin(content=document.querySelector('#admin-content')){
   const [data,ev]=await Promise.all([api('admin/arena/banner'),api('admin/events')]);
   if(!content?.isConnected)return;
-  iceEdit={banner:data.banner,events:ev.events,selected:data.banner.layers[0]?.id||'',busy:false};
+  iceEdit={banner:data.banner,events:ev.events,selected:data.banner.layers[0]?.id||'',busy:false,
+    timerOpacity:new Map(data.banner.layers.filter(l=>l.type==='timer'&&Number(l.bg_opacity)>0)
+      .map(l=>[l.id,Number(l.bg_opacity)]))};
   const b=iceEdit.banner;
   content.innerHTML=`<div class="ice-editor">
     <section class="panel">
@@ -100,7 +106,7 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
       <h3>Публикация и полотно</h3>
       <div class="ice-editor-grid">
         <label>Название события<input class="field" data-ice-global="title" maxlength="90" value="${esc(b.title)}"></label>
-        <label>Связанный ивент<select class="field" data-ice-global="event_id">
+        <label>Событие, на которое ведёт баннер (его топ)<select class="field" data-ice-global="event_id">
           <option value="">Без привязки</option>
           ${iceEdit.events.map(e=>`<option value="${esc(e.id)}" ${b.event_id===e.id?'selected':''}>${esc(e.title)}</option>`).join('')}
         </select></label>
@@ -167,11 +173,25 @@ function iceEditInput(e){
     if(['x','y','w','h','font_size','font_weight','bg_opacity','radius','z'].includes(field)){
       if(value==='')return;value=Number(value);if(!Number.isFinite(value))return;
     }
-    l[field]=value;iceDirty();icePaint();
+    l[field]=value;
+    if(field==='bg_opacity'&&l.type==='timer'&&value>0)iceEdit.timerOpacity.set(l.id,value);
+    iceDirty();icePaint();
     if(field==='text'||field==='z')iceList();
   }
 }
 function iceEditChange(e){
+  if(e.target.hasAttribute('data-ice-toggle-bg')){
+    const l=iceSelected();
+    if(!l||l.type!=='timer')return;
+    if(e.target.checked){
+      l.bg_opacity=iceEdit.timerOpacity.get(l.id)||1;
+    }else{
+      if(Number(l.bg_opacity)>0)iceEdit.timerOpacity.set(l.id,Number(l.bg_opacity));
+      l.bg_opacity=0;
+    }
+    iceDirty();iceProperties();icePaint();
+    return;
+  }
   if(e.target.dataset.iceFile){
     const file=e.target.files?.[0];
     if(file)iceUploadAsset(file,e.target.dataset.iceFile);
@@ -257,6 +277,17 @@ async function iceSave(mode){
   if(mode==='publish')b.enabled=true;
   if(mode==='hide')b.enabled=false;
   if(b.start_at>=b.end_at){b.enabled=was;return toast('Проверьте даты события');}
+  if(b.enabled&&!b.event_id){
+    b.enabled=was;
+    return toast('Выберите связанный ивент, чтобы баннер открывал его топ.');
+  }
+  if(b.enabled){
+    const event=iceEdit.events.find(item=>item.id===b.event_id);
+    if(!event?.enabled){
+      b.enabled=was;
+      return toast('Сначала опубликуйте привязанный ивент в разделе «Лидерборды и ивенты».');
+    }
+  }
   iceEdit.busy=true;const label=document.querySelector('#ice-editor-status');
   if(label)label.textContent='Сохраняем настройки…';
   try{
