@@ -88,8 +88,8 @@ function iceBannerSnap(start,size,targets,threshold) {
 function iceBannerGuides(stage){
     let x=stage.querySelector('.ice-banner-guide-x');
     let y=stage.querySelector('.ice-banner-guide-y');
-    if(!x){x=document.createElement('span');x.className='ice-banner-guide ice-banner-guide-x';stage.append(x);}
-    if(!y){y=document.createElement('span');y.className='ice-banner-guide ice-banner-guide-y';stage.append(y);}
+    if(!x){x=document.createElement('span');x.className='ice-banner-guide ice-banner-guide-x';x.hidden=true;stage.append(x);}
+    if(!y){y=document.createElement('span');y.className='ice-banner-guide ice-banner-guide-y';y.hidden=true;stage.append(y);}
     return {x,y};
 }
 function iceBannerDragLayer(el,layer,stage,event,options) {
@@ -205,7 +205,9 @@ function iceBannerApplyBackground(stage, banner) {
         ? banner.background_asset : '';
     stage.style.backgroundColor=first;
     stage.style.backgroundRepeat='no-repeat';
-    stage.style.backgroundPosition='center';
+    const focusX=Math.max(0,Math.min(100,Number(banner.background_focus_x??50)));
+    const focusY=Math.max(0,Math.min(100,Number(banner.background_focus_y??50)));
+    stage.style.backgroundPosition='center, '+focusX+'% '+focusY+'%';
     if(mode==='image' && source) {
         const alpha=Math.round(Math.max(0,Math.min(.9,Number(banner.background_tint)||0))*255)
           .toString(16).padStart(2,'0');
@@ -370,6 +372,39 @@ function iceBannerMount(container, banner, options = {}) {
             stage.append(handle);
             iceBannerResizeCanvas(stage,banner,handle,options);
         }
+    }
+    if(options.editable){
+        stage.addEventListener('pointerdown',event=>{
+            if(event.target!==stage || !options.backgroundDrag?.())return;
+            if(event.button!==0 && event.pointerType==='mouse')return;
+            event.preventDefault();
+            const origin={x:event.clientX,y:event.clientY};
+            const rect=stage.getBoundingClientRect();
+            const initX=Number(banner.background_focus_x??50);
+            const initY=Number(banner.background_focus_y??50);
+            stage.setPointerCapture(event.pointerId);
+            const guide=iceBannerGuides(stage);
+            const move=e=>{
+                const clamp=(n)=>Math.max(0,Math.min(100,n));
+                const x=clamp(initX+(e.clientX-origin.x)/Math.max(1,rect.width)*100);
+                const y=clamp(initY+(e.clientY-origin.y)/Math.max(1,rect.height)*100);
+                banner.background_focus_x=Math.round(x);
+                banner.background_focus_y=Math.round(y);
+                stage.style.backgroundPosition='center, '+banner.background_focus_x+'% '+banner.background_focus_y+'%';
+                guide.x.hidden=Math.abs(x-50)>2;guide.x.style.left='50%';
+                guide.y.hidden=Math.abs(y-50)>2;guide.y.style.top='50%';
+            };
+            const end=()=>{
+                stage.removeEventListener('pointermove',move);
+                stage.removeEventListener('pointerup',end);
+                stage.removeEventListener('pointercancel',end);
+                guide.x.hidden=true;guide.y.hidden=true;
+                options.onBackgroundMove?.();
+            };
+            stage.addEventListener('pointermove',move);
+            stage.addEventListener('pointerup',end);
+            stage.addEventListener('pointercancel',end);
+        });
     }
     container.append(stage);
     iceBannerStartClock();
