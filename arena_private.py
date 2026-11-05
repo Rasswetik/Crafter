@@ -469,9 +469,8 @@ def install_private_arena(app, db, auth, record, tools):
             entries = round_entries(token, current['round_no'])
             if not entries or entries[0]['user_id'] != g.user['id']:
                 abort(409, description='У вас нет ставки для отмены')
-            return snapshot(room_for(token), now, g.user['id']) if not entries else (
-                refund(room, current, entries, now) and
-                snapshot(room_for(token), now, g.user['id']))
+            refund(room, current, entries, now)
+            return snapshot(room_for(token), now, g.user['id'])
 
     def private_sweep():
         while True:
@@ -484,10 +483,11 @@ def install_private_arena(app, db, auth, record, tools):
                         'AND x.round_no=r.current_round '
                         'WHERE (x.finished_at IS NOT NULL AND x.finished_at + ? <= ?) '
                         'OR (x.finished_at IS NULL AND x.bet_until IS NOT NULL '
-                        'AND x.bet_until <= ?) '
+                        'AND ((x.winner_id IS NULL AND x.bet_until <= ?) '
+                        'OR (x.winner_id IS NOT NULL AND x.bet_until + ? <= ?))) '
                         'OR (x.finished_at IS NULL AND x.bet_until IS NULL '
                         'AND x.wait_until IS NOT NULL AND x.wait_until <= ?) '
-                        'LIMIT 50', (RESULT_MS, now, now, now)).fetchall()
+                        'LIMIT 50', (RESULT_MS, now, now, PLAY_MS, now, now)).fetchall()
                     for row in due:
                         with db():
                             db().execute('BEGIN IMMEDIATE')
