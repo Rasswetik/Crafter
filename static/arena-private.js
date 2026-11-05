@@ -136,27 +136,139 @@ function arenaEnterPrivateRoom(token) {
     enterArena(document.querySelector('#main'), token);
 }
 
-function arenaRenderPrivateMeta(info) {
-    const root = document.querySelector('#arena-private-meta');
-    const key = info.token + ':' + info.members;
-    if (!root || root.dataset.roomKey === key) return;
-    root.dataset.roomKey = key;
-    root.hidden = false;
-    root.innerHTML = '<div class="arena-private-heading"><span><strong>' + esc(info.name) +
-        '</strong><small>Приватная группа · ' + info.members + '/' + info.max_players +
-        ' игроков · ' + info.bet_seconds + ' с</small></span>' +
-        '<button type="button" onclick="arenaSharePrivateRoom()">Пригласить ↗</button></div>' +
-        '<div class="arena-private-stakes-range">Ставка ' + arenaFormat(info.min_bet) +
-        '–' + arenaFormat(info.max_bet) + ' GRAM</div>';
-    // The room itself has betting controls. Keep a permanent way to create
-    // another private room or return to the Room 2 lobby without placing bets.
-    const toolbar = document.querySelector('#arena-private-toolbar');
-    if (toolbar) {
-        toolbar.hidden = false;
-        toolbar.innerHTML = '<span class="arena-private-current" title="' + esc(info.name) +
-            '">' + esc(info.name) + '</span>' +
-            '<button type="button" onclick="arenaOpenPrivateLobby()">Мои группы</button>' +
-            '<button type="button" onclick="arenaNewRoomForm()">+ Создать комнату</button>';
+function arenaPrivateInfo() {
+    const token = arena.privateToken;
+    if (!token) return arenaRules();
+    const view = arena.view;
+    sheet('Инфо · Приватная арена', '<div class="arena-private-info-loading">Загружаем данные комнаты…</div>');
+    return api('arena/private/' + token + '/invite').then(info => {
+        if (arena.view !== view || arena.privateToken !== token || !appSheet.open) return;
+        arenaPrivate.info = info;
+        const data = arena.data?.private_room?.token === token ? arena.data : null;
+        const phaseLabel = {
+            waiting: 'Ожидание игроков', betting: 'Приём ставок',
+            playing: 'Определение победителя', result: 'Раунд завершён'
+        }[data?.phase] || 'Ожидание игроков';
+        const created = info.created_at
+            ? new Date(Number(info.created_at)).toLocaleDateString('ru-RU', {
+                day: 'numeric', month: 'long', year: 'numeric'
+            }) : '—';
+        const row = (label, value) => '<div class="arena-private-detail-row"><span>' +
+            label + '</span><strong>' + esc(String(value)) + '</strong></div>';
+        const detail = '<div class="arena-private-info">' +
+            '<div class="arena-private-info-hero"><span class="arena-private-info-symbol">♜</span>' +
+            '<div class="arena-private-info-title"><small>ПРИВАТНАЯ ГРУППА</small><h3>' +
+            esc(info.name) + '</h3><span>Только по приглашению</span></div></div>' +
+            '<div class="arena-private-info-badges"><span class="arena-private-info-badge">' +
+            '● ' + esc(phaseLabel) + '</span><span class="arena-private-info-badge">' +
+            esc(String(info.members)) + ' / ' + esc(String(info.max_players)) + ' игроков</span></div>' +
+            '<div class="arena-private-info-card">' +
+            row('Владелец', info.owner_name || 'Владелец') +
+            row('Игровой раунд', '#' + (data?.round_id || info.round_no || 1)) +
+            row('Общий банк', arenaFormat(data?.bank || '0') + ' GRAM') +
+            row('Отсчёт ставок', info.bet_seconds + ' сек.') +
+            row('Минимальная ставка', arenaFormat(info.min_bet) + ' GRAM') +
+            row('Максимальная ставка', arenaFormat(info.max_bet) + ' GRAM') +
+            row('Комиссия', '8% с GRAM соперников') +
+            row('Создана', created) + '</div>' +
+            '<p class="arena-private-info-note">Ставки принимаются в GRAM и подарках NFT. ' +
+            'Отсчёт начинается после ставки второго игрока. Шанс выигрыша ' +
+            'пропорционален ставке; без соперника за 5 минут ставка возвращается. ' +
+            'Бот Crafter в приватных играх не участвует.</p>' +
+            '<div class="arena-private-info-actions">' +
+            (info.is_owner ? '<button type="button" class="arena-private-info-primary" ' +
+            'onclick="arenaPrivateSettings()">⚙ Настройки группы</button>' : '') +
+            '<button type="button" class="arena-private-info-secondary" ' +
+            'onclick="arenaPrivateShareSheet(arenaPrivate.info)">Пригласить друзей</button>' +
+            '<button type="button" class="arena-private-info-text" ' +
+            'onclick="closeSheet();arenaOpenPrivateLobby()">Мои приватные группы</button>' +
+            '</div></div>';
+        sheet('Инфо · ' + info.name, detail);
+    }).catch(error => {
+        if (arena.view === view && arena.privateToken === token && appSheet.open) {
+            sheet('Инфо · Приватная арена', '<div class="arena-private-info-loading">' +
+                '<p>' + esc(error.message) + '</p>' +
+                '<button type="button" class="arena-private-info-secondary" ' +
+                'onclick="arenaPrivateInfo()">Повторить</button></div>');
+        }
+    });
+}
+
+function arenaPrivateSettings() {
+    const info = arenaPrivate.info;
+    if (!info?.is_owner || info.token !== arena.privateToken) {
+        return toast('Настройки доступны только владельцу группы');
+    }
+    const field = (label, name, value, extra) =>
+        '<label>' + label + '<input name="' + name + '" value="' +
+        esc(String(value)) + '" ' + extra + ' required></label>';
+    sheet('Настройки · ' + info.name,
+        '<form class="arena-private-form arena-private-edit-form" ' +
+        'onsubmit="arenaSavePrivateSettings(event)">' +
+        '<div class="arena-private-settings-head"><span>⚙</span><div>' +
+        '<strong>Управление группой</strong><small>Доступно только создателю</small></div></div>' +
+        field('Название группы', 'name', info.name,
+              'type="text" maxlength="48" minlength="2"') +
+        field('Время приёма ставок, сек.', 'bet_seconds', info.bet_seconds,
+              'type="number" min="10" max="300" step="1"') +
+        field('Максимальное количество игроков', 'max_players', info.max_players,
+              'type="number" min="2" max="32" step="1"') +
+        '<div class="arena-private-limits">' +
+        field('Минимальная ставка, GRAM', 'min_bet', info.min_bet,
+              'type="text" inputmode="decimal"') +
+        field('Максимальная ставка, GRAM', 'max_bet', info.max_bet,
+              'type="text" inputmode="decimal"') + '</div>' +
+        '<p class="arena-private-info-note">Настройки применяются к новым ставкам. ' +
+        'При активных ставках изменение лимитов и таймера доступно после завершения раунда. ' +
+        'Название можно менять в любое время.</p>' +
+        '<button class="arena-private-submit" type="submit">Сохранить изменения</button>' +
+        '<button class="arena-private-info-text" type="button" onclick="arenaPrivateInfo()">' +
+        'Назад к информации</button></form>');
+}
+
+async function arenaSavePrivateSettings(event) {
+    event.preventDefault();
+    if (arenaPrivate.pending) return;
+    const info = arenaPrivate.info;
+    if (!info?.is_owner || info.token !== arena.privateToken) return;
+    const form = event.currentTarget;
+    const value = key => String(form.elements[key]?.value || '').trim().replace(',', '.');
+    const minBet = Number(value('min_bet'));
+    const maxBet = Number(value('max_bet'));
+    if (!Number.isFinite(minBet) || minBet <= 0 ||
+        !Number.isFinite(maxBet) || maxBet < minBet || maxBet > 1000000) {
+        return toast('Проверьте минимальную и максимальную ставку');
+    }
+    const body = {
+        name: value('name'),
+        bet_seconds: Number(value('bet_seconds')),
+        max_players: Number(value('max_players')),
+        min_bet: value('min_bet'),
+        max_bet: value('max_bet')
+    };
+    const button = form.querySelector('[type=submit]');
+    arenaPrivate.pending = true;
+    button.disabled = true;
+    button.textContent = 'Сохранение…';
+    try {
+        const updated = await api('arena/private/' + info.token + '/settings', body);
+        if (arena.privateToken === info.token) {
+            arenaPrivate.info = {...info, ...updated};
+            if (arena.data?.private_room?.token === info.token) {
+                arena.data.private_room = updated;
+                arenaRenderControls();
+            }
+            toast('Настройки группы сохранены');
+            await arenaPrivateInfo();
+        }
+    } catch(error) {
+        toast(error.message);
+    } finally {
+        arenaPrivate.pending = false;
+        if (button.isConnected) {
+            button.disabled = false;
+            button.textContent = 'Сохранить изменения';
+        }
     }
 }
 
