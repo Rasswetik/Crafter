@@ -1164,6 +1164,8 @@ def create_app(config=None):
     install_arena_banner(app, db, auth, audit)
     from site_snow import install_snow
     install_snow(app, db, auth, audit)
+    from lottie_media import install_lottie_media
+    install_lottie_media(app)
     from staking import install_staking
     def staking_catalog():
         import thermos
