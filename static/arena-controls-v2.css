@@ -141,13 +141,4 @@
         bottom:calc(110px + env(safe-area-inset-bottom));
     }
 }
-/* Keep private room lobby controls in their own panel, not floating. */
-.arena-private-lobby .arena-private-dock{
-    position:relative;
-    left:auto;
-    bottom:auto;
-    transform:none;
-    width:100%;
-    padding:8px;
-    margin-top:12px;
-}
+/* Private lobby keeps its existing fixed control layout. */
