@@ -338,3 +338,19 @@ def install_events(app, db, auth, audit):
                              etag=key, conditional=True, max_age=86400)
         response.headers['X-Content-Type-Options'] = 'nosniff'
         return response
+
+    @app.get('/media/event/<event_id>/prize/<int:place>/<key>.gif')
+    def event_prize_gif(event_id, place, key):
+        validate_id(event_id)
+        if place not in (1, 2, 3) or not ID.fullmatch(key):
+            abort(404)
+        row = db().execute('SELECT image FROM crafter_event_prize_gifs '
+                           'WHERE event_id=? AND place=? AND image_key=?',
+                           (event_id, place, key)).fetchone()
+        if not row:
+            abort(404)
+        response = send_file(BytesIO(row['image']), mimetype='image/gif',
+                             etag=key, conditional=True, max_age=86400)
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        return response
+
