@@ -52,6 +52,12 @@ function enterArena(main) {
     arena.playback = null;
     arena.view++;
     main.innerHTML = `<section class="arena-page arena-loading" aria-label="Arena" aria-busy="true">
+        <div class="arena-highlights" aria-label="Рекорды арены">
+            <div class="arena-highlight" id="arena-best-game"><div class="arena-highlight-heading">Топ игра</div>
+                <div class="arena-highlight-content"><span class="arena-highlight-empty">Пока нет игр</span></div></div>
+            <div class="arena-highlight" id="arena-last-game"><div class="arena-highlight-heading">Последняя игра</div>
+                <div class="arena-highlight-content"><span class="arena-highlight-empty">Пока нет игр</span></div></div>
+        </div>
         <div class="arena-table">
             <div class="arena-meta"><span>Банк <b id="arena-bank">0 GRAM</b></span>
                 <span id="arena-phase" role="status">Загрузка…</span></div>
@@ -123,6 +129,7 @@ function arenaApply(data, sent) {
         document.querySelector('.arena-page').setAttribute('aria-busy','false');
     }
     arena.data = data;
+    arenaRenderHighlights(data);
     arena.serverOrigin = (performance.now() + sent) / 2 - data.server_time;
     state.me.balance = data.balance;
     updateBalance();
@@ -279,6 +286,25 @@ function arenaBotBadge(player) {
 function arenaAvatar(player) {
     const photo = imageURL(player.photo);
     return `<span class="arena-avatar">${photo ? `<img src="${esc(photo)}" alt="">` : esc(arenaBadge(player))}</span>`;
+}
+
+function arenaRenderHighlights(data) {
+    for (const [id, result] of [['arena-best-game', data.best_result], ['arena-last-game', data.last_result]]) {
+        const card = document.getElementById(id);
+        if (!card) continue;
+        const key = result ? result.round_id + ':' + result.value : '';
+        if (card.dataset.key === key) continue;
+        card.dataset.key = key;
+        const row = card.querySelector('.arena-highlight-content');
+        const player = result?.winner;
+        if (!player) {
+            row.innerHTML = '<span class="arena-highlight-empty">Пока нет игр</span>';
+            continue;
+        }
+        const value = arenaFormat(result.value);
+        row.innerHTML = `${arenaAvatar(player)}<span class="arena-highlight-name">${esc(player.name)}${arenaBotBadge(player)}</span>
+            <strong class="arena-highlight-win">+${value} <img src="/static/assets/gram.svg" alt="GRAM"></strong>`;
+    }
 }
 
 function arenaRenderPlayers(data) {
