@@ -1,5 +1,5 @@
 async function renderAdminArena(content = document.querySelector('#admin-content')) {
-    const settings = await api('admin/arena');
+    const [settings,theme]=await Promise.all([api('admin/arena'),api('arena/theme')]);
     if (!content?.isConnected) return;
     content.innerHTML = `<section class="panel">
         <h3>Crafter · Бот</h3>
@@ -23,6 +23,22 @@ async function renderAdminArena(content = document.querySelector('#admin-content
             <p class="sub">Переведённые средства и подарки принадлежат банку бота и могут быть выиграны другими игроками.</p>
             <button class="primary" type="submit">Сохранить</button>
         </form>
+    </section>
+    <section class="panel crafter-arena-season-panel">
+        <h3>Оформление Arena</h3>
+        <label class="crafter-arena-winter-toggle"><input type="checkbox" id="arena-winter-switch"
+            ${theme.winter?'checked':''}>
+            <span><b>Новогодняя тема</b><small>Лёд на игровом поле, обледеневшие рамки и зимнее свечение. На все комнаты Arena.</small></span>
+        </label>
+        <p class="sub" id="arena-season-status">Изменения применяются без удаления ставок.</p>
+    </section>
+    <section class="panel crafter-arena-records-panel">
+        <h3>Рекорды Arena</h3>
+        <p class="sub">Сброс скрывает ранее показанный рекорд. История игр, ставки и выплаты не удаляются.</p>
+        <div class="crafter-arena-record-actions">
+            <button type="button" class="secondary" data-arena-reset="best">Сбросить топ игру</button>
+            <button type="button" class="secondary" data-arena-reset="last">Сбросить последнюю игру</button>
+        </div>
     </section>`;
     let retry;
     const form = content.querySelector('#arena-bot-form');
@@ -49,5 +65,33 @@ async function renderAdminArena(content = document.querySelector('#admin-content
         } finally {
             if (button.isConnected) button.disabled = false;
         }
+    });
+
+    const winterSwitch=content.querySelector('#arena-winter-switch');
+    winterSwitch.addEventListener('change',async()=>{
+        const next=winterSwitch.checked;
+        winterSwitch.disabled=true;
+        try{
+            await api('admin/arena/theme',{winter:next});
+            toast(next?'Новогодняя тема Arena включена':'Обычная тема Arena восстановлена');
+            content.querySelector('#arena-season-status').textContent=
+                next?'Зимняя тема включена для всех игроков.':'Обычное оформление включено.';
+        }catch(error){
+            winterSwitch.checked=!next;
+            toast(error.message);
+        }finally{winterSwitch.disabled=false;}
+    });
+    content.querySelectorAll('[data-arena-reset]').forEach(button=>{
+        button.addEventListener('click',async()=>{
+            const kind=button.dataset.arenaReset;
+            const title=kind==='best'?'топ игру':'последнюю игру';
+            if(!confirm('Сбросить отображаемую '+title+'? История выплат сохранится.'))return;
+            button.disabled=true;
+            try{
+                await api('admin/arena/records/reset',{kind});
+                toast('Рекорд сброшен: '+title);
+            }catch(error){toast(error.message);}
+            finally{button.disabled=false;}
+        });
     });
 }
