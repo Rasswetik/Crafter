@@ -537,6 +537,75 @@ def install_private_arena(app, db, auth, record, tools):
             result['owner_balance'] = str(balance(owner))
             return result
 
+    def public_inventory_gift(row):
+        gift = json.loads(row['payload'])
+        return {'id': row['nft_id'], 'name': gift.get('name') or 'Подарок',
+                'model': gift.get('model') or '', 'number': gift.get('number'),
+                'image': gift.get('image') or '',
+                'background': gift.get('background') or '',
+                'status': row['status']}
+
+    @app.get('/api/arena/private/<token>/bot-inventory')
+    @auth()
+    def private_bot_inventory(token):
+        with db():
+            room = room_for(token, member=True)
+            if room['owner_id'] != g.user['id']:
+                abort(403, description='Инвентарь бота доступен только владельцу')
+            bot_id = ensure_bot_account(room)
+            my_rows = db().execute(
+                "SELECT nft_id,payload,status FROM inventory "
+                "WHERE user_id=? AND status='unlisted' ORDER BY nft_id LIMIT 150",
+                (g.user['id'],)).fetchall()
+            bot_rows = db().execute(
+                "SELECT nft_id,payload,status FROM inventory "
+                "WHERE user_id=? AND status IN ('unlisted','arena') "
+                "ORDER BY nft_id LIMIT 150", (bot_id,)).fetchall()
+            mine = [public_inventory_gift(row) for row in my_rows
+                    if not json.loads(row['payload']).get('catalog_only')]
+            return {
+                'owner_gifts': mine,
+                'bot_gifts': [public_inventory_gift(row) for row in bot_rows],
+                'bot_balance': str(balance(bot_id)), 'owner_balance': str(balance(g.user['id'])),
+            }
+
+    @app.post('/api/arena/private/<token>/bot-gifts')
+    @auth()
+    def private_bot_gifts(token):
+        data = request.get_json(silent=True)
+        action = data.get('action') if isinstance(data, dict) else None
+        ids = data.get('gift_ids') if isinstance(data, dict) else None
+        if (action not in ('deposit', 'withdraw') or not isinstance(ids, list) or
+                not 1 <= len(ids) <= 15 or len(set(str(gift) for gift in ids)) != len(ids) or
+                any(not isinstance(gift, str) or not 1 <= len(gift) <= 200 for gift in ids)):
+            abort(400, description='Выберите от 1 до 15 подарков')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            room = room_for(token, member=True)
+            if room['owner_id'] != g.user['id']:
+                abort(403, description='Управлять подарками бота может только владелец')
+            bot_id = ensure_bot_account(room)
+            src, dst = (g.user['id'], bot_id) if action == 'deposit' else (bot_id, g.user['id'])
+            for gift_id in ids:
+                source = db().execute(
+                    "SELECT payload FROM inventory WHERE user_id=? AND nft_id=? "
+                    "AND status='unlisted'", (src, gift_id)).fetchone()
+                if not source or json.loads(source['payload']).get('catalog_only'):
+                    abort(409, description='Подарок недоступен для передачи или находится в ставке')
+                if db().execute(
+                    'SELECT 1 FROM inventory WHERE user_id=? AND nft_id=?',
+                    (dst, gift_id)).fetchone():
+                    abort(409, description='Такой подарок уже есть у получателя')
+                moved = db().execute(
+                    "UPDATE inventory SET user_id=? WHERE user_id=? AND nft_id=? "
+                    "AND status='unlisted'", (dst, src, gift_id))
+                if moved.rowcount != 1:
+                    abort(409, description='Подарок уже занят другим действием')
+            record('arena_bot_gifts', {'private_room': token, 'action': action,
+                                      'gift_ids': ids}, uid=g.user['id'])
+            return {'ok': True, 'count': len(ids),
+                    'bot_balance': str(balance(bot_id))}
+
     @app.post('/api/arena/private/<token>/bot-avatar')
     @auth()
     def update_private_bot_avatar(token):
