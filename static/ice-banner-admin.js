@@ -1,5 +1,5 @@
 /* Visual editor for the Ice Arena event banner. */
-let iceEdit={banner:null,events:[],selected:'',busy:false,timerOpacity:new Map(),previewMode:false};
+let iceEdit={banner:null,events:[],selected:'',busy:false,timerOpacity:new Map(),previewMode:false,snapEnabled:true,backgroundDrag:false};
 
 function iceLocal(ts){
   const d=new Date(Number(ts)*1000);
@@ -97,6 +97,15 @@ function icePaint(){
     previewOnly:iceEdit.previewMode,
     selected:iceEdit.previewMode?null:iceEdit.selected,
     serverTime:Date.now()/1000,
+    snapEnabled:()=>iceEdit.snapEnabled!==false,
+    backgroundDrag:()=>iceEdit.backgroundDrag===true,
+    onBackgroundMove(){
+      for(const field of ['background_focus_x','background_focus_y']){
+        const input=document.querySelector('[data-ice-global="'+field+'"]');
+        if(input)input.value=iceEdit.banner[field];
+      }
+      iceDirty();
+    },
     onSelect(id){
       iceEdit.selected=id;
       root.querySelectorAll('.ice-banner-layer').forEach(node=>
@@ -122,7 +131,7 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
   const [data,ev]=await Promise.all([api('admin/'+(kind==='craft'?'craft':'arena')+'/banner'),api('admin/events')]);
   if(!content?.isConnected)return;
   iceEdit={banner:data.banner,events:ev.events,selected:data.banner.layers[0]?.id||'',busy:false,
-    kind:kind==='craft'?'craft':'arena',previewMode:false,
+    kind:kind==='craft'?'craft':'arena',previewMode:false,snapEnabled:true,backgroundDrag:false,
     timerOpacity:new Map(data.banner.layers.filter(l=>l.type==='timer'&&Number(l.bg_opacity)>0)
       .map(l=>[l.id,Number(l.bg_opacity)]))};
   const b=iceEdit.banner;
@@ -142,6 +151,15 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
       <p class="sub">Нажмите на текст и потяните его; синие маркеры по углам меняют размер. Двойной клик редактирует надпись. Маркеры по краям полотна меняют размеры всего баннера.</p>
       <div class="ice-editor-buttons">
         <button type="button" class="secondary" data-ice-toggle-preview="true">Предпросмотр без рамок</button>
+        <label class="ice-editor-check"><input type="checkbox" data-ice-snap checked> Привязка к центру и краям</label>
+        <label class="ice-editor-check"><input type="checkbox" data-ice-bgdrag> Двигать фон пальцем</label>
+        <label>Размер для проверки<select class="field" data-ice-device>
+          <option value="100%">Текущая ширина</option>
+          <option value="320px">Телефон · 320 px</option>
+          <option value="375px">Телефон · 375 px</option>
+          <option value="430px">Телефон · 430 px</option>
+          <option value="540px">Планшет · 540 px</option>
+        </select></label>
       </div>
       <div id="ice-banner-preview" class="ice-editor-preview"></div>
     </section>
@@ -170,6 +188,8 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
         </select></label>
         <label>Основной цвет<input type="color" data-ice-global="background_color" value="${esc(b.background_color)}"></label>
         <label>Второй цвет градиента<input type="color" data-ice-global="background_second_color" value="${esc(b.background_second_color??'#48bee5')}"></label>
+        <label>Положение фона X, %<input class="field" data-ice-global="background_focus_x" type="number" min="0" max="100" step="1" value="${b.background_focus_x??50}"></label>
+        <label>Положение фона Y, %<input class="field" data-ice-global="background_focus_y" type="number" min="0" max="100" step="1" value="${b.background_focus_y??50}"></label>
         <label>Цветное наложение на изображение (0–0.9)
           <input class="field" type="range" min="0" max=".9" step=".05" data-ice-global="background_tint" value="${Number(b.background_tint??0)}">
         </label>
@@ -258,7 +278,7 @@ function iceApplyLiveCanvas(field,b) {
   if(field==='width_pct')stage.style.width=Number(b.width_pct)+'%';
   else if(field==='height')stage.style.height=Number(b.height)+'px';
   else if(field==='radius')stage.style.borderRadius=Number(b.radius)+'px';
-  else if(['background_color','background_second_color','background_tint',
+  else if(['background_color','background_second_color','background_tint','background_focus_x','background_focus_y',
     'background_mode','background_fit','background_asset'].includes(field))
     iceBannerApplyBackground(stage,b);
   else if(field==='start_at'||field==='end_at'){
@@ -291,7 +311,7 @@ function iceEditInput(e){
     if(global==='start_at'||global==='end_at'){
       const unix=Date.parse(value);if(!Number.isFinite(unix))return;
       value=Math.floor(unix/1000);
-    } else if(['height','radius','width_pct','background_tint'].includes(global)){
+    } else if(['height','radius','width_pct','background_tint','background_focus_x','background_focus_y'].includes(global)){
       if(value==='')return;value=Number(value);
     }
     if(global==='title'){
@@ -323,6 +343,21 @@ function iceEditInput(e){
   }
 }
 function iceEditChange(e){
+  if(e.target.hasAttribute('data-ice-snap')){
+    iceEdit.snapEnabled=e.target.checked;
+    return;
+  }
+  if(e.target.hasAttribute('data-ice-bgdrag')){
+    iceEdit.backgroundDrag=e.target.checked;
+    const preview=document.getElementById('ice-banner-preview');
+    if(preview)preview.classList.toggle('ice-editing-background',iceEdit.backgroundDrag);
+    return;
+  }
+  if(e.target.hasAttribute('data-ice-device')){
+    const preview=document.getElementById('ice-banner-preview');
+    if(preview)preview.style.width=e.target.value;
+    return;
+  }
   if(e.target.dataset.iceColorHex){
     const field=e.target.dataset.iceColorHex;
     if(!/^#[a-f0-9]{6}$/i.test(e.target.value)){
