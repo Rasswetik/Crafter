@@ -6,6 +6,7 @@ const adminSections = {
     staking: ['Стейкинг', 'Годовой APR, срок и лимит', 'gift', renderAdminStaking],
     arena: ['Arena', 'Банк Crafter, лимит ставок и комиссии', 'gift', renderAdminArena],
     events: ['Лидерборды и ивенты', 'Обложки PNG, награды, сроки и настройки рейтинга', 'grid', renderAdminEvents],
+    ice_banner: ['Баннер Ice Arena', 'Визуальное полотно, PNG/GIF, таймер и позиционирование', 'grid', renderIceBannerAdmin],
     relayer: ['Relayer', 'Telegram NFT · подключение и пополнения', 'send', renderTelegramDeposits],
     tonconnect: ['TON Connect', 'Подключение кошельков и операции', 'wallet', renderTonAdmin],
     withdrawals: ['Выводы', 'Заявки GRAM / TON и ручная выдача NFT', 'wallet', renderAdminWithdrawals],
