@@ -1,0 +1,55 @@
+
+/* Compact event index below the two core games; Portal-inspired image leaderboard. */
+.crafter-events-entry{
+    display:flex;align-items:center;gap:12px;width:100%;min-height:68px;
+    margin-top:12px;padding:13px 16px;box-sizing:border-box;text-align:left;
+    color:#f5f2fa;border:1px solid #765a913d;border-radius:18px;
+    background:linear-gradient(105deg,#302739,#24222c 77%);
+}
+.crafter-events-entry>span:first-child{width:41px;height:41px;flex:0 0 41px;border-radius:12px;display:grid;place-items:center;background:#513966;color:#d6b5fa}
+.crafter-events-entry svg{width:24px;height:24px}
+.crafter-events-entry strong{display:block;font-size:15px}
+.crafter-events-entry small{display:block;font-size:12px;line-height:1.4;color:#aaa4b3;margin-top:4px}
+.crafter-events-entry>span:last-child{color:#bda7d2;font-size:24px;margin-left:auto}
+.crafter-events-page{max-width:780px;margin:0 auto;padding:5px 0 42px;color:#f4f0f6}
+.crafter-events-heading{display:flex;gap:13px;align-items:center;margin:10px 0 23px}
+.crafter-events-heading>button{flex:0 0 35px;width:35px;height:35px;border:1px solid #ffffff1a;border-radius:50%;color:#ddd;background:#29262f;font-size:26px;line-height:1}
+.crafter-events-heading small,.crafter-event-title small{color:#be93eb;font-size:10px;letter-spacing:.13em;font-weight:800}
+.crafter-events-heading h1{font-size:clamp(20px,5vw,27px);margin:5px 0 0}
+.crafter-events-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:14px}
+.crafter-event-card{display:block;padding:0;border:1px solid #ffffff1d;background:#222028;border-radius:18px;overflow:hidden;text-align:left;color:inherit;min-width:0}
+.crafter-event-cover{display:block;width:100%;position:relative;aspect-ratio:16/9;overflow:hidden}
+.crafter-event-cover>img,.crafter-event-hero>img{display:block;width:100%;height:100%;object-fit:cover}
+.crafter-event-status{position:absolute;left:10px;top:10px;padding:6px 10px;background:#1a162bd9;backdrop-filter:blur(8px);border:1px solid #ffffff3b;border-radius:30px;color:#eee7f6;font-size:10px;font-weight:850;letter-spacing:.04em}
+.crafter-event-caption{display:grid;gap:8px;padding:15px;min-width:0}
+.crafter-event-caption strong{font-size:17px;overflow-wrap:anywhere}
+.crafter-event-caption small{font-size:12px;color:#b0a6b9;line-height:1.3}
+.crafter-event-view{display:inline-flex;width:max-content;padding:6px 10px;border-radius:10px;color:var(--event-accent);background:#ffffff0e;font-weight:850;font-size:12px}
+.crafter-events-empty{padding:22px 14px;color:#bbb2c1;border:1px dashed #51425c;border-radius:15px;font-size:13px;line-height:1.5}
+.crafter-event-back{margin:0 0 12px;padding:8px 0;color:#bea0dc;font-size:13px;font-weight:800}
+.crafter-event-hero{width:100%;aspect-ratio:16/9;border-radius:21px;overflow:hidden;position:relative;background:#322a3e}
+.crafter-event-title{display:grid;gap:9px;margin:16px 0 22px}
+.crafter-event-title h1{margin:0;font-size:clamp(23px,6vw,32px);line-height:1.15}
+.crafter-event-title p{font-size:13px;color:#cbc3d0;line-height:1.55;white-space:pre-wrap;margin:0}
+.crafter-event-title>span{font-size:12px;color:#aaa3b5}
+.crafter-event-section{margin:18px 0;padding:16px;background:#242129;border-radius:19px;border:1px solid #ffffff10}
+.crafter-event-section h2{margin:0 0 15px;font-size:17px;display:flex;align-items:baseline;gap:7px}
+.crafter-event-section h2 small{font-size:12px;color:#a69aaf;font-weight:500}
+.crafter-event-prizes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.crafter-event-prize{min-width:0;display:grid;gap:8px;padding:9px;border-radius:13px;background:#342b3a;justify-items:center;align-content:start;text-align:center}
+.crafter-event-prize img,.crafter-event-prize-empty{width:100%;aspect-ratio:1.2;object-fit:contain;border-radius:9px;background:#46374f}
+.crafter-event-prize-empty{display:grid;place-items:center;font-size:36px;color:#cda9e8}
+.crafter-event-place{color:#d5c1df;font-size:11px;font-weight:900}
+.crafter-event-prize strong{font-size:clamp(10px,2.6vw,13px);line-height:1.35;overflow-wrap:anywhere}
+.crafter-event-leaderboard{display:grid;gap:5px}
+.crafter-event-leader{display:grid;grid-template-columns:26px 38px minmax(0,1fr) auto;align-items:center;gap:9px;padding:8px;background:#2d2832;border-radius:13px}
+.crafter-event-rank{color:#bba9c5;font-weight:800;text-align:center}
+.crafter-event-avatar{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#77519a;color:#fff;overflow:hidden;font-weight:850}
+.crafter-event-avatar img{width:100%;height:100%;object-fit:cover}
+.crafter-event-leader strong{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crafter-event-leader>b{font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.crafter-event-leader>b small{font-size:10px;color:#bcaec7}
+.crafter-event-leader:nth-child(1) .crafter-event-rank{color:#f6cd6c}
+.crafter-event-leader:nth-child(2) .crafter-event-rank{color:#c6d4e6}
+.crafter-event-leader:nth-child(3) .crafter-event-rank{color:#d6a582}
+@media(max-width:370px){.crafter-event-section{padding:11px}.crafter-event-prizes{gap:5px}.crafter-event-leader{gap:5px;padding:7px 5px}.crafter-event-leader>b{font-size:11px}}
