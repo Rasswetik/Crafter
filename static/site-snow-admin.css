@@ -1,0 +1,53 @@
+/* Site-wide snowfall settings in Crafter administrator interface. */
+.crafter-snow-admin{
+  max-width:780px;
+  display:grid;
+  gap:12px;
+  border:1px solid #57768842;
+  background:linear-gradient(155deg,#172934,#1e242e);
+  padding:18px;
+  border-radius:19px;
+}
+.crafter-snow-admin h3{margin:0;color:#effaff;font-size:19px}
+.crafter-snow-admin p{margin:0}
+.crafter-snow-controls{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));
+  gap:13px;
+}
+.crafter-snow-admin label{
+  display:grid;
+  align-content:start;
+  gap:8px;
+  font-size:12px;
+  font-weight:700;
+  color:#c4d5e0;
+}
+.crafter-snow-admin select.field{width:100%;margin:0}
+.crafter-snow-admin .crafter-snow-switch{
+  grid-column:1/-1;
+  display:flex;
+  gap:13px;
+  align-items:center;
+  border:1px solid #69a9d450;
+  background:#203d50;
+  border-radius:14px;
+  padding:14px;
+  cursor:pointer;
+}
+.crafter-snow-switch input{
+  width:20px;height:20px;
+  flex:0 0 20px;
+  accent-color:#60cbef;
+}
+.crafter-snow-switch span{display:grid;gap:5px}
+.crafter-snow-switch strong{font-size:14px;color:#e5f7ff}
+.crafter-snow-switch small{font-size:11px;color:#acc5d6;font-weight:400}
+.crafter-snow-admin-buttons{display:flex;flex-wrap:wrap;gap:9px}
+.crafter-snow-admin-buttons button{
+  width:auto;
+  min-height:41px;
+  font-size:12px;
+  padding:9px 13px;
+  border-radius:11px;
+}
