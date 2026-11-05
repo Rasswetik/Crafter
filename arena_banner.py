@@ -51,7 +51,6 @@ def install_arena_banner(app, db, auth, audit):
                 created_at INTEGER NOT NULL
             );
         ''')
-        db().commit()
 
     def read_config():
         row = db().execute('SELECT payload FROM settings WHERE key=?', (CONFIG_KEY,)).fetchone()
