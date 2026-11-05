@@ -53,3 +53,6 @@
 .crafter-event-leader:nth-child(2) .crafter-event-rank{color:#c6d4e6}
 .crafter-event-leader:nth-child(3) .crafter-event-rank{color:#d6a582}
 @media(max-width:370px){.crafter-event-section{padding:11px}.crafter-event-prizes{gap:5px}.crafter-event-leader{gap:5px;padding:7px 5px}.crafter-event-leader>b{font-size:11px}}
+
+/* Jump directly to the linked event's leaderboard from an Arena banner. */
+#crafter-event-ranking{scroll-margin-top:18px}
