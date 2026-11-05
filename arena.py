@@ -375,10 +375,16 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
     @app.get('/api/arena')
     @auth()
     def arena_status():
+        # Polling is read-only. The settlement sweep and stake endpoints own
+        # transitions under the transaction lock; spectators must not
+        # serialize every refresh against players placing bets.
         with db():
-            db().execute('BEGIN IMMEDIATE')
             now = clock()
-            return snapshot(advance(now), now, g.user['id'])
+            round_row = latest_round()
+            if round_row is None:
+                db().execute('BEGIN IMMEDIATE')
+                round_row = advance(now)
+            return snapshot(round_row, now, g.user['id'])
 
     def gift_order(gift):
         return gift['value'], gift['id']
