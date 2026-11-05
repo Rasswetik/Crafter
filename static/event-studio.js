@@ -574,14 +574,16 @@ async function studioSavePage(){
  try{
    const result=await api('admin/events/'+id+'/page',crafterStudio.page);
    crafterStudio.page=result.page;
+   // The primary Save button commits layout AND prizes together.
+   if(!await studioSavePrizes(true))throw new Error('Макет сохранён, но награды не удалось сохранить');
    crafterStudio.dirty=false;
-   studioSetStatus('Макет ивента сохранён');
+   studioSetStatus('Макет, баннеры и все награды сохранены');
    toast('Страница события обновлена');
    studioPaintList();studioPaintInspector();studioPaintPreview();
  }catch(e){studioSetStatus(e.message);toast(e.message);}
  finally{if(button)button.disabled=false;}
 }
-async function studioSavePrizes(){
+async function studioSavePrizes(silent=false){
  const studio=crafterStudio,ev=studio.event;
  const body=new FormData();
  body.set('title',ev.title);body.set('description',ev.description||'');
@@ -605,7 +607,8 @@ async function studioSavePrizes(){
     studio.event=result.events.find(x=>x.id===ev.id)||ev;
     studio.prizeFiles.clear();
     studioSetStatus('Призы сохранены: '+prizes.length+' мест');
-    toast('Награды ивента сохранены');
+    if(!silent)toast('Награды ивента сохранены');
     studioPaintInspector();studioPaintPreview();
- }catch(e){studioSetStatus(e.message);toast(e.message);}
+    return true;
+ }catch(e){studioSetStatus(e.message);if(!silent)toast(e.message);return false;}
 }
