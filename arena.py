@@ -55,8 +55,7 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 result TEXT
             );
             CREATE INDEX IF NOT EXISTS arena_best_result
-                ON arena_rounds(CAST((result::jsonb ->> 'value') AS NUMERIC) DESC, id DESC)
-                WHERE result IS NOT NULL;
+                ON arena_rounds(id DESC) WHERE result IS NOT NULL;
             CREATE TABLE IF NOT EXISTS arena_stakes (
                 round_id INTEGER NOT NULL, user_id INTEGER NOT NULL, request_id TEXT NOT NULL,
                 position INTEGER NOT NULL, intent TEXT NOT NULL, gram INTEGER NOT NULL,
@@ -258,9 +257,12 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         previous = db().execute("""SELECT result FROM arena_rounds
             WHERE result IS NOT NULL AND id>? ORDER BY id DESC LIMIT 1""",
             (cutoffs['last'],)).fetchone()
-        best = db().execute("""SELECT result FROM arena_rounds
+        # Keep best-result sorting compatible with both PostgreSQL and SQLite.
+        value_sql = ("CAST((result::jsonb ->> 'value') AS NUMERIC)" if app.config.get('DATABASE_URL')
+                     else "CAST(json_extract(result, '$.value') AS NUMERIC)")
+        best = db().execute(f"""SELECT result FROM arena_rounds
             WHERE result IS NOT NULL AND id>?
-            ORDER BY CAST((result::jsonb ->> 'value') AS NUMERIC) DESC, id DESC
+            ORDER BY {value_sql} DESC, id DESC
             LIMIT 1""", (cutoffs['best'],)).fetchone()
         return {'round_id': round_row['id'], 'server_time': now, 'phase': phase, 'seed': round_row['seed'],
                 'wait_until': round_row['wait_until'], 'bet_until': end,
