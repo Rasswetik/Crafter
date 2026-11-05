@@ -98,6 +98,7 @@ const crafterArenaSwordArt = '<svg class="crafter-animated-swords" viewBox="0 0 
 
 function renderGamesHub() {
     document.querySelector('#main').innerHTML = `<section class="crafter-games">
+        <div class="crafter-hub-craft-banner arena-event-banner-slot" id="craft-hub-banner" hidden></div>
         <button class="crafter-game-tile crafter-pepe-tile" onclick="go('craft')" type="button">
             <span class="crafter-game-label"><strong>Крафты</strong>
                 <span>Соберите подарки и выберите цель</span>
@@ -105,7 +106,6 @@ function renderGamesHub() {
             <span class="crafter-game-emblem">${anvilArt('crafter-game-anvil')}</span>
             <span class="crafter-pepe-motion" aria-hidden="true"><img class="crafter-pepe-picture" src="/static/assets/splash-magnate.png" alt="" loading="lazy" decoding="async"><span class="crafter-pepe-lottie" data-crafter-lottie="magnate"></span></span>
         </button>
-        <div class="crafter-hub-craft-banner arena-event-banner-slot" id="craft-hub-banner" hidden></div>
         ${window.crafterOfflinePreview ? '' : `<button class="crafter-game-tile arena-tile crafter-swords-tile" onclick="go('arena')" type="button">
             <span class="crafter-game-label"><strong>Arena</strong>
                 <span>Один раунд. Один победитель.</span>
