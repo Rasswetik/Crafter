@@ -94,6 +94,7 @@ def install_private_arena(app, db, auth, record, tools):
                 'is_owner': g.user['id'] == room['owner_id'],
                 'joined': joined, 'members': members,
                 'bet_seconds': room['bet_seconds'], 'max_players': room['player_limit'],
+                'created_at': room['created'], 'round_no': room['current_round'],
                 'min_bet': gram(room['min_value']), 'max_bet': gram(room['max_value'])}
 
     def round_for(room):
@@ -275,12 +276,9 @@ def install_private_arena(app, db, auth, record, tools):
             (g.user['id'],)).fetchall()
         return {'rooms': [public_room(row, joined=True) for row in rows]}
 
-    @app.post('/api/arena/private')
-    @auth()
-    def create_private_room():
-        data = request.get_json(silent=True)
+    def validate_room_settings(data):
         if not isinstance(data, dict):
-            abort(400)
+            abort(400, description='Укажите параметры комнаты')
         name = data.get('name', '')
         seconds, player_limit = data.get('bet_seconds'), data.get('max_players')
         if (not isinstance(name, str) or not 2 <= len(name.strip()) <= 48 or
@@ -288,11 +286,18 @@ def install_private_arena(app, db, auth, record, tools):
             abort(400, description='Название группы должно содержать 2–48 символов')
         if (type(seconds) is not int or not 10 <= seconds <= 300 or
                 type(player_limit) is not int or not 2 <= player_limit <= 32):
-            abort(400, description='Некорректные настройки группы')
+            abort(400, description='Неверный таймер или максимальное число игроков')
         minimum = parse_amount(data.get('min_bet'))
         maximum = parse_amount(data.get('max_bet'))
         if maximum < minimum:
             abort(400, description='Максимальная ставка меньше минимальной')
+        return name.strip(), seconds, player_limit, minimum, maximum
+
+    @app.post('/api/arena/private')
+    @auth()
+    def create_private_room():
+        name, seconds, player_limit, minimum, maximum = validate_room_settings(
+            request.get_json(silent=True))
         with db():
             db().execute('BEGIN IMMEDIATE')
             existing = db().execute(
@@ -318,6 +323,40 @@ def install_private_arena(app, db, auth, record, tools):
             result['web_link'] = request.url_root.rstrip('/') + '/?arena_room=' + token
             return result
 
+    @app.post('/api/arena/private/<token>/settings')
+    @auth()
+    def update_private_room_settings(token):
+        name, seconds, player_limit, minimum, maximum = validate_room_settings(
+            request.get_json(silent=True))
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            room = room_for(token, member=True)
+            if room['owner_id'] != g.user['id']:
+                abort(403, description='Менять настройки может только владелец группы')
+            members = db().execute(
+                'SELECT count(*) FROM arena_private_members WHERE token=?',
+                (token,)).fetchone()[0]
+            if player_limit < members:
+                abort(409, description='Нельзя установить лимит ниже числа участников')
+            terms_changed = (seconds != room['bet_seconds'] or
+                             player_limit != room['player_limit'] or
+                             minimum != room['min_value'] or maximum != room['max_value'])
+            if terms_changed:
+                current = round_for(room)
+                if current and current['finished_at'] is None:
+                    pending_stakes = db().execute(
+                        'SELECT 1 FROM arena_private_stakes '
+                        'WHERE token=? AND round_no=? LIMIT 1',
+                        (token, room['current_round'])).fetchone()
+                    if pending_stakes:
+                        abort(409, description='Дождитесь окончания текущего раунда, чтобы поменять условия ставок')
+            db().execute(
+                'UPDATE arena_private_rooms SET name=?, bet_seconds=?, player_limit=?, '
+                'min_value=?, max_value=? WHERE token=? AND owner_id=?',
+                (name, seconds, player_limit, minimum, maximum, token, g.user['id']))
+            updated = room_for(token, member=True)
+            return public_room(updated, joined=True)
+
     @app.get('/api/arena/private/<token>/invite')
     @auth()
     def private_invite(token):
@@ -326,6 +365,9 @@ def install_private_arena(app, db, auth, record, tools):
             'SELECT 1 FROM arena_private_members WHERE token=? AND user_id=?',
             (token, g.user['id'])).fetchone() is not None
         result = public_room(room, joined=joined)
+        owner = db().execute('SELECT name,username FROM users WHERE id=?',
+                             (room['owner_id'],)).fetchone()
+        result['owner_name'] = ((owner['name'] or owner['username']) if owner else None) or 'Владелец'
         result['telegram_link'] = telegram_invite(token)
         result['web_link'] = request.url_root.rstrip('/') + '/?arena_room=' + token
         return result
