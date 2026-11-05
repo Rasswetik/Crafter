@@ -56,3 +56,173 @@
 
 /* Jump directly to the linked event's leaderboard from an Arena banner. */
 #crafter-event-ranking{scroll-margin-top:18px}
+
+
+/* Final compact event rankings: no full-size event artwork or 'All events' bar. */
+.crafter-events-page.crafter-event-detail{
+    width:min(100%,760px);
+    padding-top:10px;
+}
+.crafter-event-header{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 3px 18px;
+}
+.crafter-event-name{min-width:0;flex:1 1 185px}
+.crafter-event-name h1{
+    font-size:clamp(22px,5.8vw,32px);
+    line-height:1.1;
+    font-weight:850;
+    margin:0 0 7px;
+    letter-spacing:-.035em;
+    overflow-wrap:anywhere;
+}
+.crafter-event-name p{
+    margin:0;
+    color:#aaa5b5;
+    font-size:12px;
+    line-height:1.5;
+    max-width:46ch;
+    white-space:pre-wrap;
+}
+.crafter-event-countdown{
+    flex:0 0 auto;
+    display:grid;
+    justify-items:end;
+    gap:3px;
+    padding:10px 12px;
+    border-radius:13px;
+    background:#29272e;
+    border:1px solid #ffffff13;
+    font-variant-numeric:tabular-nums;
+}
+.crafter-event-countdown small{font-size:11px;color:#a9a2b4}
+.crafter-event-countdown b{font-size:clamp(13px,3.5vw,18px);color:#f1f1f5;font-weight:850}
+.crafter-event-rank-list{display:grid;gap:7px}
+.crafter-event-leader{
+    display:flex;
+    align-items:center;
+    min-width:0;
+    min-height:69px;
+    padding:9px 10px;
+    gap:10px;
+    border-radius:14px;
+    background:#232126;
+    border:1px solid #ffffff10;
+    contain:layout style;
+}
+.crafter-event-leader .crafter-event-rank{
+    flex:0 0 24px;
+    color:#aeb0ba;
+    font-size:16px;
+    font-weight:850;
+    text-align:center;
+}
+.crafter-event-leader:nth-child(1) .crafter-event-rank{color:#ffd86f}
+.crafter-event-leader:nth-child(2) .crafter-event-rank{color:#bfcedc}
+.crafter-event-leader:nth-child(3) .crafter-event-rank{color:#dfac84}
+.crafter-event-leader .crafter-event-avatar{
+    flex:0 0 39px;
+    width:39px;height:39px;
+    font-size:13px;
+    background:#313e4c;
+}
+.crafter-event-leader-info{
+    display:grid;
+    min-width:0;
+    flex:1 1 70px;
+    gap:5px;
+}
+.crafter-event-leader-info>strong{
+    display:block;
+    font-size:13px;
+    font-weight:750;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+}
+.crafter-event-score{
+    font-size:12px;
+    font-weight:750;
+    color:#cdd9e5;
+    font-variant-numeric:tabular-nums;
+}
+.crafter-event-score small{
+    color:#9994a2;
+    font-size:11px;
+    font-weight:500;
+}
+.crafter-rank-prize{
+    flex:0 1 auto;
+    min-width:0;
+    max-width:45%;
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;
+    gap:7px;
+    color:#eae8f1;
+    text-decoration:none;
+}
+.crafter-rank-prize-label{
+    font-size:12px;
+    line-height:1.22;
+    font-weight:740;
+    text-align:right;
+    max-width:min(28vw,145px);
+    overflow-wrap:anywhere;
+}
+.crafter-rank-prize-art{
+    flex:0 0 clamp(42px,12vw,63px);
+    width:clamp(42px,12vw,63px);
+    height:clamp(42px,12vw,63px);
+    overflow:hidden;
+    display:grid;
+    place-items:center;
+    border-radius:10px;
+}
+.crafter-rank-prize-art>img,
+.crafter-event-nft-animation,
+.crafter-event-nft-animation>img{
+    display:block;
+    width:100%;
+    height:100%;
+    object-fit:contain;
+    border-radius:10px;
+}
+.crafter-rank-prize-art>.crafter-event-nft-animation{overflow:hidden}
+.crafter-rank-prize-art .crafter-event-nft-animation svg{
+    display:block;
+    width:100%!important;
+    height:100%!important;
+}
+.crafter-rank-prize[href]:focus-visible,
+.crafter-rank-prize[href]:hover{color:#9be3ff}
+.crafter-events-list{display:grid;gap:9px}
+.crafter-event-list-row{
+    width:100%;
+    min-height:58px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:10px 15px;
+    text-align:left;
+    border-radius:13px;
+    border:1px solid #ffffff15;
+    background:#27252b;
+    color:#efedf5;
+}
+.crafter-event-list-row strong{font-size:14px;flex:1 1 auto}
+.crafter-event-list-row span,
+.crafter-event-list-row small{font-size:11px;color:#b4afbf}
+@media(max-width:380px){
+    .crafter-event-header{gap:7px}
+    .crafter-event-countdown{padding:8px 10px}
+    .crafter-event-leader{gap:6px;padding:7px;min-height:62px}
+    .crafter-rank-prize{gap:4px;max-width:48%}
+    .crafter-rank-prize-label{font-size:10px}
+    .crafter-event-leader-info>strong{font-size:12px}
+    .crafter-rank-prize-art{width:42px;height:42px;flex-basis:42px}
+}
