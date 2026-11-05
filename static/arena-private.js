@@ -42,8 +42,7 @@ function arenaOpenPrivateLobby() {
 
     main.innerHTML = '<section class="arena-page arena-private-lobby">' +
         '<div class="arena-private-top"><div class="arena-private-top-title">' +
-        '<small>ARENA · GROUPS</small><h2>Приватные комнаты</h2></div>' +
-        arenaRoomTabs(2) + '</div>' +
+        '<small>ARENA · GROUPS</small><h2>Приватные комнаты</h2></div></div>' +
         '<div class="arena-private-note"><span class="arena-private-note-icon">♙</span>' +
         '<div><strong>Только по приглашению</strong>' +
         '<p>Создайте группу или выберите ту, в которую вас пригласили.</p></div></div>' +
@@ -51,7 +50,8 @@ function arenaOpenPrivateLobby() {
         '<span id="arena-private-total"></span></div>' +
         '<div id="arena-private-list" class="arena-private-group-list">' +
         '<p class="arena-private-muted">Загружаем группы…</p></div>' +
-        '<div class="arena-dock arena-private-dock"><button class="arena-private-create" type="button" ' +
+        '<div class="arena-dock arena-private-dock">' + arenaRoomTabs(2) +
+        '<button class="arena-private-create" type="button" ' +
         'onclick="arenaNewRoomForm()"><span>+</span> Создать комнату</button></div></section>';
     const view = arena.view;
     api('arena/private').then(data => {
