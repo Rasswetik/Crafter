@@ -235,6 +235,18 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         row = db().execute('SELECT fee_bps FROM arena_round_terms WHERE round_id=?', (round_id,)).fetchone()
         return row['fee_bps'] if row else 0
 
+    def record_cutoffs():
+        row=db().execute("SELECT payload FROM settings WHERE key='arena_record_cutoffs_v1'").fetchone()
+        try:
+            value=json.loads(row['payload']) if row else {}
+            return {'best':int(value.get('best',0)), 'last':int(value.get('last',0))}
+        except (ValueError, TypeError, KeyError, OverflowError):
+            return {'best':0,'last':0}
+
+    def winter_enabled():
+        row=db().execute("SELECT payload FROM settings WHERE key='arena_winter_theme_v1'").fetchone()
+        return row is not None and row['payload']=='true'
+
     def snapshot(round_row, now, uid):
         players = totals(stakes(round_row['id']))
         end = round_row['bet_until']
@@ -242,12 +254,14 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         phase = ('result' if finished is not None else
                  'playing' if end is not None and now >= end else
                  'betting' if end is not None else 'waiting')
+        cutoffs=record_cutoffs()
         previous = db().execute("""SELECT result FROM arena_rounds
-            WHERE result IS NOT NULL ORDER BY id DESC LIMIT 1""").fetchone()
+            WHERE result IS NOT NULL AND id>? ORDER BY id DESC LIMIT 1""",
+            (cutoffs['last'],)).fetchone()
         best = db().execute("""SELECT result FROM arena_rounds
-            WHERE result IS NOT NULL
+            WHERE result IS NOT NULL AND id>?
             ORDER BY CAST((result::jsonb ->> 'value') AS NUMERIC) DESC, id DESC
-            LIMIT 1""").fetchone()
+            LIMIT 1""", (cutoffs['best'],)).fetchone()
         return {'round_id': round_row['id'], 'server_time': now, 'phase': phase, 'seed': round_row['seed'],
                 'wait_until': round_row['wait_until'], 'bet_until': end,
                 'aim_ms': AIM_MS, 'flight_ms': FLIGHT_MS, 'finish_ms': FINISH_MS,
@@ -534,6 +548,42 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                                (json.dumps(settings),))
             connection.execute('INSERT INTO arena_bot_funding VALUES(?,?,?)', (uid, rid, intent))
             return bot_admin_status(uid)
+
+    @app.get('/api/arena/theme')
+    def arena_theme_public():
+        response=app.json.response({'winter':winter_enabled()})
+        response.headers['Cache-Control']='no-store'
+        return response
+
+    @app.post('/api/admin/arena/theme')
+    @auth(admin=True)
+    def arena_theme_admin():
+        data=request.get_json(silent=True)
+        if not isinstance(data,dict) or type(data.get('winter')) is not bool:
+            abort(400,description='Укажите состояние новогодней темы')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            db().execute("""INSERT INTO settings VALUES('arena_winter_theme_v1',?)
+                ON CONFLICT(key) DO UPDATE SET payload=excluded.payload""",
+                         ('true' if data['winter'] else 'false',))
+        return {'winter':data['winter']}
+
+    @app.post('/api/admin/arena/records/reset')
+    @auth(admin=True)
+    def arena_reset_record():
+        data=request.get_json(silent=True)
+        kind=data.get('kind') if isinstance(data,dict) else None
+        if kind not in ('best','last'):
+            abort(400,description='Выберите топ игру или последнюю игру')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            cutoffs=record_cutoffs()
+            latest=db().execute('SELECT max(id) FROM arena_rounds').fetchone()[0] or 0
+            cutoffs[kind]=latest
+            db().execute("""INSERT INTO settings VALUES('arena_record_cutoffs_v1',?)
+                ON CONFLICT(key) DO UPDATE SET payload=excluded.payload""",
+                         (json.dumps(cutoffs),))
+        return {'ok':True,'kind':kind,'cutoffs':cutoffs}
 
     def sweep():
         while True:
