@@ -50,6 +50,9 @@ function enterArena(main) {
     arena.visibleWeights = new Map();
     arena.boardMotion = null;
     arena.playback = null;
+    arena.failures = 0;
+    arena.polling = false;
+    arena.frameLast = 0;
     arena.view++;
     main.innerHTML = `<section class="arena-page arena-loading" aria-label="Arena" aria-busy="true">
         <div class="arena-highlights" aria-label="Рекорды арены">
@@ -106,20 +109,42 @@ function leaveArena() {
 }
 
 async function arenaPoll(view) {
+    if (view !== arena.view || arena.polling) return;
+    arena.polling = true;
     const sent = performance.now();
     try {
         const data = await api('arena');
-        if (view === arena.view) arenaApply(data, sent);
+        if (view === arena.view) {
+            arena.failures = 0;
+            arenaApply(data, sent);
+        }
     } catch (error) {
         if (view === arena.view) {
+            arena.failures = Math.min(5, arena.failures + 1);
             document.querySelector('.arena-page').classList.remove('arena-loading');
             document.querySelector('.arena-page').setAttribute('aria-busy','false');
             document.querySelector('#arena-phase').textContent = error.message;
         }
     } finally {
-        if (view === arena.view) arena.timer = setTimeout(() => arenaPoll(view), 850);
+        if (view === arena.view) {
+            arena.polling = false;
+            // During live bets refresh promptly; avoid spamming the server
+            // while waiting or when the Telegram WebView is in background.
+            const phase = arena.data?.phase;
+            const delay = document.hidden ? 6500 :
+                arena.failures ? Math.min(15000, 2500 * 2 ** (arena.failures - 1)) :
+                phase === 'betting' || phase === 'playing' ? 1300 :
+                phase === 'result' ? 1600 : 2200;
+            arena.timer = setTimeout(() => arenaPoll(view), delay);
+        }
     }
 }
+
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden || !document.querySelector('.arena-page') || arena.polling) return;
+    clearTimeout(arena.timer);
+    arena.timer = setTimeout(() => arenaPoll(arena.view), 0);
+});
 
 function arenaApply(data, sent) {
     if (arena.data && data.server_time < arena.data.server_time) return;
@@ -483,6 +508,13 @@ function arenaInside(point, points) {
 
 function arenaFrame(now) {
     const data = arena.data;
+    const active = data && (arena.boardMotion || data.phase === 'playing' || data.phase === 'result');
+    const minFrameMs = active ? 33 : 180;
+    if (arena.frameLast && now - arena.frameLast < minFrameMs) {
+        arena.frame = requestAnimationFrame(arenaFrame);
+        return;
+    }
+    arena.frameLast = now;
     if (data) {
         const serverNow = now - arena.serverOrigin;
         const elapsed = serverNow - data.bet_until;
