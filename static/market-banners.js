@@ -74,6 +74,8 @@ async function openMarketBanner(banner) {
             else showStakingTutorial();
             break;
         case 'games':
+        case 'arena':
+        case 'events':
         case 'staking':
         case 'market':
         case 'craft':
