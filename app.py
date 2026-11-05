@@ -326,6 +326,28 @@ def create_app(config=None):
         collections,updated=cached('collections',[]);attributes,_=cached('attributes',{})
         if not collections:collections=[{k:v for k,v in c.items() if k!='models'} for c in catalog_seed['collections']]
         return dict(collections=collections,attributes=attributes,updated_at=updated,demo=app.config['DEMO_MODE'],source='portals' if updated else 'snapshot',snapshot_updated_at=catalog_seed.get('updated_at'))
+    @app.get('/api/market/collection-volumes')
+    @auth()
+    def market_collection_volumes():
+        # Completed local-market sales only; never confuse listed volume with traded volume.
+        cutoff=int(time.time())-86400
+        volumes={}
+        for row in db().execute("SELECT payload FROM history WHERE kind='sale' AND created>=?", (cutoff,)):
+            try:
+                sale=json.loads(row['payload'])
+                if sale.get('scope')!='crafter':
+                    continue
+                name=str((sale.get('gift') or {}).get('name','')).strip().casefold()
+                price=Decimal(str(sale.get('price') or '0'))
+                if name and price.is_finite() and price>0:
+                    volumes[name]=volumes.get(name,Decimal(0))+price
+            except (TypeError, ValueError, InvalidOperation):
+                continue
+        response=app.json.response({'volumes':{key:format(value.quantize(Decimal('0.01')),'f')
+                         for key,value in volumes.items()},'unit':'GRAM'})
+        response.headers['Cache-Control']='private,max-age=60'
+        return response
+
     def canonical_name(value):
         text=unicodedata.normalize('NFKC',str(value)).casefold()
         name=re.sub(r"[^\w]",'',text)
