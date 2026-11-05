@@ -434,8 +434,14 @@ def install_private_arena(app, db, auth, record, tools):
     @app.post('/api/arena/private/<token>/settings')
     @auth()
     def update_private_room_settings(token):
-        name, seconds, player_limit, minimum, maximum = validate_room_settings(
-            request.get_json(silent=True))
+        data = request.get_json(silent=True)
+        name, seconds, player_limit, minimum, maximum = validate_room_settings(data)
+        enabled = data.get('bot_enabled', False)
+        bot_name = data.get('bot_name', 'Crafter')
+        if (type(enabled) is not bool or not isinstance(bot_name, str) or
+                not 2 <= len(bot_name.strip()) <= 24 or
+                any(ord(ch) < 32 or ord(ch) == 127 for ch in bot_name)):
+            abort(400, description='Проверьте имя и статус бота')
         with db():
             db().execute('BEGIN IMMEDIATE')
             room = room_for(token, member=True)
@@ -460,10 +466,14 @@ def install_private_arena(app, db, auth, record, tools):
                         abort(409, description='Дождитесь окончания текущего раунда, чтобы поменять условия ставок')
             db().execute(
                 'UPDATE arena_private_rooms SET name=?, bet_seconds=?, player_limit=?, '
-                'min_value=?, max_value=? WHERE token=? AND owner_id=?',
-                (name, seconds, player_limit, minimum, maximum, token, g.user['id']))
+                'min_value=?, max_value=?, bot_enabled=?, bot_name=? WHERE token=? AND owner_id=?',
+                (name, seconds, player_limit, minimum, maximum, int(enabled),
+                 bot_name.strip(), token, g.user['id']))
             updated = room_for(token, member=True)
-            return public_room(updated, joined=True)
+            ensure_bot_account(updated)
+            result = public_room(updated, joined=True)
+            result['bot_balance'] = str(balance(room_bot_uid(token)))
+            return result
 
     @app.get('/api/arena/private/<token>/invite')
     @auth()
@@ -473,6 +483,11 @@ def install_private_arena(app, db, auth, record, tools):
             'SELECT 1 FROM arena_private_members WHERE token=? AND user_id=?',
             (token, g.user['id'])).fetchone() is not None
         result = public_room(room, joined=joined)
+        if joined and room['owner_id'] == g.user['id']:
+            account = db().execute(
+                'SELECT balance FROM demo_accounts WHERE user_id=?',
+                (room_bot_uid(token),)).fetchone()
+            result['bot_balance'] = str(account['balance']) if account else '0'
         owner = db().execute('SELECT name,username FROM users WHERE id=?',
                              (room['owner_id'],)).fetchone()
         result['owner_name'] = ((owner['name'] or owner['username']) if owner else None) or 'Владелец'
