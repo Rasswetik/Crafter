@@ -1,0 +1,85 @@
+/* Event page layout inherits saved style per event; compact and adaptive. */
+.crafter-event-custom-layout{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:0;
+  max-width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  background:var(--event-page-bg,#141414);
+  color:var(--event-text,#fff);
+  font-family:var(--event-font,inherit);
+}
+.crafter-event-custom-layout .crafter-event-layout-block{
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+  overflow:visible;
+}
+.crafter-event-custom-layout .crafter-event-header{margin:0;padding:5px 0 11px}
+.crafter-event-custom-layout .crafter-event-name h1{
+  font-family:var(--event-heading-font,inherit);
+  font-size:var(--event-heading-size,26px);
+  color:var(--event-heading,#fff);
+  font-weight:900;
+}
+.crafter-event-custom-layout .crafter-event-countdown{font-family:var(--event-font,inherit)}
+.crafter-event-custom-layout .crafter-event-rank-list{
+  gap:var(--event-row-gap,8px);
+  max-width:100%;
+}
+.crafter-event-custom-layout .crafter-event-leader{
+  background:var(--event-row-bg,#242229);
+  border-color:var(--event-row-border,#36313d);
+  border-radius:var(--event-row-radius,14px);
+  color:var(--event-text,#fff);
+  min-width:0;
+}
+.crafter-event-custom-layout .crafter-event-leader-info>strong{
+  font-size:var(--event-name-size,13px);
+  color:var(--event-text,#fff);
+}
+.crafter-event-custom-layout .crafter-event-score{
+  color:var(--event-score,#bbb6c7);
+  font-size:var(--event-score-size,12px);
+}
+.crafter-event-custom-layout .crafter-rank-prize-art{
+  width:var(--event-prize-size,55px);
+  height:var(--event-prize-size,55px);
+  flex-basis:var(--event-prize-size,55px);
+}
+.crafter-event-custom-layout .crafter-event-layout-text p{
+  margin:0;
+  min-width:0;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  line-height:1.4;
+}
+.crafter-event-custom-layout .crafter-event-layout-timer{
+  display:flex;align-items:center;justify-content:center;
+}
+.crafter-event-custom-layout .crafter-event-layout-timer .crafter-event-countdown{
+  width:max-content;
+  max-width:100%;
+}
+.crafter-event-custom-layout .crafter-event-layout-divider{
+  border:0;height:1px;background:#ffffff23;margin:9px 0;
+}
+.crafter-event-custom-layout .crafter-event-page-banner{
+  width:100%;min-width:0;display:block;
+  isolation:isolate;
+}
+.crafter-event-custom-layout .crafter-event-page-banner .ice-banner-stage{
+  border-radius:inherit;
+}
+@media(max-width:420px){
+ .crafter-event-custom-layout .crafter-rank-prize-art{
+  width:min(var(--event-prize-size,55px),18vw);
+  height:min(var(--event-prize-size,55px),18vw);
+  flex-basis:min(var(--event-prize-size,55px),18vw);
+ }
+ .crafter-event-custom-layout .crafter-event-name h1{
+  font-size:min(var(--event-heading-size,26px),7vw);
+ }
+}
