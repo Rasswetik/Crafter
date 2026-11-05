@@ -60,7 +60,9 @@ go = async function(page) {
         return;
     }
     if (page === 'arena') {
-        enterArena(main);
+        const invite = typeof arenaInviteToken === 'function' && arenaInviteToken();
+        if (invite) arenaShowInvite(invite);
+        else enterArena(main);
         return;
     }
     stakeUi.status = null;
