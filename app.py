@@ -44,23 +44,15 @@ def create_app(config=None):
     catalog_seed=json.loads(gzip.decompress((ROOT/'data/catalog_seed.json.gz').read_bytes())) if (ROOT/'data/catalog_seed.json.gz').exists() else {'collections':[]}
     catalog_job={'running':False,'completed':0,'total':0,'error':'','updated_at':None}
     postgres_url = app.config['DATABASE_URL']
-    postgres_pool = None
-    if postgres_url:
-        from psycopg_pool import ConnectionPool
-        from database import row_factory
-        # One pool per worker; up to four HTTP threads and the Arena sweep.
-        postgres_pool = ConnectionPool(
-            conninfo=postgres_url, min_size=0, max_size=6, timeout=8,
-            kwargs={'autocommit': True, 'row_factory': row_factory,
-                    'connect_timeout': 8, 'options': '-c lock_timeout=10000'},
-            open=True,
-        )
-    else:
+    # Free-tier PostgreSQL is not reliable with a long-lived connection pool:
+    # connection acquisition can time out even when only a few visitors are online.
+    # Use request-scoped connections and close them in teardown.
+    if not postgres_url:
         Path(app.config['DATABASE']).parent.mkdir(parents=True,exist_ok=True)
     def db():
         if 'db' not in g:
             if postgres_url:
-                g.db = Postgres(postgres_url, pool=postgres_pool)
+                g.db = Postgres(postgres_url)
                 return g.db
             g.db=sqlite3.connect(app.config['DATABASE'],timeout=10);g.db.row_factory=sqlite3.Row
             g.db.execute('PRAGMA busy_timeout=10000')
