@@ -80,10 +80,10 @@ def install_events(app, db, auth, audit):
                              if image_key != 'none' else None)
         raw_prizes = json.loads(item['prizes'])
         prize_slots = []
-        for place, original in enumerate(raw_prizes[:3], 1):
+        for place, original in enumerate(raw_prizes[:100], 1):
             prize = original.copy() if isinstance(original, dict) else {'label': str(original)}
             kind = prize.get('type', 'image')
-            if kind not in ('image', 'gram', 'telegram', 'none'):
+            if kind not in ('image', 'gram', 'telegram', 'collection', 'model', 'none'):
                 kind = 'image'
             image_key, mime = prizes_by_event[item['id']].get(place, (None, None))
             prize_slots.append({
@@ -91,6 +91,8 @@ def install_events(app, db, auth, audit):
                 'type': kind,
                 'telegram_url': prize.get('telegram_url', '') if kind == 'telegram' else '',
                 'telegram_slug': prize.get('telegram_slug', '') if kind == 'telegram' else '',
+                'collection': prize.get('collection', '') if kind in ('collection','model') else '',
+                'model': prize.get('model', '') if kind == 'model' else '',
                 'image_url': ('/media/event/{}/prize/{}/{}.{}'.format(
                     item['id'], place, image_key, 'gif' if mime == 'image/gif' else 'webp')
                     if image_key else None),
@@ -119,7 +121,7 @@ def install_events(app, db, auth, audit):
                     prizes_by_event[image['event_id']][image['place']] = (image['image_key'], 'image/gif')
         return [metadata(row, prizes_by_event) for row in rows]
 
-    def ranking(event, limit=50):
+    def ranking(event, limit=100):
         metric = event['metric']
         kind = METRICS[metric][0]
         end = min(int(time.time()), int(event['end_at']))
@@ -186,7 +188,7 @@ def install_events(app, db, auth, audit):
     @app.post('/api/admin/events/<event_id>')
     @auth(admin=True)
     def save_event(event_id):
-        request.max_content_length = MAX_IMAGE_SIZE * 4 + 65536
+        request.max_content_length = MAX_IMAGE_SIZE * 101 + 131072
         form = request.form
         title = form.get('title', '').strip()
         description = form.get('description', '').strip()
@@ -206,31 +208,51 @@ def install_events(app, db, auth, audit):
             abort(400, description='Проверьте даты начала и окончания')
         if not 0 <= sort_order <= 999:
             abort(400, description='Порядок: от 0 до 999')
-        prize_labels = [form.get('prize_{}'.format(i), '').strip() for i in (1, 2, 3)]
-        if any(len(label) > 120 for label in prize_labels):
-            abort(400, description='Описание награды: до 120 символов')
+        prizes_raw = form.get('prizes_json')
+        if prizes_raw is not None:
+            try:
+                incoming = json.loads(prizes_raw)
+            except (ValueError, TypeError):
+                abort(400, description='Ошибка формата списка наград')
+            if not isinstance(incoming,list) or len(incoming)>100:
+                abort(400, description='Допускается до 100 призовых мест')
+        else:
+            incoming = [{
+                'label':form.get('prize_{}'.format(i),'').strip(),
+                'type':form.get('prize_type_{}'.format(i),'none'),
+                'telegram_url':form.get('prize_link_{}'.format(i),'').strip()
+            } for i in range(1,4)]
         prizes = []
-        for place, label in enumerate(prize_labels, 1):
-            kind = form.get('prize_type_{}'.format(place), 'image')
-            if kind not in ('image', 'gram', 'telegram', 'none'):
-                abort(400, description='Выберите вид награды')
-            telegram_url = form.get('prize_link_{}'.format(place), '').strip()
-            slug = ''
-            if kind == 'telegram':
-                match = re.fullmatch(
+        for place,raw in enumerate(incoming,1):
+            if not isinstance(raw,dict):
+                abort(400, description='Неверная запись награды')
+            label=str(raw.get('label','')).strip()
+            if len(label)>120:
+                abort(400, description='Описание награды: максимум 120 символов')
+            kind=raw.get('type','none')
+            if kind not in ('image','gram','telegram','collection','model','none'):
+                abort(400, description='Недопустимый тип награды')
+            telegram_url=str(raw.get('telegram_url','')).strip()
+            slug=''
+            if kind=='telegram':
+                match=re.fullmatch(
                     r'https://(?:t\.me|telegram\.me)/nft/([A-Za-z][A-Za-z0-9]{1,70}-[0-9]{1,10})/?',
-                    telegram_url)
+                    telegram_url,re.I)
                 if not match:
-                    abort(400, description='Ссылка должна иметь вид https://t.me/nft/PlushPepe-123')
-                slug = match.group(1)
-                telegram_url = 'https://t.me/nft/' + slug
+                    abort(400, description='Telegram NFT: https://t.me/nft/PlushPepe-123')
+                slug=match.group(1)
+                telegram_url='https://t.me/nft/'+slug
             else:
-                telegram_url = ''
-            prizes.append({'label': label, 'type': kind, 'telegram_url': telegram_url,
-                           'telegram_slug': slug})
+                telegram_url=''
+            collection=str(raw.get('collection','')).strip()[:75] if kind in ('collection','model') else ''
+            model=str(raw.get('model','')).strip()[:90] if kind=='model' else ''
+            if kind in ('collection','model') and not collection:
+                abort(400, description='Укажите коллекцию подарка')
+            prizes.append({'label':label,'type':kind,'telegram_url':telegram_url,
+                           'telegram_slug':slug,'collection':collection,'model':model})
         enabled = int(form.get('enabled') == '1')
         show_leaderboard = int(form.get('show_leaderboard') == '1')
-        upload_names = ['image', 'prize_image_1', 'prize_image_2', 'prize_image_3']
+        upload_names = ['image'] + ['prize_image_{}'.format(i) for i in range(1,len(prizes)+1)]
         uploads = {}
         for name in upload_names:
             file = request.files.get(name)
@@ -274,9 +296,9 @@ def install_events(app, db, auth, audit):
                 if 'image' in uploads:
                     db().execute('UPDATE crafter_events SET image_key=?,image=? WHERE id=?',
                                  (uuid.uuid4().hex, uploads['image'][1], event_id))
-            for place in (1, 2, 3):
+            for place in range(1,len(prizes)+1):
                 if (form.get('remove_prize_image_{}'.format(place)) == '1'
-                        or prizes[place - 1]['type'] in ('gram', 'telegram', 'none')):
+                        or prizes[place - 1]['type'] in ('gram','telegram','collection','model','none')):
                     db().execute('DELETE FROM crafter_event_prize_images WHERE event_id=? AND place=?',
                                  (event_id, place))
                     db().execute('DELETE FROM crafter_event_prize_gifs WHERE event_id=? AND place=?',
@@ -328,7 +350,7 @@ def install_events(app, db, auth, audit):
     @app.get('/media/event/<event_id>/prize/<int:place>/<key>.webp')
     def event_prize_image(event_id, place, key):
         validate_id(event_id)
-        if place not in (1, 2, 3) or not ID.fullmatch(key):
+        if not 1 <= place <= 100 or not ID.fullmatch(key):
             abort(404)
         row = db().execute('''SELECT image FROM crafter_event_prize_images
             WHERE event_id=? AND place=? AND image_key=?''',
@@ -343,7 +365,7 @@ def install_events(app, db, auth, audit):
     @app.get('/media/event/<event_id>/prize/<int:place>/<key>.gif')
     def event_prize_gif(event_id, place, key):
         validate_id(event_id)
-        if place not in (1, 2, 3) or not ID.fullmatch(key):
+        if not 1 <= place <= 100 or not ID.fullmatch(key):
             abort(404)
         row = db().execute('SELECT image FROM crafter_event_prize_gifs '
                            'WHERE event_id=? AND place=? AND image_key=?',
