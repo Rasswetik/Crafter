@@ -337,7 +337,8 @@ async function arenaPrivateInventory() {
 }
 async function arenaPrivateInventoryReload(token) {
     try {
-        const data = await api('arena/private/' + token + '/bot-inventory');
+        const response = await api('arena/private/' + token + '/bot-gifts');
+        const data = {...response, owner_gifts: response.mine, bot_gifts: response.bot};
         if (token !== arena.privateToken || !appSheet.open) return;
         arenaPrivate.inventoryData = data;
         arenaPrivateInventoryRender();
@@ -365,13 +366,12 @@ function arenaPrivateInventoryRender() {
     const items = list.map(item => {
         const unavailable = item.status !== 'unlisted';
         const checked = chosen.has(item.id);
-        const photo = imageURL(item.image);
         return '<button type="button" class="arena-private-item ' +
             (checked ? 'is-selected ' : '') + (unavailable ? 'is-locked' : '') +
             '" data-gift-id="' + esc(item.id) + '" aria-pressed="' + checked + '" ' +
             (unavailable ? 'disabled' : 'onclick="arenaPrivateInventoryToggle(' + arg(item.id) + ')"') +
             '><span class="arena-private-item-image">' +
-            (photo ? '<img src="' + esc(photo) + '" alt="" loading="lazy">' : '🎁') +
+            '<img ' + giftPicture(item) + ' alt="" loading="lazy">' +
             '</span><span class="arena-private-item-name">' + esc(item.name) + '</span>' +
             '<span class="arena-private-item-model">' +
             esc(item.model || (item.number ? '#' + item.number : 'NFT')) + '</span>' +
@@ -413,7 +413,7 @@ function arenaPrivateInventoryToggle(giftId) {
     if (!chosen || !list?.some(gift => gift.id === giftId && gift.status === 'unlisted')) return;
     if (chosen.has(giftId)) chosen.delete(giftId);
     else {
-        if (chosen.size >= 15) return toast('Можно выбрать максимум 15 NFT за раз');
+        if (chosen.size >= 40) return toast('Можно выбрать максимум 40 NFT за раз');
         chosen.add(giftId);
     }
     document.querySelectorAll('.arena-private-item').forEach(button => {
