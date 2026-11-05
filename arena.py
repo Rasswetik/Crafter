@@ -30,7 +30,8 @@ BOT_JOIN_MS = 4_000
 BOT_INTERVAL_MS = 2_000
 BOT_CUTOFF_MS = 2_000
 BOT_MAX_STAKES = 4
-BOT_DEFAULTS = {'enabled': False, 'limit': '200'}
+BOT_DEFAULTS = {'enabled': True, 'limit': '200'}
+BOT_INITIAL_BANK = Decimal('200')
 
 
 def clock():
@@ -71,7 +72,19 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 PRIMARY KEY (admin_id, request_id)
             );
         """)
-        db().execute("INSERT INTO demo_accounts VALUES(?, '0') ON CONFLICT DO NOTHING", (BOT_UID,))
+        connection = db()
+        connection.execute('BEGIN IMMEDIATE')
+        connection.execute("INSERT INTO demo_accounts VALUES(?, '0') ON CONFLICT DO NOTHING", (BOT_UID,))
+        grant = connection.execute(
+            'INSERT INTO arena_bot_funding VALUES(?,?,?) ON CONFLICT DO NOTHING',
+            (BOT_UID, 'starter-bank-v1', json.dumps({'amount': str(BOT_INITIAL_BANK)})),
+        )
+        if grant.rowcount:
+            before = Decimal(connection.execute('SELECT balance FROM demo_accounts WHERE user_id=?',
+                                                (BOT_UID,)).fetchone()[0])
+            connection.execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',
+                               (str(before + BOT_INITIAL_BANK), BOT_UID))
+            record('arena_bot_grant', {'gram': str(BOT_INITIAL_BANK), 'source': 'starter-bank'}, uid=BOT_UID)
 
     def latest_round():
         return db().execute('SELECT * FROM arena_rounds ORDER BY id DESC LIMIT 1').fetchone()

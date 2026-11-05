@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import arena
 from test_app import client, signed
+from app import create_app
 
 
 def prepare(client, uid, amount):
@@ -160,8 +161,8 @@ def test_funded_bot_joins_and_adjusts_with_gram_and_nft(client, monkeypatch):
     assert client.post('/api/admin/arena', headers=signed(43), json=funding).status_code == 403
     funded = client.post('/api/admin/arena', headers=signed(42), json=funding)
     assert funded.status_code == 200, funded.json
-    assert Decimal(funded.json['balance']) == 200 and funded.json['gift_count'] == 1
-    assert Decimal(client.post('/api/admin/arena', headers=signed(42), json=funding).json['balance']) == 200
+    assert Decimal(funded.json['balance']) == 400 and funded.json['gift_count'] == 1
+    assert Decimal(client.post('/api/admin/arena', headers=signed(42), json=funding).json['balance']) == 400
     assert client.post('/api/admin/arena', headers=signed(42), json={**funding, 'amount': '201'}).status_code == 409
 
     round_id = status(client, 43)['round_id']
@@ -192,7 +193,7 @@ def test_funded_bot_joins_and_adjusts_with_gram_and_nft(client, monkeypatch):
     result = status(client, 43)['last_result']
     assert result['winner']['is_bot'] and result['fee_gram'] == '12.080000'
     admin = client.get('/api/admin/arena', headers=signed(42)).json
-    assert Decimal(admin['balance']) == Decimal('338.92')
+    assert Decimal(admin['balance']) == Decimal('538.92')
     assert admin['gift_count'] == 1 and Decimal(admin['fees']) == Decimal('12.08')
 
 
@@ -210,3 +211,31 @@ def test_in_progress_round_keeps_pre_update_terms(client, monkeypatch):
     second = stake(client, 43, round_id, 'second', '2').json
     now = second['bet_until'] + arena.PLAY_MS
     assert status(client, 42)['last_result']['gram'] == '3.000000'
+
+
+def test_default_bot_bank_survives_restarts_without_refilling(client, monkeypatch):
+    now = 4_000_000
+    monkeypatch.setattr(arena, 'clock', lambda: now)
+    prepare(client, 42, '10')
+    admin = client.get('/api/admin/arena', headers=signed()).json
+    assert admin['enabled'] is True and Decimal(admin['balance']) == 200
+    round_id = status(client, 42)['round_id']
+    assert stake(client, 42, round_id, 'first', '1').status_code == 200
+    now += arena.BOT_JOIN_MS
+    assert status(client, 42)['players'][1]['is_bot']
+    before = Decimal(client.get('/api/admin/arena', headers=signed()).json['balance'])
+    assert 0 < before < 200
+
+    restarted = create_app(client.application.config).test_client()
+    assert Decimal(restarted.get('/api/admin/arena', headers=signed()).json['balance']) == before
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('UPDATE demo_accounts SET balance=? WHERE user_id=?', ('0', arena.BOT_UID))
+        db.execute('INSERT INTO settings VALUES(?,?)', ('arena_bot', json.dumps({'enabled': False})))
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        balances = list(pool.map(
+            lambda _: create_app(client.application.config).test_client().get('/api/admin/arena', headers=signed()).json,
+            range(2),
+        ))
+    assert all(Decimal(item['balance']) == 0 and item['enabled'] is False for item in balances)
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        assert db.execute("SELECT count(*) FROM history WHERE kind='arena_bot_grant'").fetchone()[0] == 1
