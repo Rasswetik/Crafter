@@ -47,6 +47,18 @@ function arenaEndpoint(action = '') {
         + (action ? '/' + action : '');
 }
 
+async function arenaThemeLoad(view) {
+    try{
+        const result=await api('arena/theme');
+        if(view!==arena.view)return;
+        document.querySelector('#app')?.classList.toggle('arena-winter',result.winter===true);
+    }catch(_error){}
+    if(view===arena.view){
+        clearTimeout(arena.winterTimer);
+        arena.winterTimer=setTimeout(()=>arenaThemeLoad(view),60000);
+    }
+}
+
 function enterArena(main, privateToken = null) {
     arena.privateToken = privateToken;
     arena.seenResult = 0;
@@ -110,6 +122,7 @@ function enterArena(main, privateToken = null) {
     </section>`;
     arenaRenderControls();
     iceArenaLoadBanner(arena.view, Boolean(privateToken));
+    arenaThemeLoad(arena.view);
     arenaPoll(arena.view);
     arena.frame = requestAnimationFrame(arenaFrame);
 }
@@ -117,6 +130,8 @@ function enterArena(main, privateToken = null) {
 function leaveArena() {
     arena.view++;
     clearTimeout(iceArenaBannerPollTimer);
+    clearTimeout(arena.winterTimer);
+    document.querySelector('#app')?.classList.remove('arena-winter');
     arena.data = null;
     clearTimeout(arena.timer);
     cancelAnimationFrame(arena.frame);
