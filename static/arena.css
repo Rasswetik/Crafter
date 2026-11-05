@@ -272,3 +272,52 @@ html[data-crafter-theme="light"] #nav.games-nav .nav-main > button[data-game-pag
 .arena-cash-actions .arena-stake-amount span { color: inherit; overflow: hidden; text-overflow: ellipsis }
 .arena-cash-actions .arena-stake-amount .arena-gram-icon { color: #b8dcff; width: 13px; height: 13px }
 .arena-cash-actions .arena-all-in { flex: 1.35 1 auto }
+
+/* Compact Portal-style game records above the Arena board. */
+.arena-highlights {
+    display: grid; grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 10px; margin-bottom: 14px;
+}
+.arena-highlight {
+    min-width: 0; overflow: hidden; background: #262629;
+    border-radius: 17px; color: #fff;
+}
+.arena-highlight-heading {
+    height: 26px; display: grid; place-items: center;
+    color: #77777d; font-size: clamp(10px, 3vw, 13px);
+    font-weight: 750; white-space: nowrap;
+}
+.arena-highlight-content {
+    display: flex; align-items: center; gap: 6px;
+    min-width: 0; min-height: 34px; padding: 4px 8px;
+    background: #1f1f21; border-radius: 15px;
+}
+.arena-highlight-content .arena-avatar {
+    flex: 0 0 25px; width: 25px; height: 25px;
+    font-size: 10px; overflow: hidden;
+}
+.arena-highlight-name {
+    min-width: 0; flex: 1 1 auto; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap;
+    color: #929297; font-weight: 700; font-size: clamp(10px, 3vw, 13px);
+}
+.arena-highlight-name .arena-bot-badge { font-size: 8px; padding: 1px 3px }
+.arena-highlight-win {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 3px;
+    font-weight: 800; font-variant-numeric: tabular-nums;
+    white-space: nowrap; font-size: clamp(10px, 3vw, 13px);
+}
+.arena-highlight-win img { width: 14px; height: 14px; object-fit: contain }
+.arena-highlight-empty {
+    color: #85858b; font-size: 12px; white-space: nowrap;
+}
+html[data-crafter-theme="light"] .arena-highlight { background: #e8e7eb; color: #1e1e22 }
+html[data-crafter-theme="light"] .arena-highlight-content { background: #f4f3f6 }
+html[data-crafter-theme="light"] .arena-highlight-heading { color: #818087 }
+html[data-crafter-theme="light"] .arena-highlight-win { color: #23232a }
+@media (max-width: 355px) {
+    .arena-highlights { gap: 6px }
+    .arena-highlight-content { gap: 4px; padding: 4px 5px }
+    .arena-highlight-content .arena-avatar { flex-basis: 21px; width:21px; height:21px }
+    .arena-highlight-win img { width: 12px; height: 12px }
+}
