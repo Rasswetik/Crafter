@@ -811,3 +811,14 @@ html[data-crafter-theme="light"] .arena-private-group-empty strong,
 html[data-crafter-theme="light"] .arena-private-note strong { color: #302a36 }
 html[data-crafter-theme="light"] .arena-private-item { background: #f0eaf4; color: #302c35 }
 html[data-crafter-theme="light"] .arena-private-item.is-selected { background: #ead8fc }
+
+.arena-private-inventory-profile {
+    display: block; width: 60px; height: 60px; flex: 0 0 60px;
+    border-radius: 17px; object-fit: cover; border: 1px solid #ffffff34;
+    background: #4b3a55;
+}
+.arena-private-item-price {
+    display: block; font-size: 11px; font-weight: 800;
+    color: #c9adee; font-variant-numeric: tabular-nums;
+}
+html[data-crafter-theme="light"] .arena-private-item-price { color: #704a9e }
