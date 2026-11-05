@@ -8,6 +8,7 @@ const adminSections = {
     events: ['Лидерборды и ивенты', 'Обложки PNG, награды, сроки и настройки рейтинга', 'grid', renderAdminEvents],
     ice_banner: ['Баннер Ice Arena', 'Визуальное полотно, PNG/GIF, таймер и позиционирование', 'grid', renderIceBannerAdmin],
     craft_banner: ['Баннер крафтов', 'Событие, обратный отсчёт, GIF и рейтинг крафтов', 'grid', renderCraftBannerAdmin],
+    announcements: ['Анонсы', 'Всплывающие PNG/GIF, кнопки, интервалы показа и редактор', 'bell', renderAdminAnnouncements],
     snow: ['Снег на сайте', 'Включение, интенсивность, скорость и предпросмотр для всего Crafter', 'gift', renderAdminSnow],
     relayer: ['Relayer', 'Telegram NFT · подключение и пополнения', 'send', renderTelegramDeposits],
     tonconnect: ['TON Connect', 'Подключение кошельков и операции', 'wallet', renderTonAdmin],
