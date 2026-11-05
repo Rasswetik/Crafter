@@ -131,14 +131,16 @@ function catalogRowArtwork(row) {
 }
 function renderCatalogRows(query){
     const target=document.querySelector('#catalog-rows');if(!target)return;
-    const rows=state.catalogRows.filter(r=>r.name.toLowerCase().includes(query.toLowerCase()));
+    const rows=state.catalogRows.filter(r=>String(r.name||'').toLowerCase().includes(String(query||'').toLowerCase())&&
+       (!catalogCraftOnly||CRAFTER_CRAFT_KEYS.has(String(r.name||'').trim().toLowerCase())));
     target.innerHTML=rows.length?rows.map(r=>
         '<button class="catalog-row" onclick="pickCatalogRow('+arg(r.value)+')">'+
         (state.sheetKind==='target'?'':'<span class="catalog-check '+(catalogRowSelected(r.value)?'checked':'')+'">'+
             (catalogRowSelected(r.value)?'✓':'')+'</span>')+
-        catalogRowArtwork(r)+'<strong>'+esc(r.name)+'</strong><b>'+
-        (r.price!=null&&Number(r.price)>0?money(r.price)+' '+esc(r.unit):'—')+
-        '</b></button>').join(''):
+        catalogRowArtwork(r)+'<strong>'+esc(r.name)+'</strong>'+
+        '<span class="catalog-value"><b>'+catalogPriceGram(r)+'</b><small>'+
+        (state.sheetKind==='collection'?catalogVolumeText(r):'')+
+        '</small></span></button>').join(''):
         '<div class="catalog-empty">'+(state.sheetKind!=='collection'&&!state.collection?
             'Сначала выберите коллекцию':'Нет доступных данных')+'</div>';
 }
