@@ -13,13 +13,17 @@ def row_factory(cursor):
 
 
 class Postgres:
-    def __init__(self, url):
-        import psycopg
-
-        self.connection = psycopg.connect(
-            url, autocommit=True, row_factory=row_factory, connect_timeout=8,
-            options='-c lock_timeout=10000',
-        )
+    def __init__(self, url, pool=None):
+        self.pool = pool
+        if pool is not None:
+            # Reuse warmed PostgreSQL connections between HTTP requests.
+            self.connection = pool.getconn(timeout=8)
+        else:
+            import psycopg
+            self.connection = psycopg.connect(
+                url, autocommit=True, row_factory=row_factory, connect_timeout=8,
+                options='-c lock_timeout=10000',
+            )
         self.transaction = None
 
     def __enter__(self):
@@ -68,4 +72,8 @@ class Postgres:
             raise RuntimeError('Use the transaction context to commit PostgreSQL writes')
 
     def close(self):
-        self.connection.close()
+        connection, self.connection = self.connection, None
+        if self.pool is not None:
+            self.pool.putconn(connection)
+        else:
+            connection.close()
