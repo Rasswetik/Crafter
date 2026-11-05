@@ -1162,6 +1162,8 @@ def create_app(config=None):
     install_events(app, db, auth, audit)
     from event_pages import install_event_pages
     install_event_pages(app, db, auth, audit)
+    from announcements import install_announcements
+    install_announcements(app, db, auth, audit)
     from arena_banner import install_arena_banner
     install_arena_banner(app, db, auth, audit)
     from site_snow import install_snow
