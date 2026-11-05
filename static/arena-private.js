@@ -317,6 +317,107 @@ async function arenaSavePrivateSettings(event) {
     }
 }
 
+function arenaPrivateBotAvatarPreview(event) {
+    const input = event.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+        input.value = '';
+        return toast('Выберите изображение до 5 МБ');
+    }
+    if (arenaPrivate.avatarPreviewUrl) URL.revokeObjectURL(arenaPrivate.avatarPreviewUrl);
+    arenaPrivate.avatarPreviewUrl = URL.createObjectURL(file);
+    const preview = document.querySelector('#arena-private-bot-preview');
+    if (preview) preview.src = arenaPrivate.avatarPreviewUrl;
+    arenaPrivate.botImageReset = false;
+}
+
+function arenaPrivateBotAvatarReset() {
+    const input = document.querySelector('.arena-private-edit-form [name="bot_avatar"]');
+    if (input) input.value = '';
+    if (arenaPrivate.avatarPreviewUrl) URL.revokeObjectURL(arenaPrivate.avatarPreviewUrl);
+    arenaPrivate.avatarPreviewUrl = null;
+    const preview = document.querySelector('#arena-private-bot-preview');
+    if (preview) preview.src = '/static/assets/arena-crafter-bot.jpg';
+    arenaPrivate.botImageReset = true;
+}
+
+function arenaPrivateBotFileToImage(file) {
+    return new Promise((resolve, reject) => {
+        if (!file || !file.type.startsWith('image/') || file.size > 5 * 1024 * 1024) {
+            reject(Error('Выберите изображение до 5 МБ'));
+            return;
+        }
+        const image = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        image.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            try {
+                let dimension = 100;
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d', {alpha: false});
+                if (!context) throw Error('Ошибка подготовки изображения');
+                let encoded = '';
+                for (const size of [100, 88, 72]) {
+                    dimension = size;
+                    canvas.width = size;
+                    canvas.height = size;
+                    context.fillStyle = '#24242a';
+                    context.fillRect(0, 0, size, size);
+                    const scale = Math.max(size / image.naturalWidth, size / image.naturalHeight);
+                    const width = image.naturalWidth * scale;
+                    const height = image.naturalHeight * scale;
+                    context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+                    encoded = canvas.toDataURL('image/webp', .6);
+                    if (encoded.startsWith('data:image/webp;base64,') && encoded.length <= 10500) {
+                        resolve(encoded);
+                        return;
+                    }
+                }
+                throw Error('Не удалось сжать аватар — выберите другое фото');
+            } catch(error) { reject(error); }
+        };
+        image.onerror = () => {
+            URL.revokeObjectURL(objectUrl);
+            reject(Error('Этот формат фото не поддерживается'));
+        };
+        image.src = objectUrl;
+    });
+}
+
+async function arenaPrivateBotFunds(action) {
+    const info = arenaPrivate.info;
+    if (!info?.is_owner || !arena.privateToken || arenaPrivate.pending) return;
+    const input = document.querySelector('.arena-private-edit-form [name="bot_fund_amount"]');
+    if (!input) return;
+    const amount = input.value.trim().replace(',', '.');
+    const number = Number(amount);
+    if (!/^[0-9]{1,7}(?:\.[0-9]{1,6})?$/.test(amount) ||
+        !(number >= .000001 && number <= 1000000)) {
+        return toast('Введите корректную сумму GRAM');
+    }
+    arenaPrivate.pending = true;
+    const actions = document.querySelectorAll('.arena-private-bot-fund-actions button');
+    actions.forEach(btn => btn.disabled = true);
+    try {
+        const result = await api('arena/private/' + info.token + '/bot-funds',
+            {action, amount});
+        arenaPrivate.info = {...info, ...result};
+        if (result.owner_balance !== undefined) {
+            state.me.balance = result.owner_balance;
+            updateBalance();
+        }
+        const label = document.querySelector('#arena-private-bot-balance');
+        if (label) label.textContent = arenaFormat(result.bot_balance) + ' GRAM';
+        toast(action === 'deposit' ? 'Бот пополнен' : 'GRAM возвращены на ваш баланс');
+    } catch(error) {
+        toast(error.message);
+    } finally {
+        arenaPrivate.pending = false;
+        actions.forEach(btn => btn.disabled = false);
+    }
+}
+
 function arenaShowInvite(token) {
     leaveArena();
     arenaPrivate.inviteToken = token;
