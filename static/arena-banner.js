@@ -189,7 +189,7 @@ function iceBannerMount(container, banner, options = {}) {
         stage.setAttribute('role', 'link');
         stage.setAttribute('aria-label', 'Открыть лидерборд события: ' + (banner.title || 'Ивент'));
         const activate = () => {
-            if (typeof go === 'function') go('events', eventId);
+            if (typeof go === 'function') go('events', eventId, options.kind !== 'craft');
         };
         stage.addEventListener('click', activate);
         stage.addEventListener('keydown', event => {
@@ -399,7 +399,7 @@ async function crafterCraftBannerMount(holderId) {
         holder.hidden=false;
         const signature=JSON.stringify(config);
         if(holder.dataset.bannerSignature!==signature||!holder.querySelector('.ice-banner-stage')){
-            iceBannerMount(holder,config,{serverTime:response.server_time});
+            iceBannerMount(holder,config,{serverTime:response.server_time,kind:'craft'});
             holder.dataset.bannerSignature=signature;
         }
         holder.title='Открыть событие: '+(config.title||'Крафты');
