@@ -397,7 +397,9 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         with db():
             now = clock()
             round_row = latest_round()
-            if round_row is None:
+            # Tests use a synthetic clock and intentionally do not start the background
+            # settlement thread; advance rounds deterministically during test polling.
+            if app.config.get('TESTING') or round_row is None:
                 db().execute('BEGIN IMMEDIATE')
                 round_row = advance(now)
             return snapshot(round_row, now, g.user['id'])
