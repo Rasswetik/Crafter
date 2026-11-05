@@ -118,18 +118,18 @@ function icePaint(){
     }
   });
 }
-async function renderIceBannerAdmin(content=document.querySelector('#admin-content')){
-  const [data,ev]=await Promise.all([api('admin/arena/banner'),api('admin/events')]);
+async function renderIceBannerAdmin(content=document.querySelector('#admin-content'),kind='arena'){
+  const [data,ev]=await Promise.all([api('admin/'+(kind==='craft'?'craft':'arena')+'/banner'),api('admin/events')]);
   if(!content?.isConnected)return;
   iceEdit={banner:data.banner,events:ev.events,selected:data.banner.layers[0]?.id||'',busy:false,
-    previewMode:false,
+    kind:kind==='craft'?'craft':'arena',previewMode:false,
     timerOpacity:new Map(data.banner.layers.filter(l=>l.type==='timer'&&Number(l.bg_opacity)>0)
       .map(l=>[l.id,Number(l.bg_opacity)]))};
   const b=iceEdit.banner;
   content.innerHTML=`<div class="ice-editor">
     <section class="panel">
-      <h3>Ice Arena · Конструктор баннера</h3>
-      <p class="sub">Здесь настраивается событие над игровой ареной, под инфо и балансом. Перетаскивайте элементы на живом предпросмотре: положение, размер, шрифты, PNG/GIF и таймеры сохраняются на сервере.</p>
+      <h3>${kind==='craft'?'Крафты':'Arena'} · Конструктор баннера</h3>
+      <p class="sub">Здесь настраивается событие над ${kind==='craft'?'экраном крафта и карточкой «Крафты» в Hub':'игровой ареной, под инфо и балансом'}. Перетаскивайте элементы на живом предпросмотре: положение, размер, шрифты, PNG/GIF и таймеры сохраняются на сервере.</p>
       <div class="ice-editor-buttons">
         <button type="button" class="secondary" data-ice-save="save">Сохранить</button>
         <button type="button" class="primary" data-ice-save="publish">Опубликовать</button>
@@ -497,13 +497,17 @@ async function iceSave(mode){
   iceEdit.busy=true;const label=document.querySelector('#ice-editor-status');
   if(label)label.textContent='Сохраняем настройки…';
   try{
-    const r=await api('admin/arena/banner',b);
+    const r=await api('admin/'+iceEdit.kind+'/banner',b);
     iceEdit.banner=r.banner;
     if(label)label.textContent=b.enabled?'Баннер опубликован':'Настройки сохранены; баннер скрыт';
     const checkbox=document.querySelector('[data-ice-global="enabled"]');
     if(checkbox)checkbox.checked=b.enabled;
-    toast(b.enabled?'Баннер Ice Arena опубликован':'Баннер сохранён');
+    toast(b.enabled?'Баннер события опубликован':'Баннер сохранён');
   }catch(error){
     b.enabled=was;if(label)label.textContent=error.message;toast(error.message);
   }finally{iceEdit.busy=false;}
+}
+
+function renderCraftBannerAdmin(content=document.querySelector('#admin-content')){
+  return renderIceBannerAdmin(content,'craft');
 }
