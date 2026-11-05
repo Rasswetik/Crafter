@@ -9,6 +9,7 @@ from flask import abort, request, send_file
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 CONFIG_KEY = 'ice_arena_banner_v1'
+CRAFT_KEY = 'crafter_craft_event_banner_v1'
 ASSET = re.compile(r'^/media/ice-banner/([0-9a-f]{32})\.(gif|webp)$')
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
 LAYER_ID = re.compile(r'^[a-zA-Z0-9_-]{1,45}$')
@@ -19,17 +20,19 @@ ROOMS = {'all', 'public', 'private'}
 MAX_ASSET = 8 * 1024 * 1024
 
 
-def default_banner():
+def default_banner(kind='arena'):
     now = int(time.time())
     return {
         'enabled': False, 'event_id': '', 'rooms': 'all', 'hide_after_end': True,
-        'title': 'Ледяная охота', 'start_at': now + 1800, 'end_at': now + 88200,
-        'height': 112, 'width_pct': 100, 'radius': 22, 'background_color': '#075b9e',
+        'title': 'Событие крафта' if kind == 'craft' else 'Ледяная охота',
+        'start_at': now + 1800, 'end_at': now + 88200,
+        'height': 112, 'width_pct': 100, 'radius': 22,
+        'background_color': '#3b265f' if kind == 'craft' else '#075b9e',
         'background_asset': '', 'background_fit': 'cover',
         'background_mode': 'solid', 'background_second_color': '#48bee5',
         'background_tint': 0,
         'layers': [
-            {'id': 'headline', 'type': 'title', 'text': 'Ледяная охота',
+            {'id': 'headline', 'type': 'title', 'text': 'Событие крафта' if kind == 'craft' else 'Ледяная охота',
              'x': 4, 'y': 19, 'w': 53, 'h': 60, 'font': 'rounded',
              'font_size': 24, 'font_weight': 800, 'color': '#ffffff',
              'bg_color': '#0a477a', 'bg_opacity': 0, 'radius': 0,
@@ -54,14 +57,18 @@ def install_arena_banner(app, db, auth, audit):
             );
         ''')
 
-    def read_config():
-        row = db().execute('SELECT payload FROM settings WHERE key=?', (CONFIG_KEY,)).fetchone()
+    def read_config(kind='arena'):
+        key = CRAFT_KEY if kind == 'craft' else CONFIG_KEY
+        row = db().execute('SELECT payload FROM settings WHERE key=?', (key,)).fetchone()
         if not row:
-            return default_banner()
+            return default_banner(kind)
         try:
-            return json.loads(row['payload'])
+            saved=json.loads(row['payload'])
+            if not isinstance(saved,dict):
+                return default_banner(kind)
+            return {**default_banner(kind), **saved}
         except (ValueError, TypeError):
-            return default_banner()
+            return default_banner(kind)
 
     def boolean(value, label):
         if type(value) is not bool:
@@ -223,6 +230,33 @@ def install_arena_banner(app, db, auth, audit):
                          (CONFIG_KEY, json.dumps(config, ensure_ascii=False)))
         audit('Ice Arena event banner updated')
         return {'banner': config}
+
+
+    @app.get('/api/craft/banner')
+    def public_craft_banner():
+        config=read_config('craft')
+        now=int(time.time())
+        visible=config['enabled'] and (not config['hide_after_end'] or now<config['end_at'])
+        response=app.json.response({'banner':config if visible else None,'server_time':now})
+        response.headers['Cache-Control']='no-store'
+        return response
+
+    @app.get('/api/admin/craft/banner')
+    @auth(admin=True)
+    def admin_craft_banner():
+        return {'banner':read_config('craft'),'server_time':int(time.time())}
+
+    @app.post('/api/admin/craft/banner')
+    @auth(admin=True)
+    def save_craft_banner():
+        config=clean_config(request.get_json(silent=True))
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            db().execute('INSERT INTO settings VALUES(?,?) ON CONFLICT(key) DO UPDATE '
+                         'SET payload=excluded.payload',
+                         (CRAFT_KEY,json.dumps(config,ensure_ascii=False)))
+        audit('Craft event banner updated')
+        return {'banner':config}
 
     @app.post('/api/admin/arena/banner/asset')
     @auth(admin=True)
