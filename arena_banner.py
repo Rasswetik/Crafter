@@ -148,14 +148,20 @@ def install_arena_banner(app, db, auth, audit):
         event_id = data.get('event_id') or ''
         if not isinstance(event_id, str) or (event_id and not re.fullmatch(r'[0-9a-f]{32}', event_id)):
             abort(400, description='Неизвестное событие')
-        if event_id and not db().execute('SELECT id FROM crafter_events WHERE id=?',
-                                          (event_id,)).fetchone():
+        linked_event = (db().execute('SELECT enabled FROM crafter_events WHERE id=?',
+                                     (event_id,)).fetchone() if event_id else None)
+        if event_id and not linked_event:
             abort(404, description='Привязанное событие не найдено')
+        enabled = boolean(data.get('enabled'), 'Публикация')
+        if enabled and not event_id:
+            abort(400, description='Для публикации баннера выберите событие с лидербордом')
+        if enabled and not linked_event['enabled']:
+            abort(400, description='Сначала опубликуйте выбранный ивент в админке')
         title = data.get('title', '')
         if not isinstance(title, str) or len(title) > 90:
             abort(400, description='Название: максимум 90 символов')
         return {
-            'enabled': boolean(data.get('enabled'), 'Публикация'),
+            'enabled': enabled,
             'event_id': event_id, 'rooms': room,
             'hide_after_end': boolean(data.get('hide_after_end'), 'Скрывать после окончания'),
             'title': title, 'start_at': start, 'end_at': end,
