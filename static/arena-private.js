@@ -393,7 +393,10 @@ function arenaPrivateInventoryRender() {
             '<img ' + giftPicture(item) + ' alt="" loading="lazy">' +
             '</span><span class="arena-private-item-name">' + esc(item.name) + '</span>' +
             '<span class="arena-private-item-model">' +
-            esc(item.model || (item.number ? '#' + item.number : 'NFT')) + '</span>' +
+            esc((item.model || 'NFT') + (item.number ? ' #' + item.number : '')) + '</span>' +
+            '<span class="arena-private-item-price">' +
+            (item.value != null ? esc(arenaFormat(item.value) + ' GRAM') :
+                'Нет оценки для ставки') + '</span>' +
             (unavailable ? '<span class="arena-private-item-status">В ставке</span>' :
                 '<span class="arena-private-item-check">' + (checked ? '✓' : '+') + '</span>') +
             '</button>';
@@ -403,7 +406,8 @@ function arenaPrivateInventoryRender() {
         '<div class="arena-private-inventory-balance">' +
         '<div><small>БАЛАНС БОТА</small><strong>' + arenaFormat(inv.bot_balance || 0) +
         ' GRAM</strong><span>' + esc(info.bot_name || 'Crafter') + '</span></div>' +
-        '<span class="arena-private-inventory-symbol">◇</span></div>' +
+        '<img class="arena-private-inventory-profile" alt="Бот" src="' +
+        esc(info.bot_photo || '/static/assets/arena-crafter-bot.jpg') + '"></div>' +
         '<div class="arena-private-inventory-counts"><span>' + inv.bot_gifts.length +
         ' NFT у бота</span><span>' + inv.owner_gifts.length + ' ваших NFT</span></div>' +
         '<div class="arena-private-inventory-tabs" role="tablist">' +
