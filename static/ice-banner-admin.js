@@ -24,7 +24,7 @@ function iceList(){
   root.innerHTML=[...iceEdit.banner.layers].sort((a,b)=>b.z-a.z).map(l=>
     '<button type="button" data-ice-pick="'+esc(l.id)+'" class="ice-list-item '+
     (l.id===iceEdit.selected?'active':'')+'"><span>'+esc({
-      title:'Заголовок',text:'Текст',timer:'Таймер',image:'PNG / GIF'
+      title:'Заголовок',text:'Текст',timer:'Таймер',image:'PNG / GIF',gram:'◇ GRAM'
     }[l.type])+'</span><strong>'+esc(l.text||'Изображение')+'</strong><small>z'+l.z+
     '</small></button>').join('')||'<p class="sub">Слои пока не добавлены.</p>';
 }
@@ -101,6 +101,16 @@ function icePaint(){
     },
     onMove(id){
       iceEdit.selected=id;iceDirty();iceList();iceProperties();
+    },
+    onTextChange(id){
+      iceEdit.selected=id;iceDirty();iceList();iceProperties();
+    },
+    onCanvasResize(){
+      for(const field of ['height','width_pct']){
+        const input=document.querySelector('[data-ice-global="'+field+'"]');
+        if(input)input.value=iceEdit.banner[field];
+      }
+      iceDirty();
     }
   });
 }
@@ -124,7 +134,7 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
     </section>
     <section class="panel ice-editor-preview-panel">
       <h3>Предпросмотр как в приложении</h3>
-      <p class="sub">Нажмите элемент, чтобы настроить, или передвиньте его пальцем. Можно также пользоваться координатами X/Y.</p>
+      <p class="sub">Нажмите на текст и потяните его; синие маркеры по углам меняют размер. Двойной клик редактирует надпись. Маркеры по краям полотна меняют размеры всего баннера.</p>
       <div id="ice-banner-preview" class="ice-editor-preview"></div>
     </section>
     <section class="panel">
@@ -142,7 +152,8 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
           <option value="public" ${b.rooms==='public'?'selected':''}>Комната 1</option>
           <option value="private" ${b.rooms==='private'?'selected':''}>Комната 2</option>
         </select></label>
-        <label>Высота полотна<input class="field" type="number" min="70" max="240" data-ice-global="height" value="${b.height}"></label>
+        <label>Ширина полотна, %<input class="field" type="number" min="50" max="100" data-ice-global="width_pct" value="${b.width_pct??100}"></label>
+        <label>Высота полотна, px<input class="field" type="number" min="70" max="280" data-ice-global="height" value="${b.height}"></label>
         <label>Скругление<input class="field" type="number" min="0" max="60" data-ice-global="radius" value="${b.radius}"></label>
         <label>Цвет фона<input type="color" data-ice-global="background_color" value="${esc(b.background_color)}"></label>
         <label>Фон<select class="field" data-ice-global="background_fit">
@@ -164,6 +175,7 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
         <button type="button" data-ice-add="text">+ Текст</button>
         <button type="button" data-ice-add="timer">+ Таймер</button>
         <button type="button" data-ice-add="image">+ PNG / GIF</button>
+        <button type="button" data-ice-add="gram">+ ◇ GRAM</button>
       </div>
       <div id="ice-editor-list" class="ice-editor-layer-list"></div>
       <div id="ice-editor-properties"></div>
@@ -176,6 +188,18 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
   iceList();iceProperties();icePaint();
 }
 function iceEditInput(e){
+  const hexField=e.target.dataset.iceColorHex;
+  if(hexField){
+    const color=e.target.value;
+    if(!/^#[a-f0-9]{6}$/i.test(color))return;
+    const l=iceSelected();
+    if(!l)return;
+    l[hexField]=color;
+    const picker=document.querySelector('[data-ice-layer="'+hexField+'"]');
+    if(picker)picker.value=color;
+    iceDirty();icePaint();
+    return;
+  }
   const global=e.target.dataset.iceGlobal,field=e.target.dataset.iceLayer;
   let value=e.target.type==='checkbox'?e.target.checked:e.target.value;
   if(global){
@@ -183,7 +207,7 @@ function iceEditInput(e){
     if(global==='start_at'||global==='end_at'){
       const unix=Date.parse(value);if(!Number.isFinite(unix))return;
       value=Math.floor(unix/1000);
-    } else if(['height','radius'].includes(global)){
+    } else if(['height','radius','width_pct'].includes(global)){
       if(value==='')return;value=Number(value);
     }
     if(global==='title'){
@@ -195,11 +219,21 @@ function iceEditInput(e){
     if(global==='title')iceList();
   }else if(field){
     const l=iceSelected();if(!l)return;
-    if(['x','y','w','h','font_size','font_weight','bg_opacity','radius','z'].includes(field)){
+    if(['x','y','w','h','font_size','font_weight','stroke_width','bg_opacity','radius','z'].includes(field)){
       if(value==='')return;value=Number(value);if(!Number.isFinite(value))return;
     }
     l[field]=value;
     if(field==='bg_opacity'&&l.type==='timer'&&value>0)iceEdit.timerOpacity.set(l.id,value);
+    const output=document.querySelector('[data-ice-readout="'+field+'"]');
+    if(output)output.textContent=String(value);
+    if(field==='color'||field==='bg_color'){
+      const hex=document.querySelector('[data-ice-color-hex="'+field+'"]');
+      if(hex)hex.value=value;
+    }
+    if(field==='bg_opacity'&&l.type==='timer'){
+      const checkbox=document.querySelector('[data-ice-toggle-bg]');
+      if(checkbox)checkbox.checked=Number(value)>0;
+    }
     iceDirty();icePaint();
     if(field==='text'||field==='z')iceList();
   }
@@ -236,8 +270,25 @@ function iceEditChange(e){
   }
 }
 function iceEditClick(e){
-  const button=e.target.closest('[data-ice-save],[data-ice-add],[data-ice-pick],[data-ice-action],[data-ice-clear]');
+  const button=e.target.closest('[data-ice-save],[data-ice-add],[data-ice-pick],[data-ice-action],[data-ice-clear],[data-ice-insert]');
   if(!button)return;
+  if(button.dataset.iceInsert==='gram'){
+    const l=iceSelected();
+    if(!l||!['title','text','timer'].includes(l.type))return;
+    const input=document.querySelector('[data-ice-layer="text"]');
+    if(!input)return;
+    const insert='{GRAM}';
+    const start=input.selectionStart??input.value.length;
+    const end=input.selectionEnd??start;
+    const next=input.value.slice(0,start)+insert+input.value.slice(end);
+    if(next.length>140)return toast('Текст до 140 символов');
+    input.value=next;
+    l.text=next;
+    input.focus();
+    input.setSelectionRange(start+insert.length,start+insert.length);
+    iceDirty();iceList();icePaint();
+    return;
+  }
   if(button.dataset.iceSave)iceSave(button.dataset.iceSave);
   if(button.dataset.iceAdd)iceAdd(button.dataset.iceAdd);
   if(button.dataset.icePick){iceEdit.selected=button.dataset.icePick;iceList();iceProperties();icePaint();}
@@ -252,8 +303,8 @@ function iceNewId(){return 'ice'+(crypto.randomUUID?.()||String(Date.now())).rep
 function iceAdd(type){
   const b=iceEdit.banner;if(b.layers.length>=20)return toast('Можно добавить до 20 слоёв');
   const l={id:iceNewId(),type,text:type==='title'?'Заголовок':type==='text'?'Надпись':'',
-    x:8,y:15,w:type==='timer'?30:type==='image'?25:54,h:60,
-    font:type==='timer'?'mono':'rounded',font_size:type==='timer'?17:24,font_weight:800,
+    x:8,y:15,w:type==='gram'?13:type==='timer'?30:type==='image'?25:54,h:type==='gram'?55:60,
+    font:type==='timer'?'mono':'rounded',font_size:type==='timer'?17:24,font_weight:800,stroke_width:0,
     color:type==='timer'?'#0a3555':'#ffffff',bg_color:type==='timer'?'#ffffff':'#123c5c',
     bg_opacity:type==='timer'?1:0,radius:type==='timer'?18:0,
     align:type==='timer'?'center':'left',format:'hh:mm:ss',asset:'',fit:'contain',
