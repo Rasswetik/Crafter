@@ -162,6 +162,10 @@ function arenaPrivateInfo() {
             '<div class="arena-private-info-badges"><span class="arena-private-info-badge">' +
             '● ' + esc(phaseLabel) + '</span><span class="arena-private-info-badge">' +
             esc(String(info.members)) + ' / ' + esc(String(info.max_players)) + ' игроков</span></div>' +
+            (info.bot_enabled ? '<div class="arena-private-info-bot">' +
+                '<img src="' + esc(info.bot_photo || '/static/assets/arena-crafter-bot.jpg') +
+                '" alt="Аватар бота"><div><strong>' + esc(info.bot_name) +
+                '</strong><small>Бот · участник со своим банком</small></div></div>' : '') +
             '<div class="arena-private-info-card">' +
             row('Владелец', info.owner_name || 'Владелец') +
             row('Игровой раунд', '#' + (data?.round_id || info.round_no || 1)) +
