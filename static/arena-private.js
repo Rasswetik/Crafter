@@ -39,15 +39,20 @@ function arenaOpenPrivateLobby() {
     arena.privateToken = null;
     const main = document.querySelector('#main');
     if (!main || state.page !== 'arena') return;
+
     main.innerHTML = '<section class="arena-page arena-private-lobby">' +
-        '<div class="arena-private-top"><h2>Приватные комнаты</h2>' + arenaRoomTabs(2) + '</div>' +
-        '<div class="arena-private-intro"><span class="arena-private-lock">♙</span>' +
-        '<h2>Создайте свою группу</h2>' +
-        '<p>Только те, кому вы отправите ссылку, смогут присоединиться и делать ставки.</p></div>' +
-        '<h3 class="arena-private-subheading">Ваши группы</h3>' +
-        '<div id="arena-private-list"><p class="arena-private-muted">Загрузка…</p></div>' +
+        '<div class="arena-private-top"><div class="arena-private-top-title">' +
+        '<small>ARENA · GROUPS</small><h2>Приватные комнаты</h2></div>' +
+        arenaRoomTabs(2) + '</div>' +
+        '<div class="arena-private-note"><span class="arena-private-note-icon">♙</span>' +
+        '<div><strong>Только по приглашению</strong>' +
+        '<p>Создайте группу или выберите ту, в которую вас пригласили.</p></div></div>' +
+        '<div class="arena-private-list-head"><h3>Ваши группы</h3>' +
+        '<span id="arena-private-total"></span></div>' +
+        '<div id="arena-private-list" class="arena-private-group-list">' +
+        '<p class="arena-private-muted">Загружаем группы…</p></div>' +
         '<div class="arena-dock arena-private-dock"><button class="arena-private-create" type="button" ' +
-        'onclick="arenaNewRoomForm()">+ Создать комнату</button></div></section>';
+        'onclick="arenaNewRoomForm()"><span>+</span> Создать комнату</button></div></section>';
     const view = arena.view;
     api('arena/private').then(data => {
         if (view !== arena.view || state.page !== 'arena') return;
