@@ -321,3 +321,106 @@ html[data-crafter-theme="light"] .arena-highlight-win { color: #23232a }
     .arena-highlight-content .arena-avatar { flex-basis: 21px; width:21px; height:21px }
     .arena-highlight-win img { width: 12px; height: 12px }
 }
+
+
+/* Room 2 — invite-only arena lobby and group creation. */
+.arena-room-tabs {
+    display: flex; align-items: center; gap: 4px; min-width: 0;
+    padding: 4px; border-radius: 30px; background: #232326;
+    border: 1px solid #ffffff14; flex-shrink: 0;
+}
+.arena-room-tabs button {
+    min-width: 43px; border: 0; border-radius: 24px; color: #a6a6ac;
+    background: transparent; padding: 8px 12px; font-weight: 750;
+    font-size: clamp(11px, 3.3vw, 14px); white-space: nowrap;
+}
+.arena-room-tabs button[aria-pressed="true"] { color: white; background: #168aff }
+.arena-roster-heading { align-items: center; gap: 5px }
+.arena-roster-heading h2 { min-width: 0; display: flex; gap: 4px; flex-wrap: wrap; align-items: baseline }
+.arena-roster-heading #arena-round { font-size: 10px; opacity: .75; margin-left: 2px }
+.arena-private-meta {
+    margin-bottom: 10px; border: 1px solid #ffffff14; border-radius: 18px;
+    padding: 12px; background: #212125; color: #fff;
+}
+.arena-private-meta[hidden] { display: none !important }
+.arena-private-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px }
+.arena-private-heading > span { display: grid; gap: 4px; min-width: 0 }
+.arena-private-heading strong { font-size: 17px; overflow: hidden; text-overflow: ellipsis }
+.arena-private-heading small { color: #99999f; font-size: 12px }
+.arena-private-heading button {
+    border: 1px solid #ffffff20; border-radius: 22px; padding: 9px 12px;
+    color: white; background: #36363c; font-weight: 750; flex-shrink: 0;
+}
+.arena-private-stakes-range { padding-top: 8px; color: #adadb5; font-size: 12px }
+.arena-private-lobby { min-height: 60vh }
+.arena-private-top { display: flex; justify-content: space-between; align-items: center; gap: 8px }
+.arena-private-top h2 { font-size: 21px; margin: 10px 0 }
+.arena-private-intro {
+    margin-top: 14px; padding: 36px 24px; border-radius: 23px;
+    background: linear-gradient(140deg, #2a2633, #202023 62%, #191a21);
+    border: 1px solid #ffffff14; text-align: center;
+}
+.arena-private-lock { display: grid; place-items: center; font-size: 35px; margin: 0 auto 12px;
+    width: 68px; height: 68px; background: #38313f; color: #b38ce7;
+    border-radius: 22px; font-weight: 800 }
+.arena-private-intro h2 { margin: 0 0 8px; font-size: 22px }
+.arena-private-intro p, .arena-private-muted { color: #a4a3ae; font-size: 13px; line-height: 1.55 }
+.arena-private-intro p { max-width: 320px; margin: auto }
+.arena-private-subheading { margin: 22px 0 10px; font-size: 16px }
+#arena-private-list { display: grid; gap: 8px; margin-bottom: 125px }
+.arena-private-room-card {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    border: 1px solid #ffffff18; border-radius: 15px; padding: 14px;
+    background: #26262a; color: white; text-align: left; min-width: 0;
+}
+.arena-private-room-card span { display: grid; gap: 6px; min-width: 0 }
+.arena-private-room-card strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.arena-private-room-card small { color: #9e9ea6; font-size: 12px }
+.arena-private-room-card > b { white-space: nowrap; font-size: 13px }
+.arena-private-dock { background: transparent; border: 0; padding: 4px }
+.arena-private-create, .arena-private-submit, .arena-private-join {
+    width: 100%; min-height: 52px; border: 0; border-radius: 20px;
+    font-size: 16px; font-weight: 750; background: #fff; color: #151517;
+}
+.arena-private-form { display: grid; gap: 14px; padding: 6px 0 }
+.arena-private-form label, .arena-private-share label {
+    display: grid; gap: 7px; color: #ceced3; font-size: 13px; font-weight: 700;
+}
+.arena-private-form input, .arena-private-form select, .arena-private-share input {
+    width: 100%; min-width: 0; min-height: 45px; padding: 0 12px;
+    font-size: 15px; color: #fff; background: #2c2c32; border: 1px solid #ffffff27;
+    border-radius: 12px; box-sizing: border-box;
+}
+.arena-private-limits { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px }
+.arena-private-form p, .arena-private-share p { color: #aaaab1; font-size: 12px; line-height: 1.5 }
+.arena-private-form .arena-private-submit { margin-top: 2px }
+.arena-private-submit:disabled, .arena-private-join:disabled { opacity: .5 }
+.arena-private-invite { padding: 48px 15px 25px; min-height: 60vh; text-align: center }
+.arena-private-invite h2 { font-size: 26px; overflow-wrap: anywhere; margin: 12px 0 }
+.arena-private-invite > p { color: #a7a7ac; font-size: 14px }
+.arena-private-invite-rules {
+    display: grid; gap: 10px; margin: 32px 0 20px;
+    padding: 16px; border-radius: 17px; background: #242429; text-align: left;
+}
+.arena-private-invite-rules span { display: flex; justify-content: space-between; align-items: center;
+    gap: 8px; color: #b3b2b8; font-size: 13px }
+.arena-private-invite-rules strong { color: #fff; font-size: 13px; text-align: right }
+.arena-private-back { display: block; border: none; padding: 16px; margin: 5px auto;
+    background: transparent; color: #9b9ba4; font-weight: 650 }
+.arena-private-share { display: grid; gap: 14px }
+.arena-private-share-telegram {
+    border: 1px solid #ffffff1b; border-radius: 16px; min-height: 49px;
+    color: white; background: #303035; font-weight: 700;
+}
+html[data-crafter-theme="light"] .arena-room-tabs { background: #ebeaf0 }
+html[data-crafter-theme="light"] .arena-private-meta,
+html[data-crafter-theme="light"] .arena-private-intro,
+html[data-crafter-theme="light"] .arena-private-room-card,
+html[data-crafter-theme="light"] .arena-private-invite-rules { background: #f5f4fa; color: #222 }
+html[data-crafter-theme="light"] .arena-private-heading strong { color: #222 }
+html[data-crafter-theme="light"] .arena-private-create { background: #29292e; color: #fff }
+@media(max-width:365px) {
+    .arena-room-tabs { padding: 3px; gap: 2px }
+    .arena-room-tabs button { padding: 7px 8px; min-width: 33px }
+    .arena-private-top h2 { font-size: 18px }
+}
