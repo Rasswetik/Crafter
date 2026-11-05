@@ -11,7 +11,7 @@ from PIL import Image, ImageOps
 MAX_IMAGE_SIZE = 5 * 1024 * 1024
 ACTIONS = {'none', 'market', 'lucky', 'craft', 'gifts', 'offers', 'history',
            'profile', 'referrals', 'wallet', 'activity', 'collection', 'link',
-           'games', 'staking', 'staking-rules', 'stake-gifts', 'gift-deposit', 'craft-rules', 'settings'}
+           'games', 'arena', 'events', 'staking', 'staking-rules', 'stake-gifts', 'gift-deposit', 'craft-rules', 'settings'}
 
 
 def number(value, minimum, maximum, label):
