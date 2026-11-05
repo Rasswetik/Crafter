@@ -54,6 +54,9 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 bet_until INTEGER, seed INTEGER NOT NULL, winner_id INTEGER, finished_at INTEGER,
                 result TEXT
             );
+            CREATE INDEX IF NOT EXISTS arena_best_result
+                ON arena_rounds(CAST(json_extract(result, '$.value') AS REAL) DESC, id DESC)
+                WHERE result IS NOT NULL;
             CREATE TABLE IF NOT EXISTS arena_stakes (
                 round_id INTEGER NOT NULL, user_id INTEGER NOT NULL, request_id TEXT NOT NULL,
                 position INTEGER NOT NULL, intent TEXT NOT NULL, gram INTEGER NOT NULL,
@@ -241,12 +244,17 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                  'betting' if end is not None else 'waiting')
         previous = db().execute("""SELECT result FROM arena_rounds
             WHERE result IS NOT NULL ORDER BY id DESC LIMIT 1""").fetchone()
+        best = db().execute("""SELECT result FROM arena_rounds
+            WHERE result IS NOT NULL
+            ORDER BY CAST(json_extract(result, '$.value') AS REAL) DESC, id DESC
+            LIMIT 1""").fetchone()
         return {'round_id': round_row['id'], 'server_time': now, 'phase': phase, 'seed': round_row['seed'],
                 'wait_until': round_row['wait_until'], 'bet_until': end,
                 'aim_ms': AIM_MS, 'flight_ms': FLIGHT_MS, 'finish_ms': FINISH_MS,
                 'target': str(round_row['winner_id']) if end is not None and now >= end + AIM_MS else None,
                 'players': players_public(players), 'bank': gram(sum(p['value'] for p in players.values())),
                 'last_result': json.loads(previous['result']) if previous else None,
+                'best_result': json.loads(best['result']) if best else None,
                 'fee_bps': round_fee(round_row['id']) if players else FEE_BPS,
                 'bot_enabled': bot_settings()['enabled'],
                 'balance': str(balance(uid)), 'viewer': str(uid), 'gift_limit': MAX_GIFTS,
