@@ -1,0 +1,91 @@
+/* Portal-style collection picker: taller, large prices, 24h volume and anvil shortcut. */
+dialog#sheet.catalog-sheet{
+  height:min(94dvh,980px)!important;
+  max-height:94dvh!important;
+  max-width:min(100%,580px)!important;
+  border-radius:35px 35px 0 0!important;
+  padding:24px 16px 0!important;
+  overflow:hidden;
+}
+dialog#sheet.catalog-sheet .sheet-head{margin:0 0 15px}
+dialog#sheet.catalog-sheet .sheet-head h2{font-size:24px;font-weight:850}
+dialog#sheet.catalog-sheet #sheet-body{
+  height:calc(100% - 52px);
+  display:flex;
+  flex-direction:column;
+  min-height:0;
+}
+dialog#sheet.catalog-sheet .catalog-search-row{
+  display:flex;gap:9px;align-items:center;min-height:44px;margin-bottom:12px;
+}
+dialog#sheet.catalog-sheet .catalog-search{
+  min-width:0;flex:1 1 auto;margin:0;
+}
+dialog#sheet.catalog-sheet .catalog-craft-toggle{
+  flex:0 0 42px;display:grid;place-items:center;
+  height:42px;width:42px;padding:0;
+  border-radius:50%;background:#3a3a3e;color:#eff8ff;
+  border:1px solid #ffffff22;
+}
+dialog#sheet.catalog-sheet .catalog-craft-toggle svg{width:23px;height:23px}
+dialog#sheet.catalog-sheet .catalog-craft-toggle.active{
+  color:#132c43;background:#f8fbff;border-color:#fff;
+}
+dialog#sheet.catalog-sheet .catalog-columns{margin:0 0 3px}
+dialog#sheet.catalog-sheet .catalog-row{
+  display:flex;align-items:center;gap:11px;min-height:65px;
+  padding:7px 2px;
+}
+dialog#sheet.catalog-sheet .catalog-row .catalog-thumb{
+  flex:0 0 44px;width:44px;height:44px;
+}
+dialog#sheet.catalog-sheet .catalog-row>strong{
+  flex:1 1 100px;min-width:0;
+  font-size:14px;line-height:1.25;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+dialog#sheet.catalog-sheet .catalog-value{
+  flex:0 0 auto;
+  min-width:93px;
+  max-width:40%;
+  display:grid;justify-items:end;
+  text-align:right;gap:5px;
+}
+dialog#sheet.catalog-sheet .catalog-value>b{
+  font-size:16px;line-height:1.2;font-weight:850;
+  color:#f8fbff;font-variant-numeric:tabular-nums;
+}
+dialog#sheet.catalog-sheet .catalog-value>small{
+  font-size:10px;line-height:1.15;color:#87878e;
+  font-weight:650;white-space:nowrap;
+}
+dialog#sheet.catalog-sheet .catalog-footer{
+  margin:0 -16px;
+  padding:13px 16px max(13px,env(safe-area-inset-bottom));
+  border-top:1px solid #39393c;
+  background:#232326;
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+}
+dialog#sheet.catalog-sheet .catalog-footer button{
+  min-height:47px;border-radius:24px;
+  font-size:14px;font-weight:800;
+}
+/* 11 gifts per desktop row without shrinking the mobile Telegram WebApp. */
+@media(min-width:950px){
+ #app:has(#gifts-grid){max-width:min(98vw,1480px)}
+ #main #gifts-grid.grid:not(.list){grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+}
+@media(min-width:1350px){
+ #app:has(#gifts-grid){max-width:min(98vw,1710px)}
+ #main #gifts-grid.grid:not(.list){grid-template-columns:repeat(9,minmax(0,1fr));gap:9px}
+}
+@media(min-width:1740px){
+ #app:has(#gifts-grid){max-width:min(98vw,1940px)}
+ #main #gifts-grid.grid:not(.list){grid-template-columns:repeat(11,minmax(0,1fr));gap:9px}
+}
+@media(max-width:370px){
+ dialog#sheet.catalog-sheet{padding-inline:11px!important}
+ dialog#sheet.catalog-sheet .catalog-value{min-width:82px}
+ dialog#sheet.catalog-sheet .catalog-value>b{font-size:14px}
+ dialog#sheet.catalog-sheet .catalog-row{gap:7px}
+}
