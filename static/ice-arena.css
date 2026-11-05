@@ -1,0 +1,194 @@
+/* Ice Arena: cold glass, Arctic blue instead of purple, preserving colorful game tiles. */
+#app.arena-view{
+  --ice:#74dcff; --ice-glow:#3abaff; --ice-edge:#87d9ff55;
+  --ice-white:#eafaff;
+}
+#app.arena-view #main{background:radial-gradient(ellipse 110% 37% at 50% 8%,#153a5466,transparent 70%)}
+#app.arena-view .arena-page{
+  --arena-panel:#13202b;
+  --arena-edge:#a6e5ff23;
+  --arena-muted:#a2bed0;
+  --arena-text:#e9f8ff;
+  --arena-dock:#111f2df5;
+  --arena-control:#213a50;
+  color:#e6f7ff;
+}
+#app.arena-view header .arena-rules-button,
+#app.arena-view > header > .arena-rules-button{
+  color:#d7f3ff;
+  background:linear-gradient(145deg,#16354d,#1a2b3b);
+  border:1px solid #75cef841;
+}
+#app.arena-view > header > .balance{
+  background:linear-gradient(115deg,#112c43,#1e526d);
+  border-color:#86d9ff5a;
+  color:#e9fcff;
+}
+#app.arena-view .arena-table{
+  background:linear-gradient(165deg,#142939,#0d1b29 70%,#152a3d);
+  border:1px solid #94deff3b;
+  box-shadow:0 8px 30px #03121e33, inset 0 1px #ffffff12;
+  overflow:hidden;
+}
+#app.arena-view .arena-meta b{color:#72d4ff}
+#app.arena-view .arena-board-frame,
+#app.arena-view .arena-private-active .arena-board-frame{
+  background:linear-gradient(155deg,#aacad559,#375c7177 20%,#162d3e 55%,#7bbed43d);
+  box-shadow:inset 0 1px #d9f8ff99, inset 0 -1px #b6edff36,0 7px 23px #021521aa;
+  border:1px solid #b7eaff3d;
+  padding:clamp(7px,2.9vw,12px);
+}
+#app.arena-view .arena-board-viewport{
+  background:#0b1927;
+  border:1px solid #c5edff22;
+  box-shadow:inset 0 0 25px #80caff17;
+}
+#app.arena-view .arena-board{
+  background:
+    radial-gradient(ellipse at 53% 37%,#1a4458 0%,#0f2538 50%,#0a1525 87%);
+}
+#app.arena-view .arena-highlight{
+  background:linear-gradient(#223b4a,#172c3b);
+  border:1px solid #b9ecff1c;
+  border-radius:14px;
+}
+#app.arena-view .arena-highlight-heading{color:#a1b6c3}
+#app.arena-view .arena-highlight-content{
+  background:#102330ad; border-radius:12px;
+}
+#app.arena-view .arena-highlight-name{color:#c6dce7}
+#app.arena-view .arena-dock{
+  border:1px solid #86cfff40;
+  background:#101f2be9;
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  box-shadow:0 -4px 25px #04121b91,inset 0 1px #e8faff11;
+}
+#app.arena-view .arena-room-tabs,
+#app.arena-view .arena-private-top .arena-room-tabs,
+#app.arena-view .arena-private-lobby .arena-private-dock>.arena-room-tabs{
+  background:#102637;
+  border-color:#8bdcff25;
+}
+#app.arena-view .arena-room-tabs button{color:#accddd}
+#app.arena-view .arena-room-tabs button[aria-pressed="true"],
+#app.arena-view .arena-private-active .arena-room-tabs button[aria-pressed="true"],
+#app.arena-view .arena-private-lobby .arena-room-tabs button[aria-pressed="true"]{
+  color:#06243a;
+  background:linear-gradient(140deg,#c6f4ff,#53bfff);
+  box-shadow:0 2px 14px #53bfff38;
+}
+#app.arena-view .arena-mode-tabs{background:#14283a;border-color:#8bdcff29}
+#app.arena-view .arena-mode-tabs button[aria-pressed="true"],
+#app.arena-view .arena-modes button[aria-pressed="true"]{
+  color:#03304d;background:linear-gradient(140deg,#c2f4ff,#45b9fb);
+}
+#app.arena-view .arena-actions .arena-choose-gifts{
+  color:#0a3049;background:#e9faff;
+}
+#app.arena-view .arena-actions .arena-quick-gift:not(:disabled){
+  background:linear-gradient(145deg,#008eca,#65d1fd);
+}
+#app.arena-view .arena-cash-actions>button{
+  background:linear-gradient(165deg,#31546c,#22374a);
+  border-color:#9fdbfb30;
+  color:#eafaff;
+}
+#app.arena-view .arena-cash-actions .arena-stake-amount .arena-gram-icon{color:#8ae3ff}
+#app.arena-view .arena-player{
+  background:linear-gradient(130deg,#193449,#112332);
+  border-color:#76c9ff2a;
+}
+#app.arena-view .arena-player-items{background:#b2f4ff08}
+#app.arena-view #nav.games-nav .nav-main>button[data-game-page="arena"].active{
+  color:#a8edff!important;
+  background:linear-gradient(150deg,#194d66,#143348)!important;
+  border-color:#62d5ffbb!important;
+  box-shadow:inset 0 0 1px #d7f7ff8c,0 0 15px #1287c01f;
+}
+#app.arena-view .arena-bot-badge{background:#195a80;color:#cbf4ff}
+#app.arena-view .arena-private-room-card,
+#app.arena-view .arena-private-note,
+#app.arena-view .arena-private-intro,
+#app.arena-view .arena-private-invite-rules{
+  background:linear-gradient(140deg,#152d3e,#162532);
+  border-color:#8bdbff30;
+}
+#app.arena-view .arena-private-room-icon{
+  background:#225977;color:#d1f7ff;
+}
+#app.arena-view .arena-private-create{background:#e2f7ff;color:#093044}
+#app.arena-view .arena-private-top-title small{color:#8ddfff}
+#app.arena-view .arena-private-room-role,
+#app.arena-view .arena-private-room-bot{color:#88e0ff}
+#app.arena-view .arena-win-panel{border-color:#80d4ff66}
+html[data-crafter-theme="light"] #app.arena-view .arena-page{
+  --arena-panel:#e7f6fc;--arena-text:#152f41;--arena-muted:#476d80;
+  --arena-dock:#e8f7fff4;--arena-control:#c9e7f7;
+}
+html[data-crafter-theme="light"] #app.arena-view .arena-highlight-name{color:#a8c9db}
+html[data-crafter-theme="light"] #app.arena-view .arena-room-tabs button[aria-pressed="true"]{color:#073047}
+
+/* Banner canvas is the same in administration and on the live Arena. */
+.arena-event-banner-slot{margin:0 0 12px}
+.arena-event-banner-slot[hidden]{display:none!important}
+.ice-banner-stage{
+  width:100%;
+  position:relative;
+  overflow:hidden;
+  box-sizing:border-box;
+  container-type:inline-size;
+  isolation:isolate;
+  background-image:linear-gradient(110deg,#07385a,#0775af 66%,#70ddf8);
+  border:1px solid #b2ecff7a;
+  box-shadow:inset 0 1px 1px #f3fcff9e,0 5px 17px #00152050;
+}
+.ice-banner-stage::after{
+  content:"";
+  position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:
+    radial-gradient(circle at 12% 31%,#e2fbff80 0 1px,transparent 2px),
+    radial-gradient(circle at 39% 15%,#e2fbff7d 0 1px,transparent 2px),
+    radial-gradient(circle at 81% 62%,#d5f6ff80 0 1px,transparent 2px),
+    linear-gradient(170deg,#e1f8ff18,transparent 37%,#001b3a19);
+}
+.ice-banner-layer{
+  position:absolute;
+  display:flex;
+  align-items:center;
+  min-width:0;
+  min-height:0;
+  overflow:hidden;
+  padding:0 2px;
+  box-sizing:border-box;
+  line-height:1.08;
+  letter-spacing:-.02em;
+  white-space:pre-wrap;
+  overflow-wrap:anywhere;
+  text-shadow:0 1px 2px #00182f55;
+  font-variant-numeric:tabular-nums;
+}
+.ice-banner-type-timer{
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:clip;
+  text-shadow:none;
+  letter-spacing:-.04em;
+}
+.ice-banner-type-image{padding:0;pointer-events:none}
+.ice-banner-type-image img{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.ice-banner-missing-image{border:1px dashed #b5e2fbaa;color:#deeeff;font-size:12px!important;justify-content:center!important}
+.ice-banner-editable .ice-banner-layer-edit{
+  border:1px dashed #e0fbff80;
+  touch-action:none;
+  cursor:grab;
+  pointer-events:auto;
+}
+.ice-banner-editable .ice-banner-layer-edit.is-selected{
+  outline:2px solid #fff;
+  outline-offset:1px;
+  border-color:#4daaff;
+  cursor:move;
+  box-shadow:0 0 12px #57c8ff91;
+}
+.ice-banner-editable .ice-banner-layer-edit:focus-visible{outline:2px solid white}
+@media(prefers-reduced-motion:reduce){.ice-banner-stage::after{animation:none}}
