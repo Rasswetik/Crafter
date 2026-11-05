@@ -221,3 +221,51 @@ html[data-crafter-theme="light"] .gifts-empty-dots button[aria-current="true"]::
     border-radius:999px;background:#168aff;color:#fff;
 }
 #main .inventory-actions button[data-inventory-transfer] .inventory-send-oval-icon svg {width:18px;height:18px;fill:currentColor;stroke:none;margin:auto}
+
+/* Small, visually quiet corner actions — matched to copy-link affordances. */
+#main .inventory-gift .inventory-send-plane,
+#main .inventory-gift .inventory-craft-dot {
+    position:absolute;
+    box-sizing:border-box;
+    top:10px;
+    width:28px;
+    height:28px;
+    min-width:28px;
+    min-height:28px;
+    padding:0;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,.35);
+    background:rgba(17,19,24,.14);
+    color:#fff;
+    box-shadow:0 1px 4px #0003;
+    -webkit-backdrop-filter:blur(4px);
+    backdrop-filter:blur(4px);
+    z-index:6;
+}
+#main .inventory-gift .inventory-send-plane {right:10px;}
+#main .inventory-gift .inventory-craft-dot {left:10px;}
+#main .inventory-gift .inventory-send-plane svg,
+#main .inventory-gift .inventory-craft-dot .inventory-anvil {
+    display:block;
+    width:15px;
+    height:15px;
+    margin:0;
+}
+#main .inventory-gift .inventory-send-plane:disabled {
+    background:rgba(17,19,24,.14);
+    opacity:.45;
+}
+@media(max-width:370px) {
+    #main .inventory-gift .inventory-send-plane,
+    #main .inventory-gift .inventory-craft-dot {
+        top:9px;
+        width:27px;
+        height:27px;
+        min-width:27px;
+        min-height:27px;
+    }
+    #main .inventory-gift .inventory-send-plane {right:9px;}
+    #main .inventory-gift .inventory-craft-dot {left:9px;}
+}
