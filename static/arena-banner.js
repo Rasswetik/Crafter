@@ -70,6 +70,28 @@ function iceBannerStartClock() {
 }
 
 
+function iceBannerSnap(start,size,targets,threshold) {
+    const edges=[start,start+size/2,start+size];
+    let delta=0,guide=null,smallest=threshold;
+    for(const target of targets){
+        for(const point of edges){
+            const distance=Math.abs(target-point);
+            if(distance<=smallest){
+                smallest=distance;
+                delta=target-point;
+                guide=target;
+            }
+        }
+    }
+    return {value:start+delta,guide};
+}
+function iceBannerGuides(stage){
+    let x=stage.querySelector('.ice-banner-guide-x');
+    let y=stage.querySelector('.ice-banner-guide-y');
+    if(!x){x=document.createElement('span');x.className='ice-banner-guide ice-banner-guide-x';stage.append(x);}
+    if(!y){y=document.createElement('span');y.className='ice-banner-guide ice-banner-guide-y';stage.append(y);}
+    return {x,y};
+}
 function iceBannerDragLayer(el,layer,stage,event,options) {
     if(event.button!==0&&event.pointerType==='mouse')return;
     if(el.querySelector('[contenteditable=true]'))return;
@@ -79,17 +101,38 @@ function iceBannerDragLayer(el,layer,stage,event,options) {
     const initial={x:Number(layer.x),y:Number(layer.y),w:Number(layer.w),h:Number(layer.h)};
     const rect=stage.getBoundingClientRect();
     const origin={x:event.clientX,y:event.clientY};
+    const guides=iceBannerGuides(stage);
+    const peers=(options.layers||[]).filter(item=>item.id!==layer.id);
+    const xTargets=[0,50,100,...peers.flatMap(item=>[
+        Number(item.x),Number(item.x)+Number(item.w)/2,Number(item.x)+Number(item.w)])];
+    const yTargets=[0,50,100,...peers.flatMap(item=>[
+        Number(item.y),Number(item.y)+Number(item.h)/2,Number(item.y)+Number(item.h)])];
     if(options.onSelect)options.onSelect(layer.id);
     el.setPointerCapture(event.pointerId);
     const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
     const round=v=>Math.round(v*10)/10;
+    const hideGuides=()=>{guides.x.hidden=true;guides.y.hidden=true;};
     const move=e=>{
         const dx=(e.clientX-origin.x)/Math.max(1,rect.width)*100;
         const dy=(e.clientY-origin.y)/Math.max(1,rect.height)*100;
         let {x,y,w,h}=initial;
+        hideGuides();
         if(edge==='move'){
             x=clamp(initial.x+dx,0,100-initial.w);
             y=clamp(initial.y+dy,0,100-initial.h);
+            const snapping=(options.snapEnabled?.()??true)&&!e.altKey;
+            if(snapping){
+                const sx=iceBannerSnap(x,w,xTargets,750/Math.max(140,rect.width));
+                const sy=iceBannerSnap(y,h,yTargets,750/Math.max(70,rect.height));
+                if(sx.guide!==null){
+                    x=clamp(sx.value,0,100-w);
+                    guides.x.hidden=false;guides.x.style.left=sx.guide+'%';
+                }
+                if(sy.guide!==null){
+                    y=clamp(sy.value,0,100-h);
+                    guides.y.hidden=false;guides.y.style.top=sy.guide+'%';
+                }
+            }
         }else{
             if(edge.includes('e'))w=clamp(initial.w+dx,3,100-initial.x);
             if(edge.includes('s'))h=clamp(initial.h+dy,3,100-initial.y);
@@ -111,6 +154,7 @@ function iceBannerDragLayer(el,layer,stage,event,options) {
         el.removeEventListener('pointermove',move);
         el.removeEventListener('pointerup',end);
         el.removeEventListener('pointercancel',end);
+        hideGuides();
         if(options.onMove)options.onMove(layer.id);
     };
     el.addEventListener('pointermove',move);
@@ -277,7 +321,8 @@ function iceBannerMount(container, banner, options = {}) {
                 h.setAttribute('aria-hidden','true');
                 el.append(h);
             }
-            el.addEventListener('pointerdown',event=>iceBannerDragLayer(el,layer,stage,event,options));
+            el.addEventListener('pointerdown',event=>iceBannerDragLayer(el,layer,stage,event,
+                {...options,layers:banner.layers}));
             el.addEventListener('keydown',event=>{
                 if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key))return;
                 event.preventDefault();
