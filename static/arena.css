@@ -15,11 +15,19 @@
     --arena-dock: #19191efc; --arena-control: #36353d;
     max-width: 540px; margin: 0 auto; color: var(--arena-text);
 }
-.arena-table { border-radius: 16px; padding: 7px; background: var(--arena-panel); border: 1px solid var(--arena-edge) }
-.arena-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 6px 9px; font-size: 12px; color: var(--arena-muted) }
+.arena-table { border-radius: 23px; background: var(--arena-panel); border: 1px solid var(--arena-edge) }
+.arena-meta {
+    display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    padding: 10px 16px; font-size: clamp(12px, 3.5vw, 15px); color: var(--arena-muted);
+}
 .arena-meta b { color: #62aaff }
 #arena-phase { text-align: right; font-variant-numeric: tabular-nums }
-.arena-board { display: block; width: 100%; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: radial-gradient(ellipse at 50% 45%, #2e253a, #131218 75%) }
+.arena-board-frame {
+    padding: clamp(8px, 3vw, 13px); border-radius: 22px;
+    background: linear-gradient(150deg, #444448, #262628 40%, #19191c 80%, #343438);
+    box-shadow: inset 0 1px 1px #ffffff45, inset 0 -1px 2px #ffffff30, 0 6px 16px #0003;
+}
+.arena-board { display: block; width: 100%; aspect-ratio: 1; overflow: hidden; background: radial-gradient(ellipse at 50% 45%, #2e253a, #131218 75%) }
 .arena-board text { fill: #fff; text-anchor: middle; font-weight: 700; font-family: inherit }
 .arena-board .arena-empty-field { fill: #bdafcb; font-size: 4px; dominant-baseline: middle }
 .arena-avatar-letters { dominant-baseline: central }

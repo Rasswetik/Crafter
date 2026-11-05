@@ -4,9 +4,13 @@ const arena = {
     giftSources: new Map(), pending: false, mode: 'gram', picked: new Set(), gifts: [], retry: null,
 };
 const arenaPalette = [
-    ['#9919da','#d140ff'], ['#4642d4','#776cfc'], ['#15a65b','#5df574'],
+    ['#b30054','#ff7748'], ['#4642d4','#776cfc'], ['#15a65b','#5df574'],
     ['#c16b30','#ffd359'], ['#9daf10','#d6ee3e'], ['#0b92a7','#42e6da'],
     ['#c62773','#fa79b1'], ['#2862c0','#60a3ff'],
+];
+const arenaInitialsPalette = [
+    ['#dbc000','#46b82b'], ['#a96cea','#7350ba'],
+    ['#68d2af','#168a75'], ['#ffbd49','#e67631'],
 ];
 const arenaNumber = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 2});
 function arenaFormat(value) {
@@ -51,7 +55,7 @@ function enterArena(main) {
         <div class="arena-table">
             <div class="arena-meta"><span>Банк <b id="arena-bank">0 GRAM</b></span>
                 <span id="arena-phase" role="status">Загрузка…</span></div>
-            <svg class="arena-board" viewBox="0 0 100 100" role="img" aria-label="Игровое поле">
+            <div class="arena-board-frame"><svg class="arena-board" viewBox="0 0 100 100" role="img" aria-label="Игровое поле">
                 <defs id="arena-colors"></defs>
                 <g id="arena-world">
                     <g id="arena-cells"></g>
@@ -66,7 +70,7 @@ function enterArena(main) {
                         <text id="arena-puck-name" x="0" y="-5.5"></text>
                     </g>
                 </g>
-            </svg>
+            </svg></div>
         </div>
         <div class="arena-roster-heading"><h2>Игроки <small id="arena-count">0</small></h2>
             <span id="arena-round"></span></div>
@@ -182,7 +186,7 @@ function arenaCells(players, seed, weights) {
                 x: points.reduce((sum, p) => sum + p.x, 0) / points.length,
                 y: points.reduce((sum, p) => sum + p.y, 0) / points.length,
             };
-            const radius = Math.min(13, Math.sqrt(arenaArea(points)) * .27, ...points.map((a, i) => {
+            const radius = Math.min(Math.sqrt(arenaArea(points)) * .25, ...points.map((a, i) => {
                 const b = points[(i + 1) % points.length];
                 return Math.abs((b.x - a.x) * (center.y - a.y) - (b.y - a.y) * (center.x - a.x)) /
                     (Math.hypot(b.x - a.x, b.y - a.y) || 1);
@@ -234,17 +238,21 @@ function arenaRenderBoard(data, previous) {
     const avatars = document.querySelector('#arena-avatars');
     colors.innerHTML = '<clipPath id="arena-avatar-clip"><circle r="1"/></clipPath>' + players.map((_, i) => {
         const [dark, light] = arenaPalette[i % arenaPalette.length];
+        const [top, bottom] = arenaInitialsPalette[i % arenaInitialsPalette.length];
         return `<linearGradient id="arena-color-${i}" gradientUnits="userSpaceOnUse" x2="100" y2="100">
-            <stop stop-color="${dark}"/><stop offset="1" stop-color="${light}"/></linearGradient>`;
+            <stop stop-color="${dark}"/><stop offset="1" stop-color="${light}"/></linearGradient>
+            <linearGradient id="arena-initials-${i}" x2="0" y2="1">
+                <stop stop-color="${top}"/><stop offset="1" stop-color="${bottom}"/>
+            </linearGradient>`;
     }).join('');
     layer.innerHTML = players.map((_, i) => `<polygon fill="url(#arena-color-${i})"/>`).join('') ||
         '<text class="arena-empty-field" x="50" y="50">Ожидаем ставки</text>';
-    avatars.innerHTML = players.map(player => {
+    avatars.innerHTML = players.map((player, i) => {
         const photo = imageURL(player.photo);
-        return `<g><circle r="1" fill="#252447" fill-opacity=".58"/>
+        return `<g><circle r="1" fill="url(#arena-initials-${i})"/>
+            <text class="arena-avatar-letters" font-size=".92">${esc(arenaBadge(player))}</text>
             ${photo ? `<image href="${esc(photo)}" x="-1" y="-1" width="2" height="2"
-                preserveAspectRatio="xMidYMid slice" clip-path="url(#arena-avatar-clip)"/>` :
-                `<text class="arena-avatar-letters" font-size=".85">${esc(arenaBadge(player))}</text>`}</g>`;
+                preserveAspectRatio="xMidYMid slice" clip-path="url(#arena-avatar-clip)"/>` : ''}</g>`;
     }).join('');
     arena.tiles = players.map((_, i) => ({polygon: layer.children[i], avatar: avatars.children[i]}));
     arena.boardMotion = animate ? {from, weights, started: performance.now()} : null;
