@@ -97,6 +97,7 @@ def clean_banner(data):
         'background_tint':round(num(data.get('background_tint'),0,.9,0),2),
         'background_focus_x':int(num(data.get('background_focus_x'),0,100,50)),
         'background_focus_y':int(num(data.get('background_focus_y'),0,100,50)),
+        'link_target':data.get('link_target') if data.get('link_target') in ('event','craft','arena','none') else 'event',
         'layers':[clean_layer(layer) for layer in incoming],
     }
 
@@ -142,6 +143,7 @@ def clean_page(data):
             'banner':clean_banner(block.get('banner')) if typ=='banner' else None,
         }
         cleaned.append(safe)
+    if sum(1 for b in cleaned if b['type']=='banner')>4:abort(400,description='До 4 баннеров')
     if not cleaned:
         cleaned=default_page()['blocks']
     return {'style':style,'blocks':cleaned}
