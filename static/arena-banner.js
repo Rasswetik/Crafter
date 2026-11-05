@@ -51,6 +51,22 @@ function iceBannerMount(container, banner, options = {}) {
     stage.className = 'ice-banner-stage' + (options.editable ? ' ice-banner-editable' : '');
     stage.setAttribute('role', 'group');
     stage.setAttribute('aria-label', banner.title || 'Ice Arena — событие');
+    if (!options.editable) {
+        const eventId = /^[0-9a-f]{32}$/.test(banner.event_id || '') ? banner.event_id : null;
+        stage.classList.add('ice-banner-link');
+        stage.tabIndex = 0;
+        stage.setAttribute('role', 'link');
+        stage.setAttribute('aria-label', 'Открыть лидерборд события: ' + (banner.title || 'Ивент'));
+        const activate = () => {
+            if (typeof go === 'function') go('events', eventId);
+        };
+        stage.addEventListener('click', activate);
+        stage.addEventListener('keydown', event => {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            event.preventDefault();
+            activate();
+        });
+    }
     stage.style.height = Math.max(70, Math.min(240, Number(banner.height) || 112)) + 'px';
     stage.style.borderRadius = (Number(banner.radius) || 0) + 'px';
     stage.style.backgroundColor = banner.background_color || '#085e98';
@@ -85,7 +101,7 @@ function iceBannerMount(container, banner, options = {}) {
         const hex = /^#[0-9a-f]{6}$/i.test(bg) ? bg : '#ffffff';
         const alpha = Math.round(Math.max(0, Math.min(1, Number(layer.bg_opacity))) * 255)
             .toString(16).padStart(2,'0');
-        el.style.background = hex + alpha;
+        el.style.background = Number(layer.bg_opacity) <= 0 ? 'transparent' : hex + alpha;
         if (layer.type === 'image') {
             if (/^\/media\/ice-banner\/[0-9a-f]{32}\.(?:gif|webp)$/.test(layer.asset || '')) {
                 const img = document.createElement('img');
