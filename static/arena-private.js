@@ -325,6 +325,35 @@ async function arenaSavePrivateSettings(event) {
     }
 }
 
+
+async function arenaPrivateInventory() {
+    const info = arenaPrivate.info;
+    if (!info?.is_owner || info.token !== arena.privateToken) return toast('Инвентарь доступен владельцу');
+    arenaPrivate.inventoryMode = 'bot';
+    arenaPrivate.inventorySelected = new Set();
+    sheet('Инвентарь · ' + info.bot_name,
+        '<div class="arena-private-info-loading">Загрузка инвентаря…</div>');
+    await arenaPrivateInventoryReload(info.token);
+}
+async function arenaPrivateInventoryReload(token) {
+    try {
+        const data = await api('arena/private/' + token + '/bot-inventory');
+        if (token !== arena.privateToken || !appSheet.open) return;
+        arenaPrivate.inventoryData = data;
+        arenaPrivateInventoryRender();
+    } catch (error) {
+        if (token !== arena.privateToken || !appSheet.open) return;
+        sheet('Инвентарь бота', '<p class="arena-private-inventory-error">' +
+            esc(error.message) + '</p><button class="arena-private-info-secondary" ' +
+            'onclick="arenaPrivateInventory()">Повторить</button>');
+    }
+}
+function arenaPrivateInventoryTab(mode) {
+    if (mode !== 'owner' && mode !== 'bot') return;
+    arenaPrivate.inventoryMode = mode;
+    arenaPrivate.inventorySelected = new Set();
+    arenaPrivateInventoryRender();
+}
 function arenaPrivateBotAvatarPreview(event) {
     const input = event.currentTarget;
     const file = input.files?.[0];
