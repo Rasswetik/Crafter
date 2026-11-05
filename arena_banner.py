@@ -12,9 +12,9 @@ CONFIG_KEY = 'ice_arena_banner_v1'
 ASSET = re.compile(r'^/media/ice-banner/([0-9a-f]{32})\.(gif|webp)$')
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
 LAYER_ID = re.compile(r'^[a-zA-Z0-9_-]{1,45}$')
-FONTS = {'system', 'rounded', 'mono', 'serif', 'condensed'}
+FONTS = {'system', 'rounded', 'mono', 'serif', 'condensed', 'heavy', 'bold', 'geometric', 'clean', 'classic', 'display', 'futuristic'}
 FORMAT = {'hh:mm:ss', 'mm:ss', 'days'}
-TYPES = {'title', 'text', 'timer', 'image'}
+TYPES = {'title', 'text', 'timer', 'image', 'gram'}
 ROOMS = {'all', 'public', 'private'}
 MAX_ASSET = 8 * 1024 * 1024
 
@@ -24,7 +24,7 @@ def default_banner():
     return {
         'enabled': False, 'event_id': '', 'rooms': 'all', 'hide_after_end': True,
         'title': 'Ледяная охота', 'start_at': now + 1800, 'end_at': now + 88200,
-        'height': 112, 'radius': 22, 'background_color': '#075b9e',
+        'height': 112, 'width_pct': 100, 'radius': 22, 'background_color': '#075b9e',
         'background_asset': '', 'background_fit': 'cover',
         'layers': [
             {'id': 'headline', 'type': 'title', 'text': 'Ледяная охота',
@@ -117,11 +117,18 @@ def install_arena_banner(app, db, auth, audit):
         opacity = layer.get('bg_opacity', 0)
         if type(opacity) not in (float, int) or not 0 <= opacity <= 1:
             abort(400, description='Прозрачность должна быть от 0 до 1')
+        try:
+            stroke = float(layer.get('stroke_width', 0))
+        except (TypeError, ValueError, OverflowError):
+            abort(400, description='Некорректная толщина текста')
+        if not 0 <= stroke <= 3:
+            abort(400, description='Толщина текста: от 0 до 3 пикселей')
         return {
             'id': ident, 'type': typ, 'text': text,
             'x': percent(layer.get('x'), 'X'), 'y': percent(layer.get('y'), 'Y'),
             'w': percent(layer.get('w'), 'Ширина'), 'h': percent(layer.get('h'), 'Высота'),
             'font': font, 'font_size': integer(layer.get('font_size'), 10, 72, 'Кегль'),
+            'stroke_width': round(stroke, 2),
             'font_weight': integer(layer.get('font_weight'), 400, 900, 'Насыщенность'),
             'color': color(layer.get('color'), 'Цвет текста'),
             'bg_color': color(layer.get('bg_color'), 'Цвет подложки'),
@@ -165,7 +172,8 @@ def install_arena_banner(app, db, auth, audit):
             'event_id': event_id, 'rooms': room,
             'hide_after_end': boolean(data.get('hide_after_end'), 'Скрывать после окончания'),
             'title': title, 'start_at': start, 'end_at': end,
-            'height': integer(data.get('height'), 70, 240, 'Высота'),
+            'height': integer(data.get('height'), 70, 280, 'Высота'),
+            'width_pct': integer(data.get('width_pct', 100), 50, 100, 'Ширина'),
             'radius': integer(data.get('radius'), 0, 60, 'Скругление'),
             'background_color': color(data.get('background_color'), 'Цвет фона'),
             'background_asset': asset_url(data.get('background_asset', '')),
