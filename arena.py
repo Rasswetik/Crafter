@@ -560,5 +560,16 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
                 app.logger.exception('Arena settlement failed')
             time.sleep(1)
 
+    # Separate invite-only rooms share escrow and valuation helpers, but never
+    # reuse public round IDs or allow the public Crafter bot into private games.
+    from arena_private import install_private_arena
+    install_private_arena(app, db, auth, record, {
+        'clock': clock, 'units': units, 'gram': gram,
+        'balance': balance, 'set_balance': set_balance,
+        'totals': totals, 'players_public': players_public,
+        'release_gift': release_gift, 'restore_backing': restore_backing,
+        'available_gifts': available_gifts, 'floor_prices': floor_prices,
+    })
+
     if not app.config.get('TESTING'):
         threading.Thread(target=sweep, daemon=True, name='arena-settlement').start()
