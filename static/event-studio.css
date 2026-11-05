@@ -213,3 +213,41 @@
  .studio-fields{gap:7px}
  .studio-fields .field{font-size:10px}
 }
+
+
+/* Four banner slots in editor match the published layout at the chosen preview width. */
+#studio-preview .crafter-event-top-banners{display:grid;gap:8px;padding:4px 0 10px}
+#studio-preview .crafter-event-top-banners>.studio-preview-block{min-width:0}
+#studio-preview .crafter-event-top-banners .ice-banner-stage{width:100%!important}
+#studio-preview .studio-preview-block{cursor:pointer}
+#studio-preview .studio-preview-block.studio-selected{box-shadow:inset 0 0 0 1px #62caff4f}
+.studio-inspector-actions:has([data-studio-action="link-craft"]){
+  padding:9px;
+  border:1px solid #79cdec45;
+  border-radius:12px;
+  background:#1e3a4e;
+}
+.studio-inspector-actions [data-studio-action^="link-"]{
+  flex:1 1 170px;
+  min-height:42px;
+  white-space:normal;
+  line-height:1.3;
+  text-align:center;
+  color:#e7f6ff;
+}
+.studio-prize-jumps{max-height:208px;overflow:auto}
+@media(min-width:1040px){
+ #studio-preview .crafter-event-top-banners{
+  grid-auto-flow:row;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  overflow:visible;
+ }
+}
+@media(max-width:650px){
+ #studio-preview .crafter-event-top-banners{
+  grid-auto-flow:column;
+  grid-auto-columns:minmax(225px,83%);
+  overflow-x:auto;
+  grid-template-columns:none;
+ }
+}
