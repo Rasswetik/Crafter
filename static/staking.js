@@ -103,7 +103,7 @@ function renderGamesHub() {
                 <span>Соберите подарки и выберите цель</span>
                 <span class="crafter-game-open">Играть</span></span>
             <span class="crafter-game-emblem">${anvilArt('crafter-game-anvil')}</span>
-            <span class="crafter-pepe-motion" aria-hidden="true"><img class="crafter-pepe-picture" src="/static/assets/crafter-pepe.webp" alt="" loading="eager" decoding="async"></span>
+            <span class="crafter-pepe-motion" aria-hidden="true"><img class="crafter-pepe-picture" src="/static/assets/splash-magnate.png" alt="" loading="lazy" decoding="async"><span class="crafter-pepe-lottie" data-crafter-lottie="magnate"></span></span>
         </button>
         <div class="crafter-hub-craft-banner arena-event-banner-slot" id="craft-hub-banner" hidden></div>
         ${window.crafterOfflinePreview ? '' : `<button class="crafter-game-tile arena-tile crafter-swords-tile" onclick="go('arena')" type="button">
@@ -114,6 +114,7 @@ function renderGamesHub() {
         </button>`}
     </section>`;
     if(typeof crafterCraftBannerMount==='function')crafterCraftBannerMount('craft-hub-banner');
+    if(typeof crafterLottieEnhance==='function')crafterLottieEnhance(document.querySelector('#main'));
 }
 
 function stakeFormat(n) {
