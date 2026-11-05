@@ -156,7 +156,7 @@ function iceBannerMount(container, banner, options = {}) {
     stage.className = 'ice-banner-stage' + (options.editable ? ' ice-banner-editable' : '');
     stage.setAttribute('role', 'group');
     stage.setAttribute('aria-label', banner.title || 'Ice Arena — событие');
-    if (!options.editable) {
+    if (!options.editable && !options.previewOnly) {
         const eventId = /^[0-9a-f]{32}$/.test(banner.event_id || '') ? banner.event_id : null;
         stage.classList.add('ice-banner-link');
         stage.tabIndex = 0;
