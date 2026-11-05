@@ -360,7 +360,7 @@ function studioRenderPrizes(root){
   '<div class="studio-prize-preview"><b>Предпросмотр награды</b>'+
    studioPrizePreview(prize)+'</div>'+
   '<div class="studio-prize-jumps">'+
-  Array.from({length:Math.max(10,event.prizes.length)},(_,i)=>{
+  Array.from({length:100},(_,i)=>{
    const r=i+1;
    if(r>100)return '';
    const p=event.prizes[i];
@@ -408,6 +408,10 @@ function studioInputChanged(event){
     if(value!=='image')crafterStudio.prizeFiles.delete(crafterStudio.rank);
  }
  target[key]=value;
+ if(scope==='prize'&&key==='telegram_url'){
+    const match=String(value).match(/^https:\/\/(?:t\.me|telegram\.me)\/nft\/([A-Za-z][A-Za-z0-9]{1,70}-[0-9]{1,10})\/?$/i);
+    if(match){target.type='telegram';target.telegram_slug=match[1];}
+ }
  if(scope==='style'&&key==='rank_count'){
     const block=studioRankBlock();if(block)block.rank_count=Math.min(100,Number(value)||10);
  }
@@ -430,7 +434,7 @@ function studioChange(event){
  }
  if(t.dataset.studioScope&&t.dataset.studioKey){
     studioInputChanged(event);
-    if(t.dataset.studioScope==='prize'&&t.dataset.studioKey==='type')studioPaintInspector();
+    if(t.dataset.studioScope==='prize'&&['type','telegram_url'].includes(t.dataset.studioKey))studioPaintInspector();
  }
 }
 function studioClick(event){
@@ -584,11 +588,12 @@ async function studioSavePrizes(){
  body.set('sort_order',String(ev.sort_order||0));
  if(ev.enabled)body.set('enabled','1');
  if(ev.show_leaderboard)body.set('show_leaderboard','1');
- const prizes=ev.prizes.map(p=>({
-    type:p.type||'none',label:p.label||'',
-    telegram_url:p.telegram_url||'',
-    collection:p.collection||'',model:p.model||''
- }));
+ const prizes=ev.prizes.map(p=>{
+    const url=String(p.telegram_url||'').trim();
+    const viaTelegram=/^https:\/\/(?:t\.me|telegram\.me)\/nft\//i.test(url);
+    return {type:viaTelegram?'telegram':p.type||'none',label:p.label||'',
+      telegram_url:url,collection:p.collection||'',model:p.model||''};
+ });
  body.set('prizes_json',JSON.stringify(prizes));
  for(const [rank,file] of studio.prizeFiles)body.append('prize_image_'+rank,file);
  studioSetStatus('Сохраняем награды…');
