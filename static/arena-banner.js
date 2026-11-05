@@ -469,13 +469,20 @@ async function crafterCraftBannerMount(holderId) {
     try {
         const response=await crafterCraftBannerFetch();
         if(!holder.isConnected)return;
-        const config=response.banner;
-        if(!config){
-            holder.hidden=true;
-            holder.replaceChildren();
-            holder.dataset.bannerSignature='';
-            return;
-        }
+        const config=response.banner||{
+            title:'Ивенты крафтов',event_id:'',
+            width_pct:100,height:112,radius:21,background_mode:'gradient',
+            background_color:'#16567f',background_second_color:'#5bc3e1',
+            background_tint:0,layers:[
+              {id:'craft-events-title',type:'title',text:'Ивенты крафтов',
+               x:5,y:16,w:60,h:67,font:'rounded',font_size:24,font_weight:850,
+               color:'#ffffff',bg_opacity:0,radius:0,align:'left',z:1},
+              {id:'craft-events-cta',type:'text',text:'Смотреть рейтинг',
+               x:66,y:30,w:31,h:40,font:'rounded',font_size:12,font_weight:800,
+               color:'#ffffff',bg_color:'#154369',bg_opacity:.6,radius:18,
+               align:'center',z:2}
+            ]
+        };
         holder.hidden=false;
         const signature=JSON.stringify(config);
         if(holder.dataset.bannerSignature!==signature||!holder.querySelector('.ice-banner-stage')){
