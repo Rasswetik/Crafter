@@ -363,3 +363,47 @@ async function iceArenaLoadBanner(view, privateRoom = false) {
             iceArenaLoadBanner(view, privateRoom), 60000);
     }
 }
+
+
+/* Independent Craft event banner, reused on Hub and inside Crafts.
+   Data cache prevents redundant requests; DOM reuse preserves running GIFs. */
+let crafterCraftBannerData=null;
+let crafterCraftBannerFetchedAt=0;
+let crafterCraftBannerInFlight=null;
+
+async function crafterCraftBannerFetch(force=false) {
+    const age=Date.now()-crafterCraftBannerFetchedAt;
+    if(!force&&crafterCraftBannerData&&age<45000)return crafterCraftBannerData;
+    if(crafterCraftBannerInFlight)return crafterCraftBannerInFlight;
+    crafterCraftBannerInFlight=api('craft/banner').then(data=>{
+        crafterCraftBannerData=data;
+        crafterCraftBannerFetchedAt=Date.now();
+        return data;
+    }).finally(()=>{crafterCraftBannerInFlight=null;});
+    return crafterCraftBannerInFlight;
+}
+
+async function crafterCraftBannerMount(holderId) {
+    const holder=document.getElementById(holderId);
+    if(!holder)return;
+    try {
+        const response=await crafterCraftBannerFetch();
+        if(!holder.isConnected)return;
+        const config=response.banner;
+        if(!config){
+            holder.hidden=true;
+            holder.replaceChildren();
+            holder.dataset.bannerSignature='';
+            return;
+        }
+        holder.hidden=false;
+        const signature=JSON.stringify(config);
+        if(holder.dataset.bannerSignature!==signature||!holder.querySelector('.ice-banner-stage')){
+            iceBannerMount(holder,config,{serverTime:response.server_time});
+            holder.dataset.bannerSignature=signature;
+        }
+        holder.title='Открыть событие: '+(config.title||'Крафты');
+    } catch(e) {
+        if(holder.isConnected&&!holder.querySelector('.ice-banner-stage'))holder.hidden=true;
+    }
+}
