@@ -74,7 +74,7 @@ function enterArena(main, privateToken = null) {
         <div class="arena-table">
             <div class="arena-meta"><span>Банк <b id="arena-bank">0 GRAM</b></span>
                 <span id="arena-phase" role="status">Загрузка…</span></div>
-            <div class="arena-board-frame"><svg class="arena-board" viewBox="0 0 100 100" role="img" aria-label="Игровое поле">
+            <div class="arena-board-frame"><div class="arena-board-viewport"><svg class="arena-board" viewBox="0 0 100 100" role="img" aria-label="Игровое поле">
                 <defs id="arena-colors"></defs>
                 <g id="arena-world">
                     <g id="arena-cells"></g>
@@ -89,13 +89,9 @@ function enterArena(main, privateToken = null) {
                         <text id="arena-puck-name" x="0" y="-5.5"></text>
                     </g>
                 </g>
-            </svg></div>
+            </svg></div></div>
         </div>
-        <div class="arena-roster-heading"><h2>Игроки <small id="arena-count">0</small><small id="arena-round"></small></h2>
-            <div class="arena-room-tabs" role="group" aria-label="Комнаты арены">
-                <button type="button" onclick="arenaSwitchRoom(1)" aria-pressed="${privateToken ? 'false' : 'true'}">Комната 1</button>
-                <button type="button" onclick="arenaSwitchRoom(2)" aria-pressed="${privateToken ? 'true' : 'false'}">Комната 2</button>
-            </div></div>
+        <div class="arena-roster-heading"><h2>Игроки <small id="arena-count">0</small><small id="arena-round"></small></h2></div>
         <div id="arena-players" class="arena-players"></div>
         <div class="arena-dock">
             <div class="arena-modes">
@@ -103,6 +99,10 @@ function enterArena(main, privateToken = null) {
                     <button type="button" data-mode="gifts" aria-label="NFT" onclick="arenaMode('gifts')">${stakingGiftIcon}</button>
                     <button type="button" data-mode="gram" aria-label="GRAM" onclick="arenaMode('gram')">${arenaGramIcon}</button>
                 </div>
+            <div class="arena-room-tabs" role="group" aria-label="Комнаты арены">
+                <button type="button" onclick="arenaSwitchRoom(1)" aria-pressed="${privateToken ? 'false' : 'true'}">Комната 1</button>
+                <button type="button" onclick="arenaSwitchRoom(2)" aria-pressed="${privateToken ? 'true' : 'false'}">Комната 2</button>
+            </div>
             </div>
             <div id="arena-actions" class="arena-actions"></div>
         </div>
