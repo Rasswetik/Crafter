@@ -41,7 +41,16 @@ function arenaRules() {
     </div>`);
 }
 
-function enterArena(main) {
+function arenaEndpoint(action = '') {
+    return (arena.privateToken ? 'arena/private/' + arena.privateToken : 'arena')
+        + (action ? '/' + action : '');
+}
+
+function enterArena(main, privateToken = null) {
+    arena.privateToken = privateToken;
+    arena.seenResult = 0;
+    arena.retry = null;
+    arena.picked.clear();
     arena.data = null;
     arena.gifts = [];
     arena.giftLoad = null;
@@ -55,6 +64,7 @@ function enterArena(main) {
     arena.frameLast = 0;
     arena.view++;
     main.innerHTML = `<section class="arena-page arena-loading" aria-label="Arena" aria-busy="true">
+        <div id="arena-private-meta" class="arena-private-meta" ${privateToken ? '' : 'hidden'}></div>
         <div class="arena-highlights" aria-label="Рекорды арены">
             <div class="arena-highlight" id="arena-best-game"><div class="arena-highlight-heading">Топ игра</div>
                 <div class="arena-highlight-content"><span class="arena-highlight-empty">Пока нет игр</span></div></div>
@@ -81,8 +91,11 @@ function enterArena(main) {
                 </g>
             </svg></div>
         </div>
-        <div class="arena-roster-heading"><h2>Игроки <small id="arena-count">0</small></h2>
-            <span id="arena-round"></span></div>
+        <div class="arena-roster-heading"><h2>Игроки <small id="arena-count">0</small><small id="arena-round"></small></h2>
+            <div class="arena-room-tabs" role="group" aria-label="Комнаты арены">
+                <button type="button" onclick="arenaSwitchRoom(1)" aria-pressed="${privateToken ? 'false' : 'true'}">Комната 1</button>
+                <button type="button" onclick="arenaSwitchRoom(2)" aria-pressed="${privateToken ? 'true' : 'false'}">2</button>
+            </div></div>
         <div id="arena-players" class="arena-players"></div>
         <div class="arena-dock">
             <div class="arena-modes">
@@ -101,6 +114,7 @@ function enterArena(main) {
 
 function leaveArena() {
     arena.view++;
+    arena.data = null;
     clearTimeout(arena.timer);
     cancelAnimationFrame(arena.frame);
     clearTimeout(arena.resultOpenTimer);
@@ -113,7 +127,7 @@ async function arenaPoll(view) {
     arena.polling = true;
     const sent = performance.now();
     try {
-        const data = await api('arena');
+        const data = await api(arenaEndpoint());
         if (view === arena.view) {
             arena.failures = 0;
             arenaApply(data, sent);
@@ -155,6 +169,7 @@ function arenaApply(data, sent) {
     }
     arena.data = data;
     arenaRenderHighlights(data);
+    if (data.private_room) arenaRenderPrivateMeta(data.private_room);
     arena.serverOrigin = (performance.now() + sent) / 2 - data.server_time;
     state.me.balance = data.balance;
     updateBalance();
@@ -589,19 +604,23 @@ function arenaRenderControls() {
         button.setAttribute('aria-pressed', String(button.dataset.mode === arena.mode));
     });
     const cheapest = arena.gifts[0];
+    const myStake = Number(data?.players?.find(player => player.id === data.viewer)?.value || 0);
+    const minBet = Number(data?.private_room?.min_bet || 0);
+    const maxBet = Number(data?.private_room?.max_bet || Infinity);
+    const allowed = value => myStake + value >= minBet - 1e-9 && myStake + value <= maxBet + 1e-9;
     const giftsOpen = open && arenaGiftSlots() > 0;
     root.classList.toggle('arena-gift-actions', arena.mode === 'gifts');
     root.classList.toggle('arena-cash-actions', arena.mode === 'gram' && !arena.retry);
     root.innerHTML = arena.mode === 'gifts' ? `
         <button type="button" class="arena-choose-gifts" ${giftsOpen ? '' : 'disabled'} onclick="arenaGiftPicker()">Выбрать гифты</button>
         <button type="button" class="arena-quick-gift" aria-label="Быстрая ставка подарком"
-            ${giftsOpen && cheapest && !arena.giftLoad ? '' : 'disabled'} onclick="arenaQuickGift()">
+            ${giftsOpen && cheapest && allowed(cheapest.value / 1e6) && !arena.giftLoad ? '' : 'disabled'} onclick="arenaQuickGift()">
             <span>Добавить<small>${cheapest ? arenaGiftValue(cheapest) + ' GRAM' : 'Нет гифтов'}</small></span>
             ${cheapest ? `<span class="arena-quick-art">${arenaGiftArt(cheapest)}</span>` : ''}</button>` : `
         <button type="button" class="arena-pencil" aria-label="Настроить кнопки" onclick="arenaOpenSettings()">${arenaPencilIcon}</button>
-        ${settings.amounts.map(amount => `<button type="button" class="arena-stake-amount" ${open && Number(data.balance) >= Number(amount) ? '' : 'disabled'}
+        ${settings.amounts.map(amount => `<button type="button" class="arena-stake-amount" ${open && Number(data.balance) >= Number(amount) && allowed(Number(amount)) ? '' : 'disabled'}
             onclick="arenaStake(${arg(amount)})">${arenaStakeGem}<span>${arenaFormat(amount)}</span></button>`).join('')}
-        ${settings.all ? `<button type="button" class="arena-all-in" ${open && Number(data.balance) > 0 ? '' : 'disabled'} onclick="arenaAllIn()">Ва-банк</button>` : ''}`;
+        ${settings.all ? `<button type="button" class="arena-all-in" ${open && Number(data.balance) > 0 && allowed(Number(data.balance)) ? '' : 'disabled'} onclick="arenaAllIn()">Ва-банк</button>` : ''}`;
     if (arena.retry) root.innerHTML = `<button type="button" ${arena.pending ? 'disabled' : ''}
         onclick="arenaStake(...arena.retry.args)">Проверить предыдущую ставку</button>`;
 }
@@ -872,7 +891,7 @@ async function arenaStake(amount, giftIds = [], round = arena.data?.round_id, qu
     arena.pending = true;
     arenaRenderControls();
     try {
-        const data = await api('arena/stake', {round_id: round, request_id: requestId, amount, gift_ids: giftIds, quick_value: quickValue});
+        const data = await api(arenaEndpoint('stake'), {round_id: round, request_id: requestId, amount, gift_ids: giftIds, quick_value: quickValue});
         arena.retry = null;
         if (view === arena.view) {
             if ((giftIds.length && !quickValue || amount === 'all') && stakePanel?.isConnected) closeSheet();
