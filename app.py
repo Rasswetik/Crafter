@@ -44,12 +44,23 @@ def create_app(config=None):
     catalog_seed=json.loads(gzip.decompress((ROOT/'data/catalog_seed.json.gz').read_bytes())) if (ROOT/'data/catalog_seed.json.gz').exists() else {'collections':[]}
     catalog_job={'running':False,'completed':0,'total':0,'error':'','updated_at':None}
     postgres_url = app.config['DATABASE_URL']
-    if not postgres_url:
+    postgres_pool = None
+    if postgres_url:
+        from psycopg_pool import ConnectionPool
+        from database import row_factory
+        # One pool per worker; up to four HTTP threads and the Arena sweep.
+        postgres_pool = ConnectionPool(
+            conninfo=postgres_url, min_size=0, max_size=6, timeout=8,
+            kwargs={'autocommit': True, 'row_factory': row_factory,
+                    'connect_timeout': 8, 'options': '-c lock_timeout=10000'},
+            open=True,
+        )
+    else:
         Path(app.config['DATABASE']).parent.mkdir(parents=True,exist_ok=True)
     def db():
         if 'db' not in g:
             if postgres_url:
-                g.db = Postgres(postgres_url)
+                g.db = Postgres(postgres_url, pool=postgres_pool)
                 return g.db
             g.db=sqlite3.connect(app.config['DATABASE'],timeout=10);g.db.row_factory=sqlite3.Row
             g.db.execute('PRAGMA busy_timeout=10000')
@@ -105,6 +116,11 @@ def create_app(config=None):
         # Local test prices use the source numeric amount in app GRAM; no FX or external purchase.
         result = hide_claimed_market_gifts(result)
         return {**result,'price_unit':'GRAM','gifts':[{**g,'source_price_unit':g.get('source_price_unit',g.get('price_unit','GRAM')),'price_unit':'GRAM','source_price':g.get('source_price',g['price']),'price':str(Decimal(str(g['price'])).quantize(Decimal('0.01'))),'local_price':str(Decimal(str(g['price'])).quantize(Decimal('0.01')))} for g in result['gifts']],'purchase_mode':'local'}
+    # Avoid writing the users, avatars and balance tables on every GET poll.
+    # Mutating requests still refresh the identity before changing balances.
+    auth_touch = {}
+    auth_touch_lock = threading.Lock()
+
     def auth(admin=False):
         def deco(fn):
             @wraps(fn)
@@ -129,20 +145,41 @@ def create_app(config=None):
                 if not g.is_admin and db().execute(
                         'SELECT 1 FROM user_bans WHERE user_id=?',(g.user['id'],)).fetchone():
                     abort(403,description='Ваш аккаунт Crafter заблокирован. Обратитесь к администратору.')
-                db().execute('INSERT INTO users VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,username=excluded.username',(g.user['id'],g.user.get('first_name',''),g.user.get('username',''),None,int(time.time())));db().commit()
+                uid = g.user['id']
                 photo = g.user.get('photo_url')
-                if isinstance(photo, str) and len(photo) <= 2048 and not any(ord(char) < 33 for char in photo) and https_url(photo):
-                    db().execute('INSERT INTO user_avatars VALUES(?,?) ON CONFLICT (user_id) DO UPDATE '
-                                 'SET photo_url=excluded.photo_url WHERE user_avatars.photo_url!=excluded.photo_url',
-                                 (g.user['id'], photo))
+                photo = (photo if isinstance(photo, str) and len(photo) <= 2048
+                         and not any(ord(char) < 33 for char in photo) and https_url(photo) else None)
+                fingerprint = (g.user.get('first_name', ''), g.user.get('username', ''), photo)
+                seen_at = time.monotonic()
+                with auth_touch_lock:
+                    previous = auth_touch.get(uid)
+                    needs_touch = (request.method != 'GET' or previous is None
+                                   or previous[0] != fingerprint or seen_at - previous[1] > 60)
+                if needs_touch:
+                    db().execute('INSERT INTO users VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE '
+                                 'SET name=excluded.name,username=excluded.username',
+                                 (uid, fingerprint[0], fingerprint[1], None, int(time.time())))
                     db().commit()
-                if app.config['DEMO_MODE']:
-                    with db():
-                        fresh=db().execute('INSERT INTO demo_accounts VALUES(?,?) ON CONFLICT DO NOTHING',(g.user['id'],'100')).rowcount
-                        if fresh:
-                            for gift in DEMO_GIFTS:db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],gift['id'],json.dumps(gift),'unlisted'))
-                if not app.config['DEMO_MODE']:
-                    db().execute('INSERT INTO demo_accounts VALUES(?,?) ON CONFLICT DO NOTHING',(g.user['id'],'0'));db().commit()
+                    if photo:
+                        db().execute('INSERT INTO user_avatars VALUES(?,?) ON CONFLICT (user_id) DO UPDATE '
+                                     'SET photo_url=excluded.photo_url WHERE user_avatars.photo_url!=excluded.photo_url',
+                                     (uid, photo))
+                        db().commit()
+                    if app.config['DEMO_MODE']:
+                        with db():
+                            fresh=db().execute('INSERT INTO demo_accounts VALUES(?,?) ON CONFLICT DO NOTHING',
+                                               (uid, '100')).rowcount
+                            if fresh:
+                                for gift in DEMO_GIFTS:
+                                    db().execute('INSERT INTO inventory VALUES(?,?,?,?)',
+                                                 (uid, gift['id'], json.dumps(gift), 'unlisted'))
+                    else:
+                        db().execute('INSERT INTO demo_accounts VALUES(?,?) ON CONFLICT DO NOTHING', (uid, '0'))
+                        db().commit()
+                    with auth_touch_lock:
+                        if len(auth_touch) >= 2048:
+                            auth_touch.clear()
+                        auth_touch[uid] = (fingerprint, seen_at)
                 return fn(*args,**kwargs)
             return run
         return deco
