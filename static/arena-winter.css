@@ -1,0 +1,125 @@
+/* Winter is opt-in; default Arena keeps its original purple styling. */
+#app.arena-view.arena-winter .arena-page{
+    --arena-panel:#122c40;
+    --arena-edge:#b9eaff46;
+    --arena-muted:#a8c6d9;
+    --arena-text:#e7f9ff;
+    --arena-dock:#11283bf2;
+    --arena-control:#1b425b;
+}
+#app.arena-view.arena-winter #main{
+    background:
+       radial-gradient(ellipse at 20% 10%,#72d8ff15,transparent 40%),
+       radial-gradient(ellipse at 90% 70%,#b5efff11,transparent 55%);
+}
+#app.arena-view.arena-winter .arena-table{
+    position:relative;
+    background:linear-gradient(155deg,#142b42,#162c47 60%,#0b253e);
+    border-color:#9cdeff88;
+    box-shadow:0 0 26px #61caff20,inset 0 2px 0 #daffff8c,
+      inset 0 -2px #92d3f23f;
+}
+#app.arena-view.arena-winter .arena-board-frame{
+    background:
+       radial-gradient(ellipse at 8% 8%,#fffdfd8e,transparent 19%),
+       radial-gradient(ellipse at 93% 4%,#f2ffff9a,transparent 22%),
+       linear-gradient(150deg,#b5effe,#3b7a9b 26%,#143c61 74%,#8cd0e8);
+    border:2px solid #e0f9ff85;
+    box-shadow:0 0 24px #4ebcfa39,
+      inset 0 3px 4px #e9ffffb3,inset 0 -3px 3px #a4f7ff42;
+}
+#app.arena-view.arena-winter .arena-board-viewport{
+    border:2px solid #d9f9ff65;
+    box-shadow:inset 0 0 28px #55baff29,0 0 7px #b7efff33;
+}
+#app.arena-view.arena-winter .arena-board{
+    background:radial-gradient(ellipse at 50% 30%,#254f79,#10233d 75%);
+}
+#app.arena-view.arena-winter .arena-highlight{
+    background:linear-gradient(145deg,#244962,#102e46);
+    border-color:#baeeff40;
+    box-shadow:inset 0 1px #eaffff4b;
+}
+#app.arena-view.arena-winter .arena-highlight-content{
+    background:#09223e88;
+}
+#app.arena-view.arena-winter .arena-meta b{color:#75d7ff}
+#app.arena-view.arena-winter .arena-dock{
+    border:1px solid #a8ecff8a;
+    background:linear-gradient(150deg,#244967e9,#12283af2);
+    box-shadow:0 0 18px #72cfff3c,inset 0 2px #edffff61;
+}
+#app.arena-view.arena-winter .arena-mode-tabs,
+#app.arena-view.arena-winter .arena-room-tabs{
+    background:linear-gradient(125deg,#0f3c59de,#1b425cdb);
+    border:1px solid #c7f6ff8a;
+}
+#app.arena-view.arena-winter .arena-mode-tabs button[aria-pressed=true],
+#app.arena-view.arena-winter .arena-room-tabs button[aria-pressed=true]{
+    color:#072d44;
+    background:linear-gradient(155deg,#ebfbff,#65ceff);
+    box-shadow:inset 0 1px #fff,0 2px 8px #86f1ff44;
+}
+#app.arena-view.arena-winter .arena-actions button{
+    border-color:#a3e6ff48;
+}
+#app.arena-view.arena-winter .arena-actions .arena-choose-gifts{
+    background:#eaffff;color:#153750;
+}
+#app.arena-view.arena-winter .arena-actions .arena-quick-gift:not(:disabled){
+    background:linear-gradient(135deg,#71d9ff,#247bb8);
+    color:white;
+}
+#app.arena-view.arena-winter .arena-rules-button{
+    background:#1b425a;
+    border:1px solid #a3ebff8c;
+    color:#dcf9ff;
+}
+#app.arena-view.arena-winter .arena-player{
+    background:linear-gradient(125deg,#1b354b,#10273d);
+    border-color:#a0dcff4a;
+}
+#app.arena-view.arena-winter #nav.games-nav button.active{
+    background:linear-gradient(145deg,#285772,#1e3d53);
+    border-color:#99e9ffaf;
+    color:#b5ecff;
+}
+/* Frost crystals and edges: overlay does not intercept taps or affect the board geometry. */
+#app.arena-view.arena-winter .arena-table::before{
+    content:"";
+    position:absolute;
+    inset:-1px;
+    border-radius:inherit;
+    pointer-events:none;
+    z-index:1;
+    opacity:.72;
+    border:1px solid #dcfaff66;
+    background:
+       radial-gradient(ellipse 22px 9px at 2% 2%,#eeffffad,transparent),
+       radial-gradient(ellipse 30px 10px at 98% 2%,#f0ffffba,transparent),
+       radial-gradient(ellipse 26px 7px at 12% 100%,#d2f7ff90,transparent),
+       radial-gradient(ellipse 18px 8px at 90% 100%,#e5ffffa6,transparent);
+}
+#app.arena-view.arena-winter .arena-board-frame,
+#app.arena-view.arena-winter .arena-dock{isolation:isolate}
+@media(prefers-reduced-motion:reduce){
+  #app.arena-view.arena-winter *{scroll-behavior:auto}
+}
+
+/* Arena management screens. */
+.crafter-arena-season-panel,.crafter-arena-records-panel{display:grid;gap:13px;margin-top:13px}
+.crafter-arena-season-panel h3,.crafter-arena-records-panel h3{margin:0}
+.crafter-arena-winter-toggle{
+    display:flex;align-items:center;gap:12px;
+    border:1px solid #89defe45;
+    border-radius:14px;
+    padding:14px;
+    background:#203345;
+    cursor:pointer;
+}
+.crafter-arena-winter-toggle>input{width:20px;height:20px;accent-color:#8de4ff}
+.crafter-arena-winter-toggle span{display:grid;gap:5px}
+.crafter-arena-winter-toggle b{font-size:14px}
+.crafter-arena-winter-toggle small{font-size:11px;line-height:1.45;color:#bbd5e3}
+.crafter-arena-record-actions{display:flex;flex-wrap:wrap;gap:10px}
+.crafter-arena-record-actions button{width:auto;min-height:40px;padding:9px 13px}
