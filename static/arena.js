@@ -29,6 +29,7 @@ function arenaSettings() {
 }
 
 function arenaRules() {
+    if (arena.privateToken) return arenaPrivateInfo();
     sheet('Инфо · Arena', `<div class="arena-sheet-copy">
         <p>В одной комнате можно ставить GRAM и подарки из «Моих подарков».</p>
         <p>Когда ставки сделают двое игроков, начнётся 15-секундный отсчёт. До его конца можно присоединиться или увеличить ставку.</p>
@@ -63,8 +64,7 @@ function enterArena(main, privateToken = null) {
     arena.polling = false;
     arena.frameLast = 0;
     arena.view++;
-    main.innerHTML = `<section class="arena-page arena-loading" aria-label="Arena" aria-busy="true">
-        <div id="arena-private-meta" class="arena-private-meta" ${privateToken ? '' : 'hidden'}></div>
+    main.innerHTML = `<section class="arena-page arena-loading ${privateToken ? 'arena-private-active' : ''}" aria-label="Arena" aria-busy="true">
         <div class="arena-highlights" aria-label="Рекорды арены">
             <div class="arena-highlight" id="arena-best-game"><div class="arena-highlight-heading">Топ игра</div>
                 <div class="arena-highlight-content"><span class="arena-highlight-empty">Пока нет игр</span></div></div>
@@ -91,7 +91,6 @@ function enterArena(main, privateToken = null) {
                 </g>
             </svg></div>
         </div>
-        <div id="arena-private-toolbar" class="arena-private-toolbar" ${privateToken ? '' : 'hidden'}></div>
         <div class="arena-roster-heading"><h2>Игроки <small id="arena-count">0</small><small id="arena-round"></small></h2>
             <div class="arena-room-tabs" role="group" aria-label="Комнаты арены">
                 <button type="button" onclick="arenaSwitchRoom(1)" aria-pressed="${privateToken ? 'false' : 'true'}">Комната 1</button>
@@ -170,7 +169,10 @@ function arenaApply(data, sent) {
     }
     arena.data = data;
     arenaRenderHighlights(data);
-    if (data.private_room) arenaRenderPrivateMeta(data.private_room);
+    if (data.private_room) {
+        const sameRoom = arenaPrivate.info?.token === data.private_room.token;
+        arenaPrivate.info = {...(sameRoom ? arenaPrivate.info : {}), ...data.private_room};
+    }
     arena.serverOrigin = (performance.now() + sent) / 2 - data.server_time;
     state.me.balance = data.balance;
     updateBalance();
