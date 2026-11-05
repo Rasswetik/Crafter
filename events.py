@@ -75,7 +75,9 @@ def install_events(app, db, auth, audit):
         item['show_leaderboard'] = bool(item['show_leaderboard'])
         item['metric_label'] = METRICS[item['metric']][1]
         item['score_unit'] = METRICS[item['metric']][2]
-        item['image_url'] = '/media/event/{}/{}.webp'.format(item['id'], item.pop('image_key'))
+        image_key = item.pop('image_key')
+        item['image_url'] = ('/media/event/{}/{}.webp'.format(item['id'], image_key)
+                             if image_key != 'none' else None)
         raw_prizes = json.loads(item['prizes'])
         prize_slots = []
         for place, original in enumerate(raw_prizes[:3], 1):
@@ -257,13 +259,12 @@ def install_events(app, db, auth, audit):
         with db():
             db().execute('BEGIN IMMEDIATE')
             if event_id is None:
-                if not uploads.get('image'):
-                    abort(400, description='Добавьте PNG/JPEG/WebP обложку события')
                 if db().execute('SELECT COUNT(*) FROM crafter_events').fetchone()[0] >= 50:
                     abort(409, description='Можно создать до 50 событий')
                 event_id = uuid.uuid4().hex
                 db().execute('INSERT INTO crafter_events VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                             (event_id, *values, uuid.uuid4().hex, uploads['image'][1]))
+                             (event_id, *values, uuid.uuid4().hex if uploads.get('image') else 'none',
+                              uploads['image'][1] if uploads.get('image') else b'' ))
             else:
                 if not db().execute('SELECT id FROM crafter_events WHERE id=?', (event_id,)).fetchone():
                     abort(404, description='Событие не найдено')
