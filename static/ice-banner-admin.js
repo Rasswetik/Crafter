@@ -239,6 +239,20 @@ function iceEditInput(e){
   }
 }
 function iceEditChange(e){
+  if(e.target.dataset.iceColorHex){
+    const field=e.target.dataset.iceColorHex;
+    if(!/^#[a-f0-9]{6}$/i.test(e.target.value)){
+      const layer=iceSelected();
+      if(layer)e.target.value=layer[field];
+      return;
+    }
+    iceEditInput(e);
+    return;
+  }
+  if(e.target.dataset.iceLayer && e.target.type==='color'){
+    iceEditInput(e);
+    return;
+  }
   if(e.target.hasAttribute('data-ice-toggle-bg')){
     const l=iceSelected();
     if(!l||l.type!=='timer')return;
