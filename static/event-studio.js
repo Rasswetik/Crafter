@@ -294,11 +294,13 @@ function studioPaintPreview(){
     if(stage)prevStages.set(el.dataset.studioBanner,{
         stage,signature:el.dataset.signature,editable:el.dataset.editable==='yes'});
  });
- root.innerHTML='<section class="crafter-events-page crafter-event-detail crafter-event-custom-layout">'+
-  crafterStudio.page.blocks.map((b,i)=>
+ const renderBlock=(b,i)=>
    '<div class="studio-preview-block'+(b.id===active?' studio-selected':'')+
-   '" data-studio-preview-select="'+studioEsc(b.id)+'">'+studioPreviewHTML(b,i)+'</div>').join('')+
-  '</section>';
+   '" data-studio-preview-select="'+studioEsc(b.id)+'">'+studioPreviewHTML(b,i)+'</div>';
+ const top=crafterStudio.page.blocks.map((b,i)=>b.type==='banner'?renderBlock(b,i):'').join('');
+ const rest=crafterStudio.page.blocks.map((b,i)=>b.type==='banner'?'':renderBlock(b,i)).join('');
+ root.innerHTML='<section class="crafter-events-page crafter-event-detail crafter-event-custom-layout">'+
+  (top?'<div class="crafter-event-top-banners">'+top+'</div>':'')+rest+'</section>';
  const surface=root.querySelector('.crafter-event-custom-layout');
  if(!surface)return;
  const props={'--event-page-bg':s.background,'--event-row-bg':s.row_bg,
