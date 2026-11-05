@@ -21,7 +21,7 @@ function arenaRoomTabs(active) {
         '<button type="button" aria-pressed="' + (active === 1) +
         '" onclick="arenaSwitchRoom(1)">Комната 1</button>' +
         '<button type="button" aria-pressed="' + (active === 2) +
-        '" onclick="arenaSwitchRoom(2)">2</button></div>';
+        '" onclick="arenaSwitchRoom(2)">Комната 2</button></div>';
 }
 
 function arenaSwitchRoom(number) {
@@ -148,6 +148,16 @@ function arenaRenderPrivateMeta(info) {
         '<button type="button" onclick="arenaSharePrivateRoom()">Пригласить ↗</button></div>' +
         '<div class="arena-private-stakes-range">Ставка ' + arenaFormat(info.min_bet) +
         '–' + arenaFormat(info.max_bet) + ' GRAM</div>';
+    // The room itself has betting controls. Keep a permanent way to create
+    // another private room or return to the Room 2 lobby without placing bets.
+    const toolbar = document.querySelector('#arena-private-toolbar');
+    if (toolbar) {
+        toolbar.hidden = false;
+        toolbar.innerHTML = '<span class="arena-private-current" title="' + esc(info.name) +
+            '">' + esc(info.name) + '</span>' +
+            '<button type="button" onclick="arenaOpenPrivateLobby()">Мои группы</button>' +
+            '<button type="button" onclick="arenaNewRoomForm()">+ Создать комнату</button>';
+    }
 }
 
 function arenaShowInvite(token) {
