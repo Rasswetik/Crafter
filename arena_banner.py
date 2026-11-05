@@ -30,7 +30,7 @@ def default_banner(kind='arena'):
         'background_color': '#3b265f' if kind == 'craft' else '#075b9e',
         'background_asset': '', 'background_fit': 'cover',
         'background_mode': 'solid', 'background_second_color': '#48bee5',
-        'background_tint': 0,
+        'background_tint': 0, 'background_focus_x': 50, 'background_focus_y': 50,
         'layers': [
             {'id': 'headline', 'type': 'title', 'text': 'Событие крафта' if kind == 'craft' else 'Ледяная охота',
              'x': 4, 'y': 19, 'w': 53, 'h': 60, 'font': 'rounded',
@@ -199,6 +199,8 @@ def install_arena_banner(app, db, auth, audit):
                                 else 'solid'),
             'background_second_color': color(data.get('background_second_color', '#48bee5'), 'Второй цвет градиента'),
             'background_tint': round(background_tint, 2),
+            'background_focus_x': percent(data.get('background_focus_x', 50), 'Положение фона X'),
+            'background_focus_y': percent(data.get('background_focus_y', 50), 'Положение фона Y'),
             'layers': [clean_layer(layer, identifiers) for layer in layers],
         }
 
