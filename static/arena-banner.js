@@ -172,7 +172,9 @@ function iceBannerMount(container, banner, options = {}) {
             activate();
         });
     }
-    stage.style.height = Math.max(70, Math.min(240, Number(banner.height) || 112)) + 'px';
+    stage.style.width = Math.max(50, Math.min(100, Number(banner.width_pct ?? 100))) + '%';
+    stage.style.marginInline = 'auto';
+    stage.style.height = Math.max(70, Math.min(280, Number(banner.height) || 112)) + 'px';
     stage.style.borderRadius = (Number(banner.radius) || 0) + 'px';
     stage.style.backgroundColor = banner.background_color || '#085e98';
     if (/^\/media\/ice-banner\/[0-9a-f]{32}\.(?:gif|webp)$/.test(banner.background_asset || '')) {
@@ -197,8 +199,10 @@ function iceBannerMount(container, banner, options = {}) {
         el.style.color = layer.color;
         el.style.fontFamily = ICE_BANNER_FONTS[layer.font] || ICE_BANNER_FONTS.system;
         el.style.fontWeight = layer.font_weight;
-        el.style.fontSize = 'clamp(10px, ' + Number(layer.font_size) / 3.9 + 'cqw, ' +
+        el.style.fontSize = 'clamp(9px, ' + Number(layer.font_size) / 4 + 'cqw, ' +
             Number(layer.font_size) + 'px)';
+        el.style.webkitTextStroke = Math.max(0, Math.min(3, Number(layer.stroke_width) || 0)) +
+            'px ' + layer.color;
         el.style.borderRadius = Number(layer.radius) + 'px';
         el.style.justifyContent = {left:'flex-start',center:'center',right:'flex-end'}[layer.align] || 'center';
         el.style.textAlign = layer.align;
@@ -220,15 +224,26 @@ function iceBannerMount(container, banner, options = {}) {
                 el.classList.add('ice-banner-missing-image');
                 el.textContent = options.editable ? 'Загрузите PNG / GIF' : '';
             }
+        } else if (layer.type === 'gram') {
+            const img = document.createElement('img');
+            img.src = '/static/assets/gram.svg';
+            img.alt = 'GRAM';
+            img.className = 'ice-gram-layer-icon';
+            img.draggable = false;
+            el.append(img);
         } else if (layer.type === 'timer') {
             el.classList.add('ice-banner-countdown');
             el.dataset.start = banner.start_at;
             el.dataset.end = banner.end_at;
             el.dataset.offset = offset;
             el.dataset.format = layer.format || 'hh:mm:ss';
-            el.dataset.prefix = layer.text ? layer.text + ' ' : '';
+            if (layer.text) iceBannerRichText(el, layer.text + ' ');
+            const digits = document.createElement('span');
+            digits.className = 'ice-clock-digits';
+            digits.textContent = '00:00:00';
+            el.append(digits);
         } else {
-            el.textContent = layer.text || '';
+            iceBannerRichText(el, layer.text || '');
         }
         if (options.editable) {
             el.tabIndex = 0;
