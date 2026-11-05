@@ -246,46 +246,63 @@ function iceBannerMount(container, banner, options = {}) {
             iceBannerRichText(el, layer.text || '');
         }
         if (options.editable) {
-            el.tabIndex = 0;
-            el.setAttribute('aria-label','Переместить слой ' + (layer.text || layer.type));
-            el.addEventListener('pointerdown', event => {
-                if (event.button !== 0 && event.pointerType === 'mouse') return;
+            el.tabIndex=0;
+            el.setAttribute('aria-label','Выбрать и изменить '+(layer.text || layer.type));
+            for(const direction of ['nw','n','ne','e','se','s','sw','w']){
+                const h=document.createElement('span');
+                h.className='ice-banner-handle ice-banner-handle-'+direction;
+                h.dataset.iceHandle=direction;
+                h.setAttribute('aria-hidden','true');
+                el.append(h);
+            }
+            el.addEventListener('pointerdown',event=>iceBannerDragLayer(el,layer,stage,event,options));
+            el.addEventListener('keydown',event=>{
+                if(!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key))return;
                 event.preventDefault();
-                const rect = stage.getBoundingClientRect();
-                const initX = Number(layer.x), initY = Number(layer.y);
-                const downX = event.clientX, downY = event.clientY;
-                if (options.onSelect) options.onSelect(layer.id, true);
-                el.setPointerCapture(event.pointerId);
-                const move = e => {
-                    const w = rect.width || 1, h = rect.height || 1;
-                    const maxX = Math.max(0, 100 - Number(layer.w));
-                    const maxY = Math.max(0, 100 - Number(layer.h));
-                    layer.x = Math.round(Math.max(0, Math.min(maxX, initX + (e.clientX-downX) / w * 100)) * 10) / 10;
-                    layer.y = Math.round(Math.max(0, Math.min(maxY, initY + (e.clientY-downY) / h * 100)) * 10) / 10;
-                    el.style.left = layer.x + '%';
-                    el.style.top = layer.y + '%';
-                };
-                const stop = () => {
-                    el.removeEventListener('pointermove', move);
-                    el.removeEventListener('pointerup', stop);
-                    el.removeEventListener('pointercancel', stop);
-                    if (options.onMove) options.onMove(layer.id);
-                };
-                el.addEventListener('pointermove', move);
-                el.addEventListener('pointerup', stop);
-                el.addEventListener('pointercancel', stop);
+                const axis=/Left|Right/.test(event.key)?'x':'y';
+                const size=axis==='x'?'w':'h';
+                const delta=/Right|Down/.test(event.key)?1:-1;
+                if(event.shiftKey)layer[size]=Math.max(3,Math.min(100-layer[axis],Number(layer[size])+delta));
+                else layer[axis]=Math.max(0,Math.min(100-layer[size],Number(layer[axis])+delta));
+                el.style[axis==='x'?'left':'top']=layer[axis]+'%';
+                el.style[axis==='x'?'width':'height']=layer[size]+'%';
+                if(options.onMove)options.onMove(layer.id);
             });
-            el.addEventListener('keydown', e => {
-                if (!['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.key)) return;
-                e.preventDefault();
-                const axis = /Left|Right/.test(e.key) ? 'x' : 'y';
-                const direction = /Right|Down/.test(e.key) ? 1 : -1;
-                layer[axis] = Math.max(0, Math.min(100 - layer[axis === 'x' ? 'w' : 'h'],
-                    Number(layer[axis]) + direction));
-                if (options.onMove) options.onMove(layer.id);
-            });
+            if(layer.type==='title'||layer.type==='text'){
+                el.addEventListener('dblclick',event=>{
+                    if(event.target.closest('[data-ice-handle]'))return;
+                    const rich=el.querySelector('.ice-banner-inline');
+                    if(!rich)return;
+                    rich.textContent=layer.text||'';
+                    rich.contentEditable='true';
+                    rich.spellcheck=false;
+                    rich.focus();
+                    const range=document.createRange();
+                    range.selectNodeContents(rich);
+                    const selection=window.getSelection();
+                    selection.removeAllRanges();selection.addRange(range);
+                    rich.addEventListener('blur',()=>{
+                        const updated=rich.innerText.slice(0,140).trim();
+                        rich.contentEditable='false';
+                        layer.text=updated;
+                        rich.remove();
+                        iceBannerRichText(el,updated);
+                        if(options.onTextChange)options.onTextChange(layer.id);
+                    },{once:true});
+                });
+            }
         }
         stage.append(el);
+    }
+    if(options.editable){
+        for(const edge of ['left','right','bottom','right-bottom']){
+            const handle=document.createElement('span');
+            handle.className='ice-banner-canvas-handle ice-banner-canvas-'+edge;
+            handle.dataset.iceCanvasEdge=edge;
+            handle.title='Изменить ширину или высоту полотна';
+            stage.append(handle);
+            iceBannerResizeCanvas(stage,banner,handle,options);
+        }
     }
     container.append(stage);
     iceBannerStartClock();
