@@ -10,11 +10,39 @@ function loadMarketBanners() {
     }
 }
 
+function marketBannerGrid(banners){
+    const root=document.createElement('div');
+    root.className='market-banner-strip';
+    root.setAttribute('aria-label','Баннеры Crafter');
+    for(const banner of banners.slice(0,4)){
+       const interactive=banner.action!=='none';
+       const tile=document.createElement(interactive?'button':'div');
+       tile.className='market-banner-tile';
+       if(interactive){
+          tile.type='button';
+          tile.addEventListener('click',()=>openMarketBanner(banner));
+       }
+       tile.setAttribute('aria-label',banner.title||'Баннер');
+       tile.append(bannerArt(banner));
+       root.append(tile);
+    }
+    return root;
+}
 function paintMarketBanners() {
-    if (state.page !== 'market' || state.collectionPage || marketActivityVisible()) return;
-    const main = document.querySelector('#main');
-    if (!main.querySelector('.search') || main.querySelector('.banner-carousel') || !marketBannerData?.banners.length) return;
-    main.prepend(makeBannerCarousel(marketBannerData.banners, marketBannerData.carousel, openMarketBanner));
+    if(state.page!=='market'||state.collectionPage||marketActivityVisible())return;
+    const main=document.querySelector('#main');
+    if(!main?.querySelector('.search')||!marketBannerData?.banners?.length)return;
+    const widescreen=window.matchMedia('(min-width:1100px)').matches;
+    const present=main.querySelector('.market-banner-strip, .banner-carousel');
+    if(present&&present.classList.contains(widescreen?'market-banner-strip':'banner-carousel'))return;
+    present?.remove();
+    main.prepend(widescreen?
+        marketBannerGrid(marketBannerData.banners):
+        makeBannerCarousel(marketBannerData.banners,marketBannerData.carousel,openMarketBanner));
+}
+const crafterMarketBannerBreakpoint=window.matchMedia('(min-width:1100px)');
+if(crafterMarketBannerBreakpoint.addEventListener){
+   crafterMarketBannerBreakpoint.addEventListener('change',paintMarketBanners);
 }
 
 const marketBeforeBanners = renderMarket;
