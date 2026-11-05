@@ -168,3 +168,20 @@
   .crafter-pepe-lottie{display:none}
   .crafter-pepe-picture{visibility:visible!important}
 }
+
+/* Refined brushed metal swords, retaining the restrained alternating clash. */
+.crafter-animated-swords .sword-left .sword-blade{
+  fill:url(#crafter-ice-steel)!important;stroke:#edffff;stroke-width:1.2;
+}
+.crafter-animated-swords .sword-right .sword-blade{
+  fill:url(#crafter-violet-steel)!important;stroke:#f5edff;stroke-width:1.2;
+}
+.crafter-animated-swords .sword-crossguard{
+  fill:url(#crafter-guard)!important;stroke:#e8f7ff;stroke-width:1.1;
+}
+.crafter-animated-swords .sword-hilt{
+  stroke:#d9eaff;stroke-width:1.2;
+}
+.crafter-swords-motion{
+  filter:drop-shadow(0 3px 5px #81d6ff38) drop-shadow(0 11px 9px #140c29c2);
+}
