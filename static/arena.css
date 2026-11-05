@@ -714,3 +714,100 @@ html[data-crafter-theme="light"] .arena-private-item-model { color: #675e72 }
     .arena-private-inventory-grid { gap: 6px }
     .arena-private-inventory-tabs button { font-size: 11px }
 }
+
+/* Compact private group picker: same top tab position as the reference. */
+.arena-private-top { align-items: center; margin-bottom: 14px }
+.arena-private-top-title { display: grid; gap: 5px; min-width: 0 }
+.arena-private-top-title small { color: #9f80ce; font-size: 10px; font-weight: 850; letter-spacing: .12em }
+.arena-private-top-title h2 { margin: 0; font-size: clamp(18px,5.1vw,24px); line-height: 1.14; font-weight: 850; letter-spacing: -.04em }
+.arena-private-top .arena-room-tabs { padding: 4px; border: 1px solid #ffffff16; background: #242328; flex-shrink: 0 }
+.arena-private-top .arena-room-tabs button { padding: 9px 10px; font-size: 12px; min-width: 0 }
+.arena-private-top .arena-room-tabs button[aria-pressed="true"] { background: #9363e7; box-shadow: none }
+.arena-private-note {
+    display: flex; align-items: center; gap: 13px;
+    padding: 15px; border: 1px solid #ffffff14;
+    border-radius: 17px; background: #242329;
+}
+.arena-private-note-icon { flex: 0 0 43px; width: 43px; height: 43px; display: grid; place-items: center; border-radius: 12px; background: #43364f; color: #b58aea; font-size: 23px }
+.arena-private-note > div { display: grid; gap: 4px; min-width: 0 }
+.arena-private-note strong { font-size: 13px; color: #f3f0f6 }
+.arena-private-note p { font-size: 12px; line-height: 1.4; color: #aba7b3; margin: 0 }
+.arena-private-list-head { display: flex; justify-content: space-between; align-items: baseline; margin: 23px 0 12px; gap: 6px }
+.arena-private-list-head h3 { font-size: 17px; font-weight: 850; margin: 0; letter-spacing: -.025em }
+.arena-private-list-head span { font-size: 11px; color: #a5a0ae }
+.arena-private-group-list { display: grid; gap: 10px; margin-bottom: 135px }
+.arena-private-room-card {
+    display: flex; gap: 12px; align-items: center; padding: 14px;
+    border-radius: 18px; color: #f6f5f8; background: #25242a;
+    border: 1px solid #ffffff16; box-shadow: inset 0 1px 0 #ffffff0a;
+}
+.arena-private-room-card:active { background: #2d2934 }
+.arena-private-room-icon { flex: 0 0 47px; width: 47px; height: 47px; display: grid; place-items: center; border-radius: 14px; background: #4c3b62; color: #dec5ff; font-size: 22px; font-weight: 850 }
+.arena-private-room-body { flex: 1; min-width: 0; display: grid; gap: 9px }
+.arena-private-room-name { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap }
+.arena-private-room-name strong { font-size: 16px; font-weight: 850; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis }
+.arena-private-room-role { color: #b49ace; font-size: 10px; font-weight: 750; line-height: 1.2 }
+.arena-private-room-detail { display: flex; flex-wrap: wrap; align-items: center; gap: 5px 10px }
+.arena-private-room-detail > span { font-size: 11px; color: #a8a2ae; white-space: nowrap }
+.arena-private-room-detail .arena-private-room-bot { color: #b2dfbd }
+.arena-private-room-arrow { font-size: 26px; color: #bdb1cb; font-weight: 450 }
+.arena-private-group-empty { display: grid; justify-items: center; gap: 8px; padding: 38px 18px; border-radius: 18px; border: 1px dashed #ffffff23; color: #c6c0d0; text-align: center }
+.arena-private-group-empty > span { font-size: 30px; color: #9f78c9 }
+.arena-private-group-empty strong { color: #f2eef7; font-size: 16px }
+.arena-private-group-empty p { color: #aba5b0; font-size: 12px; line-height: 1.5; margin: 0 }
+.arena-private-create { display: flex; align-items: center; justify-content: center; gap: 8px; color: #171419; background: #f8f6fb; font-size: 16px }
+.arena-private-create > span { font-size: 24px; font-weight: 350; line-height: 1 }
+@media(max-width:385px) {
+  .arena-private-top-title h2 { font-size: 19px }
+  .arena-private-top .arena-room-tabs { padding: 3px; gap: 2px }
+  .arena-private-top .arena-room-tabs button { padding: 8px 6px; font-size: 11px }
+  .arena-private-room-card { gap: 9px; padding: 10px }
+  .arena-private-room-icon { width: 42px; height: 42px; flex-basis: 42px }
+}
+/* Owner-funded inventory: NFT deposit and return with locked items visible. */
+.arena-private-bot-inventory-open {
+    width: 100%; border: 1px solid #b18bd63a; border-radius: 13px;
+    background: #3b304b; color: #f1e7ff; font-weight: 750; font-size: 13px;
+    padding: 14px 11px; text-align: center;
+}
+.arena-private-inventory { display: grid; gap: 13px; padding-bottom: 12px }
+.arena-private-inventory-balance {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    border-radius: 19px; padding: 15px 16px; border: 1px solid #966abb52;
+    background: linear-gradient(120deg,#392c45,#292430 70%);
+}
+.arena-private-inventory-balance > div { display: grid; gap: 5px; min-width: 0 }
+.arena-private-inventory-balance small { color: #bba6cb; letter-spacing: .07em; font-size: 10px; font-weight: 800 }
+.arena-private-inventory-balance strong { font-size: 23px; font-variant-numeric: tabular-nums; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.arena-private-inventory-balance > div > span { color: #c1b5ca; font-size: 12px }
+.arena-private-inventory-symbol { font-size: 38px; color: #ccaeef; line-height: 1 }
+.arena-private-inventory-counts { display: flex; flex-wrap: wrap; gap: 7px }
+.arena-private-inventory-counts > span { border-radius: 20px; background: #35323b; padding: 7px 11px; font-size: 11px; color: #ccc5d4; font-weight: 750 }
+.arena-private-inventory-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border: 1px solid #ffffff15; border-radius: 15px; background: #242329 }
+.arena-private-inventory-tabs button { border: 0; background: transparent; color: #aaa4b5; min-height: 37px; border-radius: 11px; font-size: 12px; font-weight: 800; white-space: nowrap }
+.arena-private-inventory-tabs button[aria-selected="true"] { background: #8160b5; color: #fff }
+.arena-private-inventory-hint { margin: 0; font-size: 11px; line-height: 1.5; color: #aaa5b3 }
+.arena-private-inventory-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; max-height: 330px; overflow-y: auto; padding: 1px }
+.arena-private-item { position: relative; min-width: 0; display: grid; justify-items: stretch; gap: 5px; text-align: left; border: 1px solid #ffffff18; border-radius: 15px; background: #29282e; color: #fff; padding: 9px }
+.arena-private-item.is-selected { border-color: #ae85e9; background: #382c46 }
+.arena-private-item.is-locked { opacity: .56; cursor: not-allowed }
+.arena-private-item-image { aspect-ratio: 1; display: grid; place-items: center; background: #3a3444; border-radius: 12px; overflow: hidden; font-size: 34px }
+.arena-private-item-image img { max-width: 100%; max-height: 100%; object-fit: contain }
+.arena-private-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 750; font-size: 12px }
+.arena-private-item-model { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; color: #bbb4c4 }
+.arena-private-item-check, .arena-private-item-status { position: absolute; top: 13px; right: 13px; padding: 3px 7px; border-radius: 9px; background: #3c304d; font-size: 12px; font-weight: 800; color: #e6d3ff }
+.arena-private-item.is-selected .arena-private-item-check { background: #9361dd; color: #fff }
+.arena-private-item-status { font-size: 9px; background: #5d525e }
+.arena-private-inventory-empty { grid-column: 1/-1; padding: 38px 12px; text-align: center; font-size: 13px; color: #a5a0ac; background: #26242b; border-radius: 15px }
+.arena-private-inventory-bottom { display: grid; gap: 7px }
+.arena-private-inventory-transfer { width: 100%; min-height: 47px; border: 0; border-radius: 14px; background: #a779ee; color: #1f142b; font-size: 14px; font-weight: 850 }
+.arena-private-inventory-transfer:disabled { background: #444049; color: #908996 }
+.arena-private-inventory-error { padding: 20px; color: #c9c2cd; font-size: 13px }
+html[data-crafter-theme="light"] .arena-private-room-card,
+html[data-crafter-theme="light"] .arena-private-note,
+html[data-crafter-theme="light"] .arena-private-group-empty { background: #f3eff6; color: #302a36; border-color: #e0d6e9 }
+html[data-crafter-theme="light"] .arena-private-room-name strong,
+html[data-crafter-theme="light"] .arena-private-group-empty strong,
+html[data-crafter-theme="light"] .arena-private-note strong { color: #302a36 }
+html[data-crafter-theme="light"] .arena-private-item { background: #f0eaf4; color: #302c35 }
+html[data-crafter-theme="light"] .arena-private-item.is-selected { background: #ead8fc }
