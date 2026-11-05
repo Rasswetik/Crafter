@@ -121,6 +121,22 @@ function crafterEditEvent(item) {
             return toast('Проверьте даты события');
         }
         const body = new FormData(form);
+        // Preserve all 100 prizes when editing the event's general details.
+        // The quick editor handles the first three; the visual studio handles all ranks.
+        const prizes=(event.prizes||[]).map(p=>({
+            type:p.type||'none',label:p.label||'',telegram_url:p.telegram_url||'',
+            collection:p.collection||'',model:p.model||''
+        }));
+        for(let place=1;place<=3;place++){
+            const row=prizes[place-1]||{type:'none',label:'',telegram_url:'',collection:'',model:''};
+            row.label=String(form.elements['prize_'+place]?.value||'').trim();
+            row.telegram_url=String(form.elements['prize_link_'+place]?.value||'').trim();
+            row.type=form.elements['prize_type_'+place]?.value||'none';
+            if(/^https:\/\/(?:t\.me|telegram\.me)\/nft\//i.test(row.telegram_url))
+               row.type='telegram';
+            prizes[place-1]=row;
+        }
+        body.set('prizes_json',JSON.stringify(prizes));
         body.set('start_at',String(Math.floor(start/1000)));
         body.set('end_at',String(Math.floor(end/1000)));
         body.delete('start_local');
