@@ -30,7 +30,7 @@ function arenaSettings() {
 
 function arenaRules() {
     if (arena.privateToken) return arenaPrivateInfo();
-    sheet('Инфо · Arena', `<div class="arena-sheet-copy">
+    sheet('Инфо · Ice Arena', `<div class="arena-sheet-copy">
         <p>В одной комнате можно ставить GRAM и подарки из «Моих подарков».</p>
         <p>Когда ставки сделают двое игроков, начнётся 15-секундный отсчёт. До его конца можно присоединиться или увеличить ставку.</p>
         <p>Шанс победы равен вашей доле банка. После закрытия ставок сервер случайно определяет победителя с учётом этих шансов. Шайба останавливается в зоне победителя.</p>
@@ -64,7 +64,8 @@ function enterArena(main, privateToken = null) {
     arena.polling = false;
     arena.frameLast = 0;
     arena.view++;
-    main.innerHTML = `<section class="arena-page arena-loading ${privateToken ? 'arena-private-active' : ''}" aria-label="Arena" aria-busy="true">
+    main.innerHTML = `<section class="arena-page arena-loading ${privateToken ? 'arena-private-active' : ''}" aria-label="Ice Arena" aria-busy="true">
+        <div id="arena-event-banner" class="arena-event-banner-slot" hidden></div>
         <div class="arena-highlights" aria-label="Рекорды арены">
             <div class="arena-highlight" id="arena-best-game"><div class="arena-highlight-heading">Топ игра</div>
                 <div class="arena-highlight-content"><span class="arena-highlight-empty">Пока нет игр</span></div></div>
@@ -108,12 +109,14 @@ function enterArena(main, privateToken = null) {
         </div>
     </section>`;
     arenaRenderControls();
+    iceArenaLoadBanner(arena.view, Boolean(privateToken));
     arenaPoll(arena.view);
     arena.frame = requestAnimationFrame(arenaFrame);
 }
 
 function leaveArena() {
     arena.view++;
+    clearTimeout(iceArenaBannerPollTimer);
     arena.data = null;
     clearTimeout(arena.timer);
     cancelAnimationFrame(arena.frame);
