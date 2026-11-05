@@ -163,8 +163,17 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
         <label>Ширина полотна, %<input class="field" type="number" min="50" max="100" data-ice-global="width_pct" value="${b.width_pct??100}"></label>
         <label>Высота полотна, px<input class="field" type="number" min="70" max="280" data-ice-global="height" value="${b.height}"></label>
         <label>Скругление<input class="field" type="number" min="0" max="60" data-ice-global="radius" value="${b.radius}"></label>
-        <label>Цвет фона<input type="color" data-ice-global="background_color" value="${esc(b.background_color)}"></label>
-        <label>Фон<select class="field" data-ice-global="background_fit">
+        <label>Тип фона<select class="field" data-ice-global="background_mode">
+          <option value="solid" ${(b.background_mode??(b.background_asset?'image':'solid'))==='solid'?'selected':''}>Однотонный</option>
+          <option value="gradient" ${b.background_mode==='gradient'?'selected':''}>Градиент</option>
+          <option value="image" ${b.background_mode==='image'?'selected':''}>Изображение / GIF</option>
+        </select></label>
+        <label>Основной цвет<input type="color" data-ice-global="background_color" value="${esc(b.background_color)}"></label>
+        <label>Второй цвет градиента<input type="color" data-ice-global="background_second_color" value="${esc(b.background_second_color??'#48bee5')}"></label>
+        <label>Цветное наложение на изображение (0–0.9)
+          <input class="field" type="range" min="0" max=".9" step=".05" data-ice-global="background_tint" value="${Number(b.background_tint??0)}">
+        </label>
+        <label>Отображение изображения<select class="field" data-ice-global="background_fit">
           <option value="cover" ${b.background_fit==='cover'?'selected':''}>Заполнить</option>
           <option value="contain" ${b.background_fit==='contain'?'selected':''}>Целиком</option>
         </select></label>
@@ -249,14 +258,18 @@ function iceApplyLiveCanvas(field,b) {
   if(field==='width_pct')stage.style.width=Number(b.width_pct)+'%';
   else if(field==='height')stage.style.height=Number(b.height)+'px';
   else if(field==='radius')stage.style.borderRadius=Number(b.radius)+'px';
-  else if(field==='background_color')stage.style.backgroundColor=b.background_color;
-  else if(['background_asset','background_fit'].includes(field))icePaint();
+  else if(['background_color','background_second_color','background_tint',
+    'background_mode','background_fit','background_asset'].includes(field))
+    iceBannerApplyBackground(stage,b);
   else if(field==='start_at'||field==='end_at'){
     stage.querySelectorAll('.ice-banner-countdown').forEach(el=>{
       el.dataset.start=b.start_at;el.dataset.end=b.end_at;
     });
     iceBannerUpdateClocks();
-  }else if(field==='title')icePaint();
+  }else if(field==='title'){
+    stage.setAttribute('aria-label',b.title||'Баннер события');
+    b.layers.filter(l=>l.type==='title').forEach(l=>iceApplyLiveLayer('text',l));
+  }
 }
 function iceEditInput(e){
   const hexField=e.target.dataset.iceColorHex;
@@ -278,7 +291,7 @@ function iceEditInput(e){
     if(global==='start_at'||global==='end_at'){
       const unix=Date.parse(value);if(!Number.isFinite(unix))return;
       value=Math.floor(unix/1000);
-    } else if(['height','radius','width_pct'].includes(global)){
+    } else if(['height','radius','width_pct','background_tint'].includes(global)){
       if(value==='')return;value=Number(value);
     }
     if(global==='title'){
@@ -333,7 +346,7 @@ function iceEditChange(e){
       if(Number(l.bg_opacity)>0)iceEdit.timerOpacity.set(l.id,Number(l.bg_opacity));
       l.bg_opacity=0;
     }
-    iceDirty();iceProperties();icePaint();
+    iceDirty();iceProperties();iceApplyLiveLayer('bg_opacity',l);
     return;
   }
   if(e.target.dataset.iceFile){
@@ -384,17 +397,30 @@ function iceEditClick(e){
     l.text=next;
     input.focus();
     input.setSelectionRange(start+insert.length,start+insert.length);
-    iceDirty();iceList();icePaint();
+    iceDirty();iceList();iceApplyLiveLayer('text',l);
     return;
   }
   if(button.dataset.iceSave)iceSave(button.dataset.iceSave);
   if(button.dataset.iceAdd)iceAdd(button.dataset.iceAdd);
-  if(button.dataset.icePick){iceEdit.selected=button.dataset.icePick;iceList();iceProperties();icePaint();}
+  if(button.dataset.icePick){
+    iceEdit.selected=button.dataset.icePick;
+    document.querySelectorAll('#ice-banner-preview .ice-banner-layer').forEach(node=>
+      node.classList.toggle('is-selected',node.dataset.bannerLayer===iceEdit.selected));
+    iceList();iceProperties();
+  }
   if(button.dataset.iceAction)iceLayerAction(button.dataset.iceAction);
   if(button.dataset.iceClear){
-    if(button.dataset.iceClear==='background')iceEdit.banner.background_asset='';
-    else if(iceSelected())iceSelected().asset='';
-    iceDirty();iceProperties();icePaint();
+    if(button.dataset.iceClear==='background'){
+      iceEdit.banner.background_asset='';
+      iceEdit.banner.background_mode='solid';
+      const mode=document.querySelector('[data-ice-global="background_mode"]');
+      if(mode)mode.value='solid';
+      iceDirty();iceApplyLiveCanvas('background_asset',iceEdit.banner);
+    }else if(iceSelected()){
+      iceSelected().asset='';
+      iceDirty();icePaint();
+    }
+    iceProperties();
   }
 }
 function iceNewId(){return 'ice'+(crypto.randomUUID?.()||String(Date.now())).replace(/-/g,'').slice(0,20);}
@@ -437,12 +463,18 @@ async function iceUploadAsset(file,target){
   const selected=iceEdit.selected;
   try{
     const r=await api('admin/arena/banner/asset',form);
-    if(target==='background')iceEdit.banner.background_asset=r.url;
-    else{
+    if(target==='background'){
+      iceEdit.banner.background_asset=r.url;
+      iceEdit.banner.background_mode='image';
+      const mode=document.querySelector('[data-ice-global="background_mode"]');
+      if(mode)mode.value='image';
+      iceApplyLiveCanvas('background_asset',iceEdit.banner);
+    }else{
       const l=iceEdit.banner.layers.find(x=>x.id===selected);
       if(l)l.asset=r.url;
+      icePaint();
     }
-    iceDirty();iceProperties();icePaint();toast('Загружено. Не забудьте сохранить баннер.');
+    iceDirty();iceProperties();toast('Загружено. Не забудьте сохранить баннер.');
   }catch(error){if(status)status.textContent=error.message;toast(error.message);}
 }
 async function iceSave(mode){
