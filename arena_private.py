@@ -491,6 +491,104 @@ def install_private_arena(app, db, auth, record, tools):
             result['bot_balance'] = str(balance(room_bot_uid(token)))
             return result
 
+    def gift_inventory_view(uid, floors):
+        # The canonical inventory table owns NFT custody. Never create fake
+        # inventory records or show items locked by an active stake as free.
+        rows = db().execute(
+            "SELECT nft_id,payload,status FROM inventory WHERE user_id=? "
+            "AND status IN ('unlisted','arena') ORDER BY nft_id LIMIT 300", (uid,)).fetchall()
+        priced = available_gifts(uid, floors)
+        result = []
+        for row in rows:
+            gift = json.loads(row['payload'])
+            if gift.get('catalog_only'):
+                continue
+            evaluated = priced.get(row['nft_id'])
+            result.append({
+                'id': row['nft_id'], 'name': str(gift.get('name') or 'Подарок')[:80],
+                'number': gift.get('number'), 'model': gift.get('model'),
+                'symbol': gift.get('symbol'), 'backdrop': gift.get('backdrop'),
+                'background': gift.get('background'), 'image': gift.get('image'),
+                'telegram_url': gift.get('telegram_url'),
+                'telegram_slug': gift.get('telegram_slug'),
+                'collection_id': gift.get('collection_id'),
+                'status': row['status'], 'stakable': evaluated is not None,
+                'value': gram(evaluated['value']) if evaluated else None,
+            })
+        return result
+
+    @app.get('/api/arena/private/<token>/bot-gifts')
+    @auth()
+    def private_bot_inventory(token):
+        room = room_for(token, member=True)
+        if room['owner_id'] != g.user['id']:
+            abort(403, description='Инвентарь бота доступен только владельцу')
+        account = ensure_bot_account(room)
+        floors = floor_prices()
+        return {'bot': gift_inventory_view(account, floors),
+                'mine': [gift for gift in gift_inventory_view(g.user['id'], floors)
+                         if gift['status'] == 'unlisted'],
+                'bot_name': room['bot_name'], 'bot_photo': bot_photo(room),
+                'bot_balance': str(balance(account))}
+
+    @app.post('/api/arena/private/<token>/bot-gifts')
+    @auth()
+    def private_bot_inventory_transfer(token):
+        body = request.get_json(silent=True)
+        if not isinstance(body, dict) or body.get('action') not in ('deposit', 'withdraw'):
+            abort(400, description='Неизвестная операция инвентаря')
+        ids = body.get('gift_ids')
+        if (not isinstance(ids, list) or not 1 <= len(ids) <= 40 or
+                any(not isinstance(gift_id, str) or
+                    not 1 <= len(gift_id) <= 200 for gift_id in ids) or
+                len(ids) != len(set(ids))):
+            abort(400, description='Выберите от одного до 40 подарков')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            room = room_for(token, member=True)
+            if room['owner_id'] != g.user['id']:
+                abort(403, description='Пополнять и выводить подарки может только владелец')
+            bot_uid = ensure_bot_account(room)
+            owner_uid = g.user['id']
+            source, destination = ((owner_uid, bot_uid) if body['action'] == 'deposit'
+                                   else (bot_uid, owner_uid))
+            placeholders = ','.join('?' for _ in ids)
+            selected = db().execute(
+                "SELECT nft_id,payload,status FROM inventory WHERE user_id=? "
+                f"AND nft_id IN ({placeholders})",
+                [source, *ids]).fetchall()
+            if len(selected) != len(ids):
+                abort(409, description='Некоторые подарки больше недоступны')
+            for row in selected:
+                if row['status'] != 'unlisted':
+                    abort(409, description='Подарок участвует в игре или уже выставлен')
+                if json.loads(row['payload']).get('catalog_only'):
+                    abort(409, description='Этот подарок нельзя передать боту')
+            collision = db().execute(
+                "SELECT 1 FROM inventory WHERE user_id=? "
+                f"AND nft_id IN ({placeholders}) LIMIT 1",
+                [destination, *ids]).fetchone()
+            if collision:
+                abort(409, description='Получатель уже имеет такой номер подарка')
+            for gift_id in ids:
+                changed = db().execute(
+                    "UPDATE inventory SET user_id=? WHERE user_id=? "
+                    "AND nft_id=? AND status='unlisted'",
+                    (destination, source, gift_id))
+                if changed.rowcount != 1:
+                    abort(409, description='Инвентарь изменился, обновите список')
+            gifts = []
+            payloads = {row['nft_id']: json.loads(row['payload']) for row in selected}
+            for gift_id in ids:
+                item = payloads[gift_id]
+                gifts.append({'id': gift_id, 'name': item.get('name'),
+                              'number': item.get('number')})
+            record('arena_bot_inventory', {
+                'private_room': token, 'action': body['action'],
+                'bot_name': room['bot_name'], 'gifts': gifts,
+            }, uid=owner_uid)
+            return {'ok': True, 'transferred': len(ids), 'action': body['action']}
+
     @app.post('/api/arena/private/<token>/bot-funds')
     @auth()
     def private_bot_funds(token):
