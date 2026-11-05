@@ -71,3 +71,99 @@
   flex:0 0 18px;
   accent-color:#56c5ef;
 }
+
+/* WYSIWYG typography, inline GRAM insertion and phone-friendly controls. */
+.ice-editor .ice-editor-hint{
+  font-size:12px;
+  line-height:1.45;
+  color:#97c3d7;
+  margin:0 0 12px;
+}
+.ice-editor .ice-editor-text-input{
+  display:grid;
+  gap:8px;
+  grid-column:1/-1;
+  padding:11px;
+  border-radius:13px;
+  border:1px solid #6caac84d;
+  background:#18374a62;
+}
+.ice-editor .ice-editor-text-input label{width:100%}
+.ice-editor .ice-editor-text-input button{
+  justify-self:start;
+  width:auto;
+  padding:9px 12px;
+  border-radius:11px;
+  background:#214b66;
+  color:#e6f8ff;
+  font-size:12px;
+}
+.ice-editor .ice-editor-text-input small{color:#9aafc7;font-size:11px}
+.ice-editor .ice-editor-slider{
+  display:grid;
+  gap:8px;
+}
+.ice-editor .ice-editor-slider-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  min-width:0;
+  min-height:36px;
+}
+.ice-editor .ice-editor-slider-row input[type=range]{
+  width:100%;
+  min-width:40px;
+  height:24px;
+  flex:1 1 auto;
+  padding:0;
+  margin:0;
+  cursor:ew-resize;
+  accent-color:#7fe4ff;
+}
+.ice-editor .ice-editor-slider-row output{
+  min-width:33px;
+  text-align:right;
+  font-weight:900;
+  color:#ddf7ff;
+  font-variant-numeric:tabular-nums;
+}
+.ice-editor .ice-editor-color-row{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-width:0;
+}
+.ice-editor .ice-editor-color-row input[type=color]{
+  flex:0 0 49px;
+  width:49px;
+  height:44px;
+  padding:4px;
+  cursor:pointer;
+}
+.ice-editor .ice-editor-color-row input[type=text]{
+  flex:1 1 auto;
+  min-width:65px;
+  font-family:ui-monospace,Consolas,monospace;
+  font-size:12px;
+  padding:9px;
+}
+.ice-editor .ice-editor-gram-help{
+  color:#a3dffc;
+  border:1px solid #8edcff3b;
+  padding:10px;
+  background:#22475d50;
+  border-radius:12px;
+  font-size:12px;
+}
+.ice-editor-preview .ice-banner-editable{user-select:none;-webkit-user-select:none}
+.ice-editor-preview .ice-banner-inline[contenteditable=true]{
+  -webkit-user-select:text;
+  user-select:text;
+  touch-action:auto;
+}
+.ice-editor .ice-editor-preview{width:min(100%,620px)}
+@media(max-width:420px){
+  .ice-editor .ice-editor-color-row{gap:5px}
+  .ice-editor .ice-editor-color-row input[type=color]{width:37px;flex-basis:37px}
+  .ice-editor .ice-editor-text-input{padding:8px}
+}
