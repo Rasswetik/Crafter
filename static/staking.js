@@ -16,7 +16,7 @@ nav = function() {
     const sidePage = inGames ? 'market' : 'games';
     const sideLabel = inGames ? 'Маркет' : 'Игры';
     const destinations = inGames ? [
-        ['games','games','Hub'], ...(window.crafterOfflinePreview ? [] : [['arena','arena','Ice Arena']])
+        ['games','games','Hub'], ...(window.crafterOfflinePreview ? [] : [['arena','arena','Arena']])
     ] : [
         ['market','market','Маркет'],['gifts','gift','Мои подарки'],
         ['staking','staking','Стейкинг']
@@ -96,7 +96,7 @@ function renderGamesHub() {
             ${magnateArt('crafter-game-art')}
         </button>
         ${window.crafterOfflinePreview ? '' : `<button class="crafter-game-tile arena-tile" onclick="go('arena')" type="button">
-            <span class="crafter-game-label"><strong>Ice Arena</strong>
+            <span class="crafter-game-label"><strong>Arena</strong>
                 <span>Один раунд. Один победитель.</span>
                 <span class="crafter-game-open">Играть</span></span>
             <span class="arena-tile-icon">${gameNavIcons.arena}</span>
