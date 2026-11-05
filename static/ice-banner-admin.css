@@ -167,3 +167,75 @@
   .ice-editor .ice-editor-color-row input[type=color]{width:37px;flex-basis:37px}
   .ice-editor .ice-editor-text-input{padding:8px}
 }
+
+
+/* Magnetic snap guides for exact responsive alignment. Hidden on the published banner. */
+.ice-banner-editable .ice-banner-guide{
+  position:absolute;
+  pointer-events:none;
+  z-index:130;
+  opacity:.9;
+}
+.ice-banner-guide[hidden]{display:none!important}
+.ice-banner-editable .ice-banner-guide-x{
+  top:0;bottom:0;
+  width:0;
+  border-left:1px dashed #a6fbff;
+  box-shadow:0 0 6px #5ae5ffaa;
+}
+.ice-banner-editable .ice-banner-guide-y{
+  left:0;right:0;
+  height:0;
+  border-top:1px dashed #a6fbff;
+  box-shadow:0 0 6px #5ae5ffaa;
+}
+.ice-editor-preview{
+  max-width:100%;
+  box-sizing:border-box;
+  transition:width .18s ease-out;
+  overflow:visible;
+}
+.ice-editor-preview.ice-editing-background{
+  cursor:grab;
+}
+.ice-editor-preview.ice-editing-background .ice-banner-stage{
+  cursor:grab;
+}
+.ice-editor-preview.ice-editing-background .ice-banner-stage:active{
+  cursor:grabbing;
+}
+.ice-editor-preview-panel>.ice-editor-buttons{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:9px;
+}
+.ice-editor-preview-panel>.ice-editor-buttons>label{
+  display:flex!important;
+  align-items:center;
+  gap:6px;
+  padding:6px 8px;
+  background:#18344890;
+  border:1px solid #8ad7ff3e;
+  border-radius:12px;
+  font-size:11px;
+  color:#d3edf8;
+}
+.ice-editor-preview-panel>.ice-editor-buttons>label input[type=checkbox]{
+  accent-color:#57caff;
+  width:16px;height:16px;
+}
+.ice-editor-preview-panel>.ice-editor-buttons>label select{
+  margin-left:3px;
+  width:clamp(138px,34vw,185px);
+  min-height:34px;
+  padding:5px;
+}
+@media(max-width:420px){
+  .ice-editor-preview-panel>.ice-editor-buttons{
+    gap:5px;
+  }
+  .ice-editor-preview-panel>.ice-editor-buttons>label{
+    padding:5px 6px;
+  }
+}
