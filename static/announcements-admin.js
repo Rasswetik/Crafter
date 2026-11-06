@@ -5,7 +5,7 @@ function announcementDefault(){
   id:'',enabled:false,title:'Новое событие Crafter',
   description:'Участвуйте в новых событиях и получайте награды.',
   button_text:'Перейти',button_url:'',media:'',frequency:4,close_delay:3,
-  max_width:420,media_height:290,position:'center',
+  max_width:420,media_height:290,media_fit:'contain',position:'center',
   background_color:'#242326',title_color:'#ffffff',
   description_color:'#b7b2c0',button_color:'#168bff',
   button_text_color:'#ffffff',
@@ -75,6 +75,8 @@ function announcementPaintEditor(){
    esc(d.description)+'</textarea></label>'+
   '<label class="ann-admin-wide">Изображение или GIF (до 8 МБ)'+
    '<input type="file" accept="image/png,image/gif,image/jpeg,image/webp" data-ann-upload></label>'+
+   announcementChoices('media_fit','Показ изображения',d.media_fit||'contain',
+     [['contain','Целиком без обрезки'],['cover','Заполнить область']])+
   (d.media?'<div class="ann-admin-current"><img src="'+esc(d.media)+'" alt="Анонс">'+
     '<button type="button" data-ann-action="clear-media">Удалить изображение</button></div>':'')+
   announcementField('button_text','Надпись кнопки',d.button_text)+
