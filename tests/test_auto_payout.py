@@ -111,3 +111,70 @@ def test_withdrawals_queue_auto_only_after_policy_enabled(client, monkeypatch):
             assert db.execute('SELECT COUNT(*) FROM ton_auto_payouts').fetchone()[0] == 0
     finally:
         client.application.config['DATABASE_URL']=original
+
+
+def test_auto_payout_wizard_preflight_is_read_only_and_validates_address(client, monkeypatch):
+    import wallet
+    admin=signed(42)
+    client.get('/api/me',headers=admin)
+    assert client.get('/api/admin/tonconnect/auto/preflight',headers=signed(43)).status_code==403
+    initial=client.get('/api/admin/tonconnect/auto/preflight',headers=admin)
+    assert initial.status_code==200
+    assert initial.json['ready'] is False
+    assert initial.json['balance_ton'] is None
+    original=client.application.config['DATABASE_URL']
+    client.application.config['DATABASE_URL']='postgresql://test-only'
+    source='0:'+'7'*64
+    another='0:'+'8'*64
+    try:
+        invalid=client.post('/api/admin/tonconnect/auto',headers=admin,json={
+            'enabled':False,'payout_address':'not-a-ton-address',
+            'max_ton':'0.2','daily_ton':'1','reserve_ton':'0.5'
+        })
+        assert invalid.status_code==400
+        save=client.post('/api/admin/tonconnect/auto',headers=admin,json={
+            'enabled':False,'payout_address':source,
+            'max_ton':'0.2','daily_ton':'1','reserve_ton':'0.5'
+        })
+        assert save.status_code==200,save.json
+        assert save.json['policy']['payout_address']==source
+        assert client.post('/api/admin/tonconnect',headers=admin,json={
+            'enabled':True,'withdraw_enabled':True,'network':'testnet',
+            'receiver':'0:'+'1'*64
+        }).status_code==200
+        calls=[]
+        def rpc_stub(network,method,params,key):
+            calls.append(method)
+            assert method=='getWalletInformation'
+            assert params['address']==source
+            return {'wallet':True,'wallet_type':'wallet v4 r2','balance':'700000000',
+                    'seqno':0}
+        monkeypatch.setattr(wallet,'rpc',rpc_stub)
+        checked=client.get('/api/admin/tonconnect/auto/preflight',headers=admin)
+        assert checked.status_code==200,checked.json
+        assert checked.json['balance_ton']=='0.7'
+        assert checked.json['wallet_v4r2'] is True
+        assert checked.json['balance_ok'] is True
+        assert checked.json['worker']['ready'] is False
+        assert checked.json['ready'] is False
+        assert calls==['getWalletInformation']
+        with sqlite3.connect(client.application.config['DATABASE']) as db:
+            db.execute('''INSERT INTO ton_auto_worker_health
+                (singleton,checked_at,ready,network,address,state)
+                VALUES(1,?,?,?,?,?)''',(int(time.time()),1,'testnet',source,'configured'))
+        checked=client.get('/api/admin/tonconnect/auto/preflight',headers=admin)
+        assert checked.json['ready'] is True
+        with sqlite3.connect(client.application.config['DATABASE']) as db:
+            db.execute('''INSERT INTO ton_auto_payouts
+                (withdrawal_id,status,signed_boc,seqno,sender,created,updated,confirmed_tx)
+                VALUES('test-outstanding','review','mock-only',1,?,1,1,NULL)''',(source,))
+        blocked=client.post('/api/admin/tonconnect/auto',headers=admin,json={
+            'enabled':False,'payout_address':another,
+            'max_ton':'0.2','daily_ton':'1','reserve_ton':'0.5'
+        })
+        assert blocked.status_code==409
+        blocked_preflight=client.get('/api/admin/tonconnect/auto/preflight',headers=admin)
+        assert blocked_preflight.json['unsettled']==1
+        assert blocked_preflight.json['ready'] is False
+    finally:
+        client.application.config['DATABASE_URL']=original
