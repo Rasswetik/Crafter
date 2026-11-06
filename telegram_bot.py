@@ -1,4 +1,7 @@
 """Telegram /start settings and authenticated webhook."""
+import base64
+import binascii
+from decimal import Decimal
 import hmac
 import json
 import os
@@ -182,6 +185,50 @@ def notify_offer_event(config, seller, gift, price, event, default_token):
     bot_api(token, 'sendMessage', {'chat_id': seller, 'parse_mode': 'HTML',
                                   'link_preview_options': {'is_disabled': True},
                                   'text': message})
+
+
+
+def ton_transaction_link(tx_hash, network):
+    """Use the *verified incoming transaction hash*, never the TON Connect intent ID.
+
+    TON Center can report a 256-bit hash as hex, Base64 or Base64URL.
+    Tonscan's /tx/ route expects lowercase hexadecimal.
+    """
+    if network not in ('mainnet', 'testnet') or not isinstance(tx_hash, str):
+        return None
+    value = tx_hash.strip()
+    if re.fullmatch(r'[0-9a-fA-F]{64}', value):
+        hex_hash = value.lower()
+    else:
+        try:
+            raw = base64.b64decode(value, altchars=b'-_', validate=True)
+            if len(raw) != 32:
+                return None
+            hex_hash = raw.hex()
+        except (ValueError, binascii.Error):
+            return None
+    host = 'tonscan.org' if network == 'mainnet' else 'testnet.tonscan.org'
+    return f'https://{host}/tx/{hex_hash}'
+
+
+def notify_gram_deposit(config, recipient, gram, tx_hash, network, default_token):
+    """Send a Telegram balance receipt after committed on-chain confirmation."""
+    token = config.get('token') or default_token
+    url = ton_transaction_link(tx_hash, network)
+    if not token or not url:
+        return False
+    value = Decimal(str(gram))
+    if not value.is_finite() or value <= 0:
+        return False
+    amount = format(value.normalize(), 'f')
+    bot_api(token, 'sendMessage', {
+        'chat_id': int(recipient),
+        'text': ('💸Баланс обновлен\n\n'
+                 f'⬆️Депозит: {amount} GRAM успешно зачислено\n\n'
+                 '🔎 Посмотреть транзакцию\n\n' + url),
+        'link_preview_options': {'is_disabled': True},
+    })
+    return True
 
 
 def notify_gift_purchase(config, buyer, gift, price, default_token):

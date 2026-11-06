@@ -60,14 +60,50 @@ def confirmed_message(transactions,recipient,sender,nano,memo,created):
         except Exception:continue
     return None
 
-def install_wallet(app,db,auth,record,audit):
+def install_wallet(app,db,auth,record,audit,bot_settings=None):
     with app.app_context():
         db().executescript('''CREATE TABLE IF NOT EXISTS connected_wallets(user_id INTEGER PRIMARY KEY,address TEXT,network TEXT);CREATE TABLE IF NOT EXISTS wallet_balances(user_id INTEGER,network TEXT,gram TEXT,PRIMARY KEY(user_id,network));CREATE TABLE IF NOT EXISTS ton_deposits(id TEXT PRIMARY KEY,user_id INTEGER,payload TEXT,status TEXT,created INTEGER,tx TEXT);CREATE TABLE IF NOT EXISTS ton_transactions(network TEXT,hash TEXT,PRIMARY KEY(network,hash));CREATE TABLE IF NOT EXISTS ton_withdrawals(id TEXT PRIMARY KEY,user_id INTEGER,payload TEXT,status TEXT,created INTEGER,tx TEXT);''');db().commit()
         db().executescript('''
+            CREATE TABLE IF NOT EXISTS ton_deposit_notifications (
+                id TEXT PRIMARY KEY,
+                status TEXT NOT NULL DEFAULT 'pending',
+                updated INTEGER NOT NULL DEFAULT 0
+            );
             CREATE INDEX IF NOT EXISTS history_wallet_user ON history(user_id,created);
             CREATE INDEX IF NOT EXISTS ton_deposits_wallet_user ON ton_deposits(user_id,created);
             CREATE INDEX IF NOT EXISTS ton_withdrawals_wallet_user ON ton_withdrawals(user_id,created);
         ''')
+    def send_deposit_receipt(deposit_id):
+        """Durable retry queue. Rechecking a credited deposit cannot credit twice."""
+        from telegram_bot import notify_gram_deposit
+
+        row = db().execute("""SELECT n.status,n.updated,d.user_id,d.payload,d.tx
+            FROM ton_deposit_notifications n JOIN ton_deposits d ON d.id=n.id
+            WHERE d.id=? AND d.status='confirmed'""", (deposit_id,)).fetchone()
+        if not row or row['status'] == 'sent':
+            return
+        now = int(time.time())
+        # Claim before network call to prevent duplicate notices from overlapping checks.
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            claim = db().execute("""UPDATE ton_deposit_notifications SET status='sending',updated=?
+                WHERE id=? AND (status='pending' OR (status='sending' AND updated<?))""",
+                (now,deposit_id,now-120))
+            if not claim.rowcount:
+                return
+        info = json.loads(row['payload'])
+        try:
+            config_bot = bot_settings() if bot_settings else {}
+            sent = notify_gram_deposit(config_bot, row['user_id'], info['gram'],
+                                       row['tx'], info['network'], app.config.get('BOT_TOKEN',''))
+        except Exception:
+            sent = False
+            app.logger.warning('GRAM deposit receipt delivery failed for %s', deposit_id)
+        with db():
+            db().execute("""UPDATE ton_deposit_notifications SET status=?,updated=?
+                WHERE id=? AND status='sending'""",
+                ('sent' if sent else 'pending',int(time.time()),deposit_id))
+
     def config():
         row=db().execute("SELECT payload FROM settings WHERE key='tonconnect'").fetchone()
         return {**DEFAULTS,**(json.loads(row[0]) if row else {}),'rpc_key':os.getenv('TONCENTER_API_KEY') or (json.loads(row[0]).get('rpc_key','') if row else '')}
@@ -236,7 +272,9 @@ def install_wallet(app,db,auth,record,audit):
     def check_deposit(did):
         row=db().execute('SELECT * FROM ton_deposits WHERE id=? AND user_id=?',(did,g.user['id'])).fetchone()
         if not row:abort(404)
-        if row['status']=='confirmed':return {'status':'confirmed'}
+        if row['status']=='confirmed':
+            send_deposit_receipt(did)
+            return {'status':'confirmed'}
         p=json.loads(row['payload']);c=config()
         found=confirmed_message(rpc(p['network'],'getTransactions',{'address':p['receiver'],'limit':100,'archival':'true'},c['rpc_key']),p['receiver'],p['sender'],p['nano'],p['memo'],row['created'])
         if not found:return {'status':'pending'}
@@ -251,6 +289,9 @@ def install_wallet(app,db,auth,record,audit):
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance),g.user['id']))
             db().execute('INSERT INTO wallet_balances VALUES(?,?,?) ON CONFLICT (user_id,network) DO UPDATE SET gram=excluded.gram',(g.user['id'],p['network'],str(paid)))
             db().execute("UPDATE ton_deposits SET status='confirmed',tx=? WHERE id=?",(found,did));record('deposit',dict(gram=p['gram'],ton=p['ton'],network=p['network'],tx=found))
+            db().execute("""INSERT INTO ton_deposit_notifications(id,status,updated)
+                VALUES(?,'pending',0) ON CONFLICT(id) DO NOTHING""", (did,))
+        send_deposit_receipt(did)
         return {'status':'confirmed','balance':str(balance)}
     @app.post('/api/wallet/withdraw')
     @auth()
