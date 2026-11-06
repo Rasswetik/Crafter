@@ -1181,7 +1181,11 @@ def create_app(config=None):
     from banners import install_banners
     install_banners(app, db, auth, audit)
     from events import install_events
-    install_events(app, db, auth, audit)
+    event_listing, event_ranking = install_events(app, db, auth, audit)
+    from event_rewards import install_event_rewards
+    install_event_rewards(app, db, auth, record, canonical_name, event_listing,
+                          event_ranking, available_crafter_lot, settle_crafter_lot,
+                          notify_crafter_sale)
     from event_pages import install_event_pages
     install_event_pages(app, db, auth, audit)
     from announcements import install_announcements
