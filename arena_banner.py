@@ -14,7 +14,8 @@ ASSET = re.compile(r'^/media/ice-banner/([0-9a-f]{32})\.(gif|webp)$')
 HEX = re.compile(r'^#[0-9a-fA-F]{6}$')
 LAYER_ID = re.compile(r'^[a-zA-Z0-9_-]{1,45}$')
 FONTS = {'system', 'rounded', 'mono', 'serif', 'condensed', 'heavy', 'bold', 'geometric', 'clean', 'classic', 'display', 'futuristic'}
-FORMAT = {'hh:mm:ss', 'mm:ss', 'days'}
+FORMAT = {'hh:mm:ss','mm:ss','days','dhms','dhms-en','dhm-en',
+          'hms-en','days-only','hours-only','minutes-only','seconds-only'}
 TYPES = {'title', 'text', 'timer', 'image', 'gram'}
 ROOMS = {'all', 'public', 'private'}
 MAX_ASSET = 8 * 1024 * 1024
