@@ -187,3 +187,36 @@
 .crafter-announcement-text h2{line-height:1.09}
 .crafter-announcement-cta{min-height:47px}
 @media(max-width:600px){.crafter-announcement-media{height:min(var(--announcement-media-height,400px),49dvh)}}
+
+/* Distinct image-like artwork fallback if no PNG/GIF has been uploaded. */
+.crafter-announcement-placeholder{
+ display:flex;flex-direction:column;align-items:center;justify-content:center;
+ gap:13px;padding:22px 17px;text-align:center;box-sizing:border-box;
+ background:radial-gradient(ellipse at 50% 95%,#9c16e7 0%,#4e165f 43%,#1e152b 100%);
+ overflow:hidden;
+}
+.crafter-announcement-placeholder::before,
+.crafter-announcement-placeholder::after{content:"✦";position:absolute;color:#d09ff077;font-size:24px}
+.crafter-announcement-placeholder::before{left:8%;top:25%;transform:rotate(-20deg)}
+.crafter-announcement-placeholder::after{right:8%;bottom:12%;transform:rotate(24deg)}
+.crafter-announcement-brand{display:block;position:relative;z-index:2;font-size:14px;letter-spacing:-.02em;font-weight:800;opacity:.9}
+.crafter-announcement-visual-headline{
+ position:relative;z-index:2;display:block;max-width:95%;font-size:clamp(25px,8vw,43px);
+ line-height:1.05;font-weight:900;letter-spacing:-.045em;text-wrap:balance;
+}
+.crafter-announcement-visual-art{
+ position:relative;z-index:2;width:min(260px,78%);height:115px;
+ display:flex;gap:18px;align-items:center;justify-content:center;
+ border-radius:999px;border:3px solid #ce82e7b8;
+ background:#310e4777;box-shadow:0 6px 25px #210c257a;
+}
+.announcement-visual-star,.announcement-visual-gem{
+ display:grid;place-items:center;min-width:90px;min-height:90px;
+ border-radius:30%;font-size:65px;line-height:1;
+}
+.announcement-visual-star{background:linear-gradient(145deg,#ffed58,#ffb500);color:#342015;text-shadow:0 3px 0 #e2a114}
+.announcement-visual-gem{background:linear-gradient(145deg,#a36aeb,#8744c9);color:#dac8fd}
+@media(max-width:380px){
+ .crafter-announcement-visual-art{height:88px;gap:9px}
+ .announcement-visual-star,.announcement-visual-gem{min-width:69px;min-height:69px;font-size:45px}
+}
