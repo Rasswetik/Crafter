@@ -204,3 +204,20 @@
 .ice-banner-editable .ice-banner-type-timer.is-selected::after{border-color:rgba(140,219,255,.48)}
 /* No outlines or decorative lines survive in the real published banner. */
 .ice-banner-stage:not(.ice-banner-editable) .ice-banner-layer{outline:0!important;border:0!important;box-shadow:none}
+
+/* Larger inset resize handles stay clickable inside the clipped banner. */
+.ice-banner-editable .ice-banner-layer-edit.is-selected{outline:1px solid #8ad8ff!important;outline-offset:-1px!important}
+.ice-banner-editable .ice-banner-layer-edit.is-selected .ice-banner-handle{width:16px;height:16px;border-radius:4px}
+.ice-banner-handle-nw{top:2px;left:2px}
+.ice-banner-handle-n{top:2px}
+.ice-banner-handle-ne{top:2px;right:2px}
+.ice-banner-handle-e{right:2px}
+.ice-banner-handle-se{bottom:2px;right:2px}
+.ice-banner-handle-s{bottom:2px}
+.ice-banner-handle-sw{bottom:2px;left:2px}
+.ice-banner-handle-w{left:2px}
+.ice-banner-canvas-left{left:5px}
+.ice-banner-canvas-right{right:5px}
+.ice-banner-canvas-bottom{bottom:5px}
+.ice-banner-canvas-right-bottom{right:5px;bottom:5px}
+.ice-banner-editable .ice-banner-layer-edit{user-select:none;-webkit-user-select:none}

@@ -5,7 +5,7 @@ function announcementDefault(){
   id:'',enabled:false,title:'Новое событие Crafter',
   description:'Участвуйте в новых событиях и получайте награды.',
   button_text:'Перейти',button_url:'',media:'',frequency:4,close_delay:3,
-  max_width:420,media_height:290,position:'center',
+  max_width:460,media_height:400,position:'center',
   background_color:'#242326',title_color:'#ffffff',
   description_color:'#b7b2c0',button_color:'#168bff',
   button_text_color:'#ffffff',
@@ -36,7 +36,7 @@ async function renderAdminAnnouncements(content=document.querySelector('#admin-c
  crafterAnnouncementAdmin={items:result.announcements||[],draft:announcementDefault()};
  content.innerHTML='<div class="crafter-announcement-admin">'+
   '<section class="panel"><h3>Анонсы</h3>'+
-  '<p class="sub">Полноэкранные всплывающие объявления в стиле Crafter: PNG/GIF, заголовок, описание, кнопка, цвет, шрифт и кольцо закрытия. Первый показ всем, затем повтор через 3–5 посещений.</p>'+
+  '<p class="sub">Анонс с крупной PNG/GIF-обложкой, заголовком, описанием и кнопкой. Загрузите изображение, иначе будет показана стандартная заглушка.</p>'+
   '<button class="primary" type="button" data-ann-action="new">+ Новый анонс</button></section>'+
   '<section class="panel"><h3>Опубликованные и черновики</h3>'+
    '<div id="ann-admin-list"></div></section>'+
@@ -99,7 +99,7 @@ function announcementPaintEditor(){
   announcementField('start_at','Начало показа (необязательно)',announcementDate(d.start_at),'datetime-local')+
   announcementField('end_at','Окончание (необязательно)',announcementDate(d.end_at),'datetime-local')+
   '</div><div class="ann-admin-actions">'+
-  '<button type="button" class="secondary" data-ann-action="preview">Предпросмотр</button>'+
+  '<button type="button" class="secondary" data-ann-action="preview">Предпросмотр как у пользователя</button>'+
   '<button type="button" class="primary" data-ann-action="save">Сохранить</button>'+
   (d.id?'<button type="button" class="secondary" data-ann-action="delete">Удалить</button>':'')+
   '</div><p class="sub" role="status" id="ann-admin-status">Настройки сохраняются по кнопке.</p>';

@@ -179,3 +179,11 @@
    animation-duration:.01ms!important;
  }
 }
+
+/* Image-led popup: compact margins, prominent banner and typography. */
+.crafter-announcement-card{padding:13px;box-shadow:0 18px 52px #000a}
+.crafter-announcement-media{height:min(var(--announcement-media-height,400px),55dvh);min-height:160px}
+.crafter-announcement-text{padding:15px 6px 16px}
+.crafter-announcement-text h2{line-height:1.09}
+.crafter-announcement-cta{min-height:47px}
+@media(max-width:600px){.crafter-announcement-media{height:min(var(--announcement-media-height,400px),49dvh)}}
