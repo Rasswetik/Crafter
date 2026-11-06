@@ -24,7 +24,7 @@ MAX_ASSET = 8 * 1024 * 1024
 def default_banner(kind='arena'):
     now = int(time.time())
     return {
-        'enabled': False, 'event_id': '', 'rooms': 'all', 'hide_after_end': True,
+        'enabled': False, 'event_id': '', 'source_block_id': '', 'rooms': 'all', 'hide_after_end': True,
         'title': 'Событие крафта' if kind == 'craft' else 'Ледяная охота',
         'start_at': now + 1800, 'end_at': now + 88200,
         'height': 112, 'width_pct': 100, 'radius': 22,
@@ -169,6 +169,10 @@ def install_arena_banner(app, db, auth, audit):
                                      (event_id,)).fetchone() if event_id else None)
         if event_id and not linked_event:
             abort(404, description='Привязанное событие не найдено')
+        source_block_id = data.get('source_block_id') or ''
+        if not isinstance(source_block_id,str) or (
+                source_block_id and not LAYER_ID.fullmatch(source_block_id)):
+            abort(400, description='Некорректный идентификатор блока-источника')
         enabled = boolean(data.get('enabled'), 'Публикация')
         if enabled and not event_id:
             abort(400, description='Для публикации баннера выберите событие с лидербордом')
@@ -185,7 +189,7 @@ def install_arena_banner(app, db, auth, audit):
             abort(400, description='Цветное наложение: от 0 до 0.9')
         return {
             'enabled': enabled,
-            'event_id': event_id, 'rooms': room,
+            'event_id': event_id, 'source_block_id': source_block_id, 'rooms': room,
             'hide_after_end': boolean(data.get('hide_after_end'), 'Скрывать после окончания'),
             'title': title, 'start_at': start, 'end_at': end,
             'height': integer(data.get('height'), 70, 280, 'Высота'),
