@@ -346,7 +346,14 @@ async function studioPickPrizeCatalog(){
  const root=document.getElementById('studio-inspector');
  if(!root||!crafterStudio)return;
  const prize=studioPrize(crafterStudio.rank);
- const collections=(state.catalog?.collections||[]).filter(item=>item.name);
+ let collections=(state.catalog?.collections||[]).filter(item=>item.name);
+ if(!collections.length){
+   try{
+     const catalog=await api('catalog');
+     collections=(catalog.collections||[]).filter(item=>item.name);
+   }catch(error){return toast('Не удалось загрузить каталог: '+error.message);}
+ }
+ if(!collections.length)return toast('В каталоге пока нет коллекций');
  root.querySelector('.studio-prize-catalog-panel')?.remove();
  const box=document.createElement('div');
  box.className='studio-prize-catalog-panel';
