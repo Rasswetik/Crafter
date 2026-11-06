@@ -14,8 +14,8 @@ const arenaInitialsPalette = [
 ];
 const arenaNumber = new Intl.NumberFormat('ru-RU', {maximumFractionDigits: 2});
 function arenaFormat(value) {
-    const decimal = /^-?\d+(?:\.\d{1,2})?/.exec(String(value));
-    return arenaNumber.format(decimal ? Number(decimal[0]) : 0);
+ const amount=Number(value);
+ return Number.isFinite(amount)?arenaNumber.format(amount):'—';
 }
 const arenaGiftValue = gift => arenaFormat(gift.value / 1e6);
 const arenaBadge = player => (player.name.trim().split(/\s+/).slice(0, 2)
@@ -441,7 +441,7 @@ function arenaShowPrizes(title, total, gram, gifts, winner = null, fee = '0') {
             <p>${arenaBotBadge(winner)} Ставка ${arenaFormat(winner.value)} GRAM · шанс ${arenaFormat(winner.chance)}%</p></div>` : ''}
         <strong class="arena-sheet-total">${arenaFormat(total)} GRAM
             ${multiplier ? `<span>${multiplier}×</span>` : ''}</strong>
-        ${Number(fee) > 0 ? `<p class="arena-fee-detail">Комиссия ${Number(fee) < .01 ? '&lt;0,01' : arenaFormat(fee)} GRAM</p>` : ''}
+        ${'' /* Winner dialog shows winnings without redundant fee line. */}
         ${arenaPrizeCards(gram, gifts)}
     </div>`);
 }
