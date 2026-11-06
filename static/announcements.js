@@ -62,18 +62,13 @@ function crafterShowAnnouncement(cfg,preview=false){
  card.className='crafter-announcement-card';
  const media=document.createElement('div');media.className='crafter-announcement-media';
  const url=cfg.media||'';
- if(/^\/media\/ice-banner\/[0-9a-f]{32}\.(?:gif|webp)$/.test(url)){
-  const image=document.createElement('img');
-  image.src=url;image.alt='';
-  image.loading='eager';image.decoding='async';
-  media.append(image);
- }else{
-  media.classList.add('crafter-announcement-no-image');
-  const placeholder=document.createElement('div');
-  placeholder.className='crafter-announcement-placeholder';
-  placeholder.textContent='Crafter';
-  media.append(placeholder);
- }
+ const hasMedia=/^\/media\/ice-banner\/[0-9a-f]{32}\.(?:gif|webp)$/.test(url);
+ if(hasMedia){
+   const image=document.createElement('img');image.src=url;image.alt='';
+   image.loading='eager';image.decoding='async';
+   image.style.objectFit=cfg.media_fit==='cover'?'cover':'contain';
+   media.append(image);
+ }else card.classList.add('crafter-announcement-text-only');
  const text=document.createElement('div');text.className='crafter-announcement-text';
  const title=document.createElement('h2');title.textContent=cfg.title||'Объявление Crafter';
  const description=document.createElement('p');description.textContent=cfg.description||'';
@@ -93,7 +88,8 @@ function crafterShowAnnouncement(cfg,preview=false){
    window.location.assign(target);
   }
  });
- card.append(media,text,action);
+ if(hasMedia)card.append(media);
+ card.append(text,action);
  banner.append(close,card);
  const delay=Math.min(12,Math.max(1,Number(cfg.close_delay)||3));
  banner.style.setProperty('--announcement-close-delay',delay+'s');
