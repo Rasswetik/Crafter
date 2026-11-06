@@ -27,7 +27,7 @@ ID = re.compile(r'[0-9a-f]{32}\Z')
 
 
 def install_events(app, db, auth, audit, record=None, canonical_name=None,
-                   available_lot=None, settle_lot=None, notify_purchase=None):
+                   available_lot=None, settle_lot=None, notify_purchase=None, notify_sale=None):
     with app.app_context(), db():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS crafter_events (
@@ -165,10 +165,10 @@ def install_events(app, db, auth, audit, record=None, canonical_name=None,
         return result
 
     if all(callback is not None for callback in
-           (record, canonical_name, available_lot, settle_lot, notify_purchase)):
+           (record, canonical_name, available_lot, settle_lot, notify_purchase, notify_sale)):
         from event_awards import install_event_awards
         install_event_awards(app, db, auth, audit, ranking, record, canonical_name,
-                             available_lot, settle_lot, notify_purchase)
+                             available_lot, settle_lot, notify_purchase, notify_sale)
 
     @app.get('/api/events')
     def public_events():
