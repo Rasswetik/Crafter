@@ -282,9 +282,9 @@ function studioPrizePreview(p){
  else if(p.type==='telegram'&&p.telegram_slug)
   art='<img src="https://nft.fragment.com/gift/'+studioEsc(p.telegram_slug.toLowerCase())+'.webp" alt="NFT">';
  else if(p.type==='collection'&&p.collection)
-  art='<img src="https://fragment.com/file/gifts/'+encodeURIComponent(p.collection.replace(/[^a-z0-9]/gi,'').toLowerCase())+'/thumb.webp" alt="Коллекция">';
+  art='<img src="/media/collection/'+encodeURIComponent(p.collection.replace(/[^a-z0-9]/gi,'').toLowerCase())+'" alt="Оригинальное PNG коллекции">';
  else if(p.type==='model'&&p.collection&&p.model)
-  art='<img src="https://api.changes.tg/model/'+encodeURIComponent(p.collection)+'/'+encodeURIComponent(p.model)+'.png?size=128" alt="Модель">';
+  art='<img src="/media/trait/model?gift='+encodeURIComponent(p.collection)+'&name='+encodeURIComponent(p.model)+'" alt="Оригинальное PNG модели">';
  return '<span class="crafter-rank-prize"><span class="crafter-rank-prize-label">'+
  studioEsc(p.label||'Награда')+'</span><span class="crafter-rank-prize-art">'+art+'</span></span>';
 }
@@ -352,6 +352,8 @@ function studioRenderPrizes(root){
   ['telegram','Telegram NFT (по ссылке)'],['collection','Обычный подарок — коллекция'],
   ['model','Конкретная модель'],['image','Своё PNG / GIF']];
  root.innerHTML='<h4>Призы для 100 мест</h4>'+
+  '<div class="studio-award-tools"><button type="button" class="secondary" data-studio-action="catalog-picker">+ Подарок из каталога</button>'+
+  '<button type="button" class="secondary" data-studio-action="distribute">Выкупить и выдать победителям</button></div>'+
   '<p class="sub">Выберите место и укажите награду. Изображение загружается отдельно; для Telegram NFT достаточно ссылки.</p>'+
   '<div class="studio-fields">'+
   studioInput('rank','Призовое место (1–100)',rank,'prize','number',1,100)+
@@ -606,6 +608,8 @@ function studioClick(event){
     studioDirty();studioPaintInspector();studioPaintPreview();return;
  }
  if(action==='save-prizes'){studioSavePrizes();return;}
+ if(action==='catalog-picker'){studioOpenPrizeCatalog();return;}
+ if(action==='distribute'){studioDistributePrizes();return;}
 }
 async function studioUpload(file,where){
  if(file.size>8*1024*1024)return toast('Изображение/GIF до 8 МБ');
@@ -688,4 +692,109 @@ async function studioSavePrizes(silent=false){
     studioPaintInspector();studioPaintPreview();
     return true;
  }catch(e){studioSetStatus(e.message);if(!silent)toast(e.message);return false;}
+}
+
+/* Plain collection/model artwork chooser, not the upgraded/full NFT rendering. */
+async function studioOpenPrizeCatalog(){
+ const event=crafterStudio,rank=event?.rank;
+ if(!event||!rank)return;
+ sheet('Обычный подарок из каталога',
+  '<div class="studio-prize-picker"><p>Выберите коллекцию или конкретную модель. В лидерборде отображается исходный PNG. Для выдачи выкупается реальный доступный лот Craft Market.</p>'+
+  '<input type="search" class="field" placeholder="Поиск коллекции" aria-label="Поиск коллекции" data-prize-search>'+
+  '<div class="studio-prize-choices" data-prize-choices><p class="sub">Загрузка каталога…</p></div>'+
+  '<button type="button" class="secondary" data-prize-back hidden>← Все коллекции</button></div>');
+ const root=document.querySelector('#sheet-body .studio-prize-picker');
+ const target=root.querySelector('[data-prize-choices]');
+ const query=root.querySelector('[data-prize-search]');
+ const back=root.querySelector('[data-prize-back]');
+ let collections=[];
+ try{
+   const result=await api('catalog');
+   collections=(result.collections||[]).filter(c=>c.name&&c.id);
+ }catch(error){target.textContent='Каталог недоступен: '+error.message;return;}
+ if(!root.isConnected)return;
+ const originalArt=c=>'/media/collection/'+String(c.name).replace(/[^a-z0-9]/gi,'').toLowerCase();
+ const choose=(c,model='')=>{
+   const prize=studioPrize(rank);
+   prize.type=model?'model':'collection';
+   prize.collection=c.name;prize.model=model;prize.telegram_url='';prize.telegram_slug='';
+   prize.label=(model?c.name+' · '+model:c.name).slice(0,120);
+   event.prizeFiles.delete(rank);
+   studioDirty();studioPaintInspector();studioPaintPreview();closeSheet();
+   studioSetStatus('PNG приза выбран. Сохраните награды.');
+ };
+ const renderCollections=()=>{
+   back.hidden=true;query.hidden=false;
+   const term=query.value.trim().toLowerCase();
+   const found=collections.filter(c=>c.name.toLowerCase().includes(term)).slice(0,80);
+   target.innerHTML=found.map((c,i)=>
+    '<article class="studio-prize-choice" data-prize-catalog="'+i+'">'+
+    '<img loading="lazy" src="'+esc(originalArt(c))+'" alt="">'+
+    '<strong>'+esc(c.name)+'</strong>'+
+    '<div><button type="button" class="secondary" data-prize-collection="'+i+'">Коллекция</button>'+
+    '<button type="button" class="secondary" data-prize-models="'+i+'">Модели</button></div></article>'
+   ).join('')||'<p class="sub">Коллекции не найдены</p>';
+   target.querySelectorAll('[data-prize-collection]').forEach(button=>{
+      button.onclick=()=>choose(found[Number(button.dataset.prizeCollection)]);
+   });
+   target.querySelectorAll('[data-prize-models]').forEach(button=>{
+      button.onclick=()=>renderModels(found[Number(button.dataset.prizeModels)]);
+   });
+ };
+ const renderModels=async c=>{
+   back.hidden=false;query.hidden=true;
+   target.innerHTML='<p class="sub">Загружаем оригинальные PNG моделей…</p>';
+   let models=[];
+   try{
+     const result=await api('collections/'+encodeURIComponent(c.short_name||c.id)+'/models');
+     models=(result.models||[]).filter(m=>m.name).slice(0,150);
+   }catch(error){target.textContent='Не удалось загрузить модели: '+error.message;return;}
+   if(!root.isConnected)return;
+   target.innerHTML=models.map((m,i)=>
+     '<button type="button" class="studio-prize-model" data-prize-model="'+i+'">'+
+     '<img loading="lazy" src="/media/trait/model?gift='+encodeURIComponent(c.name)+
+     '&name='+encodeURIComponent(m.name)+'" alt="">'+
+     '<span>'+esc(m.name)+'</span></button>'
+   ).join('')||'<p class="sub">Модели не найдены</p>';
+   target.querySelectorAll('[data-prize-model]').forEach(button=>{
+     button.onclick=()=>choose(c,models[Number(button.dataset.prizeModel)].name);
+   });
+ };
+ query.oninput=renderCollections;
+ back.onclick=renderCollections;
+ renderCollections();
+}
+async function studioDistributePrizes(){
+ const event=crafterStudio?.event;
+ if(!event?.id)return;
+ if(event.status!=='finished')return toast('Выдача доступна только после завершения ивента');
+ try{
+   const result=await api('admin/events/'+event.id+'/awards/preview');
+   const pending=result.awards.filter(a=>a.status==='ready');
+   const missing=result.awards.filter(a=>a.status==='unavailable');
+   const paid=result.awards.filter(a=>a.status==='issued');
+   const canPay=pending.length&&!missing.length&&Number(result.balance)>=Number(result.total);
+   sheet('Выдача призов победителям',
+     '<div class="studio-award-checkout"><p>Покупка выполняется из Craft Market по минимальной актуальной цене. Это реальный перевод существующего подарка в инвентарь победителя, без создания копий NFT.</p>'+
+     '<div class="studio-award-summary"><span>Стоимость: <b>'+esc(result.total)+' GRAM</b></span>'+
+     '<span>Баланс: <b>'+esc(result.balance)+' GRAM</b></span></div>'+
+     result.awards.map(a=>'<div class="studio-award-row"><b>Место №'+a.place+'</b><span>'+
+        esc(a.collection||a.gift_name||'Выдано')+(a.model?' · '+esc(a.model):'')+
+        '</span><small>'+esc(a.status==='issued'?'Уже выдан':a.status==='unavailable'?'Нет доступного лота':a.price+' GRAM')+'</small></div>').join('')+
+     (missing.length?'<p class="studio-award-warning">Для некоторых призов нет лотов. Выдача остановлена, пока они не появятся.</p>':'')+
+     '<button class="primary" data-award-confirm '+(canPay?'':'disabled')+'>Выкупить и выдать '+pending.length+' призов</button>'+
+     '<p class="sub">Внешние покупки через Portals здесь не имитируются. Для этой операции используются только лоты Craft Market.</p></div>');
+   const button=document.querySelector('[data-award-confirm]');
+   if(!button||!canPay)return;
+   button.onclick=async()=>{
+     if(!confirm('Подтвердить выкуп призов на '+result.total+' GRAM со своего баланса и выдачу победителям?'))return;
+     button.disabled=true;
+     try{
+       const quotes=pending.map(a=>({place:a.place,recipient:a.recipient,lot_id:a.lot_id,price:a.price}));
+       const response=await api('admin/events/'+event.id+'/awards/distribute',
+         {quotes,max_total_gram:result.total});
+       closeSheet();toast('Выдано призов: '+response.issued+' · '+response.total+' GRAM');
+     }catch(error){button.disabled=false;toast(error.message);}
+   };
+ }catch(error){toast(error.message);}
 }
