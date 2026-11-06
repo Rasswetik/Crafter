@@ -25,7 +25,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt pytest
       - name: Validate Python modules
-        run: python -m compileall -q app.py wallet.py offers.py resale.py staking.py telegram_deposits.py gift_withdrawals.py banners.py
+        run: python -m compileall -q app.py wallet.py auto_payout.py auto_payout_worker.py offers.py resale.py staking.py telegram_deposits.py gift_withdrawals.py banners.py
       - name: Flask regression tests
         run: python -m pytest tests -q
       - name: Validate JavaScript syntax
