@@ -97,7 +97,8 @@ def test_withdrawals_queue_auto_only_after_policy_enabled(client, monkeypatch):
         for name in ('CRAFTER_PAYOUT_MNEMONIC','CRAFTER_PAYOUT_EXECUTE'):
             monkeypatch.delenv(name,raising=False)
         try:
-            client.application.extensions['crafter_auto_payout']()
+            with client.application.app_context():
+                client.application.extensions['crafter_auto_payout']()
         except RuntimeError as ex:
             assert 'not armed' in str(ex)
         else:
