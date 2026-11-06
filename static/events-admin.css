@@ -61,3 +61,11 @@
 .crafter-season-buttons button{min-height:40px;flex:1 1 180px}
 .crafter-event-leader-info .crafter-season-breakdown{font-size:11px;color:#b7a2d8}
 @media(max-width:480px){.crafter-season-form{grid-template-columns:1fr}}
+
+/* Keep editor shortcuts readable: actions form their own responsive toolbar. */
+.crafter-admin-event-card{grid-template-columns:82px minmax(0,1fr);gap:10px}
+.crafter-admin-event-card>.crafter-admin-event-cover{width:82px;height:76px}
+.crafter-admin-event-actions{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+.crafter-admin-event-actions button{min-height:40px;padding:8px 10px;font-size:11px;line-height:1.25;white-space:normal;border-radius:10px}
+@media(min-width:850px){.crafter-admin-event-actions{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:430px){.crafter-admin-event-card{grid-template-columns:65px minmax(0,1fr)}.crafter-admin-event-card>.crafter-admin-event-cover{width:65px;height:64px}}

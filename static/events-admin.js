@@ -67,10 +67,12 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
                         <span>${esc(item.metric_label)} · ${crafterEventAdminDate(item.start_at)} – ${crafterEventAdminDate(item.end_at)}</span>
                         <small>${item.enabled ? status[item.status] : 'Скрыто'} · ${item.show_leaderboard ? 'Рейтинг включён' : 'Рейтинг скрыт'}</small>
                     </div>
-                    <button type="button" class="secondary" data-edit="${esc(item.id)}">Изменить</button>
-                    <button type="button" class="secondary" data-studio-open="${esc(item.id)}">Баннеры и таймер</button>
-                    <button type="button" class="primary" data-leader-editor="${esc(item.id)}">♛ Редактор лидеров</button>
-                    <button type="button" class="primary" data-event-prizes="${esc(item.id)}">🎁 NFT-награды (${(item.prizes||[]).filter(p=>p.type==='collection'||p.type==='model').length})</button>
+                    <div class="crafter-admin-event-actions">
+                     <button type="button" class="secondary" data-edit="${esc(item.id)}">Изменить</button>
+                     <button type="button" class="secondary" data-studio-open="${esc(item.id)}">Баннеры и таймер</button>
+                     <button type="button" class="primary" data-leader-editor="${esc(item.id)}">♛ Редактор лидеров</button>
+                     <button type="button" class="secondary" data-event-prizes="${esc(item.id)}">🎁 NFT-награды (${(item.prizes||[]).filter(p=>p.type==='collection'||p.type==='model').length})</button>
+                    </div>
                 </article>`).join('') || '<p class="sub">Пока нет событий. Создайте первое для Arena или Крафтов.</p>'}
             </div>
         </section>
