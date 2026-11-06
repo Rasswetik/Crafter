@@ -104,3 +104,190 @@
 #studio-preview .crafter-leader-card .crafter-leader-part{
  touch-action:none;-webkit-user-select:none;user-select:none;
 }
+
+
+/* V2 throne system: separate three real steps, not three identical flat cards. */
+.crafter-leader-combined{min-width:0;max-width:100%}
+.crafter-leader-podium{
+ display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+ width:var(--podium-width,100%);max-width:100%;margin-inline:auto;
+ gap:var(--podium-gap,8px);align-items:end;justify-items:center;
+ min-width:0;overflow:visible;padding:23px 0 12px;box-sizing:border-box;
+}
+.crafter-throne-slot{
+ position:relative;display:flex;flex-direction:column;align-items:center;
+ justify-content:end;min-width:0;width:100%;height:auto;
+ --throne-metal:#9d95ba;--throne-bright:#d6cfe5;--throne-dark:#3d354e;
+ --throne-glow:#bbb4d22e;
+}
+.crafter-throne-place-1{
+ --throne-metal:#caa65b;--throne-bright:#ffe59d;
+ --throne-dark:#5a3d20;--throne-glow:#e6b84d45;
+}
+.crafter-throne-place-2{
+ --throne-metal:#9da9cc;--throne-bright:#e0e5ff;
+ --throne-dark:#343952;--throne-glow:#889ac84a;
+}
+.crafter-throne-place-3{
+ --throne-metal:#c58c71;--throne-bright:#f4c4a5;
+ --throne-dark:#563332;--throne-glow:#c68a6a35;
+}
+.crafter-throne-slot .crafter-leader-card.crafter-leader-podium-card{
+ position:relative;display:block;flex:0 0 auto;
+ width:var(--throne-card-width,100%);min-width:0;max-width:100%;
+ height:var(--leader-card-height,230px);
+ border-radius:24px 24px 9px 9px;
+ background:
+   radial-gradient(ellipse at 50% 2%,var(--throne-glow),transparent 65%),
+   linear-gradient(180deg,#313041,var(--leader-card-bg,#242229) 78%);
+ border:1.5px solid var(--throne-metal);
+ box-shadow:0 1px 0 var(--throne-bright) inset,
+    0 14px 35px #05040b5e,0 0 21px var(--throne-glow);
+ overflow:hidden;isolation:isolate;
+}
+.crafter-throne-slot .crafter-leader-podium-card:before,
+.crafter-throne-slot .crafter-leader-podium-card:after{
+ content:"";position:absolute;z-index:0;
+ top:17px;bottom:8px;width:3px;border-radius:10px;
+ background:linear-gradient(180deg,var(--throne-bright),var(--throne-dark));
+ opacity:.68;pointer-events:none;
+}
+.crafter-throne-slot .crafter-leader-podium-card:before{left:2px}
+.crafter-throne-slot .crafter-leader-podium-card:after{right:2px}
+.crafter-throne-slot .crafter-throne-shimmer{
+ position:absolute;inset:0 0 auto;height:31px;pointer-events:none;
+ background:linear-gradient(180deg,var(--throne-glow),transparent);
+ border-radius:inherit;
+}
+.crafter-throne-crest{
+ position:relative;z-index:2;
+ display:grid;place-items:center;width:30px;height:24px;margin-bottom:-6px;
+ font-size:24px;color:var(--throne-bright);
+ filter:drop-shadow(0 0 8px var(--throne-glow));pointer-events:none;
+}
+.crafter-throne-place-1 .crafter-throne-crest{
+ transform:scale(1.16);font-size:29px;
+}
+.crafter-throne-base{
+ position:relative;display:flex;align-items:flex-start;justify-content:center;
+ box-sizing:border-box;width:100%;height:var(--throne-step-height,65px);
+ min-height:20px;margin-top:-2px;padding-top:14px;
+ border-radius:5px 5px 12px 12px;
+ border:1px solid var(--throne-metal);border-bottom:5px solid var(--throne-dark);
+ background:
+   linear-gradient(90deg,#fff1 0%,transparent 24%,#0002 68%,#fff1 100%),
+   linear-gradient(180deg,var(--throne-metal),var(--throne-dark));
+ box-shadow:inset 0 2px 0 #ffffff4b,0 7px 17px #0006;
+ z-index:2;
+}
+.crafter-throne-base:after{
+ content:"";position:absolute;inset:0 4px auto;height:6px;
+ border-radius:4px;background:linear-gradient(90deg,transparent,var(--throne-bright),transparent);
+ opacity:.55;pointer-events:none;
+}
+.crafter-throne-base>span{
+ font-size:clamp(18px,4.8vw,30px);line-height:1.2;
+ font-weight:950;color:var(--throne-bright);text-shadow:0 3px 6px #0008;
+}
+.crafter-throne-slot .crafter-leader-part{
+ z-index:3;overflow:hidden;
+}
+.crafter-throne-slot .crafter-leader-part-rank{
+ justify-content:center;color:var(--throne-bright);
+ font-size:clamp(11px,2.8vw,19px);
+}
+.crafter-throne-slot .crafter-leader-part-name,
+.crafter-throne-slot .crafter-leader-part-score{
+ justify-content:center;text-align:center;
+}
+.crafter-throne-slot .crafter-leader-part-name strong{
+ display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+ overflow:hidden;white-space:normal;overflow-wrap:anywhere;
+ line-height:1.14;font-size:clamp(9px,2.4vw,var(--event-name-size,13px));
+ text-overflow:ellipsis;
+}
+.crafter-throne-slot .crafter-leader-part-score{
+ font-size:clamp(9px,2.1vw,var(--event-score-size,12px));white-space:normal;
+}
+.crafter-throne-slot .crafter-leader-part-score span{
+ display:block;line-height:1.18;overflow-wrap:anywhere;max-width:100%;
+}
+.crafter-throne-slot .crafter-leader-part-score small{
+ font-size:9px;display:block;margin-top:2px;
+}
+.crafter-leader-part-prize{overflow:visible!important}
+.crafter-leader-part-prize .crafter-rank-prize,
+#studio-preview .studio-render-block .crafter-leader-part-prize .crafter-rank-prize{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ width:100%!important;height:100%!important;max-width:none!important;
+ min-width:0!important;min-height:0!important;margin:0!important;padding:0!important;
+ background:none!important;border:none!important;
+}
+.crafter-leader-part-prize .crafter-rank-prize-art,
+#studio-preview .studio-render-block .crafter-leader-part-prize .crafter-rank-prize-art{
+ display:flex!important;align-items:center!important;justify-content:center!important;
+ width:100%!important;height:100%!important;max-width:none!important;
+ min-width:0!important;min-height:0!important;flex:1 1 100%!important;
+ background:none!important;border-radius:0!important;
+}
+.crafter-leader-part-prize img,
+.crafter-leader-part-prize .crafter-rank-prize-art img,
+.crafter-leader-part-prize .crafter-event-nft-animation img{
+ display:block!important;width:100%!important;height:100%!important;
+ min-width:0!important;min-height:0!important;max-width:100%!important;
+ object-fit:contain!important;object-position:center!important;
+ border:0!important;clip-path:none!important;
+}
+.crafter-leader-part-prize .crafter-event-nft-animation{
+ display:block!important;width:100%!important;height:100%!important;min-width:0!important;
+}
+.crafter-leader-part-avatar:has(.crafter-avatar-transparent){
+ background:transparent;border-color:transparent;overflow:visible;
+}
+.crafter-leader-part-avatar .crafter-avatar-transparent{
+ object-fit:contain!important;object-position:center!important;
+}
+.crafter-leader-part-prize-label{
+ overflow:hidden;overflow-wrap:anywhere;word-break:normal;
+ white-space:normal;line-height:1.1;text-align:center;
+ font-size:clamp(9px,2vw,12px);
+}
+.crafter-throne-style-steps .crafter-leader-podium-card{
+ border-radius:14px!important;
+ background:linear-gradient(160deg,var(--throne-dark),var(--leader-card-bg,#242229))!important;
+}
+.crafter-throne-style-steps .crafter-throne-crest{visibility:hidden}
+.crafter-throne-style-minimal .crafter-throne-crest{display:none}
+.crafter-throne-style-minimal .crafter-throne-base{
+ background:#252330;border-color:#504c5d;box-shadow:none;
+}
+.crafter-throne-style-minimal .crafter-leader-podium-card{
+ box-shadow:none!important;border-color:#5d5871!important;border-radius:18px!important;
+}
+.crafter-throne-size-grip{
+ position:absolute;right:4px;bottom:calc(var(--throne-step-height,65px) + 2px);
+ z-index:7;width:22px;height:22px;
+ border:2px solid #fff;border-radius:7px;background:#168fe6;
+ cursor:nwse-resize;box-shadow:0 2px 6px #001b40;
+ touch-action:none;
+}
+.crafter-throne-size-grip:after{
+ content:"";position:absolute;inset:7px 4px 4px 7px;
+ border-right:2px solid #fff;border-bottom:2px solid #fff;
+}
+#studio-preview .crafter-throne-slot:has(.crafter-leader-card.is-active)>.crafter-leader-card{
+ outline:2px solid #5cc9ff;outline-offset:-2px;
+}
+.crafter-throne-slot .crafter-leader-part-avatar{
+ aspect-ratio:auto;box-sizing:border-box;
+}
+@media(max-width:480px){
+ .crafter-leader-podium{gap:min(var(--podium-gap,8px),7px);padding-top:20px}
+ .crafter-throne-slot .crafter-leader-podium-card{border-radius:16px 16px 7px 7px}
+ .crafter-throne-crest{width:22px;height:19px;font-size:19px}
+ .crafter-throne-place-1 .crafter-throne-crest{font-size:23px}
+ .crafter-throne-base{padding-top:9px;border-bottom-width:4px;border-radius:3px 3px 8px 8px}
+ .crafter-throne-base>span{font-size:clamp(17px,4.5vw,24px)}
+ .crafter-leader-part-rank{font-size:11px}
+ .crafter-leader-part-prize-label{font-size:9px}
+}
