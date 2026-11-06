@@ -179,3 +179,16 @@
    animation-duration:.01ms!important;
  }
 }
+
+/* Dismiss ring stays within the modal even on mobile. */
+.crafter-announcement{box-sizing:border-box;padding-top:53px;max-height:min(94dvh,830px)}
+.crafter-announcement-close{top:1px}
+.crafter-announcement-card{max-height:min(80dvh,730px)}
+.crafter-announcement-media{background:transparent}
+.crafter-announcement-text-only{padding:18px}
+.crafter-announcement-text-only .crafter-announcement-text{padding:16px 7px 23px}
+@media(max-height:540px){
+ .crafter-announcement{top:0;padding-top:45px;max-height:100dvh}
+ .crafter-announcement-close{top:0}
+ .crafter-announcement-card{max-height:calc(100dvh - 60px)}
+}
