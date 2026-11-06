@@ -41,5 +41,6 @@ jobs:
           node tests/test_leaderboard_designer.cjs
           node tests/test_arena_winner_landing.cjs
           node tests/test_wallet_amount_center.cjs
+          node tests/test_auto_payout_admin_assets.cjs
       - name: Gift dialog, share links and offer UI checks
         run: node tests/test_gift_share.cjs
