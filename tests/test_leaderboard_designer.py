@@ -22,6 +22,7 @@ def test_rank_customizer_sanitizes_positions_and_preserves_other_ranks(client):
             'rank_count':10,'leader_mode':'podium',
             'leader_fields':{'name':True,'avatar':True,'prize':True,'prize_label':False},
             'leader_row_height':92,'leader_podium_height':270,
+            'leader_podium_width':86,'leader_podium_gap':12,'leader_podium_style':'royal',
             'rank_styles':{
                 '1':{
                     'hidden':['prize_label'],
@@ -29,7 +30,8 @@ def test_rank_customizer_sanitizes_positions_and_preserves_other_ranks(client):
                     'prize_asset':'/media/ice-banner/'+'b'*32+'.gif',
                     'layout':{'prize':{'x':28,'y':35,'w':36,'h':35}},
                     'background':'#221133','order':2,
-                    'caption':'Champion','height':300
+                    'caption':'Champion','height':300,
+                    'width_pct':84,'step_height':115
                 },
                 '2':{'hidden':['name'],'order':1}
             }}]
@@ -38,6 +40,11 @@ def test_rank_customizer_sanitizes_positions_and_preserves_other_ranks(client):
     assert save.status_code==200,save.json
     block=save.json['page']['blocks'][0]
     assert block['leader_mode']=='podium'
+    assert block['leader_podium_width']==86
+    assert block['leader_podium_gap']==12
+    assert block['leader_podium_style']=='royal'
+    assert block['rank_styles']['1']['width_pct']==84
+    assert block['rank_styles']['1']['step_height']==115
     assert block['rank_styles']['1']['layout']['prize']=={'x':28.0,'y':35.0,'w':36.0,'h':35.0}
     assert block['rank_styles']['1']['prize_asset'].endswith('b'*32+'.gif')
     assert block['rank_styles']['2']['hidden']==['name']
