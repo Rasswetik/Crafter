@@ -772,7 +772,8 @@ async function studioLinkGlobalBanner(kind){
  if(!block?.banner)return toast('Выберите баннер');
  if(!studio.event?.enabled)return toast('Сначала опубликуйте ивент');
  const b=structuredClone(block.banner);
- const payload={...b,enabled:true,event_id:studio.event.id,rooms:'all',hide_after_end:true,
+ const payload={...b,enabled:true,event_id:studio.event.id,
+   source_block_id:block.id,rooms:'all',hide_after_end:true,
    title:b.title||studio.event.title,start_at:studio.event.start_at,end_at:studio.event.end_at};
  try{
    await api('admin/'+kind+'/banner',payload);
@@ -790,8 +791,17 @@ async function studioSyncLinkedBanners(eventId,selectedBlock){
  const results=await Promise.allSettled(['arena','craft'].map(async kind=>{
     const current=(await api('admin/'+kind+'/banner')).banner;
     if(!current||current.event_id!==eventId)return {kind,linked:false};
+    // Do not accidentally replace independent Arena and Craft artwork when
+    // the two event boards are merged into one season.
+    if(current.source_block_id && current.source_block_id!==block.id)
+       return {kind,linked:false};
+    if(!current.source_block_id && (
+         studio.event.metric==='season_points' ||
+         studio.page.blocks.filter(item=>item.type==='banner'&&item.enabled!==false).length!==1))
+       return {kind,linked:false};
     const config={...current,...structuredClone(block.banner),
-       enabled:current.enabled,event_id:eventId,rooms:current.rooms||'all',
+       enabled:current.enabled,event_id:eventId,source_block_id:block.id,
+       rooms:current.rooms||'all',
        hide_after_end:current.hide_after_end,
        start_at:studio.event.start_at,end_at:studio.event.end_at,
        title:block.banner.title||studio.event.title};
