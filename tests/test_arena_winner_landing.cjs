@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const vm=require('node:vm');
-const ctx=vm.createContext({});
+const ctx=vm.createContext({document:{addEventListener(){} }});
 vm.runInContext(fs.readFileSync('static/arena.js','utf8'),ctx,{filename:'arena.js'});
 const cells=vm.runInContext('arenaCells',ctx);
 const landing=vm.runInContext('arenaWinnerLanding',ctx);
