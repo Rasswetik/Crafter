@@ -221,3 +221,16 @@
 .ice-banner-canvas-bottom{bottom:5px}
 .ice-banner-canvas-right-bottom{right:5px;bottom:5px}
 .ice-banner-editable .ice-banner-layer-edit{user-select:none;-webkit-user-select:none}
+
+/* Clear countdown glyphs at all canvas sizes; JS scales only overflowing labels.
+   Drag handles remain interactive, numbers use stable tabular character widths. */
+.ice-banner-layer.ice-banner-type-timer{
+ display:flex;align-items:center;gap:3px;white-space:nowrap;
+ font-variant-numeric:tabular-nums lining-nums;
+ font-feature-settings:"tnum" 1;
+ letter-spacing:0;
+ text-shadow:0 1px 3px rgba(0,0,0,.4);
+}
+.ice-banner-type-timer .ice-clock-digits{flex:0 0 auto;min-width:0;white-space:nowrap}
+.ice-banner-type-timer .ice-banner-inline{flex:0 1 auto;white-space:nowrap}
+.ice-banner-editable .ice-banner-type-timer{user-select:none;-webkit-user-select:none}
