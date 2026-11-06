@@ -1,0 +1,10 @@
+
+#crafter-auto-payout-panel{display:grid;gap:10px}
+#crafter-auto-payout-panel form{display:grid;gap:7px}
+#crafter-auto-payout-panel form .primary{margin-top:10px}
+#crafter-auto-payout-panel h4{font-size:14px;margin:15px 0 0}
+.crafter-auto-payout-list{display:grid;gap:8px}
+.wallet-auto-row{padding:12px;border-radius:12px;background:#252d39;
+ border:1px solid #354558;display:grid;gap:4px;word-break:break-word}
+.wallet-auto-row b{font-size:11px;letter-spacing:-.02em}
+.wallet-auto-row span{font-size:12px;color:#73c2ff}
