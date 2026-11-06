@@ -25,7 +25,7 @@ function studioLeaderInspector(block){
  const position=crafterLeaderPosition(block,rank,part,
    block.leader_mode==='podium'&&rank<=3?'podium':'list');
  const options=[['classic','Классический список'],['list','Полный настраиваемый список'],
-                ['podium','Пьедестал топ-3 + остальные места']];
+                ['podium','Троны топ-3 + остальные места']];
  const input=(label,key,value,type='number',min='',max='',step='')=>
     '<label>'+label+'<input class="field" data-leader-key="'+key+
     '" type="'+type+'" value="'+studioEsc(value??'')+'"'+
@@ -49,8 +49,14 @@ function studioLeaderInspector(block){
     '<div class="studio-fields">'+
       input('Количество мест','rank_count',block.rank_count,'number',1,100)+
       input('Высота строки, px','leader_row_height',block.leader_row_height||84,'number',64,280)+
-      input('Высота пьедестала, px','leader_podium_height',block.leader_podium_height||250,'number',140,440)+
+      input('Высота трона, px','leader_podium_height',block.leader_podium_height||250,'number',140,440)+
+      input('Общая ширина топ-3, %','leader_podium_width',block.leader_podium_width||100,'number',60,100)+
+      input('Расстояние между тронами, px','leader_podium_gap',block.leader_podium_gap??8,'number',0,24)+
     '</div>'+
+    '<label>Стиль пьедестала'+select('leader_podium_style',block.leader_podium_style||'royal',[
+       ['royal','Королевские троны: золото, серебро, бронза'],
+       ['steps','Ступенчатый пьедестал'],
+       ['minimal','Минималистичный стиль']])+'</label>'+
     '<h4>Показывать элементы</h4><div class="crafter-leader-options">'+toggles+'</div>'+
     '<h4>Выберите место</h4>'+
     input('Место 1–100','rank',rank,'number',1,100)+
@@ -64,8 +70,12 @@ function studioLeaderInspector(block){
     '<h4>Место №'+rank+'</h4>'+
     '<div class="studio-fields">'+
       input('Фон этого места (цвет)','background',setting.background||block.background||'#242229','color')+
-      input('Высота места, px','height',setting.height||84,'number',64,440)+
-      (rank<=3?input('Позиция на пьедестале, 1–3','order',
+      input('Высота места, px','height',setting.height&&setting.height!==84?setting.height:
+       (rank<=3&&block.leader_mode==='podium'?(block.leader_podium_height||250):(block.leader_row_height||84)),'number',64,440)+
+      (rank<=3&&block.leader_mode==='podium'?
+       input('Ширина трона №'+rank+', %','width_pct',setting.width_pct||100,'number',50,100)+
+       input('Высота основания №'+rank+', px','step_height',setting.step_height||({1:92,2:68,3:54}[rank]),'number',20,190)+
+       input('Позиция трона, 1–3','order',
            setting.order||({1:2,2:1,3:3}[rank]),'number',1,3):'')+
       input('Дополнительная надпись','caption',setting.caption||'','text')+
     '</div>'+
@@ -105,10 +115,13 @@ function studioLeaderChange(input){
    crafterStudio.leaderPart=value;
    studioPaintInspector();studioPaintPreview();return;
  }
- if(['mode','rank_count','leader_row_height','leader_podium_height'].includes(key)){
+ if(['mode','rank_count','leader_row_height','leader_podium_height',
+      'leader_podium_width','leader_podium_gap','leader_podium_style'].includes(key)){
    const dest={mode:'leader_mode',rank_count:'rank_count',
-     leader_row_height:'leader_row_height',leader_podium_height:'leader_podium_height'}[key];
-   block[dest]=key==='mode'?value:Number(value);
+     leader_row_height:'leader_row_height',leader_podium_height:'leader_podium_height',
+     leader_podium_width:'leader_podium_width',leader_podium_gap:'leader_podium_gap',
+     leader_podium_style:'leader_podium_style'}[key];
+   block[dest]=(key==='mode'||key==='leader_podium_style')?value:Number(value);
    if(key==='rank_count')crafterStudio.page.style.rank_count=Number(value);
  }else if(key.startsWith('global-')){
    block.leader_fields ||= {};
@@ -126,7 +139,7 @@ function studioLeaderChange(input){
      const p=setting.layout[part];
      p[key]=Math.min(key==='x'||key==='y'?98:100,Math.max(key==='x'||key==='y'?0:2,Number(value)||0));
      p.x=Math.min(p.x,100-p.w);p.y=Math.min(p.y,100-p.h);
-   }else if(key==='height'||key==='order')setting[key]=Number(value);
+   }else if(['height','order','width_pct','step_height'].includes(key))setting[key]=Number(value);
    else if(key==='background'||key==='caption')setting[key]=String(value);
  }
  studioDirty();studioPaintInspector();studioPaintPreview();
@@ -178,10 +191,44 @@ async function studioLeaderUpload(input){
 }
 function studioLeaderDragStart(event){
  if(!crafterStudio||crafterStudio.previewMode||event.button!==0)return;
- const card=event.target.closest('.crafter-leader-card[data-leader-rank]');
+ const grip=event.target.closest('[data-throne-resize]');
+ const card=event.target.closest('.crafter-leader-card[data-leader-rank]')||
+   (grip?.closest('[data-throne-rank]')?.querySelector('.crafter-leader-card[data-leader-rank]'));
  const block=studioBlock();
  if(!card||block?.type!=='leaderboard')return;
  const rank=Number(card.dataset.leaderRank);
+ if(grip&&rank<=3){
+   const seat=grip.closest('.crafter-throne-slot');
+   const initialWidth=Number(studioLeaderRank(block,rank).width_pct)||100;
+   const initialHeight=Number(studioLeaderRank(block,rank).height)||Number(block.leader_podium_height)||250;
+   const originX=event.clientX,originY=event.clientY;
+   const slotWidth=seat.getBoundingClientRect().width||1;
+   const stop=e=>{
+     if(e.pointerId!==event.pointerId)return;
+     grip.removeEventListener('pointermove',moveThrone);
+     grip.removeEventListener('pointerup',stop);
+     grip.removeEventListener('pointercancel',stop);
+     studioDirty();studioPaintInspector();studioPaintPreview();
+   };
+   const moveThrone=e=>{
+     if(e.pointerId!==event.pointerId)return;
+     const data=studioLeaderRank(block,rank);
+     const nextWidth=Math.max(50,Math.min(100,Math.round((initialWidth+
+       (e.clientX-originX)/slotWidth*100)*10)/10));
+     const nextHeight=Math.max(140,Math.min(440,
+       Math.round(initialHeight+(e.clientY-originY))));
+     data.width_pct=nextWidth;data.height=nextHeight;
+     seat.style.setProperty('--throne-card-width',nextWidth+'%');
+     card.style.setProperty('--leader-card-height',nextHeight+'px');
+   };
+   event.preventDefault();event.stopPropagation();
+   crafterStudio.rank=rank;
+   grip.setPointerCapture(event.pointerId);
+   grip.addEventListener('pointermove',moveThrone);
+   grip.addEventListener('pointerup',stop);
+   grip.addEventListener('pointercancel',stop);
+   return;
+ }
  const partEl=event.target.closest('[data-leader-part]');
  crafterStudio.rank=rank;
  if(!partEl){

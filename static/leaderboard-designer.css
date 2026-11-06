@@ -291,3 +291,35 @@
  .crafter-leader-part-rank{font-size:11px}
  .crafter-leader-part-prize-label{font-size:9px}
 }
+
+/* Desktop: keep three independently sized thrones in a bounded centered stage. */
+@media(min-width:740px){
+ .crafter-event-custom-layout .crafter-leader-podium,
+ #studio-preview .crafter-leader-podium{
+   display:grid!important;
+   width:var(--podium-width,100%)!important;
+   max-width:960px!important;
+   grid-template-columns:repeat(3,minmax(0,1fr))!important;
+   margin:0 auto!important;
+   grid-auto-flow:row!important;
+   align-items:end!important;
+   justify-items:center!important;
+ }
+ .crafter-leader-podium>.crafter-throne-slot{
+   box-sizing:border-box;min-width:0!important;max-width:100%!important;width:100%!important;
+ }
+ .crafter-leader-podium .crafter-throne-slot .crafter-leader-podium-card{
+   box-sizing:border-box;max-width:100%;
+ }
+ .crafter-event-custom-layout .crafter-leader-combined>.crafter-leader-full-list{
+   display:grid;grid-template-columns:minmax(0,1fr);
+   max-width:min(100%,960px);margin:0 auto;width:100%;
+ }
+}
+@media(min-width:1100px){
+ .crafter-event-custom-layout .crafter-leader-combined{
+   width:100%!important;max-width:100%!important;min-width:0!important;
+ }
+}
+#studio-preview .crafter-leader-podium .crafter-throne-slot{touch-action:pan-y}
+#studio-preview .crafter-throne-size-grip{touch-action:none}

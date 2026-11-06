@@ -101,7 +101,7 @@ function crafterLeaderboardHTML(leaders,prizes,block,event,options={}){
    ?prizes:new Map((prizes||[]).map(p=>[Number(p.place),p]));
  const mode=block.leader_mode==='podium'?'podium':'list';
  const podiumWidth=Math.max(60,Math.min(100,Number(block.leader_podium_width)||100));
- const podiumGap=Math.max(0,Math.min(24,Number(block.leader_podium_gap)??8));
+ const podiumGap=Math.max(0,Math.min(24,Number(block.leader_podium_gap??8)));
  const throneStyle=['royal','steps','minimal'].includes(block.leader_podium_style)?
     block.leader_podium_style:'royal';
  const render=(rank,typ)=>{

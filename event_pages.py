@@ -72,6 +72,8 @@ def clean_rank_styles(raw):
             'background':color(bg,'') if bg else '',
             'height':int(num(item.get('height'),64,440,84)),
             'order':int(num(item.get('order'),1,3,min(3,int(key)))),
+            'width_pct':int(num(item.get('width_pct'),50,100,100)),
+            'step_height':int(num(item.get('step_height'),20,190,{1:92,2:68,3:54}.get(int(key),54))),
         }
     return cleaned
 
@@ -193,6 +195,9 @@ def clean_page(data):
             'leader_mode':block.get('leader_mode') if block.get('leader_mode') in ('classic','list','podium') else 'classic',
             'leader_row_height':int(num(block.get('leader_row_height'),64,280,84)),
             'leader_podium_height':int(num(block.get('leader_podium_height'),140,440,250)),
+            'leader_podium_width':int(num(block.get('leader_podium_width'),60,100,100)),
+            'leader_podium_gap':int(num(block.get('leader_podium_gap'),0,24,8)),
+            'leader_podium_style':block.get('leader_podium_style') if block.get('leader_podium_style') in ('royal','steps','minimal') else 'royal',
             'leader_fields':{
                 name:(block.get('leader_fields',{}).get(name,default)
                       if isinstance(block.get('leader_fields',{}),dict) and
