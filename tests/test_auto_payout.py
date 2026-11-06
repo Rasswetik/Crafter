@@ -40,7 +40,8 @@ def test_auto_policy_limits_and_explicit_db_requirement(client):
             'enabled':True,'max_ton':'0','daily_ton':'1','reserve_ton':'0.5'
         }).status_code == 400
         saved=client.post(api, headers=signed(42),json={
-            'enabled':True,'max_ton':'0.1','daily_ton':'1','reserve_ton':'0.5'
+            'enabled':True,'max_ton':'0.1','daily_ton':'1','reserve_ton':'0.5',
+            'payout_address':'0:'+'5'*64
         })
         assert saved.status_code == 200, saved.json
         assert saved.json['policy']['enabled'] is True
@@ -83,7 +84,8 @@ def test_withdrawals_queue_auto_only_after_policy_enabled(client, monkeypatch):
     client.application.config['DATABASE_URL']='postgresql://test-only'
     try:
         assert client.post('/api/admin/tonconnect/auto',headers=admin,json={
-          'enabled':True,'max_ton':'1','daily_ton':'3','reserve_ton':'0.5'
+          'enabled':True,'max_ton':'1','daily_ton':'3','reserve_ton':'0.5',
+          'payout_address':sender
         }).status_code == 200
         second=client.post('/api/wallet/withdraw',headers=admin,json={
             'request_id':'autopayout-new','gram':'1'
