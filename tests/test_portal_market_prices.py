@@ -2,7 +2,8 @@
 from test_app import client,signed
 
 def test_public_market_uses_actual_fallback_and_source_currency(client,monkeypatch):
-    import thermos
+    import thermos,portals_public
+    monkeypatch.setattr(portals_public,'listings',lambda *_: (_ for _ in ()).throw(OSError('public API unavailable')))
     monkeypatch.setattr(thermos,'collections',lambda:[{
         'id':'snoop','short_name':'snoop','name':'Snoop Dogg',
         'photo_url':'/static/assets/snoop.webp','floor_price':'3.25','price_unit':'TON'}])
