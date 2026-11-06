@@ -1182,7 +1182,8 @@ def create_app(config=None):
     install_banners(app, db, auth, audit)
     from events import install_events
     install_events(app, db, auth, audit, record, canonical_name,
-                   available_crafter_lot, settle_crafter_lot, notify_crafter_purchase)
+                   available_crafter_lot, settle_crafter_lot, notify_crafter_purchase,
+                   notify_crafter_sale)
     from event_pages import install_event_pages
     install_event_pages(app, db, auth, audit)
     from announcements import install_announcements
