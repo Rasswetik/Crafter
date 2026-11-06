@@ -26,7 +26,7 @@ def test_telegram_receipt_has_exact_verified_amount_and_transaction(client,monke
     source='0:'+'1'*64
     receiver='0:'+'2'*64
     headers=signed()
-    assert client.post('/api/me',headers=headers).status_code == 200
+    assert client.get('/api/me',headers=headers).status_code == 200
     settings={'enabled':True,'network':'testnet','receiver':receiver,
               'gram_per_ton':'2','min_deposit':'0.1','max_deposit':'50'}
     assert client.post('/api/admin/tonconnect',headers=headers,json=settings).status_code==200
