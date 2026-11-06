@@ -702,7 +702,7 @@ function studioClick(event){
     studio.layer=block.banner.layers[0]?.id||'';
     studioDirty();studioPaintInspector();studioPaintPreview();return;
  }
- if(action==='save-prizes'){studioSavePrizes();return;}
+ if(action==='save-prizes'){studioSavePage();return;}
 }
 async function studioUpload(file,where){
  if(file.size>8*1024*1024)return toast('Изображение/GIF до 8 МБ');
