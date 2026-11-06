@@ -61,7 +61,8 @@ function crafterLeaderCard(player,rank,prize,block,event,mode='list',options={})
  const pic=setting.prize_asset?
    '<img src="'+esc(setting.prize_asset)+'" draggable="false" alt="PNG награды">':
    (typeof crafterEventPrizeVisual==='function'&&prize?crafterEventPrizeVisual(prize):
-    options.editable?'<span class="crafter-leader-placeholder">PNG</span>':'');
+     typeof studioPrizePreview==='function'&&prize?studioPrizePreview(prize):
+     options.editable?'<span class="crafter-leader-placeholder">PNG</span>':'');
  const unit=event?.score_unit||'';
  const score=player?esc(player.score)+' <small>'+esc(unit)+'</small>':'—';
  const parts={

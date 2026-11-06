@@ -65,8 +65,9 @@ function studioSetStatus(message){
 }
 function studioDirty(){crafterStudio.dirty=true;studioSetStatus('Изменения не сохранены');}
 async function crafterOpenEventStudio(eventId){
- const [results,layout]=await Promise.all([
-  api('admin/events'),api('admin/events/'+eventId+'/page')
+ const [results,layout,ranks]=await Promise.all([
+  api('admin/events'),api('admin/events/'+eventId+'/page'),
+  api('admin/events/'+eventId+'/leaders').catch(()=>({leaders:[]}))
  ]);
  const event=results.events?.find(e=>e.id===eventId);
  if(!event)return toast('Событие не найдено');
@@ -75,7 +76,8 @@ async function crafterOpenEventStudio(eventId){
  const selected=layout.page.blocks.find(b=>b.enabled!==false)||layout.page.blocks[0];
  crafterStudio={event,page:layout.page,selected:selected?.id||'',
   layer:selected?.banner?.layers?.[0]?.id||'',previewMode:false,
-  snap:true,backgroundDrag:false,dirty:false,prizeFiles:new Map(),rank:1};
+  snap:true,backgroundDrag:false,dirty:false,prizeFiles:new Map(),rank:1,
+  leaderPart:'prize',leaders:ranks.leaders||[]};
  content.innerHTML='<div class="crafter-event-studio">'+
   '<section class="panel studio-toolbar">'+
   '<button type="button" class="secondary" data-studio-action="back">Назад к событиям</button>'+
@@ -93,6 +95,7 @@ async function crafterOpenEventStudio(eventId){
     '<button type="button" class="secondary" data-studio-action="quick-banner">+ Баннер с GIF</button>'+
     '<button type="button" class="secondary" data-studio-action="style">Стиль всей страницы</button>'+
     '<button type="button" class="secondary" data-studio-action="prizes">Награды 1–100</button>'+
+     '<button type="button" class="secondary" data-studio-action="leader-editor">Редактор лидеров и топ‑3</button>'+
    '</aside>'+
    '<section class="studio-center">'+
     '<div class="panel studio-preview-tools">'+
@@ -112,6 +115,7 @@ async function crafterOpenEventStudio(eventId){
   '</section></div>';
  const root=content.querySelector('.crafter-event-studio');
  root.addEventListener('click',studioClick);
+ root.addEventListener('pointerdown',studioLeaderDragStart);
  root.addEventListener('change',studioChange);
  root.addEventListener('input',studioInputChanged);
  studioPaintList();studioPaintInspector();studioPaintPreview();
@@ -207,6 +211,15 @@ function studioPaintInspector(){
  }
  const b=studioBlock();
  if(!b){root.innerHTML='<p class="sub">Выберите блок страницы.</p>';return;}
+ if(b.type==='leaderboard'){
+   root.innerHTML='<h4>Редактор лидеров</h4>'+
+     '<label class="studio-toggle"><input type="checkbox" data-studio-scope="block" data-studio-key="enabled"'+
+       (b.enabled?' checked':'')+'> Показывать блок</label>'+
+     studioLeaderInspector(b)+
+     '<div class="studio-inspector-actions">'+
+       '<button type="button" class="secondary" data-studio-action="remove">Удалить блок</button></div>';
+   return;
+ }
  root.innerHTML='<h4>'+STUDIO_LABELS[b.type]+'</h4>'+
    '<label class="studio-toggle"><input type="checkbox" data-studio-scope="block" data-studio-key="enabled"'+
     (b.enabled?' checked':'')+'> Показывать блок</label>'+
@@ -253,7 +266,14 @@ function studioPreviewHTML(block,index){
  if(block.type==='divider')return '<div class="studio-render-block" style="'+outer+'"><hr></div>';
  if(block.type==='spacer')return '<div class="studio-render-block" style="height:'+Number(block.height)+'px;"></div>';
  if(block.type==='leaderboard'){
-   const byRank=new Map((event.leaders||[]).map(row=>[row.rank,row]));
+   const byRank=new Map((crafterStudio.leaders||[]).map(row=>[Number(row.rank),row]));
+   if(block.leader_mode&&block.leader_mode!=='classic'){
+     return '<div class="studio-render-block" style="'+outer+'">'+
+      crafterLeaderboardHTML(byRank,new Map((event.prizes||[]).map(p=>[Number(p.place),p])),
+       block,event,{editable:!crafterStudio.previewMode&&block.id===crafterStudio.selected,
+         selectedRank:crafterStudio.rank,selectedPart:crafterStudio.leaderPart,
+         rowBg:s.row_bg,showEmpty:s.show_empty})+'</div>';
+   }
    const prizes=new Map((event.prizes||[]).map(row=>[row.place,row]));
    const n=Math.min(100,Math.max(1,Number(block.rank_count)||10));
    return '<div class="studio-render-block" style="'+outer+'"><div class="crafter-event-rank-list">'+
@@ -352,6 +372,18 @@ function studioPaintPreview(){
  }
 }
 
+async function crafterOpenEventLeaders(eventId){
+ await crafterOpenEventStudio(eventId);
+ if(!crafterStudio||crafterStudio.event.id!==eventId)return;
+ const block=studioRankBlock();
+ if(!block)return toast('Добавьте блок «Лидерборд» в конструкторе');
+ crafterStudio.selected=block.id;
+ if(!block.leader_mode||block.leader_mode==='classic'){
+    block.leader_mode='list';studioDirty();
+ }
+ studioPaintList();studioPaintInspector();studioPaintPreview();
+ document.querySelector('.studio-properties')?.scrollIntoView({block:'start',behavior:'smooth'});
+}
 async function crafterOpenEventPrizes(eventId){
  await crafterOpenEventStudio(eventId);
  if(!crafterStudio||crafterStudio.event.id!==eventId)return;
@@ -598,6 +630,8 @@ function studioInputChanged(event){
 }
 function studioChange(event){
  const t=event.target;
+ if(t.dataset.leaderUpload){studioLeaderUpload(t);return;}
+ if(t.dataset.leaderKey){studioLeaderChange(t);return;}
  if(t.id==='studio-device'){
     const node=document.getElementById('studio-preview');
     if(node)node.style.width=t.value;
@@ -616,6 +650,8 @@ function studioChange(event){
  }
 }
 function studioClick(event){
+ const leaderButton=event.target.closest('[data-leader-pick],[data-leader-action]');
+ if(leaderButton){studioLeaderClick(leaderButton);return;}
  const button=event.target.closest('[data-studio-action],[data-studio-select],'+
   '[data-studio-move],[data-studio-layer],[data-studio-add-layer],[data-studio-rank]');
  if(!button)return;
@@ -692,6 +728,13 @@ function studioClick(event){
  if(action==='pick-prize-catalog'){studioPickPrizeCatalog();return;}
  if(action==='quote-prize-award'){studioQuotePrizeAward();return;}
  if(action==='link-craft'||action==='link-arena'){studioLinkGlobalBanner(action==='link-craft'?'craft':'arena');return;}
+ if(action==='leader-editor'){
+   const block=studioRankBlock();
+   if(!block)return toast('Добавьте блок «Лидерборд»');
+   studio.selected=block.id;
+   if(!block.leader_mode||block.leader_mode==='classic'){block.leader_mode='list';studioDirty();}
+   studioPaintList();studioPaintInspector();studioPaintPreview();return;
+ }
  if(action==='prizes'){studio.selected='prizes';studioPaintList();studioPaintInspector();return;}
  if(action==='style'){studio.selected='global';studioPaintList();studioPaintInspector();return;}
  if(action==='preview'){

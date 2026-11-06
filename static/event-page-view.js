@@ -75,6 +75,12 @@ function crafterEventPageView(main,event,leaders,page){
             return '<div class="crafter-event-layout-block" style="height:'+Math.min(160,Number(block.height)||24)+'px"></div>';
         }
         if(type==='leaderboard'){
+            if(block.leader_mode&&block.leader_mode!=='classic'){
+                return '<div class="crafter-event-layout-block crafter-event-layout-ranks" style="'+styleAttr+'">'+
+                  (event.show_leaderboard?crafterLeaderboardHTML(byRank,prizes,block,event,{
+                     rowBg:st.row_bg,showEmpty:st.show_empty
+                   }):'<p class="crafter-events-empty">Рейтинг скрыт.</p>')+'</div>';
+            }
             const maxRank=Math.min(100,Math.max(1,Number(block.rank_count||st.rank_count)||10));
             const rows=Array.from({length:maxRank},(_,i)=>{
                 const rank=i+1;

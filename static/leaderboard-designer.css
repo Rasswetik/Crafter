@@ -96,3 +96,11 @@
  .crafter-leader-podium .crafter-leader-part-rank{font-size:13px}
  .crafter-leader-podium .crafter-leader-part-prize-label{font-size:8px}
 }
+
+/* Rank editor is available at narrow mobile widths without suppressing labels. */
+#studio-preview .crafter-leader-card[data-leader-rank]{
+ touch-action:pan-y;
+}
+#studio-preview .crafter-leader-card .crafter-leader-part{
+ touch-action:none;-webkit-user-select:none;user-select:none;
+}

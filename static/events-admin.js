@@ -69,6 +69,7 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
                     </div>
                     <button type="button" class="secondary" data-edit="${esc(item.id)}">Изменить</button>
                     <button type="button" class="secondary" data-studio-open="${esc(item.id)}">Баннеры и таймер</button>
+                    <button type="button" class="primary" data-leader-editor="${esc(item.id)}">♛ Редактор лидеров</button>
                     <button type="button" class="primary" data-event-prizes="${esc(item.id)}">🎁 NFT-награды (${(item.prizes||[]).filter(p=>p.type==='collection'||p.type==='model').length})</button>
                 </article>`).join('') || '<p class="sub">Пока нет событий. Создайте первое для Arena или Крафтов.</p>'}
             </div>
@@ -109,6 +110,9 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
     });
     content.querySelectorAll('[data-event-prizes]').forEach(button=>{
         button.onclick=()=>crafterOpenEventPrizes(button.dataset.eventPrizes);
+    });
+    content.querySelectorAll('[data-leader-editor]').forEach(button=>{
+        button.onclick=()=>crafterOpenEventLeaders(button.dataset.leaderEditor);
     });
     content.querySelectorAll('[data-studio-open]').forEach(button=>{
         button.onclick=()=>crafterOpenEventStudio(button.dataset.studioOpen);
