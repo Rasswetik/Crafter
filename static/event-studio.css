@@ -257,3 +257,22 @@
 #studio-preview.studio-focus-banner .crafter-event-top-banners>.studio-preview-block:not(.studio-selected){display:none!important}
 #studio-preview.studio-focus-banner .crafter-event-top-banners>.studio-preview-block.studio-selected{grid-column:1/-1}
 .studio-toolbar [data-studio-action="add-banner"],.studio-toolbar [data-studio-action="add-gif"]{white-space:nowrap}
+
+/* Prize catalogue and payout confirmation. */
+.studio-award-tools{display:flex;flex-wrap:wrap;gap:8px;margin:9px 0}
+.studio-award-tools button{width:auto!important;min-height:37px}
+.studio-prize-picker{display:grid;gap:12px}
+.studio-prize-picker p,.studio-award-checkout p{margin:0;color:#b7bec9;font-size:12px;line-height:1.5}
+.studio-prize-choices{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:55dvh;overflow-y:auto}
+.studio-prize-choice,.studio-prize-model{display:grid;gap:7px;padding:10px;background:#22252b;border:1px solid #ffffff25;border-radius:13px;color:#f7f8fa;min-width:0}
+.studio-prize-choice>img,.studio-prize-model>img{width:86px;height:86px;object-fit:contain;justify-self:center}
+.studio-prize-choice strong,.studio-prize-model span{font-size:12px;text-align:center;overflow-wrap:anywhere}
+.studio-prize-choice>div{display:flex;gap:5px;flex-wrap:wrap}
+.studio-prize-choice button{flex:1 1 80px;width:auto!important;min-height:30px!important;padding:5px!important;font-size:10px!important}
+.studio-prize-model{cursor:pointer}
+.studio-award-checkout{display:grid;gap:10px}
+.studio-award-summary{display:flex;justify-content:space-between;gap:8px}
+.studio-award-row{display:grid;grid-template-columns:80px minmax(0,1fr) auto;gap:8px;align-items:center;border-bottom:1px solid #ffffff1b;padding:9px 0;font-size:12px}
+.studio-award-row small{color:#a9e5fe;white-space:nowrap}
+.studio-award-warning{color:#ffbe84!important}
+@media(max-width:450px){.studio-prize-choices{grid-template-columns:1fr 1fr}.studio-award-row{grid-template-columns:1fr 1fr}.studio-award-row span{grid-column:1/-1;grid-row:2}}
