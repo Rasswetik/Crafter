@@ -34,13 +34,17 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
                         <small>${item.enabled ? status[item.status] : 'Скрыто'} · ${item.show_leaderboard ? 'Рейтинг включён' : 'Рейтинг скрыт'}</small>
                     </div>
                     <button type="button" class="secondary" data-edit="${esc(item.id)}">Изменить</button>
-                    <button type="button" class="secondary" data-studio-open="${esc(item.id)}">Баннеры · GIF · Лидеры</button>
+                    <button type="button" class="secondary" data-studio-open="${esc(item.id)}">Баннеры и таймер</button>
+                    <button type="button" class="primary" data-event-prizes="${esc(item.id)}">🎁 NFT-награды (${(item.prizes||[]).filter(p=>p.type==='collection'||p.type==='model').length})</button>
                 </article>`).join('') || '<p class="sub">Пока нет событий. Создайте первое для Arena или Крафтов.</p>'}
             </div>
         </section>
         <section class="panel crafter-event-editor" data-event-editor hidden></section>
     </div>`;
     content.querySelector('[data-new]').onclick = () => crafterEditEvent(null);
+    content.querySelectorAll('[data-event-prizes]').forEach(button=>{
+        button.onclick=()=>crafterOpenEventPrizes(button.dataset.eventPrizes);
+    });
     content.querySelectorAll('[data-studio-open]').forEach(button=>{
         button.onclick=()=>crafterOpenEventStudio(button.dataset.studioOpen);
     });
@@ -86,18 +90,23 @@ function crafterEditEvent(item) {
                 <label><input name="show_leaderboard" type="checkbox" value="1" ${event.show_leaderboard?'checked':''}> Показывать рейтинг игроков</label>
             </div>
             <h4>Награды для мест 1–3</h4>
-            <p class="sub">GIF проигрывается рядом с местом, GRAM показывается SVG-значком, Telegram NFT привязывается ссылкой. Выдача призов остаётся ручной.</p>
+            <p class="sub">Можно указать целую коллекцию NFT (например, Plush Pepe), без выбора улучшенной модели. После завершения лидерборда администратор подтверждает покупку самого дешёвого подходящего подарка с Craft Market, и настоящий NFT поступает победителю.</p>
+            ${item?'<button type="button" class="primary" data-open-studio-prizes>🎁 Выбрать NFT по коллекции из каталога</button>':''}
             <div class="crafter-event-prize-grid">
             ${[1,2,3].map(place=>{
                 const prize=event.prizes[place-1]||{};
                 return '<div class="crafter-event-prize-edit"><strong>Место №'+place+'</strong>'+
-                    (prize.image_url?'<img src="'+esc(prize.image_url)+'" alt="Награда '+place+'">':
+                    ((prize.type==='collection'&&prize.collection)?
+                      '<img src="/media/collection/'+encodeURIComponent(prize.collection.replace(/[^a-z0-9]/gi,'').toLowerCase())+'" alt="PNG коллекции '+place+'">' :
+                      prize.image_url?'<img src="'+esc(prize.image_url)+'" alt="Награда '+place+'">':
                         '<div class="crafter-event-image-empty">Награда</div>')+
                     '<label>Тип награды<select class="field" name="prize_type_'+place+'">'+
-                    [['none','Без награды'],['gram','GRAM · SVG'],['image','PNG / GIF'],['telegram','Telegram NFT по ссылке']].map(([type,label])=>
+                    [['none','Без награды'],['gram','GRAM · SVG'],['image','PNG / GIF'],['telegram','Telegram NFT по ссылке'],['collection','Обычная коллекция из маркета'],['model','Определённая модель коллекции']].map(([type,label])=>
                       '<option value="'+type+'" '+((prize.type||'none')===type?'selected':'')+'>'+label+'</option>').join('')+
                     '</select></label>'+
                     '<label>Описание / сумма<input class="field" name="prize_'+place+'" maxlength="120" value="'+esc(prize.label||'')+'" placeholder="Например, 100 GRAM"></label>'+
+                    '<label>Название коллекции<input class="field" name="prize_collection_'+place+'" value="'+esc(prize.collection||'')+'" placeholder="Plush Pepe"></label>'+
+                    '<label>Модель (пусто = любой NFT коллекции)<input class="field" name="prize_model_'+place+'" value="'+esc(prize.model||'')+'" placeholder="Любая модель"></label>'+
                     '<label>Telegram NFT (t.me/nft/Название-номер)<input class="field" type="url" name="prize_link_'+place+'" value="'+esc(prize.telegram_url||'')+'" placeholder="https://t.me/nft/PlushPepe-171"></label>'+
                     '<label>Загрузить PNG / WebP / GIF<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" name="prize_image_'+place+'"></label>'+
                     (prize.image_url?'<label class="crafter-event-remove-image"><input type="checkbox" name="remove_prize_image_'+place+'" value="1"> Удалить загруженную картинку</label>':'')+
@@ -113,6 +122,7 @@ function crafterEditEvent(item) {
         </form>`;
     const form = editor.querySelector('form');
     form.querySelector('[data-cancel]').onclick = () => {editor.hidden=true;};
+    form.querySelector('[data-open-studio-prizes]')?.addEventListener('click',()=>crafterOpenEventPrizes(item.id));
     form.addEventListener('submit', async submit => {
         submit.preventDefault();
         if (!form.reportValidity()) return;
@@ -133,7 +143,9 @@ function crafterEditEvent(item) {
             row.label=String(form.elements['prize_'+place]?.value||'').trim();
             row.telegram_url=String(form.elements['prize_link_'+place]?.value||'').trim();
             row.type=form.elements['prize_type_'+place]?.value||'none';
-            if(/^https:\/\/(?:t\.me|telegram\.me)\/nft\//i.test(row.telegram_url))
+            row.collection=String(form.elements['prize_collection_'+place]?.value||'').trim();
+            row.model=String(form.elements['prize_model_'+place]?.value||'').trim();
+            if(row.type==='telegram'&&/^https:\/\/(?:t\.me|telegram\.me)\/nft\//i.test(row.telegram_url))
                row.type='telegram';
             prizes[place-1]=row;
         }
