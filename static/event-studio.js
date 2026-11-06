@@ -90,6 +90,7 @@ async function crafterOpenEventStudio(eventId){
     Object.entries(STUDIO_LABELS).map(([val,name])=>
       '<option value="'+val+'">'+studioEsc(name)+'</option>').join('')+
     '</select></label><button type="button" class="secondary" data-studio-action="add">+ Добавить</button>'+
+    '<button type="button" class="secondary" data-studio-action="quick-banner">+ Баннер с GIF</button>'+
     '<button type="button" class="secondary" data-studio-action="style">Стиль всей страницы</button>'+
     '<button type="button" class="secondary" data-studio-action="prizes">Награды 1–100</button>'+
    '</aside>'+
@@ -160,6 +161,7 @@ function studioBannerInspector(block){
  const layerFields=layer?'<h4>Выбранный слой</h4><div class="studio-fields">'+
   (layer.type==='image'?
    '<label>Изображение<input type="file" accept="image/png,image/gif,image/webp,image/jpeg" data-studio-upload="layer"></label>'+
+    (layer.asset?'<div class="studio-loaded-asset"><img src="'+studioEsc(layer.asset)+'" alt="Слой"/><button type="button" data-studio-action="remove-layer-image">Удалить PNG/GIF</button></div>':'')+
     studioSelect('fit','Масштабирование',layer.fit,[['contain','Целиком'],['cover','Заполнение']],'layer'):
    layer.type==='gram'?'':studioInput('text','Надпись (добавьте {GRAM} для значка)',layer.text,'layer'))+
   studioFont('font','Шрифт',layer.font,'layer')+
@@ -188,6 +190,7 @@ function studioBannerInspector(block){
   studioColor('background_color','Основной цвет',b.background_color,'banner')+
   studioColor('background_second_color','Второй цвет',b.background_second_color,'banner')+
   '<label>Фоновая PNG/GIF<input type="file" data-studio-upload="background" accept="image/png,image/gif,image/webp,image/jpeg"></label>'+
+  (b.background_asset?'<div class="studio-loaded-asset"><img src="'+studioEsc(b.background_asset)+'" alt="Фон"/><button type="button" data-studio-action="remove-background">Удалить фон</button></div>':'')+
   studioInput('background_tint','Затемнение изображения',b.background_tint,'banner','range',0,.9,.05)+
   studioInput('background_focus_x','Положение фона X',b.background_focus_x,'banner','number',0,100)+
   studioInput('background_focus_y','Положение фона Y',b.background_focus_y,'banner','number',0,100)+
@@ -339,6 +342,62 @@ function studioPaintPreview(){
  }
 }
 
+async function studioPickPrizeCatalog(){
+ const root=document.getElementById('studio-inspector');
+ if(!root||!crafterStudio)return;
+ const prize=studioPrize(crafterStudio.rank);
+ const collections=(state.catalog?.collections||[]).filter(item=>item.name);
+ root.querySelector('.studio-prize-catalog-panel')?.remove();
+ const box=document.createElement('div');
+ box.className='studio-prize-catalog-panel';
+ box.innerHTML='<h4>Каталог обычных NFT</h4><label>Коллекция<select class="field" data-prize-catalog-collection>'+
+  '<option value="">Выберите коллекцию</option>'+
+  collections.map(item=>'<option value="'+studioEsc(item.name)+'"'+(item.name===prize.collection?' selected':'')+'>'+studioEsc(item.name)+'</option>').join('')+
+  '</select></label><label>Модель<select class="field" data-prize-catalog-model>'+
+  '<option value="">Любая модель</option></select></label>'+
+  '<div class="studio-prize-catalog-results"></div>'+
+  '<button type="button" class="primary" data-prize-catalog-apply>Выбрать награду</button>'+
+  '<p class="sub">Обычный PNG коллекции или модели. Реальная выдача требует отдельной покупки NFT.</p>';
+ root.prepend(box);
+ const col=box.querySelector('[data-prize-catalog-collection]');
+ const model=box.querySelector('[data-prize-catalog-model]');
+ const result=box.querySelector('.studio-prize-catalog-results');
+ const draw=()=>{
+  const item=collections.find(c=>c.name===col.value);
+  if(!item){result.replaceChildren();return;}
+  const url=model.value?'https://api.changes.tg/model/'+encodeURIComponent(item.name)+'/'+encodeURIComponent(model.value)+'.png?size=128':
+   (typeof fragmentCollectionImage==='function'?fragmentCollectionImage(giftCollectionSlug(item.name)):item.photo_url);
+  result.innerHTML='<img src="'+studioEsc(url)+'" alt="PNG подарка" loading="lazy">'+
+   '<span>'+studioEsc(model.value||item.name)+'</span>';
+ };
+ const load=async()=>{
+  model.innerHTML='<option value="">Любая модель</option>';draw();
+  const item=collections.find(c=>c.name===col.value);if(!item)return;
+  const selected=col.value;
+  try{
+   const data=await api('collections/'+encodeURIComponent(item.short_name||item.id)+'/models');
+   if(!box.isConnected||col.value!==selected)return;
+   for(const row of data.models||[]){
+    if(!row.name)continue;
+    const option=document.createElement('option');option.value=row.name;option.textContent=row.name;
+    model.append(option);
+   }
+   if(prize.collection===selected&&prize.model)model.value=prize.model;
+   draw();
+  }catch(e){result.textContent='Модели недоступны: '+e.message;}
+ };
+ col.onchange=load;model.onchange=draw;
+ box.querySelector('[data-prize-catalog-apply]').onclick=()=>{
+  if(!col.value)return toast('Выберите коллекцию');
+  prize.collection=col.value;prize.model=model.value;
+  prize.type=model.value?'model':'collection';
+  if(!prize.label)prize.label=model.value||col.value;
+  studioDirty();studioPaintInspector();studioPaintPreview();
+  toast('PNG награды выбран. Сохраните призы.');
+ };
+ if(col.value)load();
+}
+
 function studioRenderPrizes(root){
  const event=crafterStudio.event,rank=crafterStudio.rank;
  const prize=event.prizes[rank-1]||{place:rank,type:'none',label:''};
@@ -346,7 +405,8 @@ function studioRenderPrizes(root){
   ['telegram','Telegram NFT (по ссылке)'],['collection','Обычный подарок — коллекция'],
   ['model','Конкретная модель'],['image','Своё PNG / GIF']];
  root.innerHTML='<h4>Призы для 100 мест</h4>'+
-  '<p class="sub">Выберите место и укажите награду. Изображение загружается отдельно; для Telegram NFT достаточно ссылки.</p>'+
+  '<p class="sub">Выберите место и награду. Для коллекции или модели используется обычный PNG каталога.</p>'+
+  '<button type="button" class="secondary studio-prize-picker-start" data-studio-action="pick-prize-catalog">Выбрать NFT из каталога</button>'+
   '<div class="studio-fields">'+
   studioInput('rank','Призовое место (1–100)',rank,'prize','number',1,100)+
   studioSelect('type','Тип награды',prize.type||'none',types,'prize')+
@@ -487,7 +547,7 @@ function studioChange(event){
  }
  if(t.dataset.studioScope&&t.dataset.studioKey){
     studioInputChanged(event);
-    if(t.dataset.studioScope==='prize'&&['type','telegram_url'].includes(t.dataset.studioKey))studioPaintInspector();
+    if(t.dataset.studioScope==='prize'&&['type','telegram_url','collection','model'].includes(t.dataset.studioKey))studioPaintInspector();
  }
 }
 function studioClick(event){
@@ -534,6 +594,21 @@ function studioClick(event){
     renderAdminEvents();return;
  }
  if(action==='save'){studioSavePage();return;}
+ if(action==='quick-banner'){
+   const selector=document.getElementById('studio-add-kind');if(selector)selector.value='banner';
+   document.querySelector('[data-studio-action="add"]')?.click();return;
+ }
+ if(action==='remove-background'){
+   const banner=studioBlock()?.banner;
+   if(banner){banner.background_asset='';banner.background_mode='gradient';studioDirty();studioPaintInspector();studioPaintPreview();}
+   return;
+ }
+ if(action==='remove-layer-image'){
+   const layer=studioLayer();
+   if(layer){layer.asset='';studioDirty();studioPaintInspector();studioPaintPreview();}
+   return;
+ }
+ if(action==='pick-prize-catalog'){studioPickPrizeCatalog();return;}
  if(action==='link-craft'||action==='link-arena'){studioLinkGlobalBanner(action==='link-craft'?'craft':'arena');return;}
  if(action==='prizes'){studio.selected='prizes';studioPaintList();studioPaintInspector();return;}
  if(action==='style'){studio.selected='global';studioPaintList();studioPaintInspector();return;}
@@ -592,15 +667,20 @@ async function studioUpload(file,where){
  }
  const block=studioBlock();
  const layer=studioLayer();
+ if(!block?.banner)return toast('Сначала выберите баннер');
+ const selectedBlockId=block.id,selectedLayerId=layer?.id;
  const form=new FormData();form.append('file',file);
  studioSetStatus('Загружаем '+file.name+'…');
  try{
     const data=await api('admin/arena/banner/asset',form);
+    const current=crafterStudio.page.blocks.find(item=>item.id===selectedBlockId);
+    if(!current?.banner)return;
     if(where==='background') {
-       block.banner.background_asset=data.url;
-       block.banner.background_mode='image';
-    }else if(where==='layer'&&layer){
-       layer.asset=data.url;
+       current.banner.background_asset=data.url;
+       current.banner.background_mode='image';
+    }else if(where==='layer'&&selectedLayerId){
+       const selectedLayer=current.banner.layers.find(item=>item.id===selectedLayerId);
+       if(selectedLayer)selectedLayer.asset=data.url;
     }
     studioDirty();studioPaintInspector();studioPaintPreview();
  }catch(error){studioSetStatus(error.message);toast(error.message);}

@@ -251,3 +251,16 @@
   grid-template-columns:none;
  }
 }
+
+/* Catalog prize picker and uploaded GIF controls. */
+.studio-prize-picker-start{width:100%;margin:6px 0 13px;min-height:40px}
+.studio-prize-catalog-panel{display:grid;gap:10px;padding:13px;margin:0 0 15px;border:1px solid #64bcfa5c;border-radius:14px;background:#142939}
+.studio-prize-catalog-panel label{display:grid;gap:6px;font-size:12px}
+.studio-prize-catalog-panel select{width:100%;min-width:0}
+.studio-prize-catalog-panel button{min-height:38px}
+.studio-prize-catalog-results{display:flex;align-items:center;gap:10px;min-height:48px}
+.studio-prize-catalog-results img{width:64px;height:64px;object-fit:contain;border-radius:9px;background:#202732}
+.studio-prize-catalog-results span{font-size:13px;font-weight:700}
+.studio-loaded-asset{display:flex;align-items:center;gap:7px;grid-column:1/-1;min-width:0}
+.studio-loaded-asset img{width:75px;height:54px;object-fit:contain;border-radius:9px;background:#111827}
+.studio-loaded-asset button{font-size:11px;min-height:35px;padding:6px 9px;background:#303846;color:#fff;border-radius:8px}

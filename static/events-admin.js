@@ -19,6 +19,7 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
         <section class="panel">
             <h3>Лидерборды и ивенты</h3>
             <button class="secondary" type="button" onclick="openAdminSection('ice_banner')">Редактор баннера над Ice Arena</button>
+            <button class="secondary" type="button" onclick="openAdminSection('craft_banner')">Редактор баннера над Крафтами</button>
             <p class="sub">Создавайте события с PNG-обложками и изображениями наград. Укажите сроки, цвет, показатель топа и видимость. Результаты строятся по реальным операциям Crafter.</p>
             <button type="button" class="primary crafter-event-add" data-new>+ Создать ивент</button>
         </section>
@@ -33,7 +34,7 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
                         <small>${item.enabled ? status[item.status] : 'Скрыто'} · ${item.show_leaderboard ? 'Рейтинг включён' : 'Рейтинг скрыт'}</small>
                     </div>
                     <button type="button" class="secondary" data-edit="${esc(item.id)}">Изменить</button>
-                    <button type="button" class="secondary" data-studio-open="${esc(item.id)}">Конструктор</button>
+                    <button type="button" class="secondary" data-studio-open="${esc(item.id)}">Баннеры · GIF · Лидеры</button>
                 </article>`).join('') || '<p class="sub">Пока нет событий. Создайте первое для Arena или Крафтов.</p>'}
             </div>
         </section>
