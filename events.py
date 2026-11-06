@@ -198,6 +198,16 @@ def install_events(app, db, auth, audit, record=None, canonical_name=None,
             for key, value in METRICS.items()
         ]}
 
+    @app.get('/api/admin/events/<event_id>/leaders')
+    @auth(admin=True)
+    def admin_event_leaders(event_id):
+        validate_id(event_id)
+        event=next((item for item in listing(admin=True) if item['id']==event_id),None)
+        if event is None:abort(404,description='Событие не найдено')
+        response=app.json.response({'leaders':ranking(event)})
+        response.headers['Cache-Control']='no-store'
+        return response
+
     @app.post('/api/admin/events', defaults={'event_id': None})
     @app.post('/api/admin/events/<event_id>')
     @auth(admin=True)
