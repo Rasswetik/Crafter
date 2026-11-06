@@ -80,3 +80,24 @@ html[data-crafter-theme="light"] .wallet-cancel-withdraw { color:#1166ab; }
     .wallet-funding .wallet-amount input {width:64%!important;max-width:64%!important}
     .wallet-funding .wallet-limits {gap:6px}
 }
+
+/* Responsive, truly centered amount + GRAM group. */
+.wallet-funding .wallet-amount {
+ display:flex;align-items:center;justify-content:center!important;
+ gap:7px;min-width:0;width:100%;overflow:visible;
+}
+.wallet-funding .wallet-amount input,
+.wallet-funding .wallet-amount input:focus {
+ flex:0 1 auto!important;box-sizing:content-box!important;
+ width:calc(var(--wallet-amount-digits, 1) * 1ch + .35em)!important;
+ max-width:calc(100% - 5.5rem)!important;min-width:1.35ch!important;
+ padding:0!important;margin:0!important;text-align:center!important;
+ font-variant-numeric:tabular-nums;border:0!important;
+}
+.wallet-funding .wallet-amount b {flex:0 0 auto;margin:0;white-space:nowrap}
+@media(max-width:355px){
+ .wallet-funding .wallet-amount input {
+  width:calc(var(--wallet-amount-digits, 1) * 1ch + .35em)!important;
+  max-width:calc(100% - 4.8rem)!important;
+ }
+}

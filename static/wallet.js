@@ -480,6 +480,10 @@ function setWalletAmount(value) {
 function walletAmountChanged() {
     const input = document.querySelector('#wallet-amount');
     if (!input) return;
+    // Keep the number's width fitted to its content so the full "0 GRAM"
+    // phrase, not a padded input field, is centered in the card.
+    const digitCount=Math.max(1,Math.min(input.maxLength||16,(input.value||'').trim().length));
+    input.closest('.wallet-amount')?.style.setProperty('--wallet-amount-digits',String(digitCount));
     const w = state.walletInfo;
     const c = w.config;
     const normalized = normalizeWalletAmount(input.value);
