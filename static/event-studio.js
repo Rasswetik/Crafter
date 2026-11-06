@@ -173,7 +173,9 @@ function studioBannerInspector(block){
   studioInput('bg_opacity','Прозрачность плашки',layer.bg_opacity,'layer','range',0,1,.05)+
   studioInput('radius','Скругление',layer.radius,'layer','number',0,90)+
   (layer.type==='timer'?studioSelect('format','Формат отсчёта',layer.format,
-   [['hh:mm:ss','Часы:минуты:секунды'],['mm:ss','Минуты:секунды'],['days','Дни:часы:минуты']],'layer'):'')+
+   ICE_TIMER_FORMATS,'layer')+
+   '<button type="button" class="secondary" data-studio-action="timer-center">Центрировать таймер</button>'+
+   '<button type="button" class="secondary" data-studio-action="timer-full">Таймер на всю ширину</button>':'')+
   studioInput('x','Слева, %',layer.x,'layer','number',0,100,.1)+
   studioInput('y','Сверху, %',layer.y,'layer','number',0,100,.1)+
   studioInput('w','Ширина, %',layer.w,'layer','number',3,100,.1)+
@@ -523,7 +525,10 @@ function studioApplyLive(scope,key){
    if(['x','y','w','h'].includes(key))
      el.style[{x:'left',y:'top',w:'width',h:'height'}[key]]=Number(layer[key])+'%';
    else if(key==='font')el.style.fontFamily=ICE_BANNER_FONTS[layer.font]||ICE_BANNER_FONTS.system;
-   else if(key==='font_size')el.style.fontSize='clamp(9px,'+(Number(layer.font_size)/4)+'cqw,'+Number(layer.font_size)+'px)';
+   else if(key==='font_size'){
+      el.style.fontSize='clamp(9px,'+(Number(layer.font_size)/4)+'cqw,'+Number(layer.font_size)+'px)';
+      if(layer.type==='timer'){el.dataset.fontBase=el.style.fontSize;el.dataset.fitSignature='';iceBannerFitTimer(el);}
+    }
    else if(key==='font_weight')el.style.fontWeight=String(layer.font_weight);
    else if(key==='color'){
      el.style.color=layer.color;
@@ -647,6 +652,13 @@ function studioClick(event){
     renderAdminEvents();return;
  }
  if(action==='save'){studioSavePage();return;}
+ if(action==='timer-center'||action==='timer-full'){
+   const layer=studioLayer();
+   if(!layer||layer.type!=='timer')return;
+   Object.assign(layer,action==='timer-full'?{x:2,y:20,w:96,h:60}:{x:15,y:24,w:70,h:50});
+   layer.text='';layer.align='center';layer.font='mono';layer.bg_opacity=0;
+   studioDirty();studioPaintInspector();studioPaintPreview();return;
+ }
  if(action==='fill-banner'){
    const block=studioBlock();
    if(!block?.banner)return;
