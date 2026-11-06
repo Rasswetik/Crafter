@@ -780,6 +780,31 @@ async function studioLinkGlobalBanner(kind){
    toast('Баннер связан с '+(kind==='craft'?'Крафтами':'Arena'));
  }catch(e){studioSetStatus(e.message);toast(e.message);}
 }
+async function studioSyncLinkedBanners(eventId,selectedBlock){
+ // A page save and the two mode banners used to be independent: that caused
+ // saved dimensions to look unchanged in the Arena/Craft screens.
+ const studio=crafterStudio;
+ const block=(selectedBlock?.type==='banner'?selectedBlock:null)
+    ||studio.page.blocks.find(b=>b.type==='banner'&&b.enabled!==false);
+ if(!block?.banner)return [];
+ const results=await Promise.allSettled(['arena','craft'].map(async kind=>{
+    const current=(await api('admin/'+kind+'/banner')).banner;
+    if(!current||current.event_id!==eventId)return {kind,linked:false};
+    const config={...current,...structuredClone(block.banner),
+       enabled:current.enabled,event_id:eventId,rooms:current.rooms||'all',
+       hide_after_end:current.hide_after_end,
+       start_at:studio.event.start_at,end_at:studio.event.end_at,
+       title:block.banner.title||studio.event.title};
+    await api('admin/'+kind+'/banner',config);
+    if(kind==='craft'&&typeof crafterCraftBannerFetch==='function')
+       crafterCraftBannerFetchedAt=0;
+    return {kind,linked:true};
+ }));
+ const failed=results.filter(r=>r.status==='rejected');
+ if(failed.length)throw new Error('Страница сохранена, но не все связанные баннеры обновлены: '+
+   failed.map(r=>r.reason?.message||String(r.reason)).join('; '));
+ return results.filter(r=>r.status==='fulfilled'&&r.value.linked).map(r=>r.value.kind);
+}
 async function studioSavePage(){
  const id=crafterStudio.event.id;
  const button=document.querySelector('[data-studio-action="save"]');
@@ -789,9 +814,13 @@ async function studioSavePage(){
    crafterStudio.page=result.page;
    // The primary Save button commits layout AND prizes together.
    if(!await studioSavePrizes(true))throw new Error('Макет сохранён, но награды не удалось сохранить');
+   const selected=studioBlock();
+   const linked=await studioSyncLinkedBanners(id,selected);
    crafterStudio.dirty=false;
-   studioSetStatus('Макет, баннеры и все награды сохранены');
-   toast('Страница события обновлена');
+   studioSetStatus('Макет и награды сохранены'+(linked.length?
+     '. Обновлены связанные баннеры: '+linked.join(', '):''));
+   toast(linked.length?'Размеры сохранены и опубликованы над Arena / Крафтами':
+        'Страница события обновлена');
    studioPaintList();studioPaintInspector();studioPaintPreview();
  }catch(e){studioSetStatus(e.message);toast(e.message);}
  finally{if(button)button.disabled=false;}

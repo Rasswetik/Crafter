@@ -308,3 +308,23 @@
  border-radius:10px;
  font-weight:750;
 }
+
+/* Live-sized event banners: never shrink the editable slot to 83% at phone width. */
+@media(max-width:650px){
+ #studio-preview .crafter-event-top-banners{
+   display:grid;
+   grid-auto-flow:column;
+   grid-auto-columns:minmax(0,100%);
+   width:100%;
+   overflow-x:auto;
+   padding-inline:0;
+ }
+ #studio-preview .crafter-event-top-banners>.studio-preview-block{
+   width:100%;
+   max-width:100%;
+ }
+}
+#studio-preview .crafter-event-top-banners .studio-render-block{
+  width:100%;
+  box-sizing:border-box;
+}

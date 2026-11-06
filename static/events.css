@@ -226,3 +226,9 @@
     .crafter-event-leader-info>strong{font-size:12px}
     .crafter-rank-prize-art{width:42px;height:42px;flex-basis:42px}
 }
+
+/* Unified season ranks show contributing Arena and Craft points separately. */
+.crafter-event-leader-info .crafter-season-breakdown{
+ display:block;margin-top:4px;color:#b8add0;font-size:11px;font-weight:500;
+ white-space:normal;
+}

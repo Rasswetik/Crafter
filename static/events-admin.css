@@ -41,3 +41,23 @@
  .crafter-event-prize-edit>label{grid-column:2}
  .crafter-event-prize-edit>.crafter-event-remove-image{grid-column:1/-1}
 }
+
+/* Unified season: accessible standalone controls, independent of the event editor. */
+.crafter-unified-season-panel{display:grid;gap:14px}
+.crafter-season-heading{display:flex;align-items:center;gap:12px}
+.crafter-season-heading small{font-size:10px;letter-spacing:.11em;color:#bca6ff}
+.crafter-season-heading h3{margin:3px 0 0!important;font-size:19px}
+.crafter-season-symbol{display:grid;place-items:center;flex:0 0 42px;width:42px;height:42px;border-radius:13px;color:#d9c3ff;background:linear-gradient(145deg,#503283,#251d46);font-size:25px}
+.crafter-season-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;min-width:0}
+.crafter-season-form label{display:grid;gap:7px;font-size:12px;font-weight:700;min-width:0}
+.crafter-season-form label:first-child,.crafter-season-form>p,.crafter-season-form>button{grid-column:1/-1}
+.crafter-season-form .field{width:100%;min-width:0;box-sizing:border-box}
+.crafter-season-preview{margin:0;padding:11px 12px;border:1px solid #685ba15e;border-radius:11px;color:#cdc3e5;font-size:12px;background:#29243a}
+.crafter-season-active{display:grid;gap:6px;padding:14px;border-radius:14px;background:linear-gradient(120deg,#392957,#222632);border:1px solid #7458aa66}
+.crafter-season-active strong{font-size:15px}
+.crafter-season-active span{font-size:12px}
+.crafter-season-active small{font-size:11px;color:#b7a9ce}
+.crafter-season-buttons{display:flex;gap:9px;flex-wrap:wrap}
+.crafter-season-buttons button{min-height:40px;flex:1 1 180px}
+.crafter-event-leader-info .crafter-season-breakdown{font-size:11px;color:#b7a2d8}
+@media(max-width:480px){.crafter-season-form{grid-template-columns:1fr}}
