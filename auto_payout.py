@@ -53,6 +53,13 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
         ON ton_auto_payouts(status,created);
         """)
 
+    def system_audit(message):
+        # Cron workers have no authenticated request user (g.user). Actor 0
+        # records an automated system action without pretending to be admin.
+        with db():
+            db().execute("INSERT INTO audit(actor,action,created) VALUES(?,?,?)",
+                         (0, message, int(time.time())))
+
     def policy():
         row = db().execute("SELECT payload FROM settings WHERE key=?", (POLICY_KEY,)).fetchone()
         if not row:
@@ -186,7 +193,7 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
                 db().execute("""UPDATE ton_auto_payouts SET status='confirmed',
                     confirmed_tx=?,updated=? WHERE withdrawal_id=?""",
                     (tx, int(time.time()), wid))
-            audit("Automatic TON payout confirmed: " + wid)
+            system_audit("Automatic TON payout confirmed: " + wid)
             return {"status": "confirmed", "id": wid}
         # Leave every uncertain payment in manual review forever, unless
         # an actual chain receipt is found. Never re-credit/refund automatically.
@@ -271,7 +278,7 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
             db().execute("""UPDATE ton_auto_payouts SET status=?,updated=?
                 WHERE withdrawal_id=? AND status='prepared'""",
                 (label, int(time.time()), wid))
-        audit("Automatic payout submitted for chain confirmation: " + wid)
+        system_audit("Automatic payout submitted for chain confirmation: " + wid)
         return {"status": label, "id": wid}
 
     app.extensions["crafter_auto_payout"] = run_once
