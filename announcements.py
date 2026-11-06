@@ -29,7 +29,7 @@ def announcement_defaults():
         'description':'Участвуйте в новых событиях и получайте награды.',
         'button_text':'Перейти','button_url':'',
         'media':'','frequency':4,'close_delay':3,
-        'max_width':420,'media_height':290,'position':'center',
+        'max_width':420,'media_height':290,'media_fit':'contain','position':'center',
         'background_color':'#242326','title_color':'#ffffff',
         'description_color':'#b7b2c0','button_color':'#168bff','button_text_color':'#ffffff',
         'title_font':'rounded','description_font':'system',
@@ -57,6 +57,7 @@ def clean(data):
     result['media']=media
     result['enabled']=data.get('enabled') is True
     result['position']=data.get('position') if data.get('position') in ('center','bottom') else 'center'
+    result['media_fit']=data.get('media_fit') if data.get('media_fit') in ('contain','cover') else 'contain'
     for key in ('background_color','title_color','description_color','button_color','button_text_color'):
         result[key]=valid_color(data.get(key),default[key])
     for key in ('title_font','description_font'):
