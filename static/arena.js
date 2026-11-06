@@ -505,6 +505,64 @@ function arenaBrakePosition(plan, elapsed) {
     return {x: position('x'), y: position('y'), zoom: 1 + .75 * t * t * (3 - 2*t)};
 }
 
+/* Pick a point inside the winner's polygon, outside their centered avatar.
+   The avatar is painted at cell.center with radius cell.radius, so landing on
+   cell.center obscures the winner's picture. Keep the puck fully within its
+   board bounds and, wherever space permits, clear of the polygon border. */
+function arenaWinnerLanding(cell, seed = 0) {
+    const {center, points, radius} = cell;
+    if (!Array.isArray(points) || points.length < 3) return {...center};
+    const candidates = [];
+    // A convex polygon's blends from its interior center to vertices and
+    // edge midpoints are guaranteed to remain inside that player region.
+    const anchors = points.concat(points.map((p, i) => {
+        const q = points[(i + 1) % points.length];
+        return {x: (p.x + q.x) / 2, y: (p.y + q.y) / 2};
+    }));
+    for (const anchor of anchors) {
+        for (const fraction of [.35, .5, .65, .78, .86]) {
+            candidates.push({
+                x: center.x + (anchor.x - center.x) * fraction,
+                y: center.y + (anchor.y - center.y) * fraction
+            });
+        }
+    }
+    const edgeClearance = point => Math.min(...points.map((a, i) => {
+        const b = points[(i + 1) % points.length];
+        return Math.abs((b.x - a.x) * (point.y - a.y) -
+            (b.y - a.y) * (point.x - a.x)) /
+            (Math.hypot(b.x - a.x, b.y - a.y) || 1);
+    }));
+    const valid = candidates.map((point, i) => {
+        const boardGap = Math.min(point.x - arenaWall, 100 - arenaWall - point.x,
+            point.y - arenaWall, 100 - arenaWall - point.y);
+        const sideGap = edgeClearance(point);
+        const avatarGap = Math.hypot(point.x - center.x, point.y - center.y) - radius;
+        return {point, i, boardGap, sideGap, avatarGap};
+    }).filter(item => item.boardGap >= 0 && arenaInside(item.point, points));
+    if (!valid.length) return {...center};
+    // A full puck (3.8 board units in radius) should not touch the avatar or
+    // spill into another player's area when the winning region is large enough.
+    const clear = valid.filter(item => item.sideGap >= arenaWall &&
+        item.avatarGap >= arenaWall);
+    const choices = clear.length ? clear : valid;
+    choices.sort((a, b) => {
+        const score = item => clear.length
+            ? item.avatarGap + Math.min(item.sideGap, 10) * .15
+            : Math.min(item.avatarGap, 0) * 3 +
+              Math.min(item.sideGap, arenaWall) * 2 +
+              Math.min(item.boardGap, arenaWall);
+        return score(b) - score(a) || a.i - b.i;
+    });
+    // Choose deterministically from similarly good endpoints so successive
+    // rounds need not finish at the identical spot of the winning color.
+    const best = choices[0];
+    const peers = choices.filter(item => item.avatarGap >= best.avatarGap - 3 &&
+        item.sideGap >= Math.min(arenaWall, best.sideGap) - .25);
+    const index = (Math.abs(Number(seed) || 0) >>> 0) % peers.length;
+    return {...peers[index].point};
+}
+
 function arenaPuckFrame(data, now) {
     if (!arena.playback || arena.playback.round !== data.round_id) {
         arena.playback = {round: data.round_id, start: data.bet_until + arena.serverOrigin};
@@ -519,7 +577,9 @@ function arenaPuckFrame(data, now) {
         // On a delayed result packet, continue from the last moving trajectory.
         const at = play.hasMoved ? Math.max(data.flight_ms, play.travel) : data.flight_ms;
         const duration = Math.max(700, data.flight_ms + data.finish_ms - at);
-        play.brake = {at, plan: arenaBrakePlan(arenaFlight(at, data.flight_ms, direction), duration, direction, target.center)};
+        const landing = arenaWinnerLanding(target, data.seed);
+        play.brake = {at, plan: arenaBrakePlan(
+            arenaFlight(at, data.flight_ms, direction), duration, direction, landing)};
     }
     const aiming = elapsed < data.aim_ms;
     if (aiming) {
