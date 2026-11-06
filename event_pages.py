@@ -27,6 +27,54 @@ def color(value,default):
     return value if isinstance(value,str) and HEX.fullmatch(value) else default
 
 
+
+# Per-place display settings, never alter the factual leaderboard ordering.
+LEADER_PARTS=('rank','avatar','name','score','prize','prize_label','caption')
+LEADER_DEFAULT_FIELDS={name: name!='caption' for name in LEADER_PARTS}
+
+def clean_rank_styles(raw):
+    if not isinstance(raw,dict) or len(raw)>100:
+        abort(400,description='До 100 индивидуальных настроек мест')
+    cleaned={}
+    for key,item in raw.items():
+        if not isinstance(key,str) or not key.isdigit() or not 1<=int(key)<=100:
+            abort(400,description='Номер места: от 1 до 100')
+        if not isinstance(item,dict):
+            abort(400,description='Некорректное оформление места')
+        positions=item.get('layout',{})
+        if not isinstance(positions,dict) or len(positions)>len(LEADER_PARTS):
+            abort(400,description='Некорректные координаты элементов')
+        slots={}
+        for name,pos in positions.items():
+            if name not in LEADER_PARTS or not isinstance(pos,dict):
+                abort(400,description='Некорректный элемент места')
+            x=round(num(pos.get('x'),0,98,0),1)
+            y=round(num(pos.get('y'),0,98,0),1)
+            w=round(num(pos.get('w'),2,100,25),1)
+            h=round(num(pos.get('h'),2,100,25),1)
+            slots[name]={'x':min(x,round(100-w,1)),'y':min(y,round(100-h,1)),
+                         'w':w,'h':h}
+        hidden=item.get('hidden',[])
+        if not isinstance(hidden,list) or len(hidden)>len(LEADER_PARTS) or any(
+                not isinstance(n,str) or n not in LEADER_PARTS for n in hidden):
+            abort(400,description='Некорректное скрытие элементов')
+        images={}
+        for key_name in ('avatar_asset','prize_asset'):
+            asset=item.get(key_name,'')
+            if not isinstance(asset,str) or (asset and not ASSET.fullmatch(asset)):
+                abort(400,description='Нужно загрузить PNG/GIF в редакторе')
+            images[key_name]=asset
+        bg=item.get('background') or ''
+        cleaned[key]={
+            'layout':slots,'hidden':sorted(set(hidden)),
+            'avatar_asset':images['avatar_asset'],'prize_asset':images['prize_asset'],
+            'caption':str(item.get('caption',''))[:80],
+            'background':color(bg,'') if bg else '',
+            'height':int(num(item.get('height'),64,440,84)),
+            'order':int(num(item.get('order'),1,3,min(3,int(key)))),
+        }
+    return cleaned
+
 def default_page():
     return {
         'style':{'background':'#141414','row_bg':'#242229','row_border':'#36313d',
@@ -142,6 +190,18 @@ def clean_page(data):
             'align':block.get('align') if block.get('align') in ('left','center','right') else 'left',
             'rank_count':int(num(block.get('rank_count'),1,100,style['rank_count'])),
             'banner':clean_banner(block.get('banner')) if typ=='banner' else None,
+            'leader_mode':block.get('leader_mode') if block.get('leader_mode') in ('classic','list','podium') else 'classic',
+            'leader_row_height':int(num(block.get('leader_row_height'),64,280,84)),
+            'leader_podium_height':int(num(block.get('leader_podium_height'),140,440,250)),
+            'leader_fields':{
+                name:(block.get('leader_fields',{}).get(name,default)
+                      if isinstance(block.get('leader_fields',{}),dict) and
+                      type(block.get('leader_fields',{}).get(name,default)) is bool
+                      else default)
+                for name,default in LEADER_DEFAULT_FIELDS.items()
+            },
+            'rank_styles':clean_rank_styles(block.get('rank_styles',{})) if typ=='leaderboard' else {},
+
         }
         cleaned.append(safe)
     if sum(1 for b in cleaned if b['type']=='banner')>4:abort(400,description='До 4 баннеров')
