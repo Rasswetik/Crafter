@@ -500,10 +500,16 @@ def create_app(config=None):
             if previous and time.time()-updated<60:return local_market_rows(previous)
             try:
                 rows,_=cached('thermos:collections',[])
-                # Public /api/nfts/search currently requires a Portals token.
-                # Without a partner key, use an actual public market data source
-                # instead of retrying an unauthenticated request for every load.
-                result=thermos.gifts(params,rows or public_catalog())
+                # Prefer public Portals listings (no partner quota), then an independent
+                # TON-denominated market source if public listings fail.
+                if multi_collection or multi_trait:
+                    result=thermos.gifts(params,rows or public_catalog())
+                else:
+                    try:
+                        import portals_public
+                        result=portals_public.listings(params,rows or public_catalog())
+                    except Exception:
+                        result=thermos.gifts(params,rows or public_catalog())
                 result['next_offset']=max(0,int(params.get('offset',0)))+20
                 result['has_more']=len(result['gifts'])>=20
                 db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',(key,json.dumps(result),int(time.time())));db().commit()
