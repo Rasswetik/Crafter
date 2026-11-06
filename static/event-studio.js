@@ -284,7 +284,7 @@ function studioPrizePreview(p){
  else if(p.type==='telegram'&&p.telegram_slug)
   art='<img src="https://nft.fragment.com/gift/'+studioEsc(p.telegram_slug.toLowerCase())+'.webp" alt="NFT">';
  else if(p.type==='collection'&&p.collection)
-  art='<img src="https://fragment.com/file/gifts/'+encodeURIComponent(p.collection.replace(/[^a-z0-9]/gi,'').toLowerCase())+'/thumb.webp" alt="Коллекция">';
+  art='<img src="/media/collection/'+encodeURIComponent(p.collection.replace(/[^a-z0-9]/gi,'').toLowerCase())+'" alt="Обычный PNG коллекции">';
  else if(p.type==='model'&&p.collection&&p.model)
   art='<img src="https://api.changes.tg/model/'+encodeURIComponent(p.collection)+'/'+encodeURIComponent(p.model)+'.png?size=128" alt="Модель">';
  return '<span class="crafter-rank-prize"><span class="crafter-rank-prize-label">'+
@@ -352,6 +352,13 @@ function studioPaintPreview(){
  }
 }
 
+async function crafterOpenEventPrizes(eventId){
+ await crafterOpenEventStudio(eventId);
+ if(!crafterStudio||crafterStudio.event.id!==eventId)return;
+ crafterStudio.selected='prizes';
+ studioPaintList();studioPaintInspector();
+ document.querySelector('.studio-properties')?.scrollIntoView({block:'start',behavior:'smooth'});
+}
 async function studioPickPrizeCatalog(){
  const root=document.getElementById('studio-inspector');
  if(!root||!crafterStudio)return;
@@ -373,7 +380,7 @@ async function studioPickPrizeCatalog(){
   '</select></label><label>Модель<select class="field" data-prize-catalog-model>'+
   '<option value="">Любая модель</option></select></label>'+
   '<div class="studio-prize-catalog-results"></div>'+
-  '<button type="button" class="primary" data-prize-catalog-apply>Выбрать награду</button>'+
+  '<button type="button" class="primary" data-prize-catalog-apply>Выбрать обычный PNG коллекции</button>'+
   '<p class="sub">Обычный PNG коллекции или модели. Реальная выдача требует отдельной покупки NFT.</p>';
  root.prepend(box);
  const col=box.querySelector('[data-prize-catalog-collection]');
@@ -383,7 +390,7 @@ async function studioPickPrizeCatalog(){
   const item=collections.find(c=>c.name===col.value);
   if(!item){result.replaceChildren();return;}
   const url=model.value?'https://api.changes.tg/model/'+encodeURIComponent(item.name)+'/'+encodeURIComponent(model.value)+'.png?size=128':
-   (typeof fragmentCollectionImage==='function'?fragmentCollectionImage(giftCollectionSlug(item.name)):item.photo_url);
+   '/media/collection/'+encodeURIComponent(item.name.replace(/[^a-z0-9]/gi,'').toLowerCase());
   result.innerHTML='<img src="'+studioEsc(url)+'" alt="PNG подарка" loading="lazy">'+
    '<span>'+studioEsc(model.value||item.name)+'</span>';
  };
