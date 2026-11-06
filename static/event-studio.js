@@ -75,12 +75,15 @@ async function crafterOpenEventStudio(eventId){
  const selected=layout.page.blocks.find(b=>b.enabled!==false)||layout.page.blocks[0];
  crafterStudio={event,page:layout.page,selected:selected?.id||'',
   layer:selected?.banner?.layers?.[0]?.id||'',previewMode:false,
-  snap:true,backgroundDrag:false,dirty:false,prizeFiles:new Map(),rank:1};
+  snap:true,backgroundDrag:false,focus:true,dirty:false,prizeFiles:new Map(),rank:1};
  content.innerHTML='<div class="crafter-event-studio">'+
   '<section class="panel studio-toolbar">'+
   '<button type="button" class="secondary" data-studio-action="back">Назад к событиям</button>'+
   '<div class="studio-heading"><h3>Конструктор · '+studioEsc(event.title)+'</h3>'+
   '<p class="sub">Блоки можно менять местами; каждый баннер имеет собственные слои и GIF.</p></div>'+
+  '<button type="button" class="secondary" data-studio-action="add-banner">+ Баннер</button>'+
+  '<button type="button" class="secondary" data-studio-action="add-gif">+ PNG / GIF</button>'+
+  '<input id="studio-quick-gif" type="file" accept="image/png,image/gif,image/webp,image/jpeg" data-studio-upload="layer" hidden>'+
   '<button type="button" class="primary" data-studio-action="save">Сохранить страницу</button>'+
   '<p role="status" id="studio-status">Настройки загружены</p></section>'+
   '<section class="studio-workspace">'+
@@ -102,6 +105,7 @@ async function crafterOpenEventStudio(eventId){
      '</select></label>'+
      '<label class="studio-toggle"><input type="checkbox" id="studio-snap" checked> Направляющие</label>'+
      '<label class="studio-toggle"><input type="checkbox" id="studio-bgdrag"> Двигать фон</label>'+
+     '<button type="button" class="secondary" data-studio-action="focus">Крупный баннер</button>'+
      '<button type="button" class="secondary" data-studio-action="preview">Без рамок</button>'+
     '</div>'+
     '<div class="studio-preview-frame"><div id="studio-preview"></div></div>'+
@@ -288,6 +292,7 @@ function studioPaintPreview(){
  const root=document.getElementById('studio-preview');if(!root||!crafterStudio)return;
  const s=crafterStudio.page.style;
  const active=crafterStudio.selected;
+ root.classList.toggle('studio-focus-banner',!!crafterStudio.focus&&!!studioBlock()?.banner&&!crafterStudio.previewMode);
  const prevStages=new Map();
  root.querySelectorAll('[data-studio-banner]').forEach(el=>{
     const stage=el.querySelector('.ice-banner-stage');
@@ -322,12 +327,13 @@ function studioPaintPreview(){
    const previous=prevStages.get(block.id);
    if(previous&&previous.signature===signature&&previous.editable===isEditable){
       target.append(previous.stage);
+      previous.stage.querySelectorAll('.ice-banner-layer').forEach(node=>node.classList.toggle('is-selected',isEditable&&node.dataset.bannerLayer===crafterStudio.layer));
    }else{
       iceBannerMount(target,banner,{editable:isEditable,previewOnly:true,
        selected:crafterStudio.layer,serverTime:Date.now()/1000,
        snapEnabled:()=>crafterStudio.snap,
        backgroundDrag:()=>crafterStudio.backgroundDrag,
-       onSelect(id){crafterStudio.layer=id;studioPaintInspector();},
+       onSelect(id){crafterStudio.layer=id;target.querySelectorAll('.ice-banner-layer').forEach(n=>n.classList.toggle('is-selected',n.dataset.bannerLayer===id));studioPaintInspector();},
        onMove(){studioDirty();studioPaintInspector();},
        onCanvasResize(){studioDirty();studioPaintInspector();},
        onBackgroundMove(){studioDirty();studioPaintInspector();},
@@ -534,6 +540,24 @@ function studioClick(event){
     renderAdminEvents();return;
  }
  if(action==='save'){studioSavePage();return;}
+ if(action==='focus'){studio.focus=!studio.focus;studioPaintPreview();return;}
+ if(action==='add-banner'||action==='add-gif'){
+   let block=studioBlock();
+   if(action==='add-banner'||!block?.banner){
+     if(studio.page.blocks.filter(b=>b.type==='banner').length>=4)return toast('Максимум 4 баннера');
+     block=studioFreshBlock('banner');
+     studio.page.blocks.unshift(block);studio.selected=block.id;studio.layer=block.banner.layers[0]?.id||'';
+   }
+   if(action==='add-gif'){
+     if(block.banner.layers.length>=20)return toast('Максимум 20 слоёв');
+     const layer=studioFreshLayer('image');layer.x=53;layer.y=10;layer.w=42;layer.h=80;
+     layer.z=Math.min(99,2+Math.max(0,...block.banner.layers.map(l=>Number(l.z))));
+     block.banner.layers.push(layer);studio.layer=layer.id;
+   }
+   studioDirty();studioPaintList();studioPaintInspector();studioPaintPreview();
+   if(action==='add-gif')document.getElementById('studio-quick-gif')?.click();
+   return;
+ }
  if(action==='link-craft'||action==='link-arena'){studioLinkGlobalBanner(action==='link-craft'?'craft':'arena');return;}
  if(action==='prizes'){studio.selected='prizes';studioPaintList();studioPaintInspector();return;}
  if(action==='style'){studio.selected='global';studioPaintList();studioPaintInspector();return;}
@@ -592,6 +616,7 @@ async function studioUpload(file,where){
  }
  const block=studioBlock();
  const layer=studioLayer();
+ if(!block?.banner||(where==='layer'&&!layer))return toast('Сначала выберите слой PNG/GIF');
  const form=new FormData();form.append('file',file);
  studioSetStatus('Загружаем '+file.name+'…');
  try{
@@ -604,6 +629,7 @@ async function studioUpload(file,where){
     }
     studioDirty();studioPaintInspector();studioPaintPreview();
  }catch(error){studioSetStatus(error.message);toast(error.message);}
+ finally{const quick=document.getElementById('studio-quick-gif');if(quick)quick.value='';}
 }
 async function studioLinkGlobalBanner(kind){
  const studio=crafterStudio,block=studioBlock();
