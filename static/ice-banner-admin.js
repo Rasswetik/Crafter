@@ -142,6 +142,7 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
       <p class="sub">Здесь настраивается событие над ${kind==='craft'?'экраном крафта и карточкой «Крафты» в Hub':'игровой ареной, под инфо и балансом'}. Перетаскивайте элементы на живом предпросмотре: положение, размер, шрифты, PNG/GIF и таймеры сохраняются на сервере.</p>
       <div class="ice-editor-buttons">
         <button type="button" class="secondary" data-ice-save="save">Сохранить</button>
+        ${kind==='craft'?'<button type="button" class="secondary" data-ice-copy-arena>⧉ Скопировать баннер из Ice Arena</button>':''}
         <button type="button" class="primary" data-ice-save="publish">Опубликовать</button>
         <button type="button" class="secondary" data-ice-save="hide">Скрыть с сайта</button>
       </div>
@@ -405,8 +406,19 @@ function iceEditChange(e){
   }
 }
 function iceEditClick(e){
-  const button=e.target.closest('[data-ice-save],[data-ice-add],[data-ice-pick],[data-ice-action],[data-ice-clear],[data-ice-insert],[data-ice-edit-text],[data-ice-toggle-preview],[data-ice-timer-layout]');
+  const button=e.target.closest('[data-ice-save],[data-ice-add],[data-ice-pick],[data-ice-action],[data-ice-clear],[data-ice-insert],[data-ice-edit-text],[data-ice-toggle-preview],[data-ice-timer-layout],[data-ice-copy-arena]');
   if(!button)return;
+  if(button.hasAttribute('data-ice-copy-arena')){
+    if(iceEdit.busy)return;
+    if(!confirm('Заменить баннер Крафтов точной копией Ice Arena: фон, GIF, таймер, размеры, слои и ссылку на событие?'))return;
+    button.disabled=true;iceEdit.busy=true;
+    try{
+      await api('admin/craft/banner/copy-arena',{});
+      toast('Баннер Ice Arena скопирован в Крафты');
+      await renderIceBannerAdmin(document.querySelector('#admin-content'),'craft');
+    }catch(error){toast(error.message);if(button.isConnected)button.disabled=false;iceEdit.busy=false;}
+    return;
+  }
   if(button.dataset.iceTogglePreview==='true'){
     iceEdit.previewMode=!iceEdit.previewMode;
     button.textContent=iceEdit.previewMode?'Вернуться к редактированию':'Предпросмотр без рамок';

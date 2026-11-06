@@ -253,6 +253,21 @@ def install_arena_banner(app, db, auth, audit):
     def admin_craft_banner():
         return {'banner':read_config('craft'),'server_time':int(time.time())}
 
+    @app.post('/api/admin/craft/banner/copy-arena')
+    @auth(admin=True)
+    def copy_ice_banner_to_craft():
+        # Copy the entire visual configuration, including timer, image/GIF IDs,
+        # layer geometry and linked event. Existing media bytes are shared safely.
+        arena=read_config('arena')
+        copy=clean_config({**arena, 'rooms':'all'})
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            db().execute('INSERT INTO settings VALUES(?,?) ON CONFLICT(key) '
+                         'DO UPDATE SET payload=excluded.payload',
+                         (CRAFT_KEY,json.dumps(copy,ensure_ascii=False)))
+        audit('Ice Arena banner copied to Craft')
+        return {'ok':True,'banner':copy}
+
     @app.post('/api/admin/craft/banner')
     @auth(admin=True)
     def save_craft_banner():
