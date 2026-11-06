@@ -13,18 +13,46 @@ const ICE_BANNER_FONTS = {
     display: '"SF Pro Display", -apple-system, Arial, sans-serif',
     futuristic: 'Eurostile, "Trebuchet MS", Arial, sans-serif'
 };
+const ICE_TIMER_FORMATS = [["hh:mm:ss","140:28:01 — часы:минуты:секунды"],["mm:ss","8428:01 — минуты:секунды"],["days","5д 20:28:01 — дни + часы"],["dhms","5д 20ч 28м 01с"],["dhms-en","5D 20H 28M 01S"],["dhm-en","5D 20H 28M"],["hms-en","140H 28M 01S"],["days-only","5 дней"],["hours-only","140 часов"],["minutes-only","8428 минут"],["seconds-only","505681 секунд"]];
 let iceBannerTickInterval = null;
 
 function iceBannerTime(seconds, format) {
     const count = Math.max(0, Math.ceil(seconds));
     const pad = n => String(n).padStart(2, '0');
-    if (format === 'mm:ss') return pad(Math.floor(count / 60)) + ':' + pad(count % 60);
-    const h = Math.floor(count / 3600);
-    if (format === 'days') return Math.floor(h / 24) + 'д ' + pad(h % 24) + ':' +
-        pad(Math.floor(count / 60) % 60) + ':' + pad(count % 60);
-    return pad(h) + ':' + pad(Math.floor(count / 60) % 60) + ':' + pad(count % 60);
+    const h=Math.floor(count/3600), d=Math.floor(count/86400);
+    const hour=pad(h%24), min=pad(Math.floor(count/60)%60), sec=pad(count%60);
+    switch(format){
+      case 'mm:ss': return pad(Math.floor(count/60))+':'+sec;
+      case 'days': return d+'д '+hour+':'+min+':'+sec;
+      case 'dhms': return d+'д '+hour+'ч '+min+'м '+sec+'с';
+      case 'dhms-en': return d+'D '+hour+'H '+min+'M '+sec+'S';
+      case 'dhm-en': return d+'D '+hour+'H '+min+'M';
+      case 'hms-en': return h+'H '+min+'M '+sec+'S';
+      case 'days-only': return d+' дн';
+      case 'hours-only': return h+' ч';
+      case 'minutes-only': return Math.floor(count/60)+' мин';
+      case 'seconds-only': return count+' с';
+      default: return pad(h)+':'+min+':'+sec;
+    }
 }
 
+function iceBannerFitTimer(node){
+    const base=node.dataset.fontBase;
+    const digits=node.querySelector('.ice-clock-digits');
+    if(!base||!digits)return;
+    const key=[node.clientWidth,digits.textContent,base,
+      node.querySelector('.ice-banner-inline')?.textContent||''].join('|');
+    if(node.dataset.fitSignature===key)return;
+    node.dataset.fitSignature=key;
+    node.style.fontSize=base;
+    const available=Math.max(1,node.clientWidth-8);
+    const prefix=node.querySelector('.ice-banner-inline');
+    const wanted=digits.scrollWidth+(prefix?.scrollWidth||0)+10;
+    if(wanted>available){
+      const size=parseFloat(getComputedStyle(node).fontSize)||16;
+      node.style.fontSize=Math.max(10,Math.floor(size*available/wanted))+'px';
+    }
+}
 function iceBannerUpdateClocks() {
     document.querySelectorAll('.ice-banner-countdown[data-end]').forEach(node => {
         const offset=Number(node.dataset.offset||0);
@@ -36,6 +64,7 @@ function iceBannerUpdateClocks() {
         const timer=iceBannerTime(Math.max(0,target-now),node.dataset.format);
         const digits=node.querySelector('.ice-clock-digits');
         if(digits&&digits.textContent!==timer)digits.textContent=timer;
+        iceBannerFitTimer(node);
         node.setAttribute('aria-label',(mode==='start'?'До начала: ':
             mode==='end'?'До окончания: ':'Событие завершено: ')+timer);
     });
@@ -267,6 +296,7 @@ function iceBannerMount(container, banner, options = {}) {
         el.style.fontWeight = layer.font_weight;
         el.style.fontSize = 'clamp(9px, ' + Number(layer.font_size) / 4 + 'cqw, ' +
             Number(layer.font_size) + 'px)';
+        if(layer.type==='timer')el.dataset.fontBase=el.style.fontSize;
         el.style.webkitTextStroke = Math.max(0, Math.min(3, Number(layer.stroke_width) || 0)) +
             'px ' + layer.color;
         el.style.borderRadius = Number(layer.radius) + 'px';
@@ -308,7 +338,7 @@ function iceBannerMount(container, banner, options = {}) {
             if (layer.text) iceBannerRichText(el, layer.text + ' ');
             const digits = document.createElement('span');
             digits.className = 'ice-clock-digits';
-            digits.textContent = '00:00:00';
+            digits.textContent = iceBannerTime(Math.max(0,Number(banner.end_at||0)-Date.now()/1000),layer.format);
             el.append(digits);
         } else {
             iceBannerRichText(el, layer.text || '');
