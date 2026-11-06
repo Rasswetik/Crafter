@@ -19,6 +19,7 @@ METRICS = {
     'arena_wins': ('arena_result', 'Победы в Arena', 'побед'),
     'arena_winnings': ('arena_result', 'Выиграно GRAM', 'GRAM'),
     'craft_wins': ('craft', 'Успешные крафты', 'крафтов'),
+    'season_points': ('season', 'Общий сезон: Arena + Крафт', 'очков'),
     'sales_volume': ('sale', 'Продажи на маркете', 'GRAM'),
 }
 MONEY_METRICS = {'arena_winnings', 'sales_volume'}
@@ -124,6 +125,9 @@ def install_events(app, db, auth, audit, record=None, canonical_name=None,
 
     def ranking(event, limit=100):
         metric = event['metric']
+        if metric == 'season_points':
+            from seasons import season_ranking
+            return season_ranking(db, event, limit)
         kind = METRICS[metric][0]
         end = min(int(time.time()), int(event['end_at']))
         if end < event['start_at']:
@@ -163,6 +167,9 @@ def install_events(app, db, auth, audit, record=None, canonical_name=None,
             score = value.quantize(Decimal('0.01')) if metric in MONEY_METRICS else value
             result.append({'rank': index, 'score': format(score, 'f'), **players[uid]})
         return result
+
+    from seasons import install_seasons
+    install_seasons(app, db, auth, audit)
 
     if all(callback is not None for callback in
            (record, canonical_name, available_lot, settle_lot, notify_purchase, notify_sale)):
@@ -211,6 +218,15 @@ def install_events(app, db, auth, audit, record=None, canonical_name=None,
             abort(400, description='Название: до 90 символов, описание: до 700')
         if metric not in METRICS or not HEX.fullmatch(accent):
             abort(400, description='Выберите показатель и цвет')
+        if metric == 'season_points' and (
+                not event_id or not db().execute(
+                    'SELECT 1 FROM crafter_event_seasons WHERE season_event_id=?',
+                    (event_id,)).fetchone()):
+            abort(400, description='Создайте объединённый сезон через управление сезонами')
+        if event_id and metric != 'season_points' and db().execute(
+                'SELECT 1 FROM crafter_event_seasons WHERE season_event_id=?',
+                (event_id,)).fetchone():
+            abort(409, description='Тип общего сезона нельзя изменить')
         if not 1577836800 <= start_at < end_at <= 4102444800:
             abort(400, description='Проверьте даты начала и окончания')
         if not 0 <= sort_order <= 999:
@@ -331,11 +347,23 @@ def install_events(app, db, auth, audit, record=None, canonical_name=None,
     @auth(admin=True)
     def delete_event(event_id):
         validate_id(event_id)
+        active = db().execute('SELECT payload FROM settings WHERE key=?',
+                              ('crafter_unified_season_v1',)).fetchone()
+        if active:
+            try:
+                if json.loads(active['payload']).get('season_event_id') == event_id:
+                    abort(409, description='Сначала отвяжите активный сезон от баннеров')
+            except (ValueError, TypeError):
+                pass
+        if db().execute('SELECT 1 FROM crafter_event_seasons WHERE arena_event_id=? OR craft_event_id=?',
+                        (event_id, event_id)).fetchone():
+            abort(409, description='Лидерборд используется в общем сезоне и не может быть удалён')
         with db():
             db().execute('BEGIN IMMEDIATE')
             db().execute('DELETE FROM crafter_event_prize_images WHERE event_id=?', (event_id,))
             db().execute('DELETE FROM crafter_event_prize_gifs WHERE event_id=?', (event_id,))
             db().execute('DELETE FROM crafter_event_pages WHERE event_id=?', (event_id,))
+            db().execute('DELETE FROM crafter_event_seasons WHERE season_event_id=?', (event_id,))
             if not db().execute('DELETE FROM crafter_events WHERE id=?', (event_id,)).rowcount:
                 abort(404, description='Событие не найдено')
         audit('Crafter leaderboard event deleted')
