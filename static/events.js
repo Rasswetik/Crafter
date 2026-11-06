@@ -77,11 +77,14 @@ function crafterEventLeader(player,rank,prize) {
     const avatar=photo?'<img src="'+esc(photo)+'" loading="lazy" alt="">':
         esc(Array.from(name)[0]||'?');
     const score=player?esc(player.score)+' <small>'+esc(crafterCurrentEvent.score_unit)+'</small>':'—';
+    const breakdown=player&&player.arena_score!=null&&player.craft_score!=null?
+        '<small class="crafter-season-breakdown">Arena: '+esc(player.arena_score)+
+        ' · Крафты: '+esc(player.craft_score)+'</small>':'';
     return '<article class="crafter-event-leader'+(rank<=3?' crafter-event-podium':'')+'">'+
         '<span class="crafter-event-rank">'+rank+'</span>'+
         '<span class="crafter-event-avatar">'+avatar+'</span>'+
         '<div class="crafter-event-leader-info"><strong>'+esc(name)+'</strong>'+
-        '<span class="crafter-event-score">'+score+'</span></div>'+
+        '<span class="crafter-event-score">'+score+'</span>'+breakdown+'</div>'+
         (prize?crafterEventPrizeVisual(prize):'')+'</article>';
 }
 async function renderEventsPage() {
