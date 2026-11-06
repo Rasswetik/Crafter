@@ -122,8 +122,8 @@ function iceBannerDragLayer(el,layer,stage,event,options) {
             y=clamp(initial.y+dy,0,100-initial.h);
             const snapping=(options.snapEnabled?.()??true)&&!e.altKey;
             if(snapping){
-                const sx=iceBannerSnap(x,w,xTargets,750/Math.max(140,rect.width));
-                const sy=iceBannerSnap(y,h,yTargets,750/Math.max(70,rect.height));
+                const sx=iceBannerSnap(x,w,xTargets,500/Math.max(140,rect.width));
+                const sy=iceBannerSnap(y,h,yTargets,500/Math.max(70,rect.height));
                 if(sx.guide!==null){
                     x=clamp(sx.value,0,100-w);
                     guides.x.hidden=false;guides.x.style.left=sx.guide+'%';
@@ -174,7 +174,7 @@ function iceBannerResizeCanvas(stage,banner,handle,options){
         handle.setPointerCapture(e.pointerId);
         const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
         const move=event=>{
-            const delta=(event.clientX-down.x)/parentWidth*200;
+            const delta=(event.clientX-down.x)/parentWidth*100;
             if(edge.includes('right'))banner.width_pct=Math.round(clamp(initialWidth+delta,50,100));
             if(edge.includes('left'))banner.width_pct=Math.round(clamp(initialWidth-delta,50,100));
             if(edge.includes('bottom'))banner.height=Math.round(clamp(initialHeight+event.clientY-down.y,70,280));
