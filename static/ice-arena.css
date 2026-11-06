@@ -204,3 +204,21 @@
 .ice-banner-editable .ice-banner-type-timer.is-selected::after{border-color:rgba(140,219,255,.48)}
 /* No outlines or decorative lines survive in the real published banner. */
 .ice-banner-stage:not(.ice-banner-editable) .ice-banner-layer{outline:0!important;border:0!important;box-shadow:none}
+
+/* Precise WYSIWYG resizing, with larger handles in editing mode only. */
+.ice-banner-stage.ice-banner-editable{overflow:visible;touch-action:none}
+.ice-banner-editable .ice-banner-layer-edit.is-selected{outline:1px solid #6bcaff;outline-offset:0}
+.ice-banner-editable .ice-banner-handle{width:16px;height:16px;border-radius:4px}
+.ice-banner-editable .ice-banner-handle-nw{top:-7px;left:-7px}
+.ice-banner-editable .ice-banner-handle-n{top:-7px}
+.ice-banner-editable .ice-banner-handle-ne{top:-7px;right:-7px}
+.ice-banner-editable .ice-banner-handle-e{right:-7px}
+.ice-banner-editable .ice-banner-handle-se{bottom:-7px;right:-7px}
+.ice-banner-editable .ice-banner-handle-s{bottom:-7px}
+.ice-banner-editable .ice-banner-handle-sw{bottom:-7px;left:-7px}
+.ice-banner-editable .ice-banner-handle-w{left:-7px}
+.ice-banner-editable .ice-banner-canvas-handle{width:21px;height:21px;z-index:130}
+.ice-banner-editable .ice-banner-canvas-left{left:-10px}
+.ice-banner-editable .ice-banner-canvas-right{right:-10px}
+.ice-banner-editable .ice-banner-canvas-bottom{bottom:-10px}
+.ice-banner-editable .ice-banner-canvas-right-bottom{right:-10px;bottom:-10px}
