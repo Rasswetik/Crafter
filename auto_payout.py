@@ -261,6 +261,15 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
             and (config["network"]!="mainnet" or
                  os.getenv("CRAFTER_PAYOUT_MAINNET_UNLOCK")=="YES_I_ACCEPT_REAL_PAYOUTS")
         )
+        if configured:
+            try:
+                from tonsdk.contract.wallet import Wallets, WalletVersionEnum
+                _, _, _, signer_wallet=Wallets.from_mnemonics(
+                    os.getenv("CRAFTER_PAYOUT_MNEMONIC", "").split(),
+                    WalletVersionEnum.v4r2)
+                configured=signer_wallet.address.to_string(False)==addr
+            except Exception:
+                configured=False
         with db():
             db().execute("""INSERT INTO ton_auto_worker_health
                 (singleton,checked_at,ready,network,address,state)
