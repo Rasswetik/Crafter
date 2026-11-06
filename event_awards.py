@@ -10,7 +10,7 @@ from flask import request, abort, g
 
 
 def install_event_awards(app, db, auth, audit, ranking, record, canonical_name,
-                         available_lot, settle_lot, notify_purchase):
+                         available_lot, settle_lot, notify_purchase, notify_sale):
     with app.app_context():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS crafter_event_awards (
@@ -104,7 +104,14 @@ def install_event_awards(app, db, auth, audit, ranking, record, canonical_name,
         if not isinstance(lot_id,str) or not isinstance(expected,str):
             abort(400,description='Запросите актуальную цену перед выдачей')
         payer=int(g.user['id'])
+        try:
+            requested_price=Decimal(expected)
+            if not requested_price.is_finite() or requested_price<=0:
+                raise ValueError()
+        except (InvalidOperation,ValueError):
+            abort(400,description='Некорректная подтверждённая цена')
         trade=None
+        seller_id=None
         with db():
             db().execute('BEGIN IMMEDIATE')
             existing=receipt(event_id,place)
@@ -115,7 +122,7 @@ def install_event_awards(app, db, auth, audit, ranking, record, canonical_name,
             price,lot=cheapest(prize,winner_id)
             if lot is None:
                 abort(409,description='Подходящий NFT больше не продаётся')
-            if lot['id']!=lot_id or str(price)!=str(Decimal(expected)):
+            if lot['id']!=lot_id or price!=requested_price:
                 abort(409,description='Самый дешёвый лот или его цена изменились. Обновите предложение')
             lot=available_lot(lot_id,winner_id)
             balance_row=db().execute("SELECT balance FROM demo_accounts WHERE user_id=?",
@@ -128,6 +135,7 @@ def install_event_awards(app, db, auth, audit, ranking, record, canonical_name,
             db().execute("""INSERT INTO demo_accounts(user_id,balance) VALUES(?,?)
                 ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance""",
                 (payer,str(balance-price)))
+            seller_id=int(lot['seller_id'])
             trade=settle_lot(lot,winner_id,'event-award',price)
             gift=trade['gift']
             db().execute("""INSERT INTO crafter_event_awards
@@ -136,10 +144,17 @@ def install_event_awards(app, db, auth, audit, ranking, record, canonical_name,
                 (event_id,place,winner_id,lot['gift_id'],lot_id,str(price),payer,int(time.time())))
             record('gift_received',{'gift':gift,'event_id':event_id,'place':place,
                                     'price':str(price),'scope':'event_award'},uid=winner_id)
+            record('event_award_paid',{'gift':gift,'event_id':event_id,
+                                       'place':place,'user_id':winner_id,
+                                       'gram':'-'+str(price)},uid=payer)
         audit('Event NFT award purchased: '+event_id+' rank '+str(place))
         try:
             notify_purchase(winner_id,trade)
         except Exception:
-            app.logger.warning('Event award notification failed')
+            app.logger.warning('Event award winner notification failed')
+        try:
+            notify_sale(seller_id,trade)
+        except Exception:
+            app.logger.warning('Event award seller notification failed')
         return {'ok':True,'status':'delivered','gift':trade['gift'],
                 'price_gram':str(price),'winner_id':winner_id}
