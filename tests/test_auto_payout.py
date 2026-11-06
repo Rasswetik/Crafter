@@ -57,6 +57,8 @@ def test_withdrawals_queue_auto_only_after_policy_enabled(client, monkeypatch):
     import wallet
     admin=signed(42)
     client.get('/api/me',headers=admin)
+    with sqlite3.connect(client.application.config['DATABASE']) as testdb:
+        testdb.execute("UPDATE demo_accounts SET balance='20' WHERE user_id=42")
     sender='0:'+'1'*64
     receiver='0:'+'2'*64
     monkeypatch.setattr(wallet, 'rpc',
