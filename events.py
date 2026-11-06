@@ -378,3 +378,6 @@ def install_events(app, db, auth, audit):
         response.headers['X-Content-Type-Options'] = 'nosniff'
         return response
 
+
+    # Expose the same finalized ranking to the award service.
+    return listing, ranking
