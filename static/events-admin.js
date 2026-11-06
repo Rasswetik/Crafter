@@ -10,10 +10,43 @@ function crafterEventAdminDate(unix) {
         day:'2-digit',month:'short',year:'numeric'
     });
 }
+let crafterAdminSeasons={active:null,seasons:[]};
+
+function crafterSeasonPanel(events, seasons){
+    const arena=events.filter(item=>item.metric==='arena_wins');
+    const craft=events.filter(item=>item.metric==='craft_wins');
+    const linked=(seasons.seasons||[]).find(item=>item.active);
+    const label=id=>events.find(e=>e.id===id)?.title||'Ранее выбранный лидерборд';
+    const options=items=>items.map(item=>
+        '<option value="'+esc(item.id)+'">'+esc(item.title)+' · '+crafterEventAdminDate(item.start_at)+
+        ' – '+crafterEventAdminDate(item.end_at)+'</option>').join('');
+    return '<section class="panel crafter-unified-season-panel">'+
+        '<div class="crafter-season-heading"><span class="crafter-season-symbol">✦</span>'+
+        '<div><small>ARENA × CRAFT</small><h3>Общий сезон</h3></div></div>'+
+        '<p class="sub">Объедините два существующих лидерборда в один рейтинг. Победа в Arena и успешный крафт дают по 1 очку. Для каждой игры учитывается период выбранного ивента; история и призы старых событий сохраняются.</p>'+
+        (linked?'<div class="crafter-season-active"><strong>'+esc(linked.title)+'</strong>'+
+          '<span>'+esc(label(linked.arena_event_id))+' + '+esc(label(linked.craft_event_id))+'</span>'+
+          '<small>Баннеры Arena и Крафтов привязаны к одному сезону.</small></div>'+
+          '<div class="crafter-season-buttons">'+
+          '<button type="button" class="primary" data-season-edit="'+esc(linked.season_event_id)+'">Открыть сезон и призы</button>'+
+          '<button type="button" class="secondary" data-season-unlink="'+esc(linked.season_event_id)+'">Разъединить баннеры</button></div>':
+          '<form class="crafter-season-form" data-season-form>'+
+          '<label>Название сезона<input class="field" name="title" maxlength="90" required value="Общий сезон Arena + Крафты"></label>'+
+          '<label>Лидерборд Arena<select class="field" name="arena_event_id" required>'+
+          (arena.length?options(arena):'<option value="">Нет лидербордов по победам Arena</option>')+'</select></label>'+
+          '<label>Лидерборд Крафтов<select class="field" name="craft_event_id" required>'+
+          (craft.length?options(craft):'<option value="">Нет лидербордов по успешным крафтам</option>')+'</select></label>'+
+          '<p class="crafter-season-preview">Один сезон → одна таблица игроков → общие NFT-награды. Изображения обоих баннеров останутся прежними.</p>'+
+          '<button type="submit" class="primary"'+(!arena.length||!craft.length?' disabled':'')+'>Объединить лидерборды и оба баннера</button>'+
+          ((!arena.length||!craft.length)?'<p class="sub">Сначала создайте отдельные события с показателями «Победы в Arena» и «Успешные крафты».</p>':'')+
+          '</form>')+
+        '</section>';
+}
+
 async function renderAdminEvents(content = document.querySelector('#admin-content')) {
-    const data = await api('admin/events');
+    const [data,seasons]=await Promise.all([api('admin/events'),api('admin/seasons')]);
     if (!content || !content.isConnected) return;
-    crafterAdminEvents = data;
+    crafterAdminEvents=data;crafterAdminSeasons=seasons;
     const status = {active:'Идёт',upcoming:'Скоро',finished:'Завершён'};
     content.innerHTML = `<div class="crafter-events-admin">
         <section class="panel">
@@ -23,6 +56,7 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
             <p class="sub">Создавайте события с PNG-обложками и изображениями наград. Укажите сроки, цвет, показатель топа и видимость. Результаты строятся по реальным операциям Crafter.</p>
             <button type="button" class="primary crafter-event-add" data-new>+ Создать ивент</button>
         </section>
+        ${crafterSeasonPanel(data.events,seasons)}
         <section class="panel">
             <h3>События <small>${data.events.length}</small></h3>
             <div class="crafter-admin-event-list">
@@ -42,6 +76,37 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
         <section class="panel crafter-event-editor" data-event-editor hidden></section>
     </div>`;
     content.querySelector('[data-new]').onclick = () => crafterEditEvent(null);
+    const seasonForm=content.querySelector('[data-season-form]');
+    seasonForm?.addEventListener('submit',async event=>{
+        event.preventDefault();
+        if(!seasonForm.reportValidity())return;
+        const data=new FormData(seasonForm);
+        const payload={title:String(data.get('title')||'').trim(),
+            arena_event_id:String(data.get('arena_event_id')||''),
+            craft_event_id:String(data.get('craft_event_id')||'')};
+        if(!confirm('Создать общий сезон? Будет один рейтинг и общие баннеры Arena и Крафтов. Старые рейтинги останутся доступны.'))return;
+        const button=seasonForm.querySelector('[type="submit"]');button.disabled=true;
+        try{
+            const result=await api('admin/seasons/merge',payload);
+            toast('Сезон создан. Оба баннера ведут к общему топу.');
+            await renderAdminEvents(content);
+            await crafterOpenEventPrizes(result.id);
+        }catch(error){toast(error.message);if(button.isConnected)button.disabled=false;}
+    });
+    content.querySelectorAll('[data-season-edit]').forEach(button=>{
+        button.onclick=()=>crafterOpenEventPrizes(button.dataset.seasonEdit);
+    });
+    content.querySelectorAll('[data-season-unlink]').forEach(button=>{
+        button.onclick=async()=>{
+            if(!confirm('Разъединить баннеры? Старый сезон, его рейтинг и награды останутся доступны.'))return;
+            button.disabled=true;
+            try{
+                await api('admin/seasons/unlink',{season_event_id:button.dataset.seasonUnlink});
+                toast('Баннеры разъединены, настройки предыдущих событий восстановлены.');
+                await renderAdminEvents(content);
+            }catch(error){toast(error.message);if(button.isConnected)button.disabled=false;}
+        };
+    });
     content.querySelectorAll('[data-event-prizes]').forEach(button=>{
         button.onclick=()=>crafterOpenEventPrizes(button.dataset.eventPrizes);
     });
@@ -76,7 +141,7 @@ function crafterEditEvent(item) {
             </label>
             <div class="crafter-event-form-grid">
                 <label>Показатель рейтинга<select class="field" name="metric">
-                    ${crafterAdminEvents.metrics.map(metric => `<option value="${esc(metric.value)}" ${metric.value===event.metric?'selected':''}>${esc(metric.label)}</option>`).join('')}
+                    ${crafterAdminEvents.metrics.filter(metric=>metric.value!=='season_points'||item?.metric==='season_points').map(metric => `<option value="${esc(metric.value)}" ${metric.value===event.metric?'selected':''}>${esc(metric.label)}</option>`).join('')}
                 </select></label>
                 <label>Цвет кнопок и оформления
                     <input type="color" name="accent" value="${esc(event.accent)}">
