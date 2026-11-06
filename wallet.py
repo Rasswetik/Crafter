@@ -477,4 +477,7 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
         return {'status':'confirmed'}
 
     from auto_payout import install_auto_payout
-    install_auto_payout(app, db, auth, audit, config, storage, rpc, confirmed_message)
+    install_auto_payout(app, db, auth, audit, config, storage,
+                        lambda network, method, params, key: rpc(network, method, params, key),
+                        lambda transactions, recipient, sender, nano, memo, created:
+                            confirmed_message(transactions, recipient, sender, nano, memo, created))
