@@ -82,8 +82,10 @@ function crafterLeaderCard(player,rank,prize,block,event,mode='list',options={})
 }
 function crafterLeaderboardHTML(leaders,prizes,block,event,options={}){
  const n=Math.min(100,Math.max(1,Number(block.rank_count)||10));
- const playerMap=leaders instanceof Map?leaders:new Map((leaders||[]).map(p=>[Number(p.rank),p]));
- const prizeMap=prizes instanceof Map?prizes:new Map((prizes||[]).map(p=>[Number(p.place),p]));
+ const playerMap=leaders&&typeof leaders.get==='function'&&typeof leaders.entries==='function'
+   ?leaders:new Map((leaders||[]).map(p=>[Number(p.rank),p]));
+ const prizeMap=prizes&&typeof prizes.get==='function'&&typeof prizes.entries==='function'
+   ?prizes:new Map((prizes||[]).map(p=>[Number(p.place),p]));
  const mode=block.leader_mode==='podium'?'podium':'list';
  const render=(rank,typ)=>{
    const player=playerMap.get(rank),prize=prizeMap.get(rank);
