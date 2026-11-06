@@ -8,12 +8,12 @@ let walletHistoryItems = [];
 let walletHistoryCursor;
 const walletHistoryFiltersState = {};
 const walletGroups = {
-    balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment','stake_claim','arena_stake','arena_refund','arena_result','arena_bot_fund']},
+    balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment','stake_claim','event_award_paid','arena_stake','arena_refund','arena_result','arena_bot_fund']},
     gifts: {label:'Подарки', kinds:['buy','sale','sell','listing_price','unlist','withdraw','transfer','craft','gift_granted','gift_received','gift_withdraw_requested','gift_withdraw_failed']},
     offers: {label:'Офферы', kinds:['offer_received','offer_created','offer_cancelled','offer_withdrawn','offer_accepted']},
 };
 const walletEventNames = {
-    deposit:'Пополнение', withdraw_funds:'Вывод', balance_adjustment:'Корректировка баланса', stake_claim:'Награда стейкинга',
+    deposit:'Пополнение', withdraw_funds:'Вывод', balance_adjustment:'Корректировка баланса', stake_claim:'Награда стейкинга', event_award_paid:'Покупка приза лидерборда',
     arena_stake:'Ставка Arena', arena_refund:'Возврат ставки Arena', arena_result:'Результат Arena', arena_bot_fund:'Пополнение банка бота Arena',
     buy:'Покупка подарка', sale:'Продажа подарка', sell:'Выставление на продажу', listing_price:'Изменение цены',
     unlist:'Снятие с продажи', withdraw:'Вывод подарка', gift_withdraw_requested:'Заявка на вывод NFT',
