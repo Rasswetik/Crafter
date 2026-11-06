@@ -60,6 +60,8 @@ def test_copy_ice_banner_to_craft_includes_layers_and_media(client):
       background_asset='/media/ice-banner/'+'c'*32+'.gif',
       layers=[{**source['layers'][0], 'text':'Snow event' }])
     with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO ice_banner_assets(id,mime,body,created_at) VALUES(?,?,?,?)",
+                   ('c'*32,'image/gif',b'GIF89a',int(time.time())))
         db.execute("INSERT INTO settings(key,payload) VALUES(?,?)",
                    (CONFIG_KEY,json.dumps(source)))
     endpoint='/api/admin/craft/banner/copy-arena'
