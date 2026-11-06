@@ -115,9 +115,11 @@ def create_app(config=None):
                    'price':str(Decimal(str(g['price'])).quantize(Decimal('0.01'))),
                    'local_price':str(Decimal(str(g['price'])).quantize(Decimal('0.01')))} for g in result['gifts']],
                 'purchase_mode':'local',
-                'warning':result.get('warning') or (
-                   'Котировки внешнего источника доступны в TON; цены GRAM от Portals требуют Partner API.'
-                   if result.get('source')=='thermos' else '')}
+                'warning':(
+                   'Внешние котировки указаны в TON (Thermos), а не в GRAM Portals. '
+                   'Чтобы видеть цены GRAM из Portals, нужен доступ к его API.'
+                   + (' ' + result['warning'] if result.get('warning') else '')
+                   if result.get('source')=='thermos' else result.get('warning',''))}
     # Avoid writing the users, avatars and balance tables on every GET poll.
     # Mutating requests still refresh the identity before changing balances.
     auth_touch = {}
