@@ -107,7 +107,17 @@ def create_app(config=None):
     def local_market_rows(result):
         # Local test prices use the source numeric amount in app GRAM; no FX or external purchase.
         result = hide_claimed_market_gifts(result)
-        return {**result,'price_unit':'GRAM','gifts':[{**g,'source_price_unit':g.get('source_price_unit',g.get('price_unit','GRAM')),'price_unit':'GRAM','source_price':g.get('source_price',g['price']),'price':str(Decimal(str(g['price'])).quantize(Decimal('0.01'))),'local_price':str(Decimal(str(g['price'])).quantize(Decimal('0.01')))} for g in result['gifts']],'purchase_mode':'local'}
+        return {**result,'price_unit':'GRAM',
+                'market_price_unit':result.get('price_unit','TON'),
+                'market_price_source':result.get('source','unknown'),
+                'gifts':[{**g,'source_price_unit':g.get('source_price_unit',g.get('price_unit','GRAM')),
+                   'price_unit':'GRAM','source_price':g.get('source_price',g['price']),
+                   'price':str(Decimal(str(g['price'])).quantize(Decimal('0.01'))),
+                   'local_price':str(Decimal(str(g['price'])).quantize(Decimal('0.01')))} for g in result['gifts']],
+                'purchase_mode':'local',
+                'warning':result.get('warning') or (
+                   'Котировки внешнего источника доступны в TON; цены GRAM от Portals требуют Partner API.'
+                   if result.get('source')=='thermos' else '')}
     # Avoid writing the users, avatars and balance tables on every GET poll.
     # Mutating requests still refresh the identity before changing balances.
     auth_touch = {}
@@ -214,7 +224,9 @@ def create_app(config=None):
         return result
     def normalized(n):
         attrs={a.get('type','').lower():a.get('value',a.get('name','')) for a in n.get('attributes',[]) if isinstance(a,dict)}
-        return dict(id=n['id'],name=n.get('name','Gift'),collection_id=n.get('collection_id',''),model=attrs.get('model',''),symbol=attrs.get('symbol',attrs.get('pattern','')),backdrop=attrs.get('backdrop',''),price=str(n.get('price') or n.get('floor_price') or '0'),number=n.get('external_collection_number',''),image=n.get('photo_url',''))
+        # The official partner feed quotes real listing/floor prices in GRAM.
+        price=n.get('price') or n.get('floor_price') or '0'
+        return dict(id=n['id'],name=n.get('name','Gift'),collection_id=n.get('collection_id',''),model=attrs.get('model',''),symbol=attrs.get('symbol',attrs.get('pattern','')),backdrop=attrs.get('backdrop',''),price=str(price),price_unit='GRAM',source_price_unit='GRAM',floor_price=n.get('floor_price'),number=n.get('external_collection_number',''),image=n.get('photo_url',''))
     @app.get('/')
     def index():return render_template('index.html')
     @app.get('/admin')
@@ -488,14 +500,10 @@ def create_app(config=None):
             if previous and time.time()-updated<60:return local_market_rows(previous)
             try:
                 rows,_=cached('thermos:collections',[])
-                if multi_collection or multi_trait:
-                    result = thermos.gifts(params, rows or public_catalog())
-                else:
-                    try:
-                        import portals_public
-                        result=portals_public.listings(params,rows)
-                    except Exception:
-                        result=thermos.gifts(params,rows)
+                # Public /api/nfts/search currently requires a Portals token.
+                # Without a partner key, use an actual public market data source
+                # instead of retrying an unauthenticated request for every load.
+                result=thermos.gifts(params,rows or public_catalog())
                 result['next_offset']=max(0,int(params.get('offset',0)))+20
                 result['has_more']=len(result['gifts'])>=20
                 db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',(key,json.dumps(result),int(time.time())));db().commit()
