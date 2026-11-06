@@ -21,6 +21,7 @@ POLICY = {
     "max_ton": "0.25",
     "daily_ton": "1",
     "reserve_ton": "0.50",
+    "payout_address": "",
 }
 ATTEMPT_ACTIVE = ("prepared", "broadcast", "review")
 ATTEMPT_FINAL = ("confirmed",)
@@ -51,6 +52,14 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
         );
         CREATE INDEX IF NOT EXISTS ton_auto_payout_status
         ON ton_auto_payouts(status,created);
+        CREATE TABLE IF NOT EXISTS ton_auto_worker_health (
+            singleton INTEGER PRIMARY KEY,
+            checked_at INTEGER NOT NULL,
+            ready INTEGER NOT NULL,
+            network TEXT NOT NULL,
+            address TEXT NOT NULL,
+            state TEXT NOT NULL
+        );
         """)
 
     def system_audit(message):
@@ -70,6 +79,23 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
         except (ValueError, TypeError):
             return dict(POLICY)
 
+    def health():
+        row = db().execute("""SELECT checked_at,ready,network,address,state
+            FROM ton_auto_worker_health WHERE singleton=1""").fetchone()
+        if not row:
+            return {"connected":False,"ready":False,"last_seen":None,"state":"not_connected"}
+        fresh = int(time.time()) - int(row["checked_at"]) < 600
+        p = policy()
+        cfg = wallet_config()
+        configured = p.get("payout_address") or os.getenv("CRAFTER_PAYOUT_ADDRESS","")
+        return {
+            "connected":fresh,
+            "ready":bool(fresh and row["ready"] and
+                         row["network"]==cfg["network"] and row["address"]==configured),
+            "last_seen":int(row["checked_at"]),
+            "state":row["state"] if fresh else "stale"
+        }
+
     def public_state():
         p = policy()
         cfg = wallet_config()
@@ -79,10 +105,10 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
             "policy": p,
             "network": cfg["network"],
             "durable_db": bool(app.config["DATABASE_URL"]),
-            "operator_address": os.environ.get("CRAFTER_PAYOUT_ADDRESS", ""),
+            "operator_address": p.get("payout_address") or os.environ.get("CRAFTER_PAYOUT_ADDRESS", ""),
             "payouts": [dict(row) for row in attempts],
-            "worker_configured_on_web": False,
-            "instructions": "Настройте ключи только в отдельном Render Cron Job.",
+            "worker": health(),
+            "instructions": "Настройте секреты только в отдельном Render Cron Job.",
         }
 
     @app.get("/api/admin/tonconnect/auto")
@@ -106,8 +132,28 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
             abort(400, description="Лимит операции превышает суточный лимит")
         if enabled and not app.config["DATABASE_URL"]:
             abort(409, description="Для автовыплат нужен общий постоянный PostgreSQL")
+        addr = data.get("payout_address", policy().get("payout_address",""))
+        if not isinstance(addr,str) or len(addr)>128:
+            abort(400, description="Некорректный адрес платёжного кошелька")
+        if addr.strip():
+            from tonsdk.utils import Address
+            try:
+                addr = Address(addr.strip()).to_string(False)
+            except Exception:
+                abort(400, description="Укажите настоящий TON-адрес платёжного кошелька")
+        else:
+            addr = ""
+        old = policy()
+        if addr != old.get("payout_address",""):
+            outstanding=db().execute("""SELECT 1 FROM ton_auto_payouts
+                WHERE status IN ('prepared','broadcast','review') LIMIT 1""").fetchone()
+            if outstanding:
+                abort(409,description="Нельзя менять кошелёк при незавершённом переводе")
+        if enabled and not (addr or os.getenv("CRAFTER_PAYOUT_ADDRESS","")):
+            abort(409,description="Сначала укажите адрес отдельного платёжного кошелька")
         p = {"enabled": enabled, "max_ton": str(per),
-             "daily_ton": str(daily), "reserve_ton": str(reserve)}
+             "daily_ton": str(daily), "reserve_ton": str(reserve),
+             "payout_address": addr}
         with db():
             db().execute("""INSERT INTO settings(key,payload) VALUES(?,?)
                 ON CONFLICT(key) DO UPDATE SET payload=excluded.payload""",
@@ -131,7 +177,7 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
         from tonsdk.contract.wallet import Wallets, WalletVersionEnum
         _, _, _, wallet = Wallets.from_mnemonics(seed, WalletVersionEnum.v4r2)
         addr = wallet.address.to_string(False)
-        configured = os.getenv("CRAFTER_PAYOUT_ADDRESS", "")
+        configured = policy().get("payout_address") or os.getenv("CRAFTER_PAYOUT_ADDRESS", "")
         if not configured or addr != configured:
             raise RuntimeError("Derived payout address differs from the approved address")
         return wallet, addr
@@ -204,10 +250,33 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
             return {"status": "needs_review", "id": wid}
         return {"status": "awaiting_chain", "id": wid}
 
+    def worker_probe(config):
+        p=policy()
+        addr=p.get("payout_address") or os.getenv("CRAFTER_PAYOUT_ADDRESS","")
+        configured=(
+            os.getenv("CRAFTER_PAYOUT_EXECUTE")=="1"
+            and len(os.getenv("CRAFTER_PAYOUT_MNEMONIC","").split())==24
+            and os.getenv("CRAFTER_PAYOUT_NETWORK")==config["network"]
+            and bool(addr)
+            and (config["network"]!="mainnet" or
+                 os.getenv("CRAFTER_PAYOUT_MAINNET_UNLOCK")=="YES_I_ACCEPT_REAL_PAYOUTS")
+        )
+        with db():
+            db().execute("""INSERT INTO ton_auto_worker_health
+                (singleton,checked_at,ready,network,address,state)
+                VALUES(1,?,?,?,?,?)
+                ON CONFLICT(singleton) DO UPDATE
+                SET checked_at=excluded.checked_at,ready=excluded.ready,
+                    network=excluded.network,address=excluded.address,
+                    state=excluded.state""",
+                (int(time.time()), int(configured),config["network"],addr,
+                 "configured" if configured else "needs_setup"))
+
     def run_once():
         if not app.config["DATABASE_URL"]:
             return {"status": "blocked", "reason": "PostgreSQL is required"}
         config = wallet_config()
+        worker_probe(config)
         # Reconcile an already sent payout even after emergency pause.
         pending = reconcile_one()
         if pending is not None:
@@ -280,6 +349,53 @@ def install_auto_payout(app, db, auth, audit, wallet_config, storage, rpc, verif
                 (label, int(time.time()), wid))
         system_audit("Automatic payout submitted for chain confirmation: " + wid)
         return {"status": label, "id": wid}
+
+    @app.get("/api/admin/tonconnect/auto/preflight")
+    @auth(admin=True)
+    def auto_payout_preflight():
+        """Read-only checks: no signature, no broadcast and no balance debit."""
+        cfg=wallet_config()
+        p=policy()
+        addr=p.get("payout_address") or os.getenv("CRAFTER_PAYOUT_ADDRESS","")
+        checks={
+            "database": bool(app.config["DATABASE_URL"]),
+            "wallet_address":bool(addr),
+            "wallet_network":cfg["network"],
+            "funding":bool(cfg["enabled"]),
+            "withdrawals":bool(cfg["withdraw_enabled"]),
+            "worker":health(),
+        }
+        outstanding=db().execute("""SELECT COUNT(*) AS total FROM ton_auto_payouts
+            WHERE status IN ('prepared','broadcast','review')""").fetchone()
+        checks["unsettled"]=int(outstanding["total"])
+        waiting=db().execute("""SELECT COUNT(*) AS total FROM ton_withdrawals
+            WHERE status='queued'""").fetchone()
+        checks["queued"]=int(waiting["total"])
+        checks["payout_address"]=addr
+        checks["balance_ton"]=None
+        checks["wallet_type"]=None
+        checks["balance_ok"]=False
+        if addr:
+            try:
+                import wallet as ton_wallet
+                remote=rpc(cfg["network"], "getWalletInformation",
+                           {"address":addr},cfg["rpc_key"])
+                checks["wallet_type"]=str(remote.get("wallet_type") or "")
+                bal=Decimal(str(remote.get("balance",0)))/Decimal(10**9)
+                checks["balance_ton"]=format(bal,"f")
+                checks["balance_ok"]=bal >= Decimal(p["reserve_ton"])
+                checks["wallet_v4r2"]=remote.get("wallet") is True and (
+                    "v4r2" in checks["wallet_type"].lower().replace(" ",""))
+            except Exception:
+                checks["wallet_v4r2"]=False
+                checks["wallet_error"]="Не удалось получить сведения о кошельке по RPC"
+        checks["ready"]=bool(checks["database"] and checks["wallet_address"] and
+            checks["funding"] and checks["withdrawals"] and
+            checks["worker"]["ready"] and checks["unsettled"]==0 and
+            checks.get("wallet_v4r2") and checks["balance_ok"])
+        response=app.json.response(checks)
+        response.headers["Cache-Control"]="no-store"
+        return response
 
     app.extensions["crafter_auto_payout"] = run_once
     app.extensions["crafter_auto_policy"] = policy
