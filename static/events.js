@@ -53,8 +53,8 @@ function crafterEventPrizeVisual(prize) {
             '.webp" alt="Telegram NFT" onerror="if(!this.dataset.fallback){this.dataset.fallback=1;this.src=this.src.replace(/\.webp$/,\'.medium.jpg\');}else{this.src=\'/static/assets/gifts-empty-market.webp\';this.onerror=null;}"></span>';
     }else if(prize.type==='collection'&&prize.collection){
         const collection=String(prize.collection).replace(/[^a-z0-9]/gi,'').toLowerCase();
-        image='<img src="https://fragment.com/file/gifts/'+encodeURIComponent(collection)+
-            '/thumb.webp" loading="lazy" alt="Подарок" onerror="this.src=\'/static/assets/gifts-empty-market.webp\';this.onerror=null;">';
+        image='<img src="/media/collection/'+encodeURIComponent(collection)+
+            '" loading="lazy" alt="Обычный PNG коллекции" onerror="this.src=\'/static/assets/gifts-empty-market.webp\';this.onerror=null;">';
     }else if(prize.type==='model'&&prize.collection&&prize.model){
         image='<img src="https://api.changes.tg/model/'+encodeURIComponent(prize.collection)+
             '/'+encodeURIComponent(prize.model)+'.png?size=128" loading="lazy" alt="Модель подарка" '+
