@@ -117,7 +117,7 @@ def create_app(config=None):
                 'purchase_mode':'local',
                 'warning':(
                    'Внешние котировки указаны в TON (Thermos), а не в GRAM Portals. '
-                   'Чтобы видеть цены GRAM из Portals, нужен доступ к его API.'
+                   'Чтобы видеть цены GRAM из Portals, нужен ключ Partner API.'
                    + (' ' + result['warning'] if result.get('warning') else '')
                    if result.get('source')=='thermos' else result.get('warning',''))}
     # Avoid writing the users, avatars and balance tables on every GET poll.
