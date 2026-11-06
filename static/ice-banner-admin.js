@@ -405,7 +405,7 @@ function iceEditChange(e){
     iceDirty();iceList();iceProperties();icePaint();
   }
 }
-function iceEditClick(e){
+async function iceEditClick(e){
   const button=e.target.closest('[data-ice-save],[data-ice-add],[data-ice-pick],[data-ice-action],[data-ice-clear],[data-ice-insert],[data-ice-edit-text],[data-ice-toggle-preview],[data-ice-timer-layout],[data-ice-copy-arena]');
   if(!button)return;
   if(button.hasAttribute('data-ice-copy-arena')){
