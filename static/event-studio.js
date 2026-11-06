@@ -405,6 +405,43 @@ async function studioPickPrizeCatalog(){
  if(col.value)load();
 }
 
+async function studioQuotePrizeAward(){
+ const studio=crafterStudio;
+ if(!studio||studio.selected!=='prizes')return;
+ if(studio.dirty)return toast('Сначала сохраните настройки и награды события');
+ const rank=studio.rank,prize=studioPrize(rank);
+ if(!['collection','model'].includes(prize.type))return toast('Выберите награду из каталога');
+ const button=document.querySelector('[data-studio-action="quote-prize-award"]');
+ if(button)button.disabled=true;
+ studioSetStatus('Ищем самый дешёвый доступный NFT в Craft Market…');
+ try{
+   const url='admin/events/'+studio.event.id+'/award/'+rank;
+   const quote=await api(url);
+   if(quote.status==='delivered'){
+     studioSetStatus('Приз за место №'+rank+' уже выдан. Повторная покупка отключена.');
+     return;
+   }
+   if(!quote.lot_id){
+     studioSetStatus('Подходящих NFT сейчас нет в Craft Market. Покупка не выполнена.');
+     return;
+   }
+   const price=Number(quote.price_gram);
+   const balance=Number(quote.payer_balance_gram);
+   const name=quote.winner?.name||('ID '+quote.winner?.id);
+   const kind=quote.prize?.model ? quote.prize.collection+' / '+quote.prize.model : quote.prize.collection;
+   studioSetStatus('Найден NFT: '+kind+' · '+quote.price_gram+' GRAM · победитель: '+name);
+   if(!Number.isFinite(balance)||balance<price)
+     return toast('Недостаточно GRAM на вашем балансе для покупки '+quote.price_gram+' GRAM');
+   if(!confirm('Купить реальный NFT за '+quote.price_gram+' GRAM с ВАШЕГО баланса Crafter и выдать '+name+
+       ' за место №'+rank+'?\n\n'+kind+'\n\nДействие необратимо.'))return;
+   const result=await api(url,{confirm:true,lot_id:quote.lot_id,expected_price_gram:quote.price_gram});
+   studioSetStatus(result.status==='already_delivered'?'Приз уже был выдан ранее.':
+     'NFT куплен в Craft Market и передан в инвентарь победителя.');
+   toast('Награда за место №'+rank+' выдана');
+ }catch(error){studioSetStatus(error.message);toast(error.message);}
+ finally{if(button?.isConnected)button.disabled=false;}
+}
+
 function studioRenderPrizes(root){
  const event=crafterStudio.event,rank=crafterStudio.rank;
  const prize=event.prizes[rank-1]||{place:rank,type:'none',label:''};
@@ -436,7 +473,8 @@ function studioRenderPrizes(root){
    return '<button type="button" data-studio-rank="'+r+'" class="'+(r===rank?'active':'')+'">'+
     r+(p&&p.type!=='none'?' 🎁':'')+'</button>';
   }).join('')+'</div>'+
-  '<button type="button" class="primary" data-studio-action="save-prizes">Сохранить награды</button>';
+  '<button type="button" class="primary" data-studio-action="save-prizes">Сохранить награды</button>'+
+ '<button type="button" class="secondary studio-prize-award" data-studio-action="quote-prize-award">После завершения: купить и выдать реальный NFT</button>';
 }
 function studioPrize(rank){
  const list=crafterStudio.event.prizes;
@@ -616,6 +654,7 @@ function studioClick(event){
    return;
  }
  if(action==='pick-prize-catalog'){studioPickPrizeCatalog();return;}
+ if(action==='quote-prize-award'){studioQuotePrizeAward();return;}
  if(action==='link-craft'||action==='link-arena'){studioLinkGlobalBanner(action==='link-craft'?'craft':'arena');return;}
  if(action==='prizes'){studio.selected='prizes';studioPaintList();studioPaintInspector();return;}
  if(action==='style'){studio.selected='global';studioPaintList();studioPaintInspector();return;}
