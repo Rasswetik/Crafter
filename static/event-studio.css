@@ -84,6 +84,7 @@
   background:linear-gradient(150deg,#0c1926,#10141d);
 }
 #studio-preview{
+  container-type:inline-size;
   box-sizing:border-box;
   width:100%;
   min-width:0;
@@ -218,7 +219,7 @@
 /* Four banner slots in editor match the published layout at the chosen preview width. */
 #studio-preview .crafter-event-top-banners{display:grid;gap:8px;padding:4px 0 10px}
 #studio-preview .crafter-event-top-banners>.studio-preview-block{min-width:0}
-#studio-preview .crafter-event-top-banners .ice-banner-stage{width:100%!important}
+#studio-preview .crafter-event-top-banners .ice-banner-stage{max-width:100%;min-width:0}
 #studio-preview .studio-preview-block{cursor:pointer}
 #studio-preview .studio-preview-block.studio-selected{box-shadow:inset 0 0 0 1px #62caff4f}
 .studio-inspector-actions:has([data-studio-action="link-craft"]){
@@ -264,3 +265,46 @@
 .studio-loaded-asset{display:flex;align-items:center;gap:7px;grid-column:1/-1;min-width:0}
 .studio-loaded-asset img{width:75px;height:54px;object-fit:contain;border-radius:9px;background:#111827}
 .studio-loaded-asset button{font-size:11px;min-height:35px;padding:6px 9px;background:#303846;color:#fff;border-radius:8px}
+
+/* Size the editing canvas by its real width, not the browser's outer window.
+   On phone previews each banner may grow across the entire available canvas.
+   The stage's inline width_pct remains the single authority for manual resizing. */
+#studio-preview .crafter-event-top-banners{
+ display:grid;
+ grid-auto-flow:column;
+ grid-auto-columns:minmax(0,100%);
+ grid-template-columns:none;
+ overflow-x:auto;
+ overflow-y:hidden;
+ gap:8px;
+ width:100%;
+ min-width:0;
+}
+#studio-preview .crafter-event-top-banners>.studio-preview-block{
+ width:100%;
+ box-sizing:border-box;
+ scroll-snap-align:start;
+}
+#studio-preview .crafter-event-top-banners .ice-banner-stage{
+ min-width:0;
+ max-width:100%;
+}
+@container (min-width:740px){
+ #studio-preview .crafter-event-top-banners{
+   grid-auto-flow:row;
+   grid-auto-columns:auto;
+   grid-template-columns:repeat(2,minmax(0,1fr));
+   overflow:visible;
+ }
+}
+@container (min-width:1100px){
+ #studio-preview .crafter-event-top-banners{
+   grid-template-columns:repeat(4,minmax(0,1fr));
+ }
+}
+.studio-inspector-actions [data-studio-action="fill-banner"]{
+ width:100%;
+ min-height:40px;
+ border-radius:10px;
+ font-weight:750;
+}

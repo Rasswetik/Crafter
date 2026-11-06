@@ -184,6 +184,7 @@ function studioBannerInspector(block){
  return '<h4>Фон и размер баннера</h4><div class="studio-fields">'+
   studioInput('height','Высота, px',b.height,'banner','number',70,280)+
   studioInput('width_pct','Ширина, %',b.width_pct,'banner','number',50,100)+
+  '<button type="button" class="secondary" data-studio-action="fill-banner">↔ Растянуть баннер на всю ширину</button>'+
   studioInput('radius','Скругление',b.radius,'banner','number',0,60)+
   studioSelect('background_mode','Тип фона',b.background_mode,
    [['solid','Цвет'],['gradient','Градиент'],['image','Изображение/GIF']],'banner')+
@@ -332,7 +333,14 @@ function studioPaintPreview(){
        backgroundDrag:()=>crafterStudio.backgroundDrag,
        onSelect(id){crafterStudio.layer=id;studioPaintInspector();},
        onMove(){studioDirty();studioPaintInspector();},
-       onCanvasResize(){studioDirty();studioPaintInspector();},
+       onCanvasResize(){
+        // The renderer receives a preview copy. Persist canvas geometry back
+        // to the actual page block or resizing vanishes on save/repaint.
+        block.banner.width_pct=banner.width_pct;
+        block.banner.height=banner.height;
+        target.dataset.signature=JSON.stringify(banner);
+        studioDirty();studioPaintInspector();
+       },
        onBackgroundMove(){studioDirty();studioPaintInspector();},
        onTextChange(){studioDirty();studioPaintInspector();}
       });
@@ -639,6 +647,15 @@ function studioClick(event){
     renderAdminEvents();return;
  }
  if(action==='save'){studioSavePage();return;}
+ if(action==='fill-banner'){
+   const block=studioBlock();
+   if(!block?.banner)return;
+   block.banner.width_pct=100;
+   block.padding=0;
+   studioDirty();studioPaintInspector();studioPaintPreview();
+   studioSetStatus('Баннер растянут на всю ширину. Нажмите «Сохранить страницу».');
+   return;
+ }
  if(action==='quick-banner'){
    const selector=document.getElementById('studio-add-kind');if(selector)selector.value='banner';
    document.querySelector('[data-studio-action="add"]')?.click();return;
