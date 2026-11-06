@@ -71,7 +71,14 @@ function crafterShowAnnouncement(cfg,preview=false){
   media.classList.add('crafter-announcement-no-image');
   const placeholder=document.createElement('div');
   placeholder.className='crafter-announcement-placeholder';
-  placeholder.textContent='Crafter';
+  const brand=document.createElement('small');brand.className='crafter-announcement-brand';
+  brand.textContent='✧ Crafter';
+  const heading=document.createElement('strong');heading.className='crafter-announcement-visual-headline';
+  heading.textContent=cfg.title||'Новое событие';
+  const art=document.createElement('div');art.className='crafter-announcement-visual-art';
+  art.innerHTML='<span aria-hidden="true" class="announcement-visual-star">★</span>'+
+   '<span aria-hidden="true" class="announcement-visual-gem">✦</span>';
+  placeholder.append(brand,heading,art);
   media.append(placeholder);
  }
  const text=document.createElement('div');text.className='crafter-announcement-text';
