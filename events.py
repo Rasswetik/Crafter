@@ -1,6 +1,6 @@
 """Configurable image-based events and leaderboards for Crafter.
 
-Display-only prize descriptions: payouts are not transferred automatically.
+Prizes are displayed independently of real NFT award fulfillment.
 """
 import json
 import re
@@ -26,7 +26,8 @@ HEX = re.compile(r'#[0-9a-fA-F]{6}\Z')
 ID = re.compile(r'[0-9a-f]{32}\Z')
 
 
-def install_events(app, db, auth, audit):
+def install_events(app, db, auth, audit, record=None, canonical_name=None,
+                   available_lot=None, settle_lot=None, notify_purchase=None):
     with app.app_context(), db():
         db().executescript("""
             CREATE TABLE IF NOT EXISTS crafter_events (
@@ -162,6 +163,12 @@ def install_events(app, db, auth, audit):
             score = value.quantize(Decimal('0.01')) if metric in MONEY_METRICS else value
             result.append({'rank': index, 'score': format(score, 'f'), **players[uid]})
         return result
+
+    if all(callback is not None for callback in
+           (record, canonical_name, available_lot, settle_lot, notify_purchase)):
+        from event_awards import install_event_awards
+        install_event_awards(app, db, auth, audit, ranking, record, canonical_name,
+                             available_lot, settle_lot, notify_purchase)
 
     @app.get('/api/events')
     def public_events():
