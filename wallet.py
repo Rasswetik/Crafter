@@ -335,7 +335,12 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
             # provenance ledger. New payouts debit only the authoritative
             # demo_accounts balance; otherwise earnings from sales/offers
             # cannot be withdrawn and may lead to negative provenance totals.
-            p=dict(receiver=w['address'],sender=address(c['receiver']),network=c['network'],gram=str(value),nano=str(nano),ton=str(Decimal(nano)/1000000000),memo='crafter-withdraw:'+uuid.uuid4().hex,funding_ledger_debited=False)
+            auto_row=db().execute("SELECT payload FROM settings WHERE key='crafter_auto_payout_policy'").fetchone()
+            try:
+                auto_enabled=bool(auto_row and json.loads(auto_row['payload']).get('enabled') is True)
+            except (TypeError,ValueError):
+                auto_enabled=False
+            p=dict(receiver=w['address'],sender=address(c['receiver']),network=c['network'],gram=str(value),nano=str(nano),ton=str(Decimal(nano)/1000000000),memo='crafter-withdraw:'+uuid.uuid4().hex,funding_ledger_debited=False,auto_eligible=auto_enabled)
             db().execute('INSERT INTO ton_withdrawals VALUES(?,?,?,?,?,NULL)',(wid,g.user['id'],json.dumps(p),'queued',int(time.time())))
             db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance-value),g.user['id']))
             record('withdraw_request',p)
@@ -450,7 +455,12 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
         with db():
             db().execute('BEGIN IMMEDIATE');row=db().execute('SELECT * FROM ton_withdrawals WHERE id=?',(wid,)).fetchone()
             if not row or row['status']!='queued':abort(409,description='Перевод уже подготовлен. Проверьте его статус перед повторной отправкой.')
-            p=json.loads(row['payload']);db().execute("UPDATE ton_withdrawals SET status='processing' WHERE id=?",(wid,))
+            p=json.loads(row['payload'])
+            if p.get('auto_eligible') is True:
+                pol=db().execute("SELECT payload FROM settings WHERE key='crafter_auto_payout_policy'").fetchone()
+                if pol and json.loads(pol['payload']).get('enabled') is True:
+                    abort(409,description='Заявка обрабатывается автоматическим кошельком. Отключите автовыплаты для ручной обработки.')
+            db().execute("UPDATE ton_withdrawals SET status='processing' WHERE id=?",(wid,))
         return dict(transaction=dict(validUntil=int(time.time())+600,network='-239' if p['network']=='mainnet' else '-3',messages=[dict(address=p['receiver'],amount=p['nano'],payload=payload(p['memo']))]),sender=p['sender'])
     @app.post('/api/admin/tonconnect/withdraw/<wid>/check')
     @auth(admin=True)
@@ -465,3 +475,6 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
             db().execute('INSERT INTO ton_transactions VALUES(?,?) ON CONFLICT DO NOTHING',(p['network'],tx))
             db().execute("UPDATE ton_withdrawals SET status='confirmed',tx=? WHERE id=?",(tx,wid));audit('Withdrawal confirmed: '+wid)
         return {'status':'confirmed'}
+
+    from auto_payout import install_auto_payout
+    install_auto_payout(app, db, auth, audit, config, storage, rpc, confirmed_message)
