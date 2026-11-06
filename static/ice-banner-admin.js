@@ -72,8 +72,9 @@ function iceProperties(){
       (l.type==='timer'?
         '<label class="ice-editor-check ice-timer-bg-toggle"><input type="checkbox" data-ice-toggle-bg '+
         (Number(l.bg_opacity)>0?'checked':'')+'> Фон часов</label>'+
-        iceSelect('Формат отсчёта','format',l.format,[
-          ['hh:mm:ss','00:00:59'],['mm:ss','00:59'],['days','1д 00:00:59']]):'')+
+        iceSelect('Формат отсчёта','format',l.format,ICE_TIMER_FORMATS)+
+        '<button type="button" class="secondary" data-ice-timer-layout="center">По центру, широкий таймер</button>'+
+        '<button type="button" class="secondary" data-ice-timer-layout="full">Таймер на всю ширину</button>':'')+
       iceSelect('Выравнивание','align',l.align,[['left','Слева'],['center','По центру'],['right','Справа']])+
       iceColor(l.type==='timer'?'Цвет цифр таймера':'Цвет надписи','color',l.color):'')+
     iceColor('Цвет подложки','bg_color',l.bg_color)+
@@ -240,6 +241,7 @@ function iceApplyLiveLayer(field,l) {
     el.style.fontFamily=ICE_BANNER_FONTS[l.font]||ICE_BANNER_FONTS.system;
   }else if(field==='font_size'){
     el.style.fontSize='clamp(9px,'+(Number(l.font_size)/4)+'cqw,'+Number(l.font_size)+'px)';
+     if(l.type==='timer'){el.dataset.fontBase=el.style.fontSize;el.dataset.fitSignature='';iceBannerFitTimer(el);}
   }else if(field==='bg_color'||field==='bg_opacity'){
     const alpha=Math.round(Number(l.bg_opacity)*255).toString(16).padStart(2,'0');
     el.style.background=Number(l.bg_opacity)<=0?'transparent':l.bg_color+alpha;
@@ -403,13 +405,20 @@ function iceEditChange(e){
   }
 }
 function iceEditClick(e){
-  const button=e.target.closest('[data-ice-save],[data-ice-add],[data-ice-pick],[data-ice-action],[data-ice-clear],[data-ice-insert],[data-ice-edit-text],[data-ice-toggle-preview]');
+  const button=e.target.closest('[data-ice-save],[data-ice-add],[data-ice-pick],[data-ice-action],[data-ice-clear],[data-ice-insert],[data-ice-edit-text],[data-ice-toggle-preview],[data-ice-timer-layout]');
   if(!button)return;
   if(button.dataset.iceTogglePreview==='true'){
     iceEdit.previewMode=!iceEdit.previewMode;
     button.textContent=iceEdit.previewMode?'Вернуться к редактированию':'Предпросмотр без рамок';
     icePaint();
     return;
+  }
+  if(button.dataset.iceTimerLayout){
+    const layer=iceSelected();if(!layer||layer.type!=='timer')return;
+    const full=button.dataset.iceTimerLayout==='full';
+    Object.assign(layer,full?{x:2,y:20,w:96,h:60}:{x:15,y:24,w:70,h:50});
+    layer.text='';layer.align='center';layer.font='mono';layer.bg_opacity=0;
+    iceDirty();iceProperties();icePaint();return;
   }
   if(button.dataset.iceEditText==='true'){
     if(iceEdit.previewMode)iceEdit.previewMode=false;
