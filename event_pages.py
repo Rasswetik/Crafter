@@ -70,7 +70,8 @@ def clean_layer(layer):
         'bg_opacity':round(num(layer.get('bg_opacity'),0,1,0),2),
         'radius':int(num(layer.get('radius'),0,90,0)),
         'align':layer.get('align','center') if layer.get('align') in ('left','center','right') else 'center',
-        'format':layer.get('format','hh:mm:ss') if layer.get('format') in ('hh:mm:ss','mm:ss','days') else 'hh:mm:ss',
+        'format':layer.get('format','hh:mm:ss') if layer.get('format') in ('hh:mm:ss','mm:ss','days','dhms','dhms-en','dhm-en',
+                                              'hms-en','days-only','hours-only','minutes-only','seconds-only') else 'hh:mm:ss',
         'asset':asset,'fit':layer.get('fit') if layer.get('fit') in ('cover','contain') else 'contain',
         'z':int(num(layer.get('z'),0,99,1)),
     }
