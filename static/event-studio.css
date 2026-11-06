@@ -251,3 +251,9 @@
   grid-template-columns:none;
  }
 }
+
+/* Edit one banner at full preview width; published grid remains unchanged. */
+#studio-preview.studio-focus-banner .crafter-event-top-banners{grid-template-columns:minmax(0,1fr)!important}
+#studio-preview.studio-focus-banner .crafter-event-top-banners>.studio-preview-block:not(.studio-selected){display:none!important}
+#studio-preview.studio-focus-banner .crafter-event-top-banners>.studio-preview-block.studio-selected{grid-column:1/-1}
+.studio-toolbar [data-studio-action="add-banner"],.studio-toolbar [data-studio-action="add-gif"]{white-space:nowrap}
