@@ -96,7 +96,7 @@ def test_upgrade_gift_loss_transfers_real_stake_to_bank(client, monkeypatch):
     assert played.status_code == 200, played.json
     assert not played.json['success']
     with sqlite3.connect(client.application.config['DATABASE']) as db:
-        assert db.execute('SELECT user_id FROM inventory WHERE nft_id=?', (stake['id'],)).fetchone() == (50,)
+        assert db.execute('SELECT user_id FROM inventory WHERE nft_id=?', (stake['id'],)).fetchone() == (-930070002,)
         assert db.execute('SELECT balance FROM demo_accounts WHERE user_id=50').fetchone() == ('50.00',)
         assert db.execute('SELECT balance FROM demo_accounts WHERE user_id=43').fetchone() == ('5.00',)
 
@@ -125,3 +125,70 @@ def test_upgrade_disabled_bank_and_native_ton_are_honest(client):
         'request_id': 'bank-not-ready', 'quote_id': q.json['quote_id']})
     assert response.status_code == 503
     assert client.get('/api/me', headers=signed(43)).json['balance'] == '5.00'
+
+
+def test_gift_upgrade_win_purchases_exact_craft_market_lot(client, monkeypatch):
+    seller_gift, target = setup_upgrade(client)
+    stake = {**DEMO_GIFTS[0], 'id': 'player-upgrade-input', 'number': 999911,
+             'price': '2.00', 'price_unit': 'GRAM', 'origin': 'local-purchase'}
+    with sqlite3.connect(client.application.config['DATABASE']) as connection:
+        connection.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')",
+                           (stake['id'], json.dumps(stake)))
+    monkeypatch.setattr('upgrade.secrets.randbelow', lambda _: 0)
+    quoted = quote(client, target['id'], 'gift', gift_id=stake['id'])
+    assert quoted.status_code == 200, quoted.json
+    assert quoted.json['chance'] == 20.0
+    assert quoted.json['playable'] is True
+    request_body = {'request_id': 'gift-winning-spin-1', 'quote_id': quoted.json['quote_id']}
+    played = client.post('/api/upgrade/play', headers=signed(43), json=request_body)
+    assert played.status_code == 200, played.json
+    assert played.json['success'] is True
+    assert played.json['gift']['id'] == seller_gift['id']
+    assert played.json['site_bank_gift_id'] == stake['id']
+    assert client.post('/api/upgrade/play', headers=signed(43), json=request_body).json == played.json
+    with sqlite3.connect(client.application.config['DATABASE']) as connection:
+        assert connection.execute('SELECT user_id,status FROM inventory WHERE nft_id=?',
+                                  (stake['id'],)).fetchone() == (-930070002, 'unlisted')
+        assert connection.execute('SELECT user_id,status FROM inventory WHERE nft_id=?',
+                                  (seller_gift['id'],)).fetchone() == (43, 'unlisted')
+        assert connection.execute('SELECT balance FROM demo_accounts WHERE user_id=42').fetchone() == ('9.60',)
+        assert connection.execute('SELECT balance FROM demo_accounts WHERE user_id=50').fetchone() == ('40.00',)
+        assert connection.execute('SELECT COUNT(*) FROM upgrade_rounds').fetchone() == (1,)
+
+
+def test_gift_upgrades_keep_stake_when_target_changes(client):
+    _, target = setup_upgrade(client)
+    stake = {**DEMO_GIFTS[0], 'id': 'safe-original-gift', 'number': 888188,
+             'price': '3.00', 'price_unit': 'GRAM', 'origin': 'local-purchase'}
+    with sqlite3.connect(client.application.config['DATABASE']) as connection:
+        connection.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')",
+                           (stake['id'], json.dumps(stake)))
+    quoted = quote(client, target['id'], 'gift', gift_id=stake['id'])
+    assert quoted.status_code == 200, quoted.json
+    edit = client.post('/api/resale/listings', headers=signed(42), json={
+        'action': 'edit', 'items': [{'id': 'upgrade-sale-gift', 'price': '12.00'}]})
+    assert edit.status_code == 200
+    response = client.post('/api/upgrade/play', headers=signed(43), json={
+        'quote_id': quoted.json['quote_id'], 'request_id': 'safe-original-gift-req'})
+    assert response.status_code == 409
+    with sqlite3.connect(client.application.config['DATABASE']) as connection:
+        assert connection.execute('SELECT user_id,status FROM inventory WHERE nft_id=?',
+                                  (stake['id'],)).fetchone() == (43, 'unlisted')
+
+
+def test_upgrade_layout_requires_wheel_and_two_modal_selections():
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    js = (root / 'static/upgrade.js').read_text(encoding='utf-8')
+    css = (root / 'static/upgrade.css').read_text(encoding='utf-8')
+    page = (root / 'templates/index.html').read_text(encoding='utf-8')
+    assert 'ug-wheel-region' in js
+    assert 'ug-selection-row' in js
+    assert 'ugOpenStakePicker()' in js
+    assert 'ugOpenTargetPicker()' in js
+    assert 'ugChooseCollection(' in js and 'ugSelectLot(' in js
+    assert "stake_mode: 'gift'" in js
+    assert 'ug-picker-grid' in js and 'ug-slot-art' in css
+    assert 'ug-modes' not in js
+    assert 'winter-currency-balance' in page and 'class="balance"' in page
+    assert 'wheel-pickers-20261107-v2' in page
