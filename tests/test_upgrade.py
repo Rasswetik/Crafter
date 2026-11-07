@@ -191,7 +191,7 @@ def test_upgrade_layout_requires_wheel_and_two_modal_selections():
     assert 'ug-picker-grid' in js and 'ug-slot-art' in css
     assert 'ug-modes' not in js
     assert 'winter-currency-balance' in page and 'class="balance"' in page
-    assert 'wheel-pickers-20261107-v2' in page
+    assert 'sandbox-upgrade-20261107-v4' in page
 
 
 def test_site_bank_admin_funding_makes_gift_upgrades_playable(client, monkeypatch):
@@ -250,3 +250,59 @@ def test_upgrade_visuals_use_collection_previews_and_full_nft_art():
     assert "onclick=\"ugRules()\"" not in js
     assert 'ug-slot-art img' in css and 'transform:none!important' in css
     assert 'ugOpenBankFund()' in js and 'ugFundBank()' in js
+
+
+def test_upgrade_sandbox_play_no_real_debits_or_market_purchase(client, monkeypatch):
+    seller_gift, target = setup_upgrade(client, bank=False)
+    client.application.config['UPGRADE_TEST_MODE'] = True
+    gift = {**DEMO_GIFTS[0], 'id': 'safe-sandbox-stake', 'number': 456883,
+            'price': '2.00', 'price_unit': 'GRAM', 'origin': 'local-purchase'}
+    with sqlite3.connect(client.application.config['DATABASE']) as connection:
+        connection.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')",
+                           (gift['id'], json.dumps(gift)))
+    monkeypatch.setattr('upgrade.secrets.randbelow', lambda _: 0)
+    info = client.get('/api/upgrade/info', headers=signed(43)).json
+    assert info['test_mode'] and info['enabled']
+    quote_response = quote(client, target['id'], 'gift', gift_id=gift['id'])
+    assert quote_response.status_code == 200, quote_response.json
+    assert quote_response.json['playable']
+    payload = {'quote_id': quote_response.json['quote_id'], 'request_id': 'virtual-spin-test-1'}
+    result = client.post('/api/upgrade/play', headers=signed(43), json=payload)
+    assert result.status_code == 200, result.json
+    assert result.json['success'] and result.json['test_mode']
+    assert not result.json['real_purchase']
+    assert result.json['gift']['test_only']
+    assert result.json['gift']['id'].startswith('test-upgrade-')
+    assert client.post('/api/upgrade/play', headers=signed(43), json=payload).json == result.json
+    test_gifts = client.get('/api/upgrade/test-inventory', headers=signed(43)).json['gifts']
+    assert len(test_gifts) == 1 and test_gifts[0]['id'] == result.json['gift']['id']
+    with sqlite3.connect(client.application.config['DATABASE']) as connection:
+        assert connection.execute("SELECT balance FROM demo_accounts WHERE user_id=43").fetchone() == ('5.00',)
+        assert connection.execute("SELECT balance FROM demo_accounts WHERE user_id=42").fetchone() == ('0',)
+        assert connection.execute("SELECT user_id FROM inventory WHERE nft_id=?", (gift['id'],)).fetchone() == (43,)
+        assert connection.execute("SELECT user_id FROM inventory WHERE nft_id=?", (seller_gift['id'],)).fetchone() == (42,)
+        assert connection.execute("SELECT count(*) FROM crafter_listings").fetchone() == (1,)
+        assert connection.execute("SELECT count(*) FROM upgrade_rounds").fetchone() == (0,)
+
+
+def test_upgrade_sandbox_replay_virtual_gift_and_loss(client, monkeypatch):
+    _, target = setup_upgrade(client, bank=False)
+    client.application.config['UPGRADE_TEST_MODE'] = True
+    virtual = {**DEMO_GIFTS[0], 'id': 'test-upgrade-abcdefghijklmnop', 'number': 4567,
+               'price': '2.00', 'price_unit': 'GRAM', 'origin': 'upgrade-sandbox'}
+    with sqlite3.connect(client.application.config['DATABASE']) as connection:
+        connection.execute("INSERT INTO upgrade_test_gifts VALUES(?,?,?,'unlisted')",
+                           (43, virtual['id'], json.dumps(virtual)))
+    q = quote(client, target['id'], 'gift', gift_id=virtual['id'])
+    assert q.status_code == 200, q.json
+    monkeypatch.setattr('upgrade.secrets.randbelow', lambda _: 9999)
+    payload = {'quote_id': q.json['quote_id'], 'request_id': 'virtual-loss-test-1'}
+    result = client.post('/api/upgrade/play', headers=signed(43), json=payload)
+    assert result.status_code == 200 and not result.json['success'], result.json
+    assert result.json['test_mode']
+    assert client.get('/api/upgrade/test-inventory', headers=signed(43)).json['gifts'] == []
+    again = quote(client, target['id'], 'gift', gift_id=virtual['id'])
+    assert again.status_code == 409
+    with sqlite3.connect(client.application.config['DATABASE']) as connection:
+        assert connection.execute("SELECT count(*) FROM crafter_listings").fetchone() == (1,)
+        assert connection.execute("SELECT count(*) FROM upgrade_rounds").fetchone() == (0,)
