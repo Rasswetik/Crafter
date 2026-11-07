@@ -504,17 +504,24 @@ async function localBuyGift(id) {
     document.querySelector('#purchase-error')?.remove();
     const requestKey = 'crafter-purchase:' + state.me.user.id + ':' + id + (gift.resale ? ':' + gift.price : '');
     try {
-        const result = await api(gift.resale ? 'resale/buy' : 'local/buy', {
-            id, expected_price: gift.price, request_id: paymentRequestId(requestKey),
-        });
+        const portal = !state.me.demo && !gift.resale;
+        if (portal && (gift.price_unit !== 'GRAM' || !/^[a-f0-9-]{36}$/i.test(id))) {
+            throw Error('Нужен действующий лот Portals с ценой в GRAM');
+        }
+        const result = await api(gift.resale ? 'resale/buy' : state.me.demo ? 'local/buy' : 'portals/buy',
+            portal ? {gift_ids:[id],expected_total:String(gift.price),request_id:paymentRequestId(requestKey)}
+                   : {id,expected_price:gift.price,request_id:paymentRequestId(requestKey)});
+        if (portal && result.status !== 'complete') throw Error('Покупка Portals требует проверки; не отправляйте её снова');
+        const bought = result.gift || result.gifts?.[0];
+        if (!bought) throw Error('Portals не подтвердил покупку подарка');
         removePurchasedMarketLots([id]);
         if (marketActivityVisible()) refreshMarketActivity();
         state.me.balance = result.balance;
         state.me.inventory_count = (state.me.inventory_count || 0) + 1;
-        state.inventory = [...state.inventory.filter(item => item.id !== result.gift.id), {...result.gift, status: 'unlisted'}];
+        state.inventory = [...state.inventory.filter(item => item.id !== bought.id), {...bought,status:'unlisted'}];
         updateBalance();
         if (button?.isConnected) closeSheet();
-        toast('Подарок добавлен в инвентарь');
+        toast(portal?'Portals подтвердил покупку. NFT находится на партнёрском хранении.':'Подарок добавлен в инвентарь');
     } catch (e) {
         if (button?.isConnected) purchaseError(e.message || 'Не удалось купить подарок');
         if (gift.resale && e.status === 409 && state.page === 'market') changedFilter();
@@ -533,8 +540,9 @@ async function requestGiftWithdrawal(id) {
     if (!confirm('Создать заявку на вывод этого NFT в Telegram? Подарок будет заморожен до завершения передачи на Relayer.')) return;
     const gift=state.detailGift;
     try {
-        const request_id=paymentRequestId('gift-withdraw:'+state.me.user.id+':'+id+':'+Date.now());
-        await api('gifts/withdraw',{gift_id:id,request_id});
+        const isPartner=gift.origin==='portals-partner';
+        const request_id=paymentRequestId('gift-withdraw:'+state.me.user.id+':'+id);
+        await api(isPartner?'portals/withdraw':'gifts/withdraw',{gift_id:id,request_id});
         state.inventory=state.inventory.map(item=>item.id===id?{...item,status:'withdrawing'}:item);
         closeSheet();
         toast('Заявка отправлена. Подарок заблокирован до подтверждения вывода.');
