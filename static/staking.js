@@ -8,15 +8,16 @@ const stakingNavIcon = '<svg viewBox="0 0 18 18" fill="currentColor" aria-hidden
 // Custom SVG: a clean market arch + two stands, matched to filled Games/Staking icons.
 const crafterMarketIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M4.2 4.5c0-1.1.9-2 2-2h11.6c1.1 0 2 .9 2 2v3.2l1.5 2.7c.7 1.3.1 2.9-1.3 3.5V19c0 1.3-1 2.3-2.3 2.3H6.3C5 21.3 4 20.3 4 19v-5.1c-1.3-.6-2-2.2-1.3-3.5l1.5-2.7V4.5Zm2.3.1v3h11v-3h-11ZM6.1 11.1H17.9l-1.1-2.3H7.2l-1.1 2.3Zm.2 3v4.9h3.1v-4.9H6.3Zm5.5 0v4.9h5.9v-4.9h-5.9Z" clip-rule="evenodd"/></svg>';
 const arenaNavIcon = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M21.5 1.8a.45.45 0 0 1 .64.64l-5.2 6.65-8.71 8.7 1.15 1.15a1.22 1.22 0 0 1-1.72 1.72l-1.15-1.15-2.3 2.3a1.48 1.48 0 0 1-2.1-2.1l2.3-2.3-1.15-1.15a1.22 1.22 0 0 1 1.73-1.72l1.15 1.15 8.7-8.71 6.66-5.18ZM2.5 1.8l6.66 5.18 2.03 2.04-2.2 2.2-2.04-2.04-5.09-6.74a.45.45 0 0 1 .64-.64Zm12.8 11.67 2.55 2.55 1.15-1.15a1.22 1.22 0 0 1 1.73 1.72l-1.15 1.15 2.3 2.3a1.48 1.48 0 0 1-2.1 2.1l-2.3-2.3-1.15 1.15a1.22 1.22 0 0 1-1.72-1.72l1.15-1.15-2.55-2.55 2.09-2.1Z"/></svg>';
-const gameNavIcons = {games: gamesHubIcon, gift: stakingGiftIcon, staking: stakingNavIcon, market: crafterMarketIcon, arena: arenaNavIcon};
+const escapeNavIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M18 5v4h-4m-2 7 3-4-3-3m-5 3h7"/><path d="M18 5c2 2 3 4 3 7"/></svg>';
+const gameNavIcons = {games: gamesHubIcon, gift: stakingGiftIcon, staking: stakingNavIcon, market: crafterMarketIcon, arena: arenaNavIcon, escape: escapeNavIcon};
 nav = function() {
     const root = document.querySelector('#nav');
     if (!root) return;
-    const inGames = Boolean(state.gamesMode || ['games','craft','arena','events'].includes(state.page));
+    const inGames = Boolean(state.gamesMode || ['games','craft','arena','escape','events'].includes(state.page));
     const sidePage = inGames ? 'market' : 'games';
     const sideLabel = inGames ? 'Маркет' : 'Игры';
     const destinations = inGames ? [
-        ['games','games','Hub'], ...(window.crafterOfflinePreview ? [] : [['arena','arena','Arena']])
+        ['games','games','Hub'], ...(window.crafterOfflinePreview ? [] : [['arena','arena','Arena'], ['escape','escape','Escape']])
     ] : [
         ['market','market','Маркет'],['gifts','gift','Мои подарки'],
         ['staking','staking','Стейкинг']
@@ -39,11 +40,12 @@ go = async function(page, eventId = null, focusLeaderboard = true) {
     document.querySelector('#app')?.classList.toggle('arena-view', page === 'arena');
     clearTimeout(stakeCountdownTimer);
     if (state.page === 'arena') leaveArena();
+    if (state.page === 'escape' && page !== 'escape' && typeof leaveEscape === 'function') leaveEscape();
     // Games is a navigation context, not a permanent extra tab. Keep Hub available
     // while visiting the profile from a game; Market leaves Games mode.
-    if (['games', 'craft', 'arena', 'events'].includes(page)) state.gamesMode = true;
+    if (['games', 'craft', 'arena', 'escape', 'events'].includes(page)) state.gamesMode = true;
     else if (page === 'market' || page === 'gifts' || page === 'staking') state.gamesMode = false;
-    if (!['games', 'staking', 'arena', 'events'].includes(page)) {
+    if (!['games', 'staking', 'arena', 'escape', 'events'].includes(page)) {
         document.querySelector('#app')?.classList.toggle('games-view', Boolean(state.gamesMode));
         return stakeGoBefore(page);
     }
@@ -63,6 +65,10 @@ go = async function(page, eventId = null, focusLeaderboard = true) {
         const invite = typeof arenaInviteToken === 'function' && arenaInviteToken();
         if (invite) arenaShowInvite(invite);
         else enterArena(main);
+        return;
+    }
+    if (page === 'escape') {
+        await enterEscape(main);
         return;
     }
     if (page === 'events') {
@@ -116,7 +122,12 @@ function renderGamesHub() {
                 <span class="crafter-game-open">Играть</span></span>
             <span class="arena-tile-icon crafter-swords-motion">${crafterArenaSwordArt}</span>
         </button>`}
-
+        ${window.crafterOfflinePreview ? '' : `<button class="crafter-game-tile escape-hub-tile" type="button" onclick="go('escape')">
+            <span class="crafter-game-label"><strong>Escape</strong>
+                <span>Собирай осколки. Уходи с выигрышем.</span>
+                <span class="crafter-game-open">Играть</span></span>
+            <span class="escape-hub-art" aria-hidden="true"><i></i><b></b><em></em></span>
+        </button>`}
     </section>`;
     if(typeof crafterCraftBannerMount==='function')crafterCraftBannerMount('craft-hub-banner');
     if(typeof crafterLottieEnhance==='function')crafterLottieEnhance(document.querySelector('#main'));
