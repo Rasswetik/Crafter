@@ -16,7 +16,7 @@ assert.ok(!fs.existsSync('static/winter-promos.js'),'Remove the injected winter 
 assert.match(html,/\/static\/market-banners\.js/);
 assert.match(html,/\/static\/banner-carousel\.js/);
 assert.match(ordinaryBanners,/makeBannerCarousel/);
-assert.match(html,/id="arena-event-banner"/);
+assert.match(html,/\/static\/arena\.js/);
 assert.match(html,/class="craft-header"><button class="info-btn"/);
 
 // Real transparent PNG garland, no generated promo panels.
