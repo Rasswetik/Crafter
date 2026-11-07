@@ -269,3 +269,21 @@ html[data-crafter-theme="light"] .gifts-empty-dots button[aria-current="true"]::
     #main .inventory-gift .inventory-send-plane {right:9px;}
     #main .inventory-gift .inventory-craft-dot {left:9px;}
 }
+
+/* Inventory toolbar: unframed Telegram glyph, matching tile action silhouette. */
+#main .inventory-actions button[data-inventory-transfer] .inventory-send-oval-icon {
+  background:none!important;border:0!important;box-shadow:none!important;
+  border-radius:0!important;width:auto!important;height:auto!important;
+  padding:0!important;
+}
+#main .inventory-actions button[data-inventory-transfer] > svg {
+  display:block!important;
+  width:24px!important;height:24px!important;
+  min-width:24px;margin:0 auto!important;
+  fill:currentColor!important;stroke:none!important;
+  background:none!important;border:none!important;box-shadow:none!important;
+}
+#main .inventory-gift .inventory-send-plane svg {
+  width:15px!important;height:15px!important;
+  fill:currentColor!important;stroke:none!important;
+}
