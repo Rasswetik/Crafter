@@ -62,7 +62,7 @@ function escapePage() {
         '<div class="escape-wheel-exit" aria-label="Выход"><i></i><span>ESCAPE</span></div>' +
         '<div class="escape-ball-layer" id="escape-ball-layer"></div>' +
         '<div class="escape-shard-ring" aria-hidden="true">' +
-        Array.from({length:9},(_,i) => '<i style="--piece:' + i + '">' + escapeShards + '</i>').join('') +
+        Array.from({length:9},(_,i) => '<i style="--angle:' + (i*40) + 'deg">' + escapeShards + '</i>').join('') +
         '</div></div>' +
         '<div class="escape-wheel-legend"><span><i class="escape-legend-win"></i> Успех</span>' +
         '<span><i class="escape-legend-lose"></i> Проигрыш</span>' +
@@ -148,8 +148,11 @@ function escapeSetMode(mode) {
     escapeGame.difficulty = mode;
     escapeGame.pendingId = '';
     escapeGame.pendingKey = '';
-    document.querySelectorAll('.escape-modes button').forEach(b =>
-        b.classList.toggle('selected', b.classList.contains('escape-mode-' + mode)));
+    document.querySelectorAll('.escape-modes button').forEach(b => {
+        const selected = b.classList.contains('escape-mode-' + mode);
+        b.classList.toggle('selected', selected);
+        b.setAttribute('aria-pressed', selected ? 'true' : 'false');
+    });
     const config = escapeConfig(mode);
     const label = document.getElementById('escape-shard-bonus');
     const help = document.getElementById('escape-difficulty-hint');
@@ -219,7 +222,7 @@ function escapeUpdateLive() {
     if (headline) headline.textContent = count ? 'Собираем осколки' : 'Ищи выход';
 }
 function escapeNewId() {
-    return 'escape-' + (crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'') :
+    return 'escape-' + (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID().replace(/-/g,'') :
         String(Date.now()) + '-' + Math.random().toString(36).slice(2));
 }
 async function escapePlay() {
