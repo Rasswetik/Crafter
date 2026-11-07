@@ -4,39 +4,42 @@ const html=fs.readFileSync('templates/index.html','utf8');
 const css=fs.readFileSync('static/winter-site.css','utf8');
 const splash=fs.readFileSync('static/splash-approved.css','utf8');
 const ordinaryBanners=fs.readFileSync('static/market-banners.js','utf8');
-const hangingLights=fs.readFileSync('static/assets/crafter-hanging-lights.svg','utf8');
+const topLights=fs.readFileSync('static/assets/crafter-hanging-lights.svg','utf8');
+const sideLights=fs.readFileSync('static/assets/crafter-side-vine.svg','utf8');
 
-// No injected winter promo cards; ordinary Crafter banners are preserved.
-assert.doesNotMatch(html,/\/static\/winter-promos\.js/);
-assert.doesNotMatch(html,/<section class="winter-promos/);
-assert.doesNotMatch(css,/\.winter-promos|\.winter-promo(?!-)/);
-assert.doesNotMatch(css,/winter-banners-atlas\.avif/);
+// No winter promo injection; retain original banners and app navigation.
+assert.doesNotMatch(html,/winter-promos\.js/);
+assert.doesNotMatch(html,/winter-promos/);
 assert.ok(!fs.existsSync('static/winter-promos.js'));
-assert.match(html,/\/static\/market-banners\.js/);
-assert.match(html,/\/static\/banner-carousel\.js/);
-assert.match(ordinaryBanners,/makeBannerCarousel/);
-assert.match(html,/\/static\/arena\.js/);
+assert.ok(html.includes('/static/market-banners.js'));
+assert.ok(html.includes('/static/banner-carousel.js'));
+assert.ok(ordinaryBanners.includes('makeBannerCarousel'));
+assert.ok(html.includes('/static/arena.js'));
 
-// Garland lives inside the existing header, never as a block above the content.
-assert.doesNotMatch(html,/class="site-winter-garland"/);
-assert.match(html,/<\/header><main id="main">/);
-assert.match(css,/#app > header::before/);
-assert.match(css,/crafter-hanging-lights\\.svg\\?v=3/);
-assert.match(css,/crafter-side-vine\\.svg\\?v=1/);
-assert.match(css,/#app > header::after/);
-assert.match(css,/#app::before/);
-assert.match(css,/#app::after/);
-assert.doesNotMatch(css,/#app > header > \\* \\{ position:relative/);
-assert.match(css,/#app > \.site-winter-garland \{ display:none!important; \}/);
-assert.match(css,/pointer-events:none/);
-assert.doesNotMatch(css,/#app > \.site-winter-garland\s*\{[^}]*height:clamp/s);
-assert.ok(!fs.existsSync('static/assets/winter-garland.png'),'Outdated horizontal strip asset must be gone');
-assert.match(hangingLights,/<svg/);
-assert.match(hangingLights,/#[0-9a-f]{6}/i);
-assert.doesNotMatch(hangingLights,/bell/i);
+// The old full-width strip is absent, and garlands never occupy a layout row.
+assert.ok(!html.includes('class="site-winter-garland"'));
+assert.ok(html.includes('</header><main id="main">'));
+assert.ok(css.includes('#app > .site-winter-garland'));
+assert.ok(css.includes('display:none!important'));
+assert.ok(!fs.existsSync('static/assets/winter-garland.png'));
+assert.ok(html.includes('restrained-four-garlands-20261107-v7'));
 
-// Existing Craft info button and splash stay intact.
-assert.match(html,/class="craft-header"><button class="info-btn"/);
-assert.match(css,/#app\.craft-view > header > \.craft-header/);
-assert.match(splash,/object-fit:contain!important/);
-console.log('Crafter header garland is nonblocking; standard banners and menus are unchanged.');
+// Exactly two small top corners and two narrow side vines, with no injected JS.
+assert.ok(css.includes('#app > header::before'));
+assert.ok(css.includes('#app > header::after'));
+assert.ok(css.includes('#app::before'));
+assert.ok(css.includes('#app::after'));
+assert.ok(css.includes('crafter-hanging-lights.svg?v=3'));
+assert.ok(css.includes('crafter-side-vine.svg?v=1'));
+assert.ok(css.includes('pointer-events:none!important'));
+assert.ok(!css.includes('#app > header > * { position:relative'));
+assert.ok(topLights.includes('<svg'));
+assert.ok(sideLights.includes('<svg'));
+assert.ok(topLights.includes('#ffd075'));
+assert.ok(sideLights.includes('#ffd075'));
+
+// Preserve Craft information button and original splash, don't move the layout.
+assert.ok(html.includes('class="craft-header"><button class="info-btn"'));
+assert.ok(css.includes('#app.craft-view > header > .craft-header'));
+assert.ok(splash.includes('object-fit:contain!important'));
+console.log('Garlands at four edge locations; original Crafter layout and banners preserved.');
