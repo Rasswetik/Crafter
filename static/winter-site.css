@@ -1,39 +1,47 @@
-/* Crafter: only the original transparent PNG garland.
-   The promotional winter cards were removed. No seasonal navigation is injected.
-   Keep the original market, event, Arena and Craft banners unchanged. */
+/* Crafter winter details. Keep all ordinary page layout, banners and navigation.
+   Garland is decoration within the header stacking context, not a document-flow row. */
 
-#app > .site-winter-garland {
-  display:block;
+/* Safe fallback for cached HTML containing the previous stand-alone garland. */
+#app > .site-winter-garland { display:none!important; }
+
+/* The gentle evergreen arc is attached to one top corner of the site.
+   The header's actual controls always paint above it and remain clickable. */
+#app > header {
   position:relative;
   isolation:isolate;
-  width:100%;
-  height:clamp(54px, 19vw, 100px);
-  flex:none;
-  pointer-events:none;
-  user-select:none;
-  background-image:url("/static/assets/winter-garland.png");
-  background-position:center center;
-  background-repeat:no-repeat;
-  background-size:100% auto;
-  filter:drop-shadow(0 0 4px rgba(255,190,87,.22));
 }
-
-/* A very soft warm glow, not a flashing GIF and not an interactive layer. */
-#app > .site-winter-garland::after {
+#app > header::before {
   content:"";
   position:absolute;
-  inset:18% 8% 0;
-  border-radius:50%;
-  background:radial-gradient(ellipse at 50% 20%,rgba(255,196,98,.055),transparent 75%);
+  top:-11px;
+  left:-7px;
+  z-index:-1;
+  width:clamp(164px,49%,244px);
+  height:clamp(62px,18vw,90px);
+  background:url("/static/assets/crafter-hanging-lights.svg") no-repeat left top / 100% 100%;
+  opacity:.93;
   pointer-events:none;
+  user-select:none;
+  animation:crafter-garland-glow 6s ease-in-out infinite;
+}
+@keyframes crafter-garland-glow {
+  0%,100% {opacity:.86}
+  48% {opacity:1}
+}
+@media (max-width:390px) {
+  #app > header::before { top:-9px; left:-9px; width:clamp(155px,49%,185px); height:66px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  #app > header::before {animation:none;opacity:.95}
 }
 
+/* Preserve the compact centred info button on Craft. */
 #app.craft-view > header > .craft-header {
   position:absolute;
   top:50%;
   left:50%;
   z-index:3;
-  transform:translate(-50%, -50%);
+  transform:translate(-50%,-50%);
   display:flex!important;
   align-items:center;
   justify-content:center;
@@ -49,14 +57,4 @@
   height:28px;
   margin:0;
   border-radius:50%;
-}
-
-@media (min-width:650px) {
-  #app > .site-winter-garland {height:100px;}
-}
-@media (max-width:390px) {
-  #app > .site-winter-garland {height:clamp(52px,20vw,75px);}
-}
-@media (prefers-reduced-motion:reduce) {
-  #app > .site-winter-garland {animation:none;}
 }
