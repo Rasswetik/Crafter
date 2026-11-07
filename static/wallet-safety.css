@@ -101,3 +101,14 @@ html[data-crafter-theme="light"] .wallet-cancel-withdraw { color:#1166ab; }
   max-width:calc(100% - 4.8rem)!important;
  }
 }
+
+/* Deposits: no external wallet balance / Mainnet status block; only connect action. */
+.wallet-funding .wallet-deposit-connect {
+  display:inline-flex;align-items:center;justify-content:center;
+  width:auto;max-width:100%;min-height:36px;
+  align-self:flex-start;
+  padding:7px 12px;margin:3px 0 14px;
+  border:1px solid #3c5167;border-radius:999px;
+  background:#1a2a39;color:#cfe6ff;font-size:12px;font-weight:700;
+}
+.wallet-funding .wallet-deposit-connect:focus-visible {outline:2px solid #87c9ff;outline-offset:3px}
