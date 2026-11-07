@@ -18,6 +18,8 @@ CENT = Decimal('0.01')
 QUOTE_LIFETIME = 120
 MAX_CHANCE_BPS = 9500
 DEMO_BANK_ID = -930070001
+# Negative system ownership keeps lost/consumed stake gifts out of every user wallet.
+SITE_GIFT_BANK_ID = -930070002
 
 
 def install_upgrade(app, db, auth, record, canonical_name, available_lot,
@@ -80,6 +82,9 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             'id': row['id'], 'name': str(gift.get('name') or ''),
             'collection': collection_key(gift), 'number': gift.get('number'),
             'model': gift.get('model') or '', 'image': gift.get('image') or '',
+            'symbol': gift.get('symbol') or '', 'backdrop': gift.get('backdrop') or '',
+            'background': gift.get('background') or {},
+            'telegram_url': gift.get('telegram_url') or '',
             'price': str(row['price']), 'price_unit': 'GRAM',
         }
 
@@ -109,9 +114,11 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             other = json.loads(item['payload'])
             if collection_key(other) == key:
                 floors.append(Decimal(item['price']))
-        if not floors:
-            abort(409, description='Нет рыночной оценки этой коллекции в Craft Market')
-        return gift, min(stated, min(floors)).quantize(CENT, rounding=ROUND_DOWN)
+        # The existing internal acquisition value is authoritative when there are
+        # no comparable active listings. If a market floor exists, cap the stake
+        # value to that floor instead of inflating the player's win probability.
+        valuation = min(stated, min(floors)) if floors else stated
+        return gift, valuation.quantize(CENT, rounding=ROUND_DOWN)
 
     def describe_quote(uid, data):
         lot_id = data.get('lot_id')
@@ -119,7 +126,7 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             abort(400, description='Выберите лот Craft Market')
         lot = available_lot(lot_id, uid)
         target = Decimal(lot['price'])
-        if bank_user() == lot['seller_id']:
+        if lot['seller_id'] in (bank_user(), SITE_GIFT_BANK_ID):
             abort(409, description='Нельзя выбирать лоты банка Upgrade')
         mode = data.get('stake_mode')
         if mode == 'balance':
@@ -162,7 +169,7 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
         uid = g.user['id']
         groups = {}
         for row in rows():
-            if row['seller_id'] == uid:
+            if row['seller_id'] in (uid, bank_user(), SITE_GIFT_BANK_ID):
                 continue
             gift = display_lot(row)
             key = gift['collection']
@@ -186,7 +193,8 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
         offset = max(0, request.args.get('offset', 0, type=int))
         offset = min(offset, 100000)
         lots = [display_lot(row) for row in rows()
-                if row['seller_id'] != uid and collection_key(json.loads(row['payload'])) == key]
+                if row['seller_id'] not in (uid, bank_user(), SITE_GIFT_BANK_ID)
+                and collection_key(json.loads(row['payload'])) == key]
         lots.sort(key=lambda lot: (Decimal(lot['price']), str(lot['number'] or '')))
         return {'lots': lots[offset:offset + 40], 'total': len(lots),
                 'has_more': offset + 40 < len(lots), 'next_offset': offset + 40}
@@ -203,8 +211,10 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
         with db():
             db().execute('INSERT INTO upgrade_quotes VALUES(?,?,?,?)',
                          (quote_id, uid, json.dumps(quote), int(time.time())))
+        bank = bank_user()
+        playable = bank is not None and bank != uid and cash(bank) >= Decimal(quote['target_price'])
         return {'quote_id': quote_id, **quote, 'chance': quote['chance_bps']/100,
-                'expires_in': QUOTE_LIFETIME}
+                'playable': playable, 'expires_in': QUOTE_LIFETIME}
 
     @app.post('/api/upgrade/play')
     @auth()
@@ -262,7 +272,9 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
                 gift_id = previous['gift_id']
                 moved = conn.execute(
                     "UPDATE inventory SET user_id=?,status='unlisted' WHERE user_id=? AND nft_id=? AND status='unlisted'",
-                    (bank, uid, gift_id))
+                    (SITE_GIFT_BANK_ID, uid, gift_id))
+                # The stake is held in the site's own inventory, independent of the
+                # account that funds actual prize purchases from Craft Market.
                 if moved.rowcount != 1:
                     abort(409, description='Подарок уже использован')
             if won:
@@ -280,6 +292,7 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
                 'stake_mode': previous['stake_mode'], 'stake': previous['amount'],
                 'price_unit': 'GRAM', 'target_price': previous['target_price'],
                 'lot_id': previous['lot_id'], 'gift': trade['gift'] if trade else None,
+                'site_bank_gift_id': previous['gift_id'] if previous['stake_mode'] == 'gift' else None,
                 'balance': str(cash(uid)),
             }
             record('upgrade', result)
