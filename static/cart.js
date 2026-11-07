@@ -43,7 +43,37 @@ function renderCart(){const items=[...state.cart.values()],chosen=selectedCart()
 function selectCart(id){if(state.cartBuying)return;state.cartError='';state.cartSelected.has(id)?state.cartSelected.delete(id):state.cartSelected.add(id);renderCart()}
 function toggleAllCart(){if(state.cartBuying)return;state.cartError='';state.cartSelected=state.cartSelected.size===state.cart.size?new Set():new Set(state.cart.keys());renderCart()}
 function removeCartSelected(){if(state.cartBuying)return;for(const id of state.cartSelected)state.cart.delete(id);state.cartSelected.clear();saveCart();renderCart()}
-async function payCart(){if(state.cartBuying)return;const items=selectedCart();if(!items.length)return;const ids=items.map(g=>g.id).sort(),key='crafter-cart-payment:'+state.me.user.id+':'+ids.join('|');state.cartBuying=true;state.cartError='';renderCart();try{const result=await api('local/cart/buy',{gift_ids:ids,expected_total:String(cartTotal(items)),request_id:paymentRequestId(key)});removePurchasedMarketLots(ids);state.me.balance=result.balance;state.me.inventory_count=(state.me.inventory_count||0)+result.gifts.length;updateBalance();toast('Покупка завершена')}catch(e){state.cartError=e.message;toast(e.message)}finally{state.cartBuying=false;renderCart()}}
+async function payCart(){
+    if(state.cartBuying)return;
+    const items=selectedCart();if(!items.length)return;
+    if(!state.me.demo&&items.some(g=>g.resale||g.price_unit!=='GRAM'||!/^[a-f0-9-]{36}$/i.test(g.id))){
+        state.cartError='В этой корзине доступны только реальные лоты Portals с ценами в GRAM';
+        renderCart();return;
+    }
+    const ids=items.map(g=>g.id).sort();
+    const key='crafter-cart-payment:'+state.me.user.id+':'+ids.join('|');
+    state.cartBuying=true;state.cartError='';renderCart();
+    try{
+        const result=await api(state.me.demo?'local/cart/buy':'portals/buy',{
+            gift_ids:ids,expected_total:String(cartTotal(items)),request_id:paymentRequestId(key)
+        });
+        if(!state.me.demo&&result.status!=='complete')throw Error('Покупка требует проверки. Не оплачивайте повторно.');
+        const gifts=result.gifts||[];
+        const purchasedIds=gifts.map(g=>g.source_id||g.id);
+        if(purchasedIds.length){
+            removePurchasedMarketLots(purchasedIds);
+            purchasedIds.forEach(id=>{state.cart.delete(id);state.cartSelected.delete(id)});
+            saveCart();
+        }
+        state.me.balance=result.balance;
+        state.me.inventory_count=(state.me.inventory_count||0)+gifts.length;
+        updateBalance();
+        toast(result.failed?.length?'Покупка частичная: '+gifts.length+' из '+ids.length: 'Покупка подтверждена');
+    }catch(e){
+        state.cartError=e.message||'Не удалось подтвердить покупку';
+        toast(state.cartError);
+    }finally{state.cartBuying=false;renderCart();}
+}
 
 function cartFunds(value){return Number(value).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})}
 let cartBalanceRequest=0;
