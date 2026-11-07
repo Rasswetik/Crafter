@@ -1,0 +1,117 @@
+/* Approved winter loading composition, built from existing Crafter sprite and
+ * individual vector assets instead of a flattened mockup.
+ * Actual loading progress stays live. Classic splash remains available. */
+.splash.splash-winter.splash-final {
+  background:
+    radial-gradient(ellipse 85% 38% at 50% 44%,#174269 0%,#0b2848 45%,transparent 100%),
+    linear-gradient(180deg,#061b30 0%,#061a2e 54%,#071727 100%);
+}
+.splash-final .splash-frame {
+  transform:none;
+  z-index:3;
+  gap:clamp(18px,3.5dvh,30px);
+  width:min(calc(100% - 24px),440px,calc(70dvh));
+}
+.splash-final .splash-brand {
+  font-weight:800;
+  font-size:clamp(32px,5.5dvh,48px);
+  letter-spacing:-.04em;
+  text-shadow:0 3px 14px #0008;
+}
+.splash-final .splash-art {
+  aspect-ratio:1;
+  min-height:0;
+  margin:7px auto 0;
+  width:min(100%,min(53dvh,440px));
+}
+.splash-final .splash-orbit {
+  inset:6% 9%;
+  border:1px solid #8bd0ff4b;
+  border-radius:50%;
+  transform:none;
+  background:radial-gradient(ellipse at center,#37699a1b,transparent 73%);
+  box-shadow:0 0 0 1px #4ba2e009,0 0 25px #278cff17;
+}
+.splash-final .splash-magnate {
+  left:15%;top:8%;width:70%;
+  filter:saturate(.93) brightness(1.07) contrast(1.03)
+     drop-shadow(0 10px 12px #0009) drop-shadow(0 0 13px #65bcfa24);
+  z-index:4;
+  animation:splash-final-float 3.6s ease-in-out infinite;
+}
+.splash-final .splash-santa-hat {
+  top:-1%;left:27%;width:36%;z-index:6;
+  transform:rotate(-13deg);
+  filter:drop-shadow(0 4px 6px #0006);
+  animation:none;
+}
+.splash-final .splash-gift-winter {
+  z-index:5;display:block;object-fit:contain;
+  filter:drop-shadow(0 5px 9px #0009) drop-shadow(0 0 7px #82caff43);
+  animation:splash-final-gift 4.5s ease-in-out infinite;
+}
+.splash-final .splash-gift-watch {left:0;top:20%;width:20%;animation-delay:-.8s}
+.splash-final .splash-gift-ring {right:0;top:17%;width:22%;animation-delay:-1.7s}
+.splash-final .splash-gift-bonded {right:-1%;bottom:3%;width:20%;animation-delay:-3.1s}
+.splash-final .splash-winter-sky {
+  z-index:0;opacity:.24;
+  background-size:139px 157px,205px 195px,333px 301px;
+  animation:splash-winter-stars 35s linear infinite;
+}
+.splash-final .splash-winter-snowbank {
+  z-index:1;height:14%;opacity:.64;
+  background:
+    radial-gradient(ellipse 65% 40% at 10% 118%,#bddffc 0%,#5589b378 63%,transparent 75%),
+    radial-gradient(ellipse 65% 42% at 96% 117%,#d7effe 0%,#508abd78 62%,transparent 75%),
+    linear-gradient(0deg,#0b2a49 0%,transparent 90%);
+}
+.splash-final .splash-holiday-lights {
+  display:block;
+  position:absolute;z-index:2;
+  top:max(3px,env(safe-area-inset-top));left:50%;
+  width:min(100%,740px);height:auto;
+  transform:translateX(-50%);
+  opacity:.88;pointer-events:none;
+  filter:drop-shadow(0 0 7px #ffd28b45);
+  animation:splash-final-lights 3.5s ease-in-out infinite alternate;
+}
+.splash:not(.splash-winter) .splash-holiday-lights {display:none!important}
+.splash-final .splash-status {
+  gap:12px;color:#c5d9eb;letter-spacing:.18em;
+  font-size:11px;z-index:5;
+}
+.splash-final .splash-progress {
+  width:142px;height:4px;
+  background:#45688655;
+  box-shadow:none;
+  border:0;border-radius:5px;
+}
+.splash-final .splash-progress::after {display:none}
+.splash-final .splash-progress-fill {
+  display:block;height:100%;width:0%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#2f91e6,#bfe9ff);
+  box-shadow:0 0 9px #66baf777;
+  transition:width .38s ease;
+}
+.splash:not(.splash-final) .splash-progress-fill {display:none}
+@keyframes splash-final-float {
+  0%,100% {translate:0 0}50%{translate:0 -3px}
+}
+@keyframes splash-final-gift {
+  0%,100%{translate:0 0}50%{translate:0 -5px}
+}
+@keyframes splash-final-lights {
+  from{opacity:.72;filter:drop-shadow(0 0 4px #ffc77333)}
+  to{opacity:.99;filter:drop-shadow(0 0 9px #ffdb9788)}
+}
+@media(max-width:385px){
+  .splash-final .splash-frame{width:calc(100% - 12px)}
+  .splash-final .splash-art{width:min(100%,48dvh)}
+  .splash-final .splash-holiday-lights{width:108%}
+}
+@media(prefers-reduced-motion:reduce){
+ .splash-final .splash-magnate,.splash-final .splash-gift-winter,
+ .splash-final .splash-holiday-lights {animation:none!important}
+ .splash-final .splash-progress-fill{transition:none}
+}
