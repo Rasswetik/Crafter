@@ -192,3 +192,61 @@ def test_upgrade_layout_requires_wheel_and_two_modal_selections():
     assert 'ug-modes' not in js
     assert 'winter-currency-balance' in page and 'class="balance"' in page
     assert 'wheel-pickers-20261107-v2' in page
+
+
+def test_site_bank_admin_funding_makes_gift_upgrades_playable(client, monkeypatch):
+    gift, target = setup_upgrade(client, bank=False)
+    assert client.get('/api/upgrade/info', headers=signed(42)).json['is_admin']
+    assert not client.get('/api/upgrade/info', headers=signed(43)).json['is_admin']
+    assert client.post('/api/upgrade/bank/fund', headers=signed(43), json={
+        'amount': '150.00', 'request_id': 'non-admin-fund-1'}).status_code == 403
+
+    with sqlite3.connect(client.application.config['DATABASE']) as conn:
+        conn.execute("UPDATE demo_accounts SET balance='250.00' WHERE user_id=42")
+        conn.execute("INSERT INTO wallet_balances VALUES (42,'mainnet','250.00')")
+    payload = {'amount': '150.00', 'request_id': 'deposit-test-funding-1'}
+    paid = client.post('/api/upgrade/bank/fund', headers=signed(42), json=payload)
+    assert paid.status_code == 200, paid.json
+    assert paid.json['bank_balance'] == '150.00'
+    repeated = client.post('/api/upgrade/bank/fund', headers=signed(42), json=payload)
+    assert repeated.status_code == 200 and repeated.json['duplicate']
+    assert client.post('/api/upgrade/bank/fund', headers=signed(42), json={
+        'amount': '151.00', 'request_id': 'deposit-test-funding-1'}).status_code == 409
+    info = client.get('/api/upgrade/info', headers=signed(42)).json
+    assert info['enabled'] is True
+    assert info['bank_balance'] == '150.00'
+
+    stake = {**DEMO_GIFTS[0], 'id': 'user-gift-stake-deposit', 'number': 123417,
+             'price': '2.00', 'price_unit': 'GRAM', 'origin': 'local-purchase'}
+    with sqlite3.connect(client.application.config['DATABASE']) as conn:
+        conn.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')",
+                     (stake['id'], json.dumps(stake)))
+    monkeypatch.setattr('upgrade.secrets.randbelow', lambda _: 0)
+    q = quote(client, target['id'], 'gift', gift_id=stake['id'])
+    assert q.status_code == 200 and q.json['playable'], q.json
+    played = client.post('/api/upgrade/play', headers=signed(43), json={
+        'quote_id': q.json['quote_id'], 'request_id': 'bank-funded-upgrade'})
+    assert played.status_code == 200 and played.json['success'], played.json
+    assert played.json['gift']['id'] == gift['id']
+    with sqlite3.connect(client.application.config['DATABASE']) as conn:
+        assert conn.execute('SELECT balance FROM demo_accounts WHERE user_id=-930070003').fetchone() == ('140.00',)
+        assert conn.execute('SELECT user_id FROM inventory WHERE nft_id=?',
+                            (stake['id'],)).fetchone() == (-930070002,)
+        assert conn.execute('SELECT balance FROM demo_accounts WHERE user_id=42').fetchone() == ('109.60',)
+        assert conn.execute("SELECT gram FROM wallet_balances WHERE user_id=42 AND network='mainnet'").fetchone() == ('100.00',)
+
+
+def test_upgrade_visuals_use_collection_previews_and_full_nft_art():
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    js = (root / 'static/upgrade.js').read_text(encoding='utf-8')
+    css = (root / 'static/upgrade.css').read_text(encoding='utf-8')
+    assert 'ugCollectionArt(collection)' in js
+    assert 'fragmentCollectionImage(slug)' in js
+    assert 'directFragmentCollectionImage(slug)' in js
+    assert "ugArtFrame(lot, 'ug-picker-art ug-lot-art')" in js
+    assert "fragment + '.large.jpg'" in js
+    assert "giftBackdrop(gift)" in js and "giftPattern(gift)" in js
+    assert "onclick=\"ugRules()\"" not in js
+    assert 'ug-slot-art img' in css and 'transform:none!important' in css
+    assert 'ugOpenBankFund()' in js and 'ugFundBank()' in js
