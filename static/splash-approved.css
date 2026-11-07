@@ -107,3 +107,77 @@
   .splash-approved .splash-approved-photo{max-height:100dvh}
   .splash-approved .splash-approved-status{top:76.1%}
 }
+
+/* 2026 device layouts: never use a blurred/enlarged copy as a filler.
+   Portrait keeps the original full artwork; tablets/desktop landscape use
+   the existing independent sprite layers as a real responsive composition. */
+.splash.splash-approved {
+  background:radial-gradient(ellipse at 50% 45%,#17456b 0%,#092942 65%,#041728 100%)!important;
+}
+.splash-approved .splash-approved-poster::before {
+  display:none!important;filter:none!important;background:none!important;
+}
+.splash-approved .splash-approved-poster::after {
+  background:linear-gradient(90deg,#07254145 0,transparent 18%,transparent 82%,#07254145 100%);
+}
+.splash-approved .splash-approved-photo {
+  max-width:100%;max-height:100%;object-fit:contain!important;
+  object-position:center!important;
+}
+@media(max-aspect-ratio: 2/3) and (max-height:720px){
+  .splash-approved .splash-approved-status {
+    top:auto!important;bottom:max(8%,calc(22px + env(safe-area-inset-bottom)));
+    font-size:10px;gap:9px;
+  }
+}
+@media(min-aspect-ratio:1/1){
+  .splash.splash-approved {
+    background:
+      radial-gradient(ellipse 47% 78% at 50% 47%,#255b80 0%,#0c3151 60%,transparent 100%),
+      linear-gradient(120deg,#071a32,#071b30 54%,#031322)!important;
+  }
+  .splash-approved .splash-approved-poster {display:none!important;}
+  .splash-approved .splash-frame {
+    display:flex!important;
+    z-index:3;
+    position:relative;
+    flex-direction:column;
+    justify-content:center;
+    gap:clamp(3px,2vh,16px);
+    height:min(96dvh,730px);
+    width:min(94vw,740px);
+    max-width:none;
+    margin:auto;
+    transform:none!important;
+  }
+  .splash-approved .splash-art {
+    display:block!important;
+    position:relative;
+    width:min(48dvh,410px,40vw);
+    max-width:100%;
+    aspect-ratio:1;
+    margin:0 auto;
+  }
+  .splash-approved .splash-brand {
+    display:block!important;
+    font-size:clamp(26px,5dvh,48px);
+    line-height:1.05;
+    text-align:center;
+  }
+  .splash-approved .splash-status {display:flex!important;z-index:5;}
+  .splash-approved .splash-winter-sky,
+  .splash-approved .splash-winter-snowbank,
+  .splash-approved .splash-holiday-lights {display:block!important;}
+  .splash-approved .splash-holiday-lights {
+    top:0;width:min(84vw,700px);opacity:.65;
+  }
+}
+@media(min-aspect-ratio:1/1) and (max-height:480px) {
+  .splash-approved .splash-frame {
+    gap:5px;height:95dvh;
+    flex-direction:row;align-items:center;justify-content:space-evenly;
+  }
+  .splash-approved .splash-brand {font-size:clamp(23px,6vh,38px);}
+  .splash-approved .splash-art {width:min(72vh,44vw);}
+  .splash-approved .splash-status {font-size:10px;}
+}
