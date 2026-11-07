@@ -31,7 +31,7 @@
   transform:scaleX(-1);
   opacity:.80;
 }
-#app > header > * { position:relative;z-index:1; }
+#app > header > * { z-index:1; }
 
 /* Two *small* side vines at different heights, well outside the banner copy.
    They are purely visual pseudo-elements, not inserted rows or fixed overlays. */
