@@ -1,0 +1,17 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const html = fs.readFileSync('templates/index.html','utf8');
+const css = fs.readFileSync('static/winter-currency.css','utf8');
+assert.match(html, /class="winter-currency-balance"/);
+assert.match(html, /src="\/static\/assets\/crafter-winter-ornament\.png"/);
+assert.match(html, /aria-label="Новогодние шары: 0/);
+const start = html.indexOf('<span class="winter-currency-balance"');
+const end = html.indexOf('</span>', start);
+const markup = html.slice(start,end);
+assert.ok(start >= 0 && end > start);
+assert.doesNotMatch(markup, /onclick=|href=|<button|tabindex=/);
+assert.match(css,/pointer-events:\s*none/);
+assert.match(css,/#app\.arena-view > header > \.winter-currency-balance/);
+assert.match(css,/#app\.staking-view > header > \.staking-rules-button/);
+assert.ok(html.indexOf('winter-currency-balance') < html.indexOf('class="balance"'));
+console.log('Left winter-ball currency is present and read-only across screens.');

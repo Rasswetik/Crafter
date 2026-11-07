@@ -1,0 +1,39 @@
+/* The ornament is a display-only seasonal currency, not a clickable wallet. */
+#app > header { gap: 7px; min-width: 0; }
+#app > header > .winter-currency-balance {
+  order: -30; display: inline-flex !important; align-items: center; justify-content: flex-start;
+  gap: 4px; min-height: 37px; min-width: 71px; padding: 3px 10px 3px 3px;
+  margin-right: auto; flex: 0 0 auto; white-space: nowrap;
+  background: linear-gradient(145deg,#284e69b5,#101e2ce0);
+  border: 1px solid #86caff59; border-radius: 22px;
+  box-shadow: inset 0 1px 0 #ffffff24, 0 5px 14px #0005;
+  -webkit-backdrop-filter: blur(15px); backdrop-filter: blur(15px);
+  color: #fff; pointer-events: none; user-select: none; cursor: default;
+}
+#app > header > .winter-currency-balance img {
+  width: 32px; height: 32px; flex: 0 0 32px;
+  object-fit: contain; display: block; border: 0; background: transparent;
+}
+#app > header > .winter-currency-balance b {
+  font-size: 14px; font-weight: 850; font-variant-numeric: tabular-nums;
+}
+#app > header > .balance { order: 30; margin-left: auto; flex: 0 0 auto; }
+#app > header > .balance b { white-space: nowrap; }
+#app.staking-view > header > .staking-rules-button {
+  order: 10; margin: 0; white-space: nowrap; flex: 0 1 auto;
+}
+#app.arena-view > header > .winter-currency-balance { display: inline-flex !important; }
+@media (max-width: 390px) {
+  #app > header { gap: 5px; padding-left: 11px; padding-right: 11px; }
+  #app > header > .winter-currency-balance {
+    min-width: 62px; min-height: 33px; padding: 2px 7px 2px 2px; gap: 2px;
+  }
+  #app > header > .winter-currency-balance img { width: 29px; height: 29px; flex-basis: 29px; }
+  #app > header > .winter-currency-balance b { font-size: 12px; }
+  #app > header > .balance { padding: 7px 8px; font-size: 12px; }
+  #app.staking-view > header > .staking-rules-button { padding: 6px 8px; font-size: 11px; }
+  #app > header > .craft-header h1 { font-size: 16px; }
+}
+@media (max-width: 335px) {
+  #app > header > .craft-header .info-btn { display: none; }
+}
