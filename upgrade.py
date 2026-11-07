@@ -269,6 +269,9 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
                 lot = available_lot(previous['lot_id'], uid)
                 trade = settle_lot(lot, uid, 'upgrade', target)
                 balance_bank -= target
+            # The bank must not keep an independently withdrawable TON allowance
+            # after it has spent GRAM to settle a player's prize.
+            cap_funded_balance(conn, bank, balance_bank)
             conn.execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',
                          (str(balance_bank), bank))
             result = {
