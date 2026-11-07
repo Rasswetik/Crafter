@@ -442,7 +442,7 @@ async function renderWalletAmount(kind) {
     document.querySelector('#main').innerHTML = `<section class="wallet-funding">
         <button type="button" class="wallet-back" onclick="go('wallet')">${icon('walletChevron')} К кошельку</button>
         <h1 class="wallet-page-title">${deposit ? 'Пополнение' : 'Вывод'}</h1>
-        ${walletIdentity(w)}
+        ${deposit ? `<button type="button" class="wallet-deposit-connect" onclick="openWalletDetails()">${w.connected ? 'Кошелёк подключён · Изменить' : 'Подключить TON-кошелёк'}</button>` : walletIdentity(w)}
         <section class="wallet-amount-card">
             <label class="wallet-amount-label" for="wallet-amount">${deposit ? 'Сумма пополнения' : 'Сумма вывода'}</label>
             <div class="wallet-amount"><input id="wallet-amount" aria-label="Сумма в GRAM" placeholder="0" inputmode="decimal" type="text" pattern="[0-9]+([.,][0-9]{1,2})?" maxlength="16" autocomplete="off" spellcheck="false" value="${esc(value)}" oninput="walletAmountChanged()"><b>GRAM</b></div>
