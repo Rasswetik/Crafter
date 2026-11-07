@@ -17,12 +17,16 @@ async function renderPortalsPartnerAdmin(content=document.querySelector('#admin-
     '<div class="portals-partner-actions"><button class="primary" type="button" id="portals-partner-save" '+(!info.encryption_ready||!info.durable_db?'disabled':'')+'>Сохранить ключ</button>'+
     '<button class="secondary" type="button" id="portals-partner-test" '+(!info.key_configured?'disabled':'')+'>Проверить баланс</button></div>'+
     '<p class="sub" id="portals-partner-result" role="status"></p>'+
-    '<a href="https://docs.portals.tg/ru/developers/api/" target="_blank" rel="noopener noreferrer">Как получить ключ Portals</a>';
+    '<a href="https://docs.portals.tg/ru/developers/api/" target="_blank" rel="noopener noreferrer">Как получить ключ Portals</a>'+
+    '<div class="portals-partner-actions"><button class="secondary" type="button" id="portals-partner-activate" '+(!info.can_enable&&!info.live_purchases?'disabled':'')+'>'+
+    (info.live_purchases?'Отключить реальные покупки':'Включить реальные покупки')+'</button></div>'+
+    '<p class="sub">Активация требует проверенного ключа и отдельного подтверждения администратора. Без ключа никакие деньги не отправляются.</p>';
   content.insertBefore(section,content.firstElementChild);
   const input=section.querySelector('#portals-partner-key');
   const result=section.querySelector('#portals-partner-result');
   const save=section.querySelector('#portals-partner-save');
   const test=section.querySelector('#portals-partner-test');
+  const activate=section.querySelector('#portals-partner-activate');
   section.querySelector('#portals-partner-eye').onclick=()=>input.type=input.type==='password'?'text':'password';
   save.onclick=async()=>{
     if(!input.value.trim())return;
@@ -30,7 +34,7 @@ async function renderPortalsPartnerAdmin(content=document.querySelector('#admin-
     save.disabled=true;result.textContent='Сохраняем…';
     try {
       await api('admin/portal/partner/key',{key:input.value.trim()});
-      input.value='';input.type='password';test.disabled=false;
+      input.value='';input.type='password';test.disabled=false;activate.disabled=true;
       result.textContent='Ключ зашифрован и сохранён. Нажмите «Проверить баланс».';
     }catch(error){result.textContent=error.message;}
     finally{save.disabled=false;}
@@ -40,8 +44,27 @@ async function renderPortalsPartnerAdmin(content=document.querySelector('#admin-
     try {
       const r=await api('admin/portal/partner/check',{});
       result.textContent='Portals подключён. Доступно '+r.balance+' GRAM, заморожено '+r.frozen_funds+' GRAM.';
+      activate.disabled=!r.can_enable&&!r.live_purchases;
     }catch(error){result.textContent=error.message;}
     finally{test.disabled=false;}
+  };
+  activate.onclick=async()=>{
+    const currentlyEnabled=activate.textContent.includes('Отключить');
+    const enabled=!currentlyEnabled;
+    if(enabled){
+      if(!confirm('После активации покупка NFT будет тратить реальные GRAM с баланса Portals. Продолжить?'))return;
+      if(!confirm('Подтвердите, что партнёрский кошелёк пополнен, а тестовая покупка проверена.'))return;
+      if(prompt('Введите: ВКЛЮЧИТЬ РЕАЛЬНЫЕ ПОКУПКИ')!=='ВКЛЮЧИТЬ РЕАЛЬНЫЕ ПОКУПКИ')return;
+    }else if(!confirm('Отключить реальные покупки Portals?'))return;
+    activate.disabled=true;
+    try{
+      const r=await api('admin/portal/partner/activate',{
+        enabled,confirmation:enabled?'ВКЛЮЧИТЬ РЕАЛЬНЫЕ ПОКУПКИ':''
+      });
+      activate.textContent=r.live_purchases?'Отключить реальные покупки':'Включить реальные покупки';
+      result.textContent=r.live_purchases?'Покупки разрешены.':'Новые покупки отключены.';
+    }catch(e){result.textContent=e.message;}
+    finally{activate.disabled=false;}
   };
 }
 
