@@ -9,16 +9,19 @@ assert.match(backup,/splash-watch-platinum.png/);
 assert.match(backup,/splash-ring-chrome.png/);
 assert.match(backup,/splash-bonded-silver.png/);
 assert.match(backup,/splash-magnate.png/);
-assert.match(html,/id="splash" class="splash splash-winter"/);
+assert.match(html,/id="splash" class="splash splash-winter splash-final"/);
 assert.match(html,/src="\/static\/assets\/splash-magnate.png"/);
-for (const gift of ['Ginger%20Cookie/png/Santa%20Claus.png','Snow%20Globe/png/Night%20Snow.png','Plush%20Pepe/png/Christmas.png']){
-  assert.ok(html.includes(gift),gift+' should be featured as a real winter NFT model');
-}
+assert.match(html,/Ginger%20Cookie\/png\/Santa%20Claus.png/);
+assert.match(html,/splash-holiday-gift\.svg/);
+assert.match(html,/splash-ice-gift\.svg/);
+assert.doesNotMatch(html,/Snow%20Globe\/png\/Night%20Snow.png/);
+assert.doesNotMatch(html,/Plush%20Pepe\/png\/Christmas.png/);
 assert.equal((html.match(/class="splash-gift [^"]*splash-gift-classic"/g)||[]).length,3);
 assert.equal((html.match(/class="splash-gift [^"]*splash-gift-winter"/g)||[]).length,3);
 assert.match(html,/splash-santa-hat.svg/);
 assert.match(html,/splash-winter.css/);
 assert.match(html,/splash=|get\("splash"\)/);
+assert.match(html,/classList.remove\("splash-winter","splash-final"\)/);
 assert.match(css,/prefers-reduced-motion/);
 assert.match(css,/splash-winter-snowbank/);
 assert.match(css,/splash-progress/);
