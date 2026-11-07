@@ -140,10 +140,9 @@
   position:absolute;inset:16%;z-index:4;border-radius:50%;pointer-events:none;
 }
 .escape-shard-ring i {
-  --angle:calc(var(--piece)*40deg);
   position:absolute;left:calc(50% - 9px);top:calc(50% - 9px);
   width:18px;height:18px;
-  transform:rotate(var(--angle)) translateY(-84px) rotate(calc(var(--angle)*-1));
+  transform:rotate(var(--angle)) translateY(-84px);
   opacity:.76;filter:drop-shadow(0 0 4px #6aeccf83);
 }
 .escape-shard-ring svg{height:100%;width:100%}
@@ -265,7 +264,7 @@
 @media(max-width:385px){
   #app.escape-view #main {padding-inline:8px!important}
   .escape-wheel {width:min(85vw,285px);height:min(85vw,285px)}
-  .escape-shard-ring i {transform:rotate(var(--angle)) translateY(-75px) rotate(calc(var(--angle)*-1))}
+  .escape-shard-ring i {transform:rotate(var(--angle)) translateY(-75px)}
   .escape-record-card{padding:9px}
   .escape-record-heading{font-size:9px}
   .escape-quick{gap:4px}
