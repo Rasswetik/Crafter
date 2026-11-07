@@ -243,13 +243,29 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
                       'bank_balance': str(cash(bank)), 'duplicate': False}
         return result
 
+    @app.get('/api/upgrade/stake-value')
+    @auth()
+    def upgrade_stake_value():
+        """Authoritative appraised value in GRAM for the selected inventory stake."""
+        gift_id = request.args.get('gift_id', '')
+        _, amount = stake_gift(g.user['id'], gift_id)
+        return {'gift_id': gift_id, 'amount': str(amount), 'price_unit': 'GRAM'}
+
+    def selected_stake_floor(uid):
+        """Filter target discovery, using the same appraisal as /quote."""
+        gift_id = request.args.get('stake_gift_id', '')
+        return stake_gift(uid, gift_id)[1] if gift_id else None
+
     @app.get('/api/upgrade/collections')
     @auth()
     def upgrade_collections():
         uid = g.user['id']
+        floor_required = selected_stake_floor(uid)
         groups = {}
         for row in rows():
             if row['seller_id'] in (uid, bank_user(), SITE_GIFT_BANK_ID):
+                continue
+            if floor_required is not None and Decimal(row['price']) <= floor_required:
                 continue
             gift = display_lot(row)
             key = gift['collection']
@@ -273,9 +289,11 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             abort(400, description='Выберите коллекцию')
         offset = max(0, request.args.get('offset', 0, type=int))
         offset = min(offset, 100000)
+        floor_required = selected_stake_floor(uid)
         lots = [display_lot(row) for row in rows()
                 if row['seller_id'] not in (uid, bank_user(), SITE_GIFT_BANK_ID)
-                and collection_key(json.loads(row['payload'])) == key]
+                and collection_key(json.loads(row['payload'])) == key
+                and (floor_required is None or Decimal(row['price']) > floor_required)]
         lots.sort(key=lambda lot: (Decimal(lot['price']), str(lot['number'] or '')))
         return {'lots': lots[offset:offset + 40], 'total': len(lots),
                 'has_more': offset + 40 < len(lots), 'next_offset': offset + 40}
