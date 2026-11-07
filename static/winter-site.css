@@ -1,76 +1,71 @@
-/* Crafter: restrained, separate evergreen garlands. No layout shifts.
-   Decorations sit at the margins and do not intercept buttons or navigation. */
+/* Crafter winter decor: natural light swags ACROSS the complete top.
+   Decorative-only overlays. Never add rows, padding or shift game controls. */
+#app > .site-winter-garland { display:none!important; }
 
-/* Remove the obsolete full-width garland on clients with cached markup. */
-#app > .site-winter-garland,
-#app > .site-winter-garland::after { display:none!important; }
-
-/* Two short, asymmetric loops hang from opposite sides of the top edge. */
-#app > header { position:relative; isolation:isolate; }
-#app > header::before,
-#app > header::after {
+/* One continuous six-swag canopy with varied dips. Not a horizontal band. */
+#app > header {position:relative;isolation:isolate;}
+#app > header::before {
   content:"";
   position:absolute;
+  left:0;
+  right:0;
+  top:-3px;
+  width:100%;
+  height:64px;
   z-index:0;
-  top:-9px;
-  height:67px;
-  background-image:url("/static/assets/crafter-hanging-lights.svg?v=3");
-  background-repeat:no-repeat;
-  background-position:top left;
-  background-size:100% 100%;
-  opacity:.92;
+  background:url("/static/assets/crafter-top-canopy.svg?v=1") no-repeat center top / 100% 100%;
+  opacity:.95;
   pointer-events:none!important;
   user-select:none;
 }
-#app > header::before {left:-5px;width:min(220px,46%);}
-#app > header::after {
-  right:-3px;
-  top:-12px;
-  width:min(162px,33%);
-  height:50px;
-  transform:scaleX(-1);
-  opacity:.80;
+#app > header > * {z-index:1;}
+/* Prior side vines and the mirrored, incomplete top garland are removed.
+   No #app::before, #app::after or header::after decorations. */
+@media (max-width:390px) {
+  #app > header::before {height:53px;top:-2px;opacity:.94;}
 }
-#app > header > * { z-index:1; }
+@media (min-width:650px) {
+  #app > header::before {height:64px;top:-3px;}
+}
 
-/* Two *small* side vines at different heights, well outside the banner copy.
-   They are purely visual pseudo-elements, not inserted rows or fixed overlays. */
-#app::before,
-#app::after {
+/* Only a modest festive accent at the corners of the Arena playing field.
+   All animation, tiles and hit-testing remain in the original SVG board. */
+#app.arena-view .arena-board-frame {position:relative;}
+#app.arena-view .arena-board-frame::after {
   content:"";
   position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:34px;
   z-index:2;
-  width:22px;
-  height:139px;
-  background:url("/static/assets/crafter-side-vine.svg?v=1") no-repeat center/100% 100%;
+  border-radius:inherit;
   pointer-events:none!important;
-  user-select:none;
-  opacity:.87;
-}
-#app::before {left:-5px;top:218px;}
-#app::after {
-  right:-4px;
-  top:407px;
-  height:153px;
-  transform:scaleX(-1);
-  opacity:.77;
+  background:
+    url("/static/assets/crafter-hanging-lights.svg?v=3") no-repeat 0 -7px / 107px 35px,
+    url("/static/assets/crafter-hanging-lights.svg?v=3") no-repeat right -7px / 95px 31px;
+  opacity:.56;
 }
 
-/* Smaller screens: keep decorations inside the narrow margins. */
-@media(max-width:390px) {
-  #app > header::before {left:-4px;width:45%;height:56px;}
-  #app > header::after {right:-2px;width:31%;height:43px;}
-  #app::before {width:17px;height:116px;top:218px;left:-4px;}
-  #app::after {width:18px;height:124px;top:393px;right:-4px;}
+/* Craft: small, soft evergreen accent near the upper edge, not in the forge. */
+#app.craft-view .craft-page::after {
+  content:"";
+  position:absolute;
+  top:37px;
+  right:-12px;
+  width:132px;
+  height:40px;
+  z-index:0;
+  background:url("/static/assets/crafter-hanging-lights.svg?v=3") no-repeat top right / 100% 100%;
+  opacity:.51;
+  pointer-events:none!important;
 }
-@media(min-width:760px) {
-  #app > header::before {width:235px;}
-  #app > header::after {width:175px;}
-  #app::before {left:0;}
-  #app::after {right:0;}
+@media (max-width:390px) {
+  #app.arena-view .arena-board-frame::after {height:26px;background-size:83px 29px,77px 27px;}
+  #app.craft-view .craft-page::after {width:105px;height:31px;right:-10px;top:38px;opacity:.43;}
 }
 
-/* Preserve the pre-existing compact Craft rules button. */
+/* Preserve existing centred info control in Craft. */
 #app.craft-view > header > .craft-header {
   position:absolute;
   top:50%;
@@ -84,7 +79,7 @@
   padding:0;
   min-width:28px;
 }
-#app.craft-view > header > .craft-header h1 {display:none!important}
+#app.craft-view > header > .craft-header h1 {display:none!important;}
 #app.craft-view > header > .craft-header .info-btn {
   display:grid;
   place-items:center;
