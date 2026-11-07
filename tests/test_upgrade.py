@@ -191,7 +191,7 @@ def test_upgrade_layout_requires_wheel_and_two_modal_selections():
     assert 'ug-picker-grid' in js and 'ug-slot-art' in css
     assert 'ug-modes' not in js
     assert 'winter-currency-balance' in page and 'class="balance"' in page
-    assert 'sandbox-upgrade-20261107-v4' in page
+    assert 'mockup-upgrade-20261107-v5' in page
 
 
 def test_site_bank_admin_funding_makes_gift_upgrades_playable(client, monkeypatch):
@@ -306,3 +306,71 @@ def test_upgrade_sandbox_replay_virtual_gift_and_loss(client, monkeypatch):
     with sqlite3.connect(client.application.config['DATABASE']) as connection:
         assert connection.execute("SELECT count(*) FROM crafter_listings").fetchone() == (1,)
         assert connection.execute("SELECT count(*) FROM upgrade_rounds").fetchone() == (0,)
+
+
+def test_target_picker_filters_collections_and_lots_using_authoritative_stake(client):
+    original, cheap_lot = setup_upgrade(client)
+    stake = {**DEMO_GIFTS[0], 'id': 'filter-player-gift', 'number': 567812,
+             'price': '11.00', 'price_unit': 'GRAM', 'origin': 'local-purchase'}
+    expensive = {**DEMO_GIFTS[1], 'id': 'filter-higher-target', 'number': 567913,
+                 'price': '18.00', 'price_unit': 'GRAM', 'origin': 'local-purchase'}
+    with sqlite3.connect(client.application.config['DATABASE']) as conn:
+        conn.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')",
+                     (stake['id'], json.dumps(stake)))
+        conn.execute("INSERT INTO inventory VALUES (44, ?, ?, 'unlisted')",
+                     (expensive['id'], json.dumps(expensive)))
+    listed = client.post('/api/resale/listings', headers=signed(44), json={
+        'action': 'sell', 'items': [{'id': expensive['id'], 'price': '18.00'}]})
+    assert listed.status_code == 200, listed.json
+
+    # Stake is appraised at the lower current Snoop Dogg market floor (10 GRAM),
+    # and not blindly at the inventory's possibly inflated 11 GRAM.
+    value = client.get('/api/upgrade/stake-value?gift_id=' + stake['id'],
+                       headers=signed(43))
+    assert value.status_code == 200
+    assert value.json['amount'] == '10.00'
+
+    collection_results = client.get('/api/upgrade/collections?stake_gift_id=' + stake['id'],
+                                    headers=signed(43))
+    assert collection_results.status_code == 200, collection_results.json
+    collections = collection_results.json['collections']
+    assert len(collections) == 1
+    assert collections[0]['name'] == expensive['name']
+    assert collections[0]['floor'] == '18.00'
+    assert collections[0]['count'] == 1
+
+    # Exact-price targets (10 GRAM) are never selectable, even by direct URL.
+    disallowed = client.get('/api/upgrade/lots?collection=snoopdogg&stake_gift_id=' + stake['id'],
+                            headers=signed(43))
+    assert disallowed.status_code == 200
+    assert disallowed.json['lots'] == []
+    assert quote(client, cheap_lot['id'], 'gift', gift_id=stake['id']).status_code == 409
+
+    allowed = client.get('/api/upgrade/lots?collection=' + collections[0]['key'] +
+                         '&stake_gift_id=' + stake['id'], headers=signed(43))
+    assert allowed.status_code == 200, allowed.json
+    assert len(allowed.json['lots']) == 1
+    assert allowed.json['lots'][0]['price'] == '18.00'
+    permitted = quote(client, allowed.json['lots'][0]['id'], 'gift', gift_id=stake['id'])
+    assert permitted.status_code == 200, permitted.json
+    assert permitted.json['chance'] > 0
+
+
+def test_upgrade_screen_matches_approved_wheel_and_picker_layout():
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    js = (root / 'static/upgrade.js').read_text(encoding='utf-8')
+    css = (root / 'static/upgrade.css').read_text(encoding='utf-8')
+    html = (root / 'templates/index.html').read_text(encoding='utf-8')
+    assert 'ug-wheel-rotor' in js and 'ug-wheel-pointer' in js
+    assert 'ug-wheel-sectors' in js and 'conic-gradient(from 0deg' in css
+    assert "Number(result.roll_bps || 0) / 10000) * 360" in js
+    assert 'ug-selection-row' in js and 'ug-slot-price' in js
+    assert 'ug-summary' not in js
+    assert 'ug-test-notice' not in js
+    assert 'ugSetCollectionSort' in js and 'ugFilterLots' in js
+    assert 'upgrade/stake-value' in js
+    assert 'stake_gift_id=' in js
+    assert "ЧАНС" not in js or 'ШАНС ВЫИГРЫША' in js
+    assert "Ваша ставка" in js and "Целевой подарок" in js
+    assert 'mockup-upgrade-20261107-v5' in html
