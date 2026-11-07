@@ -74,14 +74,17 @@ async function enterUpgrade(main) {
     upgradeUI.hasMore = false;
     main.innerHTML = crafterLoading('upgrade');
     try {
-        const [info, collections, inventory] = await Promise.all([
-            api('upgrade/info'), api('upgrade/collections'), api('inventory')
+        const [info, collections, inventory, testInventory] = await Promise.all([
+            api('upgrade/info'), api('upgrade/collections'), api('inventory'),
+            api('upgrade/test-inventory')
         ]);
         if (state.page !== 'upgrade' || ticket !== upgradeUI.nonce) return;
         upgradeUI.info = info;
         upgradeUI.collections = collections.collections || [];
-        upgradeUI.inventory = (inventory.gifts || []).filter(gift =>
-            gift.status === 'unlisted' && !gift.catalog_only);
+        upgradeUI.inventory = [
+            ...(inventory.gifts || []).filter(gift => gift.status === 'unlisted' && !gift.catalog_only),
+            ...((info.test_mode && testInventory.gifts) || []).filter(gift => gift.status === 'unlisted'),
+        ];
         ugRender();
     } catch (error) {
         if (state.page !== 'upgrade' || ticket !== upgradeUI.nonce) return;
@@ -96,6 +99,8 @@ function ugRender() {
     const stake = ugCurrentGift();
     const lot = upgradeUI.selectedLot;
     root.innerHTML = '<section class="ug-screen">' +
+        (upgradeUI.info?.test_mode ? '<div class="ug-test-notice"><b>Тестовый режим</b>' +
+        '<span>GRAM и подарки не списываются. Выигрыши — тестовые, без выкупа Portals.</span></div>' : '') +
         '<div class="ug-wheel-region">' +
         '<div class="ug-wheel" id="ug-wheel" style="--ug-chance:' +
         (upgradeUI.quote ? upgradeUI.quote.chance : 0) + '%">' +
@@ -130,7 +135,7 @@ function ugRender() {
         '<button id="ug-submit" type="button" class="ug-upgrade-button" onclick="ugPlay()" disabled>' +
         'Upgrade <span>↗</span></button>' +
         '<p id="ug-status" class="ug-status" aria-live="polite"></p>' +
-        (upgradeUI.info?.is_admin ? '<button type="button" class="ug-bank-link" onclick="ugOpenBankFund()">' +
+        (upgradeUI.info?.is_admin && !upgradeUI.info?.test_mode ? '<button type="button" class="ug-bank-link" onclick="ugOpenBankFund()">' +
             'Банк сайта: ' + ugMoney(upgradeUI.info.bank_balance || 0) +
             ' GRAM · Пополнить</button>' : '') +
         '</section>';
@@ -159,6 +164,7 @@ function ugUpdate() {
                 (upgradeUI.info?.is_admin ? 'Пополните банк сайта, чтобы оплачивать выигранные лоты.' : 'Режим временно недоступен: банк сайта не пополнен.') :
             quote && !quote.playable ? 'Сейчас банк сайта не может оплатить выбранный лот. Выберите другой подарок.' :
             !quote ? 'Пересчитываем шанс по рыночной цене…' :
+            upgradeUI.info?.test_mode ? 'Тестовый Upgrade готов: шанс рассчитан, реальное списание выключено.' :
             'Шанс рассчитан сервером. При проигрыше подарок переходит в банк сайта.');
     }
 }
@@ -214,6 +220,7 @@ function ugOpenStakePicker() {
         '" onclick="ugSelectStake(' + arg(gift.id) + ')">' +
         ugArtFrame(gift, 'ug-picker-art ug-stake-art') +
         '<strong>' + ugText(gift.name) + '</strong><small>#' + ugText(gift.number || '—') +
+        (gift.test_only ? ' · Тестовый подарок' : '') +
         '</small><span>' + ugMoney(gift.price) + ' ' +
         ugText(gift.price_unit || 'GRAM') + '</span></button>'
     ).join('');
@@ -344,7 +351,7 @@ async function ugLoadMore() {
     }
 }
 function ugOpenBankFund() {
-    if (!upgradeUI.info?.is_admin || upgradeUI.spinning) return;
+    if (!upgradeUI.info?.is_admin || upgradeUI.info.test_mode || upgradeUI.spinning) return;
     const available = ugMoney(upgradeUI.info.balance || 0);
     sheet('Банк Upgrade', '<div class="ug-bank-modal">' +
         '<p>Реальные выигрыши выкупаются за GRAM из банка сайта. Пополнение переводит ваши GRAM ' +
@@ -438,26 +445,34 @@ async function ugPlay() {
     if (state.page !== 'upgrade') return;
     const prize = result.gift || {};
     const successful = Boolean(result.success);
-    sheet(successful ? 'Upgrade successful ✦' : 'Upgrade failed',
+    const simulated = Boolean(result.test_mode);
+    sheet(simulated ? (successful ? 'Тестовый выигрыш ✦' : 'Тестовый проигрыш') :
+        (successful ? 'Upgrade successful ✦' : 'Upgrade failed'),
         '<div class="ug-outcome ' + (successful ? 'ug-win' : 'ug-loss') + '">' +
         (successful ? ugArtFrame(prize, 'ug-outcome-art') : '<div class="ug-outcome-symbol">✕</div>') +
         '<h2>' + (successful ? 'Улучшение успешно!' : 'Улучшение не удалось') + '</h2>' +
-        '<p>' + (successful ? 'Вы получили ' + ugText(prize.name || 'подарок') +
-        (prize.number ? ' #' + ugText(prize.number) : '') + '.' :
-        'Ваш подарок отправлен в банк сайта.') + '</p>' +
+        '<p>' + (successful ?
+            (simulated ? 'Тестовый приз добавлен в инвентарь Upgrade: ' :
+                'Вы получили ') + ugText(prize.name || 'подарок') +
+            (prize.number ? ' #' + ugText(prize.number) : '') + '.' :
+            (simulated ? 'Проигрыш только в тесте. Ваш настоящий подарок остался в инвентаре.' :
+                'Ваш подарок отправлен в банк сайта.')) + '</p>' +
         '<button type="button" class="ug-modal-cta" onclick="closeSheet();go(\'upgrade\')">Играть снова</button></div>');
     upgradeUI.spinning = false;
     upgradeUI.quote = null;
     upgradeUI.pendingRequestId = '';
     try {
-        const [info, collections, inventory] = await Promise.all([
-            api('upgrade/info'), api('upgrade/collections'), api('inventory')
+        const [info, collections, inventory, testInventory] = await Promise.all([
+            api('upgrade/info'), api('upgrade/collections'), api('inventory'),
+            api('upgrade/test-inventory')
         ]);
         if (state.page !== 'upgrade') return;
         upgradeUI.info = info;
         upgradeUI.collections = collections.collections || [];
-        upgradeUI.inventory = (inventory.gifts || []).filter(item =>
-            item.status === 'unlisted' && !item.catalog_only);
+        upgradeUI.inventory = [
+            ...(inventory.gifts || []).filter(item => item.status === 'unlisted' && !item.catalog_only),
+            ...((info.test_mode && testInventory.gifts) || []).filter(item => item.status === 'unlisted')
+        ];
         upgradeUI.giftId = '';
         upgradeUI.lotId = '';
         upgradeUI.selectedLot = null;
