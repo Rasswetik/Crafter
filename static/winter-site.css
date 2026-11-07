@@ -19,8 +19,8 @@
   user-select:none;
 }
 #app > header > * {z-index:1;}
-/* Prior side vines and the mirrored, incomplete top garland are removed.
-   No #app::before, #app::after or header::after decorations. */
+/* The old side-vine overlays and mirrored half-width garlands are removed.
+   No side-edge decoration is rendered. */
 @media (max-width:390px) {
   #app > header::before {height:53px;top:-2px;opacity:.94;}
 }
