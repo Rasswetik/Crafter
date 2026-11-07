@@ -77,3 +77,20 @@ python -m pytest tests -q
 В админке два раздела: **Пользователи** и **Portal Market**. Пользователи появляются после первого входа. Поиск по ID, имени и username; баланс сохраняется сервером, подарки выдаются по выбранным коллекции и модели из каталога. Выдача создаёт запись в инвентаре Crafter и не означает перевод внешнего NFT. Действия администратора журналируются.
 
 Встроен начальный каталог RasswetGifts из используемого HatDrop источника: 114 коллекций и 7297 моделей, снимок от 22 мая 2026. Оценки снимка выражены в TON; это не текущие цены Portal. Обновление Portal использует /api/collections?limit=5000 и /api/collections/filters?short_names=… без обязательного Partner API-ключа. Обновление идёт в фоне, сохраняет предыдущие данные при ошибке. /preview — изолированный просмотр оформления; данные посетителей туда не передаются. Карта файлов: docs/FILES.md.
+
+## Upgrade mode (GRAM / gifts)
+
+The Games Hub includes an Upgrade screen with a liquid-glass chance wheel, collection
+picker, and actual active Craft Market lots. Probability is calculated server-side
+(stake value divided by current listing price; capped at 95%); a cryptographic roll
+is stored in an idempotent, atomic ledger receipt. Outcomes are settled against the
+actual listed gift, not a synthetic clone.
+
+For production wagering, configure `UPGRADE_BANK_USER_ID` to a **separate funded**
+Crafter account. The server refuses to start if that bank cannot cover the whole
+target price before the roll. Without this setting the interface remains view-only.
+Never seed production balances or use another player's account as the bank.
+Native TON bets are **not implemented**: the app currently prices Craft Market and
+its custodial game balance in internal GRAM, and no automatic TON/GRAM exchange or
+on-chain TON escrow is assumed. The TON tab explains this instead of silently
+wagering the wrong currency.
