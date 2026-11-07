@@ -275,3 +275,28 @@
   .escape-impact{animation:none;opacity:0}
   .escape-confirm{animation:none}
 }
+
+/* Visual win/lose feedback shown directly at the wheel, even on short screens. */
+.escape-outcomes{
+  position:absolute;left:50%;bottom:33px;z-index:14;
+  display:grid;justify-items:center;gap:5px;width:min(90%,280px);
+  transform:translateX(-50%);pointer-events:none;
+}
+.escape-outcome-chip{
+  display:flex;align-items:center;gap:7px;justify-content:center;
+  max-width:100%;padding:8px 13px;border-radius:99px;
+  background:#65283b;border:1px solid #e58da8b3;
+  box-shadow:0 6px 20px #0009,0 0 16px #f6658d44;
+  color:#ffd4df;white-space:nowrap;font-size:11px;font-weight:800;
+  animation:escape-outcome-slide .35s ease-out both;
+}
+.escape-outcome-chip.win{
+  background:#1b5649;border-color:#8dfddacb;box-shadow:0 6px 20px #0009,0 0 18px #69e9bf57;color:#dffff4;
+}
+.escape-outcome-chip strong{font-size:11px;letter-spacing:.03em;flex-shrink:0}
+.escape-outcome-chip span{font-size:10px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+@keyframes escape-outcome-slide{
+  0%{opacity:0;transform:translateY(12px) scale(.9)}
+  100%{opacity:1;transform:none}
+}
+@media(prefers-reduced-motion:reduce){.escape-outcome-chip{animation:none}}
