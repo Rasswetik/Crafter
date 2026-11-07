@@ -20,6 +20,7 @@ MAX_CHANCE_BPS = 9500
 DEMO_BANK_ID = -930070001
 # Negative system ownership keeps lost/consumed stake gifts out of every user wallet.
 SITE_GIFT_BANK_ID = -930070002
+SITE_CASH_BANK_ID = -930070003
 
 
 def install_upgrade(app, db, auth, record, canonical_name, available_lot,
@@ -35,10 +36,19 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
                 quote_id TEXT NOT NULL, result TEXT NOT NULL, created INTEGER NOT NULL,
                 PRIMARY KEY(user_id,request_id)
             );
+            CREATE TABLE IF NOT EXISTS upgrade_bank_funding (
+                admin_id INTEGER NOT NULL, request_id TEXT NOT NULL,
+                amount TEXT NOT NULL, created INTEGER NOT NULL,
+                PRIMARY KEY(admin_id,request_id)
+            );
         """)
         if app.config.get('DEMO_MODE'):
             db().execute('INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT DO NOTHING',
                          (DEMO_BANK_ID, '1000'))
+        else:
+            # Dedicated platform-only GRAM bankroll. Never mint funds for production.
+            db().execute('INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT DO NOTHING',
+                         (SITE_CASH_BANK_ID, '0'))
 
     def bank_user():
         if app.config.get('DEMO_MODE'):
@@ -47,8 +57,8 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
         try:
             value = int(raw)
         except ValueError:
-            return None
-        return value if value > 0 else None
+            return SITE_CASH_BANK_ID
+        return value if value > 0 else SITE_CASH_BANK_ID
 
     def cash(uid):
         row = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (uid,)).fetchone()
@@ -85,6 +95,7 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             'symbol': gift.get('symbol') or '', 'backdrop': gift.get('backdrop') or '',
             'background': gift.get('background') or {},
             'telegram_url': gift.get('telegram_url') or '',
+            'telegram_slug': gift.get('telegram_slug') or '',
             'price': str(row['price']), 'price_unit': 'GRAM',
         }
 
@@ -159,9 +170,53 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
                            (uid,)).fetchall()
         return {
             'balance': str(cash(uid)), 'price_unit': 'GRAM', 'native_ton_enabled': False,
+            'is_admin': bool(g.is_admin),
+            'bank_balance': str(cash(bank)) if g.is_admin and bank is not None else None,
             'enabled': bool(bank is not None and bank != uid and cash(bank) > 0),
             'history': [{**json.loads(r['result']), 'created': r['created']} for r in row],
         }
+
+    @app.post('/api/upgrade/bank/fund')
+    @auth(admin=True)
+    def upgrade_bank_fund():
+        """Move an explicit admin-authorized GRAM contribution into the site bankroll."""
+        uid = g.user['id']
+        bank = bank_user()
+        if bank != SITE_CASH_BANK_ID:
+            abort(409, description='Банк сайта управляется внешней конфигурацией')
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict):
+            abort(400, description='Некорректные данные пополнения')
+        request_id = data.get('request_id')
+        if not isinstance(request_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,100}', request_id):
+            abort(400, description='Укажите идентификатор пополнения')
+        amount = safe_amount(data.get('amount'))
+        with db():
+            conn = db()
+            conn.execute('BEGIN IMMEDIATE')
+            existing = conn.execute(
+                'SELECT amount FROM upgrade_bank_funding WHERE admin_id=? AND request_id=?',
+                (uid, request_id)).fetchone()
+            if existing:
+                if Decimal(existing['amount']) != amount:
+                    abort(409, description='Идентификатор пополнения уже использован')
+                return {'ok': True, 'amount': str(amount), 'bank_balance': str(cash(bank)),
+                        'duplicate': True}
+            before = cash(uid)
+            if before < amount:
+                abort(409, description='Недостаточно GRAM на балансе для пополнения банка')
+            remaining = before - amount
+            cap_funded_balance(conn, uid, remaining)
+            conn.execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',
+                         (str(remaining), uid))
+            conn.execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',
+                         (str(cash(bank) + amount), bank))
+            conn.execute('INSERT INTO upgrade_bank_funding VALUES(?,?,?,?)',
+                         (uid, request_id, str(amount), int(time.time())))
+            record('upgrade_bank_fund', {'amount': str(amount), 'unit': 'GRAM'})
+            result = {'ok': True, 'amount': str(amount), 'balance': str(remaining),
+                      'bank_balance': str(cash(bank)), 'duplicate': False}
+        return result
 
     @app.get('/api/upgrade/collections')
     @auth()
@@ -174,13 +229,14 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             gift = display_lot(row)
             key = gift['collection']
             item = groups.setdefault(key, {
-                'key': key, 'name': gift['name'], 'image': gift['image'],
+                # Never use a random NFT model as the collection preview.
+                'key': key, 'name': gift['name'], 'image': '',
                 'floor': gift['price'], 'count': 0,
             })
             item['count'] += 1
             if Decimal(gift['price']) < Decimal(item['floor']):
                 item['floor'] = gift['price']
-                item['image'] = gift['image']
+                item['image'] = ''
         return {'collections': sorted(groups.values(), key=lambda item: (Decimal(item['floor']), item['name']))}
 
     @app.get('/api/upgrade/lots')
