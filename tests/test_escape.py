@@ -135,7 +135,7 @@ def test_escape_screen_has_concurrent_balls_and_no_upgrade():
     assert '/static/escape.js' in html and '/static/escape.css' in html
     assert '/static/upgrade.js' not in html and '/static/upgrade.css' not in html
     assert not (root / 'upgrade.py').exists()
-    assert 'escapeGame.active = new Map()' in js
+    assert 'active: new Map()' in js
     assert 'escapeGame.active.set(result.id,track)' in js
     assert '0x' in js and 'escape-ball-label' in js
     assert 'escape-wheel-rotor' in js and 'escape-wheel-arc' in css
