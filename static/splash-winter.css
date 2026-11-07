@@ -1,0 +1,106 @@
+/* Crafter winter splash: the classic style.css and gift assets are untouched.
+   Remove .splash-winter (or use ?splash=classic) for the old experience. */
+.splash:not(.splash-winter) .splash-gift-winter,
+.splash:not(.splash-winter) .splash-santa-hat,
+.splash:not(.splash-winter) .splash-winter-sky,
+.splash:not(.splash-winter) .splash-winter-snowbank {display:none!important}
+.splash.splash-winter .splash-gift-classic {display:none!important}
+.splash.splash-winter {
+  background:
+    radial-gradient(ellipse 85% 52% at 50% 41%,#215789aa 0%,#10243a8a 45%,transparent 84%),
+    linear-gradient(165deg,#041526,#071a33 48%,#04101e 100%);
+}
+.splash-winter .splash-frame {position:relative;z-index:3;transform:translateY(-1.5dvh)}
+.splash-winter .splash-brand {
+  color:#f7fcff;text-shadow:0 0 18px #72d7ff51,0 2px 8px #0009;
+  letter-spacing:-.045em;
+}
+.splash-winter .splash-art {position:relative;z-index:2}
+.splash-winter .splash-orbit {
+  border-color:#92d5ff62;
+  background:radial-gradient(ellipse at 50% 45%,#5da9d244 0%,#15395522 60%,transparent 73%);
+  box-shadow:0 0 0 10px #87b9ea0c,0 0 0 24px #6caff407,0 0 35px #6ddcff24;
+}
+.splash-winter .splash-magnate {
+  z-index:4; /* Always keep the original Magnate Pepe sprite. */
+  filter:hue-rotate(-95deg) saturate(1.35) brightness(1.08)
+    drop-shadow(0 10px 14px #0c1f28dd) drop-shadow(0 0 13px #9bfbc026);
+  animation:splash-pepe-holiday-breathe 3.2s ease-in-out infinite;
+}
+.splash-winter .splash-gift-winter {
+  z-index:5;
+  filter:drop-shadow(0 7px 10px #05182dbc) drop-shadow(0 0 8px #c9ebff55);
+  object-fit:contain;
+  animation:splash-gift-float 3.5s ease-in-out infinite;
+}
+.splash-winter .splash-gift-watch {top:12%;left:1%;width:20%;animation-delay:-.8s}
+.splash-winter .splash-gift-ring {top:14%;right:0%;width:19%;animation-delay:-2.2s}
+.splash-winter .splash-gift-bonded {bottom:0;right:0%;width:19%;animation-delay:-1.5s}
+.splash-santa-hat {
+  display:block;position:absolute;z-index:6;
+  top:-7%;left:34%;width:42%;height:auto;
+  transform:rotate(-10deg);
+  pointer-events:none;user-select:none;
+  filter:drop-shadow(0 6px 7px #03111dbb);
+  animation:splash-hat-holiday-sway 4.1s ease-in-out infinite;
+}
+.splash-winter .splash-status {z-index:4;color:#e1f0fb;letter-spacing:.19em}
+.splash-winter .splash-progress {
+  width:132px;height:4px;
+  background:#416e8a70;border:1px solid #86bbd457;
+  box-shadow:0 0 12px #1c94d05c;
+}
+.splash-winter .splash-progress::after {
+  background:linear-gradient(90deg,#63bffa,#daf7ff,#80e7b6);
+  box-shadow:0 0 12px #7befff;
+}
+.splash-winter-sky {
+  position:absolute;inset:0;z-index:1;pointer-events:none;
+  background-image:
+    radial-gradient(circle,#e4f8ffcb 1px,transparent 2px),
+    radial-gradient(circle,#88d9ffff 1px,transparent 2px),
+    radial-gradient(circle,#bdf6ff77 2px,transparent 3px);
+  background-size:73px 89px,127px 119px,209px 167px;
+  background-position:19px 7px,65px 53px,97px 35px;
+  mask-image:linear-gradient(#000a,#0009 65%,transparent);
+  opacity:.45;
+  animation:splash-winter-stars 20s linear infinite;
+}
+.splash-winter-snowbank {
+  position:absolute;left:-5%;right:-5%;bottom:-1%;z-index:1;pointer-events:none;
+  height:26%;opacity:.95;
+  background:
+    radial-gradient(ellipse 65% 49% at 5% 120%,#accfee 0%,#5993c1bb 55%,transparent 72%),
+    radial-gradient(ellipse 62% 46% at 84% 111%,#effaff 0%,#75a9d3cd 59%,transparent 78%),
+    radial-gradient(ellipse 58% 35% at 43% 115%,#c2e4ff 0%,#407dacb4 65%,transparent 86%),
+    linear-gradient(0deg,#163c67 0%,transparent 47%);
+}
+.splash-winter::before {
+  content:"";position:absolute;inset:auto 0 10%;height:20%;z-index:1;
+  background:radial-gradient(ellipse 50% 100% at 50% 100%,#5da4e85c,transparent 85%);
+  pointer-events:none;
+}
+@keyframes splash-gift-float {
+  0%,100% { translate:0 0; }
+  50% { translate:0 -7px; }
+}
+@keyframes splash-pepe-holiday-breathe {
+  0%,100% { translate:0 0; }
+  50% { translate:0 -3px; }
+}
+@keyframes splash-hat-holiday-sway {
+  0%,100% {transform:rotate(-10deg);}
+  50% {transform:rotate(-8deg);}
+}
+@keyframes splash-winter-stars {to{background-position:19px 85px,65px 141px,97px 202px}}
+@media(max-width:390px){
+ .splash-winter .splash-frame{width:min(100% - 15px,480px,100dvh)}
+ .splash-winter .splash-gift-winter{width:19%}
+ .splash-winter .splash-santa-hat{width:42%;top:-6%}
+}
+@media(prefers-reduced-motion:reduce){
+ .splash-winter .splash-magnate,
+ .splash-winter .splash-gift-winter,
+ .splash-winter .splash-santa-hat,
+ .splash-winter .splash-winter-sky{animation:none!important}
+}
