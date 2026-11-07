@@ -36,6 +36,16 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
                 quote_id TEXT NOT NULL, result TEXT NOT NULL, created INTEGER NOT NULL,
                 PRIMARY KEY(user_id,request_id)
             );
+            CREATE TABLE IF NOT EXISTS upgrade_test_rounds (
+                user_id INTEGER NOT NULL, request_id TEXT NOT NULL,
+                quote_id TEXT NOT NULL, result TEXT NOT NULL, created INTEGER NOT NULL,
+                PRIMARY KEY(user_id,request_id)
+            );
+            CREATE TABLE IF NOT EXISTS upgrade_test_gifts (
+                user_id INTEGER NOT NULL, gift_id TEXT NOT NULL, payload TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'unlisted',
+                PRIMARY KEY(user_id,gift_id)
+            );
             CREATE TABLE IF NOT EXISTS upgrade_bank_funding (
                 admin_id INTEGER NOT NULL, request_id TEXT NOT NULL,
                 amount TEXT NOT NULL, created INTEGER NOT NULL,
@@ -49,6 +59,11 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             # Dedicated platform-only GRAM bankroll. Never mint funds for production.
             db().execute('INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT DO NOTHING',
                          (SITE_CASH_BANK_ID, '0'))
+
+    def sandbox_mode():
+        # During development keep Upgrade entirely simulated, without real NFT checkout.
+        # Production is opt-in only via UPGRADE_TEST_MODE=0 after Portals settlement is ready.
+        return bool(app.config.get('UPGRADE_TEST_MODE', not app.config.get('TESTING')))
 
     def bank_user():
         if app.config.get('DEMO_MODE'):
@@ -102,9 +117,14 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
     def stake_gift(uid, gift_id):
         if not isinstance(gift_id, str) or len(gift_id) > 180:
             abort(400, description='Выберите подарок из инвентаря')
-        row = db().execute(
-            "SELECT payload,status FROM inventory WHERE user_id=? AND nft_id=?",
-            (uid, gift_id)).fetchone()
+        if sandbox_mode() and gift_id.startswith('test-upgrade-'):
+            row = db().execute(
+                "SELECT payload,status FROM upgrade_test_gifts WHERE user_id=? AND gift_id=?",
+                (uid, gift_id)).fetchone()
+        else:
+            row = db().execute(
+                "SELECT payload,status FROM inventory WHERE user_id=? AND nft_id=?",
+                (uid, gift_id)).fetchone()
         if not row or row['status'] != 'unlisted':
             abort(409, description='Подарок уже недоступен для ставки')
         gift = json.loads(row['payload'])
@@ -158,7 +178,7 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
         return {
             'lot_id': lot_id, 'target_price': str(target), 'stake_mode': mode,
             'amount': str(amount), 'gift_id': gift_id, 'chance_bps': chance,
-            'currency': 'GRAM',
+            'currency': 'GRAM', 'sandbox': sandbox_mode(),
         }
 
     @app.get('/api/upgrade/info')
@@ -166,13 +186,16 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
     def upgrade_info():
         uid = g.user['id']
         bank = bank_user()
-        row = db().execute("SELECT result,created FROM upgrade_rounds WHERE user_id=? ORDER BY created DESC LIMIT 8",
-                           (uid,)).fetchall()
+        test = sandbox_mode()
+        history_table = 'upgrade_test_rounds' if test else 'upgrade_rounds'
+        row = db().execute(
+            f"SELECT result,created FROM {history_table} WHERE user_id=? ORDER BY created DESC LIMIT 8",
+            (uid,)).fetchall()
         return {
             'balance': str(cash(uid)), 'price_unit': 'GRAM', 'native_ton_enabled': False,
-            'is_admin': bool(g.is_admin),
+            'test_mode': test, 'is_admin': bool(g.is_admin),
             'bank_balance': str(cash(bank)) if g.is_admin and bank is not None else None,
-            'enabled': bool(bank is not None and bank != uid and cash(bank) > 0),
+            'enabled': True if test else bool(bank is not None and bank != uid and cash(bank) > 0),
             'history': [{**json.loads(r['result']), 'created': r['created']} for r in row],
         }
 
@@ -182,6 +205,8 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
         """Move an explicit admin-authorized GRAM contribution into the site bankroll."""
         uid = g.user['id']
         bank = bank_user()
+        if sandbox_mode():
+            abort(409, description='В тестовом режиме реальное пополнение банка отключено')
         if bank != SITE_CASH_BANK_ID:
             abort(409, description='Банк сайта управляется внешней конфигурацией')
         data = request.get_json(silent=True)
@@ -255,6 +280,21 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
         return {'lots': lots[offset:offset + 40], 'total': len(lots),
                 'has_more': offset + 40 < len(lots), 'next_offset': offset + 40}
 
+    @app.get('/api/upgrade/test-inventory')
+    @auth()
+    def upgrade_test_inventory():
+        if not sandbox_mode():
+            return {'gifts': [], 'test_mode': False}
+        uid = g.user['id']
+        gifts = [
+            {**json.loads(r['payload']), 'id': r['gift_id'], 'status': r['status'],
+             'test_only': True}
+            for r in db().execute(
+                "SELECT gift_id,payload,status FROM upgrade_test_gifts WHERE user_id=? AND status='unlisted'",
+                (uid,)).fetchall()
+        ]
+        return {'gifts': gifts, 'test_mode': True}
+
     @app.post('/api/upgrade/quote')
     @auth()
     def upgrade_quote():
@@ -268,7 +308,8 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             db().execute('INSERT INTO upgrade_quotes VALUES(?,?,?,?)',
                          (quote_id, uid, json.dumps(quote), int(time.time())))
         bank = bank_user()
-        playable = bank is not None and bank != uid and cash(bank) >= Decimal(quote['target_price'])
+        playable = sandbox_mode() or (
+            bank is not None and bank != uid and cash(bank) >= Decimal(quote['target_price']))
         return {'quote_id': quote_id, **quote, 'chance': quote['chance_bps']/100,
                 'playable': playable, 'expires_in': QUOTE_LIFETIME}
 
@@ -306,6 +347,49 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
                                    else {**previous, 'amount': previous['amount']})
             if fresh != previous:
                 abort(409, description='Ставка или цена лота изменилась. Обновите расчёт')
+            if previous.get('sandbox') != sandbox_mode():
+                abort(409, description='Режим изменился. Рассчитайте шанс заново')
+            if sandbox_mode():
+                # Sandbox never changes live inventory, player GRAM balances,
+                # actual Craft Market listings, payouts or Telegram notifications.
+                receipt = conn.execute(
+                    'SELECT quote_id,result FROM upgrade_test_rounds WHERE user_id=? AND request_id=?',
+                    (uid, request_id)).fetchone()
+                if receipt:
+                    if receipt['quote_id'] != quote_id:
+                        abort(409, description='Этот тестовый запуск уже использован')
+                    return json.loads(receipt['result'])
+                lot = available_lot(previous['lot_id'], uid)
+                roll = secrets.randbelow(10000)
+                won = roll < int(previous['chance_bps'])
+                prize = None
+                if won:
+                    prize = json.loads(lot['payload'])
+                    prize = {**prize, 'id': 'test-upgrade-' + uuid.uuid4().hex,
+                             'price': previous['target_price'], 'price_unit': 'GRAM',
+                             'test_only': True, 'origin': 'upgrade-sandbox'}
+                    conn.execute(
+                        'INSERT INTO upgrade_test_gifts VALUES(?,?,?,?)',
+                        (uid, prize['id'], json.dumps(prize), 'unlisted'))
+                if previous['stake_mode'] == 'gift' and str(previous['gift_id']).startswith('test-upgrade-'):
+                    removed = conn.execute(
+                        "UPDATE upgrade_test_gifts SET status='used' WHERE user_id=? AND gift_id=? AND status='unlisted'",
+                        (uid, previous['gift_id']))
+                    if removed.rowcount != 1:
+                        abort(409, description='Тестовый подарок уже использован')
+                test_result = {
+                    'ok': True, 'test_mode': True, 'sandbox': True,
+                    'success': won, 'roll_bps': roll,
+                    'chance_bps': previous['chance_bps'], 'chance': previous['chance_bps']/100,
+                    'stake_mode': previous['stake_mode'], 'stake': previous['amount'],
+                    'price_unit': 'GRAM', 'target_price': previous['target_price'],
+                    'lot_id': previous['lot_id'], 'gift': prize,
+                    'balance': str(cash(uid)), 'real_purchase': False,
+                }
+                conn.execute('INSERT INTO upgrade_test_rounds VALUES(?,?,?,?,?)',
+                             (uid, request_id, quote_id, json.dumps(test_result), int(time.time())))
+                conn.execute('DELETE FROM upgrade_quotes WHERE id=?', (quote_id,))
+                return test_result
             if bank is None or bank == uid:
                 abort(503, description='Банк Upgrade ещё не настроен')
             balance_bank = cash(bank)
