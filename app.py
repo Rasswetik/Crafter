@@ -206,16 +206,16 @@ def create_app(config=None):
         db().execute('INSERT INTO audit(actor,action,created) VALUES(?,?,?)',(g.user['id'],action,int(time.time())));db().commit()
     api_lock=threading.Lock();last_call=[0.0]
     def portal(path,params=None):
-        key=app.config['PORTALS_API_KEY']
-        public_paths={'nfts/search':'nfts/search','collections/preview':'collections','market/config':'collections','collections/filters':'collections/filters'}
-        if not key and path not in public_paths:
+        # Public catalogue never consumes the Partner quota or uses its key.
+        public_paths={'nfts/search':'nfts/search','collections/preview':'collections',
+                      'market/config':'collections','collections/filters':'collections/filters'}
+        if path not in public_paths:
             return {'attribute_floors':{}}
-        base='https://portal-market.com/partners/' if key else 'https://portal-market.com/api/'
-        remote_path=path if key else public_paths[path]
-        if not key and path in {'market/config','collections/preview'}:
+        base='https://portal-market.com/api/'
+        remote_path=public_paths[path]
+        if path in {'market/config','collections/preview'}:
             params={**(params or {}),'limit':5000}
         headers={'Accept':'application/json'}
-        if key:headers['Authorization']='partners '+key
         with api_lock:
             time.sleep(max(0,1.05-(time.monotonic()-last_call[0])))
             req=Request(base+remote_path+('?' + urlencode(params) if params else ''),headers=headers)
@@ -334,9 +334,9 @@ def create_app(config=None):
     @app.get('/api/catalog')
     @auth()
     def catalog():
-        if not app.config['PORTALS_API_KEY']:
-            try:return dict(collections=public_catalog(),attributes={},source='thermos',price_unit='TON',demo=app.config['DEMO_MODE'])
-            except Exception:pass
+        # Public collection discovery is independent of the Partner key.
+        try:return dict(collections=public_catalog(),attributes={},source='thermos',price_unit='TON',demo=app.config['DEMO_MODE'])
+        except Exception:pass
         collections,updated=cached('collections',[]);attributes,_=cached('attributes',{})
         if not collections:collections=[{k:v for k,v in c.items() if k!='models'} for c in catalog_seed['collections']]
         return dict(collections=collections,attributes=attributes,updated_at=updated,demo=app.config['DEMO_MODE'],source='portals' if updated else 'snapshot',snapshot_updated_at=catalog_seed.get('updated_at'))
@@ -944,6 +944,8 @@ def create_app(config=None):
     @app.post('/api/local/buy')
     @auth()
     def local_buy():
+        if not app.config['DEMO_MODE']:
+            abort(409,description='Локальные имитации покупок отключены. Используйте Portals Partner API')
         data=request.get_json() or {};source_id=data.get('id');rid=data.get('request_id')
         if not isinstance(source_id,str) or not isinstance(rid,str) or not 1<=len(rid)<=100:abort(400)
         with db():
@@ -983,6 +985,8 @@ def create_app(config=None):
     @app.post('/api/local/cart/buy')
     @auth()
     def buy_cart():
+        if not app.config['DEMO_MODE']:
+            abort(409,description='Локальные имитации покупок отключены. Используйте Portals Partner API')
         data=request.get_json() or {};ids=data.get('gift_ids');rid=data.get('request_id')
         if not isinstance(ids,list) or not 1<=len(ids)<=100 or any(not isinstance(x,str) for x in ids) or len(ids)!=len(set(ids)):abort(400,description='Выберите подарки в корзине')
         if not isinstance(rid,str) or not 1<=len(rid)<=80:abort(400)
@@ -1047,7 +1051,7 @@ def create_app(config=None):
     @auth(admin=True)
     def status():
         c,t=cached('collections',[])
-        return {'configured':bool(app.config['PORTALS_API_KEY']),'mode':'partner' if app.config['PORTALS_API_KEY'] else 'public','updated_at':t,'collections':len(c),'sync':dict(catalog_job),'users':db().execute('SELECT count(*) FROM users').fetchone()[0],'audit':[dict(x) for x in db().execute('SELECT actor,action,created FROM audit ORDER BY id DESC LIMIT 20')]}
+        return {'configured':bool(app.config['PORTALS_API_KEY']),'mode':'public','updated_at':t,'collections':len(c),'sync':dict(catalog_job),'users':db().execute('SELECT count(*) FROM users').fetchone()[0],'audit':[dict(x) for x in db().execute('SELECT actor,action,created FROM audit ORDER BY id DESC LIMIT 20')]}
     @app.post('/api/admin/portal/test')
     @auth(admin=True)
     def test_portal():
@@ -1227,6 +1231,8 @@ def create_app(config=None):
     install_admin_user_tools(app, db, auth, audit, record)
     from launch_readiness import install_launch_readiness
     install_launch_readiness(app, db, auth, audit)
+    from portals_partner import install_portals_partner
+    install_portals_partner(app, db, auth, record, audit)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     return app
