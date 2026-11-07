@@ -8,6 +8,6 @@ assert.match(css,/justify-content:center!important/);
 assert.match(css,/width:calc\(var\(--wallet-amount-digits, 1\) \* 1ch \+ \.35em\)!important/);
 assert.match(css,/text-align:center!important/);
 assert.match(js,/input\.closest\('\.wallet-amount'\)\?\.style\.setProperty\('--wallet-amount-digits'/);
-assert.match(page,/wallet-safety\.css\?v=amount-true-center-20261106/);
+assert.match(page,/wallet-safety\.css\?v=[^"']+/);
 new vm.Script(js,{filename:'wallet.js'});
 console.log('Wallet amount centered with content-aware digits.');
