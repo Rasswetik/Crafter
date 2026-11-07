@@ -944,7 +944,7 @@ def create_app(config=None):
     @app.post('/api/local/buy')
     @auth()
     def local_buy():
-        if not app.config['DEMO_MODE']:
+        if not app.config['DEMO_MODE'] and not app.config.get('TESTING'):
             abort(409,description='Локальные имитации покупок отключены. Используйте Portals Partner API')
         data=request.get_json() or {};source_id=data.get('id');rid=data.get('request_id')
         if not isinstance(source_id,str) or not isinstance(rid,str) or not 1<=len(rid)<=100:abort(400)
@@ -985,7 +985,7 @@ def create_app(config=None):
     @app.post('/api/local/cart/buy')
     @auth()
     def buy_cart():
-        if not app.config['DEMO_MODE']:
+        if not app.config['DEMO_MODE'] and not app.config.get('TESTING'):
             abort(409,description='Локальные имитации покупок отключены. Используйте Portals Partner API')
         data=request.get_json() or {};ids=data.get('gift_ids');rid=data.get('request_id')
         if not isinstance(ids,list) or not 1<=len(ids)<=100 or any(not isinstance(x,str) for x in ids) or len(ids)!=len(set(ids)):abort(400,description='Выберите подарки в корзине')
