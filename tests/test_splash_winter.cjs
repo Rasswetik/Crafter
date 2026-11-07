@@ -9,7 +9,7 @@ assert.match(backup,/splash-watch-platinum.png/);
 assert.match(backup,/splash-ring-chrome.png/);
 assert.match(backup,/splash-bonded-silver.png/);
 assert.match(backup,/splash-magnate.png/);
-assert.match(html,/id="splash" class="splash splash-winter splash-final"/);
+assert.ok(html.includes('id="splash" class="splash splash-winter splash-final splash-approved"'));
 assert.match(html,/src="\/static\/assets\/splash-magnate.png"/);
 assert.match(html,/Ginger%20Cookie\/png\/Santa%20Claus.png/);
 assert.match(html,/splash-holiday-gift\.svg/);
