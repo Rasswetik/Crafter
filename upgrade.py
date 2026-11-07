@@ -119,6 +119,8 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             abort(400, description='Выберите лот Craft Market')
         lot = available_lot(lot_id, uid)
         target = Decimal(lot['price'])
+        if bank_user() == lot['seller_id']:
+            abort(409, description='Нельзя выбирать лоты банка Upgrade')
         mode = data.get('stake_mode')
         if mode == 'balance':
             amount = safe_amount(data.get('amount'))
