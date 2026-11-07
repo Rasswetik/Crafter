@@ -78,38 +78,22 @@ python -m pytest tests -q
 
 Встроен начальный каталог RasswetGifts из используемого HatDrop источника: 114 коллекций и 7297 моделей, снимок от 22 мая 2026. Оценки снимка выражены в TON; это не текущие цены Portal. Обновление Portal использует /api/collections?limit=5000 и /api/collections/filters?short_names=… без обязательного Partner API-ключа. Обновление идёт в фоне, сохраняет предыдущие данные при ошибке. /preview — изолированный просмотр оформления; данные посетителей туда не передаются. Карта файлов: docs/FILES.md.
 
-## Upgrade test mode — temporary until official Portals checkout
+## Escape — тестовый игровой режим
 
-While official Portals purchases are not integrated, Upgrade runs as a sandbox by
-default in production (UPGRADE_TEST_MODE is enabled outside CI). The chance wheel
-uses genuine current Craft Market listing prices, but test spins never purchase
-or remove real NFTs, charge GRAM, or take gifts from live inventory.
+В Hub вместо Upgrade добавлен Escape: три сложности **Light, Mid, Epic**,
+колесо с уменьшающейся зоной выживания, осколки, увеличивающийся за каждый
+осколок множитель, рекорды дня и недели и возможность запускать несколько
+одновременно анимированных шаров. Результат каждого раунда, включая
+последовательность осколков, определяется сервером до начала анимации.
 
-A winning simulated prize is saved only in upgrade_test_gifts and appears in the
-Upgrade stake picker with the label 'Тестовый подарок'. Re-staking a virtual
-prize can consume that virtual item; live assets remain untouched.
+Текущий режим использует **отдельные тестовые GRAM** (изначально 1000.00
+для нового игрока). Для него предусмотрены таблицы `escape_test_wallets`
+и `escape_test_rounds`. Призы и ставки **не выводятся**: реальные GRAM,
+подарки, Craft Market, Portals, кошельки и история реальных операций не
+изменяются. Клиент отображает именно `TEST GRAM`. Запрос запуска раунда
+имеет идемпотентный идентификатор; повторный запрос не списывает ставку
+повторно. Когда тестовый баланс исчерпан, доступно его восстановление.
 
-Sandbox receipts use upgrade_test_rounds rather than the real settlement ledger.
-All test attempts are idempotent, and seller, wallet, bank and real inventory
-balances remain unchanged. The screen explicitly marks this as a test mode.
-
-To enable funded live settlement later, finish official Portals checkout and
-explicitly set UPGRADE_TEST_MODE=0, with a funded site bank and verified
-settlement and withdrawal flows. Real bank deposits are disabled in sandbox.
-
-## Upgrade mode (GRAM / gifts)
-
-The Games Hub includes an Upgrade screen with a liquid-glass chance wheel, collection
-picker, and actual active Craft Market lots. Probability is calculated server-side
-(stake value divided by current listing price; capped at 95%); a cryptographic roll
-is stored in an idempotent, atomic ledger receipt. Outcomes are settled against the
-actual listed gift, not a synthetic clone.
-
-For production wagering, configure `UPGRADE_BANK_USER_ID` to a **separate funded**
-Crafter account. The server refuses to start if that bank cannot cover the whole
-target price before the roll. Without this setting the interface remains view-only.
-Never seed production balances or use another player's account as the bank.
-Native TON bets are **not implemented**: the app currently prices Craft Market and
-its custodial game balance in internal GRAM, and no automatic TON/GRAM exchange or
-on-chain TON escrow is assumed. The TON tab explains this instead of silently
-wagering the wrong currency.
+Для перехода к реальным ставкам потребуется отдельная реализация денежного
+счёта и механизм аудита выплат: тестовые средства никогда не становятся
+реальными автоматически.

@@ -1209,11 +1209,6 @@ def create_app(config=None):
         app, db, auth, record, canonical_name, market_collection_keys,
         notify_crafter_sale, close_lot_offers, notify_crafter_purchase)
 
-    from upgrade import install_upgrade
-    install_upgrade(app, db, auth, record, canonical_name,
-                    available_crafter_lot, settle_crafter_lot,
-                    notify_crafter_sale, notify_crafter_purchase)
-
     def offer_collection(value):
         for key in ('thermos:collections', 'collections'):
             for item in cached(key, [])[0]:
@@ -1258,6 +1253,9 @@ def create_app(config=None):
         {gift['id']: gift['price'] for gift in DEMO_GIFTS} if app.config['DEMO_MODE'] else {}
     )
     install_staking(app, db, auth, record, audit, staking_catalog, canonical_name, demo_stake_prices)
+    from escape import install_escape
+    install_escape(app, db, auth)
+
     from arena import install_arena
     install_arena(app, db, auth, record, staking_catalog, canonical_name, demo_stake_prices)
     from admin_user_tools import install_admin_user_tools
