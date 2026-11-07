@@ -66,6 +66,7 @@ async function enterUpgrade(main) {
     const ticket = upgradeUI.nonce;
     upgradeUI.spinning = false;
     upgradeUI.giftId = '';
+    upgradeUI.stakeValue = null;
     upgradeUI.lotId = '';
     upgradeUI.selectedLot = null;
     upgradeUI.collection = '';
@@ -169,20 +170,53 @@ function ugUpdate() {
             'Результат определяется сервером; при проигрыше ставка сгорает.');
     }
 }
-function ugSelectStake(id) {
+async function ugEnsureStakeValue() {
+    const giftId = upgradeUI.giftId;
+    if (!giftId) throw new Error('Выберите подарок для ставки');
+    if (upgradeUI.stakeValue != null) return upgradeUI.stakeValue;
+    const ticket = upgradeUI.nonce;
+    const response = await api('upgrade/stake-value?gift_id=' + encodeURIComponent(giftId));
+    if (state.page !== 'upgrade' || ticket !== upgradeUI.nonce ||
+        upgradeUI.giftId !== giftId) return null;
+    upgradeUI.stakeValue = Number(response.amount);
+    return upgradeUI.stakeValue;
+}
+async function ugSelectStake(id) {
     if (upgradeUI.spinning) return;
     const gift = upgradeUI.inventory.find(item => String(item.id) === String(id));
     if (!gift) return;
     upgradeUI.giftId = String(id);
+    upgradeUI.stakeValue = null;
     ugInvalidate();
     closeSheet();
     ugRender();
-    ugRefreshQuote();
+    const ticket = upgradeUI.nonce;
+    try {
+        const amount = await ugEnsureStakeValue();
+        if (ticket !== upgradeUI.nonce || amount == null) return;
+        if (upgradeUI.selectedLot && Number(upgradeUI.selectedLot.price) <= amount) {
+            upgradeUI.lotId = '';
+            upgradeUI.selectedLot = null;
+            upgradeUI.collection = '';
+            upgradeUI.lots = [];
+            toast('Выберите цель дороже новой ставки');
+        }
+        ugRender();
+        ugRefreshQuote();
+    } catch (error) {
+        if (ticket !== upgradeUI.nonce) return;
+        upgradeUI.quoteError = error.message;
+        ugUpdate();
+    }
 }
 function ugSelectLot(id) {
     if (upgradeUI.spinning) return;
     const lot = upgradeUI.lots.find(item => String(item.id) === String(id));
     if (!lot) return;
+    if (upgradeUI.stakeValue == null || Number(lot.price) <= upgradeUI.stakeValue) {
+        toast('Цена цели должна быть выше стоимости ставки');
+        return;
+    }
     upgradeUI.lotId = String(id);
     upgradeUI.selectedLot = lot;
     ugInvalidate();
@@ -475,6 +509,7 @@ async function ugPlay() {
             ...((info.test_mode && testInventory.gifts) || []).filter(item => item.status === 'unlisted')
         ];
         upgradeUI.giftId = '';
+        upgradeUI.stakeValue = null;
         upgradeUI.lotId = '';
         upgradeUI.selectedLot = null;
         upgradeUI.lots = [];
