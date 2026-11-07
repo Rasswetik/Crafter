@@ -119,8 +119,8 @@ function ugUpdate() {
     if (wheel) wheel.style.setProperty('--ug-chance', (quote ? quote.chance : 0) + '%');
     if (chance) chance.textContent = (quote ? ugMoney(quote.chance) : '0') + '%';
     if (button) {
-        button.disabled = !quote || upgradeUI.spinning || !upgradeUI.info?.enabled;
-        button.classList.toggle('ug-ready', Boolean(quote && upgradeUI.info?.enabled && !upgradeUI.spinning));
+        button.disabled = !quote || !quote.playable || upgradeUI.spinning || !upgradeUI.info?.enabled;
+        button.classList.toggle('ug-ready', Boolean(quote && quote.playable && upgradeUI.info?.enabled && !upgradeUI.spinning));
     }
     if (stakeValue && quote) stakeValue.textContent = ugMoney(quote.amount) + ' GRAM';
     if (label) {
@@ -129,6 +129,7 @@ function ugUpdate() {
             !upgradeUI.selectedLot ? 'Теперь выберите целевой подарок в Craft Market.' :
             !upgradeUI.info?.enabled ?
                 'Ставки пока закрыты: банк сайта должен быть пополнен для выкупа выигранных лотов.' :
+            quote && !quote.playable ? 'Сейчас банк сайта не может оплатить выбранный лот. Выберите другой подарок.' :
             !quote ? 'Пересчитываем шанс по рыночной цене…' :
             'Шанс рассчитан сервером. При проигрыше подарок переходит в банк сайта.');
     }
@@ -327,7 +328,7 @@ function ugNewRequestId() {
     return 'upgrade-' + Date.now() + '-' + Math.random().toString(36).slice(2, 14);
 }
 async function ugPlay() {
-    if (upgradeUI.spinning || !upgradeUI.quote || !upgradeUI.info?.enabled) return;
+    if (upgradeUI.spinning || !upgradeUI.quote || !upgradeUI.quote.playable || !upgradeUI.info?.enabled) return;
     const btn = document.getElementById('ug-submit');
     upgradeUI.spinning = true;
     if (btn) {
