@@ -114,9 +114,11 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
             other = json.loads(item['payload'])
             if collection_key(other) == key:
                 floors.append(Decimal(item['price']))
-        if not floors:
-            abort(409, description='Нет рыночной оценки этой коллекции в Craft Market')
-        return gift, min(stated, min(floors)).quantize(CENT, rounding=ROUND_DOWN)
+        # The existing internal acquisition value is authoritative when there are
+        # no comparable active listings. If a market floor exists, cap the stake
+        # value to that floor instead of inflating the player's win probability.
+        valuation = min(stated, min(floors)) if floors else stated
+        return gift, valuation.quantize(CENT, rounding=ROUND_DOWN)
 
     def describe_quote(uid, data):
         lot_id = data.get('lot_id')
@@ -209,8 +211,10 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
         with db():
             db().execute('INSERT INTO upgrade_quotes VALUES(?,?,?,?)',
                          (quote_id, uid, json.dumps(quote), int(time.time())))
+        bank = bank_user()
+        playable = bank is not None and bank != uid and cash(bank) >= Decimal(quote['target_price'])
         return {'quote_id': quote_id, **quote, 'chance': quote['chance_bps']/100,
-                'expires_in': QUOTE_LIFETIME}
+                'playable': playable, 'expires_in': QUOTE_LIFETIME}
 
     @app.post('/api/upgrade/play')
     @auth()
