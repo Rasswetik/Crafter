@@ -330,6 +330,14 @@ def install_upgrade(app, db, auth, record, canonical_name, available_lot,
         with db():
             conn = db()
             conn.execute('BEGIN IMMEDIATE')
+            if sandbox_mode():
+                test_receipt = conn.execute(
+                    'SELECT quote_id,result FROM upgrade_test_rounds WHERE user_id=? AND request_id=?',
+                    (uid, request_id)).fetchone()
+                if test_receipt:
+                    if test_receipt['quote_id'] != quote_id:
+                        abort(409, description='Этот тестовый запрос уже использован')
+                    return json.loads(test_receipt['result'])
             receipt = conn.execute(
                 'SELECT quote_id,result FROM upgrade_rounds WHERE user_id=? AND request_id=?',
                 (uid, request_id)).fetchone()
