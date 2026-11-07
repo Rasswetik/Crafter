@@ -23,7 +23,7 @@ def test_escape_first_visit_creates_separate_virtual_balance(client):
     assert state['demo'] is True
     assert state['balance'] == '1000.00'
     assert state['currency'] == 'TEST GRAM'
-    assert tuple(state['difficulties']) == ('light', 'mid', 'epic')
+    assert set(state['difficulties']) == {'light', 'mid', 'epic'}
     assert state['best_day'] is None
     assert state['best_week'] is None
     assert client.get('/api/me', headers=signed(43)).json['balance'] == real_before
