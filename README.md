@@ -78,6 +78,25 @@ python -m pytest tests -q
 
 Встроен начальный каталог RasswetGifts из используемого HatDrop источника: 114 коллекций и 7297 моделей, снимок от 22 мая 2026. Оценки снимка выражены в TON; это не текущие цены Portal. Обновление Portal использует /api/collections?limit=5000 и /api/collections/filters?short_names=… без обязательного Partner API-ключа. Обновление идёт в фоне, сохраняет предыдущие данные при ошибке. /preview — изолированный просмотр оформления; данные посетителей туда не передаются. Карта файлов: docs/FILES.md.
 
+## Upgrade test mode — temporary until official Portals checkout
+
+While official Portals purchases are not integrated, Upgrade runs as a sandbox by
+default in production (UPGRADE_TEST_MODE is enabled outside CI). The chance wheel
+uses genuine current Craft Market listing prices, but test spins never purchase
+or remove real NFTs, charge GRAM, or take gifts from live inventory.
+
+A winning simulated prize is saved only in upgrade_test_gifts and appears in the
+Upgrade stake picker with the label 'Тестовый подарок'. Re-staking a virtual
+prize can consume that virtual item; live assets remain untouched.
+
+Sandbox receipts use upgrade_test_rounds rather than the real settlement ledger.
+All test attempts are idempotent, and seller, wallet, bank and real inventory
+balances remain unchanged. The screen explicitly marks this as a test mode.
+
+To enable funded live settlement later, finish official Portals checkout and
+explicitly set UPGRADE_TEST_MODE=0, with a funded site bank and verified
+settlement and withdrawal flows. Real bank deposits are disabled in sandbox.
+
 ## Upgrade mode (GRAM / gifts)
 
 The Games Hub includes an Upgrade screen with a liquid-glass chance wheel, collection
