@@ -1,5 +1,8 @@
 /* Upgrade — dark full-glass interface, isolated from the existing Crafter pages. */
-#app.upgrade-view {background:#080e17;}
+#app.upgrade-view {background:#080e17;max-width:1020px;}
+#nav.games-nav .nav-main {flex:1 1 auto;min-width:0;max-width:360px;}
+#nav.games-nav {gap:clamp(5px,2vw,13px);}
+.ug-panel>header {height:auto;min-height:29px;padding:0;background:none;}
 #app.upgrade-view #main {max-width:1100px;margin-inline:auto;}
 #app.upgrade-view .arena-rules-button,
 #app.upgrade-view .staking-rules-button,
