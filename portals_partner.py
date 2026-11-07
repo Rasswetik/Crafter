@@ -61,6 +61,10 @@ def install_portals_partner(app, db, auth, record, audit):
                 portal_withdrawal_id INTEGER, created INTEGER NOT NULL,
                 UNIQUE(user_id,request_id)
             );
+            CREATE TABLE IF NOT EXISTS portals_partner_policy (
+                id INTEGER PRIMARY KEY, enabled INTEGER NOT NULL,
+                verified_at INTEGER NOT NULL
+            );
         """)
         db().commit()
 
@@ -134,14 +138,26 @@ def install_portals_partner(app, db, auth, record, audit):
             # After a paid POST, never resend: the outcome may be unknown.
             abort(503, description="Нет подтверждения от Portals. Операция требует проверки, не повторяйте оплату")
 
+    def policy():
+        row=db().execute("SELECT enabled,verified_at FROM portals_partner_policy WHERE id=1").fetchone()
+        return (bool(row["enabled"]), int(row["verified_at"])) if row else (False,0)
+
     def status():
         row = db().execute("SELECT updated FROM portals_partner_credentials WHERE id=1").fetchone()
+        enabled, checked_at=policy()
+        key_present=bool(partner_key())
+        server_gate=os.getenv("CRAFTER_PORTALS_LIVE_PURCHASES") == "1"
+        verified=checked_at > 0 and int(time.time())-checked_at < 3600
         return {
-            "key_configured": bool(partner_key()),
+            "key_configured": key_present,
             "key_location": "encrypted_db" if row else ("environment" if os.getenv("PORTALS_API_KEY") else "none"),
             "encryption_ready": bool(cipher()),
             "durable_db": bool(app.config.get("DATABASE_URL")),
-            "live_purchases": os.getenv("CRAFTER_PORTALS_LIVE_PURCHASES") == "1",
+            "live_purchases": bool(server_gate and enabled and key_present and verified),
+            "server_gate": server_gate,
+            "operator_enabled": enabled,
+            "verified_recently": verified,
+            "can_enable":bool(server_gate and key_present and verified and app.config.get("DATABASE_URL")),
             "public_catalog_without_key": True,
             "partner_limit_rps": 1,
         }
@@ -165,6 +181,8 @@ def install_portals_partner(app, db, auth, record, audit):
         with db():
             db().execute("INSERT INTO portals_partner_credentials VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET encrypted_key=excluded.encrypted_key,updated=excluded.updated",
                          (token, int(time.time())))
+        with db():
+            db().execute("INSERT INTO portals_partner_policy VALUES (1,0,0) ON CONFLICT(id) DO UPDATE SET enabled=0,verified_at=0")
         audit("Portals Partner API key saved (redacted)")
         return status()
 
@@ -172,9 +190,29 @@ def install_portals_partner(app, db, auth, record, audit):
     @auth(admin=True)
     def portal_partner_check():
         details = partner("GET", "users/wallets/")
+        with db():
+            db().execute("INSERT INTO portals_partner_policy VALUES (1,0,?) ON CONFLICT(id) DO UPDATE SET verified_at=excluded.verified_at",
+                         (int(time.time()),))
         return {**status(), "connected":True,
                 "balance":str(details.get("balance","—")),
                 "frozen_funds":str(details.get("frozen_funds","—"))}
+
+    @app.post("/api/admin/portal/partner/activate")
+    @auth(admin=True)
+    def portal_partner_activate():
+        body=request.get_json(silent=True) or {}
+        enabled=body.get("enabled")
+        if type(enabled) is not bool:abort(400)
+        if enabled:
+            current=status()
+            if not current["can_enable"] or body.get("confirmation")!="ВКЛЮЧИТЬ РЕАЛЬНЫЕ ПОКУПКИ":
+                abort(409, description="Сначала проверьте ключ и подключение к PostgreSQL")
+        with db():
+            row=policy()
+            db().execute("INSERT INTO portals_partner_policy VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled",
+                         (int(enabled),row[1]))
+        audit("Portals live checkout " + ("enabled" if enabled else "disabled"))
+        return status()
 
     @app.get("/api/admin/portal/partner/orders")
     @auth(admin=True)
@@ -228,8 +266,8 @@ def install_portals_partner(app, db, auth, record, audit):
             not isinstance(rid,str) or not re.fullmatch(r"[A-Za-z0-9:_-]{1,100}",rid)):
             abort(400, description="Неверные ID подарков или номер запроса")
         # Guard defaults OFF, so no real funds move until separately approved.
-        if app.config["DEMO_MODE"] or os.getenv("CRAFTER_PORTALS_LIVE_PURCHASES") != "1":
-            abort(409, description="Реальные покупки Portals пока выключены в настройках сервера")
+        if app.config["DEMO_MODE"] or not status()["live_purchases"]:
+            abort(409, description="Реальные покупки Portals выключены. Администратор должен проверить ключ и активировать оплату.")
         if not partner_key() or not app.config.get("DATABASE_URL"):
             abort(409, description="Нет защищённого ключа Partner API или PostgreSQL")
         ids = sorted(ids)
