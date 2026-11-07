@@ -37,6 +37,7 @@ go = async function(page, eventId = null, focusLeaderboard = true) {
     if (state.crafting) return;
     document.querySelector('#app')?.classList.toggle('staking-view', page === 'staking');
     document.querySelector('#app')?.classList.toggle('arena-view', page === 'arena');
+    document.querySelector('#app')?.classList.toggle('upgrade-view', page === 'upgrade');
     clearTimeout(stakeCountdownTimer);
     if (state.page === 'arena') leaveArena();
     // Games is a navigation context, not a permanent extra tab. Keep Hub available
