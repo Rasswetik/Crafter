@@ -1,23 +1,29 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const html=fs.readFileSync('templates/index.html','utf8');
-const splash=fs.readFileSync('static/splash-approved.css','utf8');
 const css=fs.readFileSync('static/winter-site.css','utf8');
-const promo=fs.readFileSync('static/winter-promos.js','utf8');
-assert.doesNotMatch(html,/<div class="craft-header"><h1>Крафт<\/h1>/);
+const splash=fs.readFileSync('static/splash-approved.css','utf8');
+const ordinaryBanners=fs.readFileSync('static/market-banners.js','utf8');
+
+// No winter promo script or auto-inserted mode cards on ANY page.
+assert.doesNotMatch(html,/\/static\/winter-promos\.js/);
+assert.doesNotMatch(html,/<section class="winter-promos/);
+assert.doesNotMatch(css,/\.winter-promos|\.winter-promo(?!-)/);
+assert.doesNotMatch(css,/winter-banners-atlas\.avif/);
+assert.ok(!fs.existsSync('static/winter-promos.js'),'Remove the injected winter promo module');
+
+// Keep the existing genuine game/market/event banner system.
+assert.match(html,/\/static\/market-banners\.js/);
+assert.match(html,/\/static\/banner-carousel\.js/);
+assert.match(ordinaryBanners,/makeBannerCarousel/);
+assert.match(html,/id="arena-event-banner"/);
 assert.match(html,/class="craft-header"><button class="info-btn"/);
-assert.match(css,/#app\.craft-view > header > \.craft-header/);
+
+// Real transparent PNG garland, no generated promo panels.
+assert.match(html,/<\/header><div class="site-winter-garland" aria-hidden="true"><\/div><main id="main">/);
 assert.match(css,/winter-garland\.png/);
-assert.match(splash,/splash-approved-poster::before/);
+assert.match(css,/pointer-events:none/);
+assert.match(css,/background-size:100% auto/);
+assert.match(css,/#app\.craft-view > header > \.craft-header/);
 assert.match(splash,/object-fit:contain!important/);
-assert.doesNotMatch(splash,/scaleX\(/);
-assert.match(html,/winter-site\.css/);
-assert.match(html,/winter-promos\.js/);
-assert.match(promo,/winter-promo-art-/);
-for(const label of ['arena','lucky','leaders'])assert.match(css,new RegExp('winter-promo-art-'+label));
-assert.match(css,/winter-banners-atlas\.avif/);
-assert.match(promo,/openBannerLuckyCraft/);
-assert.match(promo,/MutationObserver/);
-assert.match(promo,/typeof state === 'undefined'/);
-assert.doesNotMatch(promo,/!window.state/);
-console.log('Responsive splash, centered Craft info and seasonal promos are configured.');
+console.log('No injected winter banners. Existing banner system and transparent garland retained.');
