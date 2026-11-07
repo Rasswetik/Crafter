@@ -294,6 +294,8 @@ async function ugChooseCollection(key) {
     }
 }
 function ugRenderLots() {
+    const title = document.getElementById('sheet-title');
+    if (title) title.textContent = 'Выберите лот';
     const content = document.getElementById('ug-picker-content');
     if (!content) return;
     const cards = upgradeUI.lots.map(lot =>
@@ -314,6 +316,8 @@ function ugRenderLots() {
         (upgradeUI.hasMore ? '<button type="button" class="ug-picker-more" onclick="ugLoadMore()">Показать ещё</button>' : '');
 }
 function ugBackToCollections() {
+    const title = document.getElementById('sheet-title');
+    if (title) title.textContent = 'Выберите коллекцию';
     upgradeUI.modalNonce++;
     upgradeUI.pickerStep = 'collections';
     upgradeUI.loading = false;
