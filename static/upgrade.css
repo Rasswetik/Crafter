@@ -299,3 +299,15 @@
   .ug-slot-art{width:93%;min-height:62px}
   .ug-picker-item{padding:8px 5px!important}
 }
+
+/* Test-only UX: no real NFT purchase, GRAM debit or live stake transfer. */
+.ug-test-notice{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  margin:7px 0 12px;padding:10px 11px;
+  border:1px solid #516a7a;
+  border-radius:13px;
+  background:linear-gradient(115deg,#2b3d4a,#1a2833);
+  color:#a7bac9;font-size:10px;line-height:1.45;
+}
+.ug-test-notice b{font-size:11px;color:#b7e3ff;white-space:nowrap}
+.ug-test-notice span{flex:1 1 190px}
