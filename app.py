@@ -1253,8 +1253,6 @@ def create_app(config=None):
         {gift['id']: gift['price'] for gift in DEMO_GIFTS} if app.config['DEMO_MODE'] else {}
     )
     install_staking(app, db, auth, record, audit, staking_catalog, canonical_name, demo_stake_prices)
-    from escape import install_escape
-    install_escape(app, db, auth)
 
     from arena import install_arena
     install_arena(app, db, auth, record, staking_catalog, canonical_name, demo_stake_prices)
