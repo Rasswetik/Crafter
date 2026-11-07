@@ -61,11 +61,23 @@ def test_partner_checkout_is_real_idempotent_and_partially_reconciled(tmp_path,m
     def fake_wire(req,timeout=None):
         seen.append(req)
         assert req.get_header("Authorization") == "partners " + key
+        if req.full_url.endswith("/partners/users/wallets/"):
+            return FakeResponse({"balance":"25","frozen_funds":"0"})
         assert req.full_url.endswith("/partners/nfts")
         assert json.loads(req.data)["nft_details"]==[{"id":NFT,"price":"4.25"}]
         return FakeResponse({"purchase_results":[{"id":NFT,"status":"success","price":"4.25"}],
                              "total_purchased":1,"total_spent":"4.25"})
     monkeypatch.setattr("portals_partner.urlopen",fake_wire)
+    # Live checkout remains fail-closed until an administrator verifies the
+    # real partner connection and explicitly enables purchases.
+    pre=client.post("/api/portals/buy",headers=signed(),
+       json={"gift_ids":[NFT],"request_id":"preflight","expected_total":"4.25"})
+    assert pre.status_code==409
+    checked=client.post("/api/admin/portal/partner/check",headers=signed(),json={})
+    assert checked.status_code==200, checked.json
+    unlocked=client.post("/api/admin/portal/partner/activate",headers=signed(),
+       json={"enabled":True,"confirmation":"ВКЛЮЧИТЬ РЕАЛЬНЫЕ ПОКУПКИ"})
+    assert unlocked.status_code==200 and unlocked.json["live_purchases"] is True
     with sqlite3.connect(client.application.config["DATABASE"]) as db:
         db.execute("UPDATE demo_accounts SET balance='20' WHERE user_id=42")
         db.execute("INSERT INTO cache VALUES (?,?,?)", (
@@ -82,7 +94,7 @@ def test_partner_checkout_is_real_idempotent_and_partially_reconciled(tmp_path,m
     assert first.json["gifts"][0]["id"]==NFT
     second=client.post("/api/portals/buy",headers=signed(),json=order)
     assert second.status_code==200 and second.json["order_id"]==first.json["order_id"]
-    assert len(seen)==1
+    assert len([req for req in seen if req.full_url.endswith("/partners/nfts")])==1
     with sqlite3.connect(client.application.config["DATABASE"]) as db:
         assert db.execute("SELECT balance FROM demo_accounts WHERE user_id=42").fetchone()[0]=="15.75"
         assert db.execute("SELECT COUNT(*) FROM inventory WHERE user_id=42 AND nft_id=?",(NFT,)).fetchone()[0]==1
