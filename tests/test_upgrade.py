@@ -26,6 +26,7 @@ def setup_upgrade(client, *, bank=True):
                      (gift['id'], json.dumps(gift)))
         conn.execute("UPDATE demo_accounts SET balance='5.00' WHERE user_id=43")
         conn.execute("UPDATE demo_accounts SET balance='50.00' WHERE user_id=50")
+        conn.execute("INSERT INTO wallet_balances VALUES (50,'mainnet','50.00')")
     sale = client.post('/api/resale/listings', headers=signed(42), json={
         'action': 'sell', 'items': [{'id': gift['id'], 'price': '10.00'}]})
     assert sale.status_code == 200, sale.json
@@ -66,6 +67,7 @@ def test_upgrade_balance_win_is_paid_by_bank_and_idempotent(client, monkeypatch)
     with sqlite3.connect(client.application.config['DATABASE']) as db:
         assert db.execute('SELECT balance FROM demo_accounts WHERE user_id=43').fetchone()[0] == '3.00'
         assert db.execute('SELECT balance FROM demo_accounts WHERE user_id=50').fetchone()[0] == '42.00'
+        assert db.execute("SELECT gram FROM wallet_balances WHERE user_id=50 AND network='mainnet'").fetchone() == ('42.00',)
         assert db.execute('SELECT balance FROM demo_accounts WHERE user_id=42').fetchone()[0] == '9.60'
         row = db.execute("SELECT user_id,status FROM inventory WHERE nft_id=?", (gift['id'],)).fetchone()
         assert row == (43, 'unlisted')
