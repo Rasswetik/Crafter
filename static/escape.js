@@ -63,7 +63,7 @@ function escapePage() {
         '<div class="escape-ball-layer" id="escape-ball-layer"></div>' +
         '<div class="escape-shard-ring" aria-hidden="true">' +
         Array.from({length:9},(_,i) => '<i style="--angle:' + (i*40) + 'deg">' + escapeShards + '</i>').join('') +
-        '</div></div>' +
+        '</div></div><div id="escape-outcomes" class="escape-outcomes" aria-live="polite"></div>' +
         '<div class="escape-wheel-legend"><span><i class="escape-legend-win"></i> Успех</span>' +
         '<span><i class="escape-legend-lose"></i> Проигрыш</span>' +
         '<span class="escape-running" id="escape-running">Шаров: 0</span></div>' +
@@ -169,7 +169,7 @@ function escapeSetStake(value) {
 }
 function escapeQuickStake(value) {
     escapeGame.stake = value === 'MAX' ?
-        escapeMoney(Math.min(500,Number(escapeGame.info?.balance || 0))) : value;
+        Math.min(500,Number(escapeGame.info?.balance || 0)).toFixed(2) : value;
     const input = document.getElementById('escape-stake-input');
     if (input) input.value = escapeGame.stake;
     escapeGame.pendingId = '';
@@ -211,9 +211,11 @@ function escapeUpdateLive() {
     if (rotor) {
         rotor.classList.toggle('is-spinning', count > 0);
         const maxShard = Math.max(0,...Array.from(escapeGame.active.values(),r=>r.shards));
-        const speed = Math.max(.38, 2.8 - maxShard * .26);
-        rotor.style.setProperty('--escape-spin-time', speed + 's');
         const reference = Array.from(escapeGame.active.values()).at(-1);
+        const base = reference?.difficulty === 'epic' ? 1.95 :
+            reference?.difficulty === 'mid' ? 2.4 : 2.85;
+        const speed = Math.max(.3, base - maxShard * .24);
+        rotor.style.setProperty('--escape-spin-time', speed + 's');
         if (reference && reference.sector != null) escapeSetSector(reference.sector);
         else escapeSetSector(escapeConfig(escapeGame.difficulty).first_sector);
         if (shard) shard.textContent = String(maxShard);
@@ -292,6 +294,19 @@ function escapeMessage(text, isWin = false) {
     while (element.children.length > 3) element.lastChild.remove();
     setTimeout(() => item.remove(), 6500);
 }
+function escapeShowOutcome(result) {
+    const layer = document.getElementById('escape-outcomes');
+    if (!layer) return;
+    const chip = document.createElement('div');
+    chip.className = 'escape-outcome-chip' + (result.success ? ' win' : ' lose');
+    chip.setAttribute('role', 'status');
+    chip.innerHTML = '<strong>' + (result.success ? 'ПОБЕДА!' : 'ПОРАЖЕНИЕ') +
+        '</strong><span>' + (result.success ? '+' + escapeMoney(result.payout) + ' TEST GRAM' :
+        result.multiplier + ' · ' + result.shards + ' осколков') + '</span>';
+    layer.prepend(chip);
+    while (layer.children.length > 3) layer.lastChild.remove();
+    setTimeout(() => chip.remove(), 3200);
+}
 function escapeNewBall(result) {
     const layer = document.getElementById('escape-ball-layer');
     if (!layer) return null;
@@ -331,6 +346,7 @@ async function escapeAnimateRound(result, view) {
     if (!element) return;
     const track = {
         id:result.id, shards:0, sector:escapeConfig(result.difficulty).first_sector,
+        difficulty:result.difficulty,
         element, steps:result.steps, end:false, position:{x:0,y:0}
     };
     escapeGame.active.set(result.id,track);
@@ -357,6 +373,7 @@ async function escapeAnimateRound(result, view) {
         element.classList.add(result.success?'is-winning':'is-losing');
         await escapeAnimateBall(element,track.position,exit,reduced?75:620);
         if (view === escapeGame.view) {
+            escapeShowOutcome(result);
             escapeMessage(result.success ?
                 '+' + escapeMoney(result.payout) + ' TEST GRAM · ' + result.multiplier + ' · Escape!' :
                 'Проигрыш · ' + result.multiplier + ' · ' + result.shards + ' осколков',
