@@ -4,7 +4,7 @@ const upgradeUI = {
     giftId: '', lotId: '', selectedLot: null, collection: '', collectionName: '',
     quote: null, quoteError: '', loading: false, loadingMore: false, hasMore: false,
     spinning: false, pendingRequestId: '', nonce: 0, modalNonce: 0,
-    collectionFilter: '', pickerStep: 'collections'
+    collectionFilter: '', pickerStep: 'collections', stakeValue: null, lotFilter: '', collectionSort: 'all'
 };
 const ugText = value => esc(String(value ?? ''));
 const ugMoney = value => money(value);
@@ -98,46 +98,44 @@ function ugRender() {
     if (!root) return;
     const stake = ugCurrentGift();
     const lot = upgradeUI.selectedLot;
+    const stakePrice = stake ? ugMoney(upgradeUI.stakeValue ?? stake.price) + ' GRAM' : '';
+    const quote = upgradeUI.quote;
+    const winAngle = quote ? Math.min(342, Number(quote.chance) * 3.6) : 0;
+    // Winter currency and GRAM remain in Crafter's existing header.
     root.innerHTML = '<section class="ug-screen">' +
-        (upgradeUI.info?.test_mode ? '<div class="ug-test-notice"><b>Тестовый режим</b>' +
-        '<span>GRAM и подарки не списываются. Выигрыши — тестовые, без выкупа Portals.</span></div>' : '') +
         '<div class="ug-wheel-region">' +
-        '<div class="ug-wheel" id="ug-wheel" style="--ug-chance:' +
-        (upgradeUI.quote ? upgradeUI.quote.chance : 0) + '%">' +
-        '<div class="ug-wheel-track"></div><div id="ug-needle" class="ug-wheel-needle"><i></i></div>' +
-        '<div class="ug-wheel-center"><small>WIN CHANCE</small><b id="ug-chance">' +
-        (upgradeUI.quote ? ugMoney(upgradeUI.quote.chance) : '0') +
-        '%</b><span>✦</span></div></div>' +
-        '<div class="ug-wheel-caption" id="ug-wheel-caption">Шанс улучшения</div>' +
-        '</div>' +
+        '<div class="ug-wheel" id="ug-wheel" style="--ug-win-angle:' + winAngle + 'deg">' +
+        '<span class="ug-wheel-pointer" aria-hidden="true"></span>' +
+        '<div class="ug-wheel-rotor" id="ug-wheel-rotor" aria-hidden="true">' +
+        '<div class="ug-wheel-sectors"></div></div>' +
+        '<div class="ug-wheel-center"><small>ШАНС ВЫИГРЫША</small>' +
+        '<b id="ug-chance">' + (quote ? ugMoney(quote.chance) : '0') + '%</b>' +
+        '<span aria-hidden="true">✦</span></div></div>' +
+        '<div class="ug-wheel-caption">Шанс улучшения</div></div>' +
         '<div class="ug-selection-row">' +
         '<button type="button" class="ug-slot' + (stake ? ' ug-filled' : '') +
-        '" onclick="ugOpenStakePicker()" aria-label="Выбор ставки из инвентаря">' +
+        '" onclick="ugOpenStakePicker()" aria-label="Выбрать подарок для ставки">' +
         '<span class="ug-slot-title">Ваша ставка</span>' +
         ugArtFrame(stake, 'ug-slot-art') +
         '<strong>' + (stake ? ugText(stake.name) : 'Выберите подарок') + '</strong>' +
-        '<small>' + (stake ? '#' + ugText(stake.number || '—') : 'Из инвентаря') + '</small>' +
+        '<small>' + (stake ? '№' + ugText(stake.number || '—') : 'Из инвентаря') + '</small>' +
+        '<span class="ug-slot-price">' + (stake ? stakePrice : 'Выбрать ставку') + '</span>' +
         '<span class="ug-slot-bottom">' + (stake ? 'Изменить ↗' : 'Выбрать +') + '</span></button>' +
         '<button type="button" class="ug-slot' + (lot ? ' ug-filled' : '') +
-        '" onclick="ugOpenTargetPicker()" aria-label="Выбор целевого подарка из Craft Market">' +
+        '" onclick="ugOpenTargetPicker()" aria-label="Выбрать целевой подарок">' +
         '<span class="ug-slot-title">Целевой подарок</span>' +
         ugArtFrame(lot, 'ug-slot-art ug-target-art') +
         '<strong>' + (lot ? ugText(lot.name) : 'Выберите цель') + '</strong>' +
-        '<small>' + (lot ? '#' + ugText(lot.number || '—') + ' · ' +
-        ugMoney(lot.price) + ' GRAM' : 'Из Craft Market') + '</small>' +
+        '<small>' + (lot ? '№' + ugText(lot.number || '—') : 'Из Craft Market') + '</small>' +
+        '<span class="ug-slot-price">' + (lot ? ugMoney(lot.price) + ' GRAM' : 'Выбрать цель') + '</span>' +
         '<span class="ug-slot-bottom">' + (lot ? 'Изменить ↗' : 'Выбрать +') + '</span></button>' +
         '</div>' +
-        '<div class="ug-summary"><div><span>Стоимость ставки</span><b id="ug-stake-value">' +
-        (stake ? ugMoney(stake.price) + ' ' + ugText(stake.price_unit || 'GRAM') : '—') +
-        '</b></div><span class="ug-summary-arrow">→</span>' +
-        '<div><span>Цена цели</span><b>' + (lot ? ugMoney(lot.price) + ' GRAM' : '—') +
-        '</b></div></div>' +
-        '<button id="ug-submit" type="button" class="ug-upgrade-button" onclick="ugPlay()" disabled>' +
-        'Upgrade <span>↗</span></button>' +
+        '<button type="button" id="ug-submit" class="ug-upgrade-button"' +
+        ' onclick="ugPlay()" disabled>Улучшить <span aria-hidden="true">↗</span></button>' +
         '<p id="ug-status" class="ug-status" aria-live="polite"></p>' +
-        (upgradeUI.info?.is_admin && !upgradeUI.info?.test_mode ? '<button type="button" class="ug-bank-link" onclick="ugOpenBankFund()">' +
-            'Банк сайта: ' + ugMoney(upgradeUI.info.bank_balance || 0) +
-            ' GRAM · Пополнить</button>' : '') +
+        (upgradeUI.info?.is_admin && !upgradeUI.info?.test_mode ?
+            '<button type="button" class="ug-bank-link" onclick="ugOpenBankFund()">Банк сайта: ' +
+            ugMoney(upgradeUI.info.bank_balance || 0) + ' GRAM · Пополнить</button>' : '') +
         '</section>';
     ugUpdate();
 }
@@ -148,24 +146,27 @@ function ugUpdate() {
     const label = document.getElementById('ug-status');
     const chance = document.getElementById('ug-chance');
     const wheel = document.getElementById('ug-wheel');
-    const stakeValue = document.getElementById('ug-stake-value');
-    if (wheel) wheel.style.setProperty('--ug-chance', (quote ? quote.chance : 0) + '%');
-    if (chance) chance.textContent = (quote ? ugMoney(quote.chance) : '0') + '%';
-    if (button) {
-        button.disabled = !quote || !quote.playable || upgradeUI.spinning || !upgradeUI.info?.enabled;
-        button.classList.toggle('ug-ready', Boolean(quote && quote.playable && upgradeUI.info?.enabled && !upgradeUI.spinning));
+    if (wheel) {
+        const angle = quote ? Math.min(342, Math.max(0, Number(quote.chance) * 3.6)) : 0;
+        wheel.style.setProperty('--ug-win-angle', angle + 'deg');
+        wheel.setAttribute('aria-label', 'Шанс выигрыша ' + (quote ? quote.chance : 0) + '%');
     }
-    if (stakeValue && quote) stakeValue.textContent = ugMoney(quote.amount) + ' GRAM';
+    if (chance) chance.textContent = (quote ? ugMoney(quote.chance) : '0') + '%';
+    const ready = Boolean(quote && quote.playable && upgradeUI.info?.enabled && !upgradeUI.spinning);
+    if (button) {
+        button.disabled = !ready;
+        button.classList.toggle('ug-ready', ready);
+    }
     if (label) {
         label.textContent = upgradeUI.quoteError ||
-            (!ugCurrentGift() ? 'Сначала выберите подарок из инвентаря.' :
-            !upgradeUI.selectedLot ? 'Теперь выберите целевой подарок в Craft Market.' :
-            !upgradeUI.info?.enabled ?
-                (upgradeUI.info?.is_admin ? 'Пополните банк сайта, чтобы оплачивать выигранные лоты.' : 'Режим временно недоступен: банк сайта не пополнен.') :
-            quote && !quote.playable ? 'Сейчас банк сайта не может оплатить выбранный лот. Выберите другой подарок.' :
-            !quote ? 'Пересчитываем шанс по рыночной цене…' :
-            upgradeUI.info?.test_mode ? 'Тестовый Upgrade готов: шанс рассчитан, реальное списание выключено.' :
-            'Шанс рассчитан сервером. При проигрыше подарок переходит в банк сайта.');
+            (!ugCurrentGift() ? 'Выберите подарок для ставки.' :
+            upgradeUI.stakeValue == null ? 'Определяем стоимость подарка…' :
+            !upgradeUI.selectedLot ? 'Выберите цель дороже вашей ставки.' :
+            !upgradeUI.info?.enabled ? 'Временно недоступен банк выкупа.' :
+            quote && !quote.playable ? 'Банк не покрывает стоимость выбранного лота.' :
+            !quote ? 'Рассчитываем шанс…' :
+            upgradeUI.info?.test_mode ? 'Демо · без списания GRAM и реальных NFT' :
+            'Результат определяется сервером; при проигрыше ставка сгорает.');
     }
 }
 function ugSelectStake(id) {
