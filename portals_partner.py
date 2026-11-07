@@ -153,7 +153,7 @@ def install_portals_partner(app, db, auth, record, audit):
             "key_location": "encrypted_db" if row else ("environment" if os.getenv("PORTALS_API_KEY") else "none"),
             "encryption_ready": bool(cipher()),
             "durable_db": bool(app.config.get("DATABASE_URL")),
-            "live_purchases": bool(server_gate and enabled and key_present and verified),
+            "live_purchases": bool(server_gate and enabled and key_present and app.config.get("DATABASE_URL")),
             "server_gate": server_gate,
             "operator_enabled": enabled,
             "verified_recently": verified,
