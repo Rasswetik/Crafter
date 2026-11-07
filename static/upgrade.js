@@ -268,41 +268,98 @@ function ugShowPicker(title, html) {
     sheet(title, '<div class="ug-picker-root">' + html + '</div>');
     appSheet.classList.add('ug-picker-sheet');
 }
-function ugOpenTargetPicker() {
+async function ugOpenTargetPicker() {
     if (upgradeUI.spinning) return;
+    if (!ugCurrentGift()) {
+        toast('Сначала выберите ставку');
+        ugOpenStakePicker();
+        return;
+    }
     upgradeUI.pickerStep = 'collections';
     upgradeUI.collectionFilter = '';
-    ugShowPicker('Выберите коллекцию', '<div id="ug-picker-content"></div>');
+    upgradeUI.collectionSort = 'all';
+    upgradeUI.loadingCollections = true;
+    ugShowPicker('Выберите цель', '<div id="ug-picker-content"></div>');
     ugRenderCollections();
+    const ticket = ++upgradeUI.modalNonce;
+    try {
+        const stake = await ugEnsureStakeValue();
+        if (stake == null || ticket !== upgradeUI.modalNonce || !appSheet.open) return;
+        const result = await api('upgrade/collections?stake_gift_id=' +
+            encodeURIComponent(upgradeUI.giftId));
+        if (ticket !== upgradeUI.modalNonce || !appSheet.open ||
+            upgradeUI.pickerStep !== 'collections') return;
+        upgradeUI.collections = result.collections || [];
+    } catch (error) {
+        if (ticket !== upgradeUI.modalNonce) return;
+        toast(error.message);
+        upgradeUI.quoteError = error.message;
+    } finally {
+        if (ticket === upgradeUI.modalNonce) {
+            upgradeUI.loadingCollections = false;
+            ugRenderCollections();
+        }
+    }
 }
 function ugFilterCollections(value) {
     upgradeUI.collectionFilter = String(value || '');
     const area = document.getElementById('ug-collection-results');
     if (area) area.innerHTML = ugCollectionCards();
 }
+function ugSetCollectionSort(value) {
+    upgradeUI.collectionSort = value;
+    const buttons = document.querySelectorAll('.ug-picker-filters [data-ug-sort]');
+    buttons.forEach(button => button.classList.toggle('is-selected',
+        button.dataset.ugSort === value));
+    const area = document.getElementById('ug-collection-results');
+    if (area) area.innerHTML = ugCollectionCards();
+}
 function ugCollectionCards() {
-    const term = upgradeUI.collectionFilter.trim().toLocaleLowerCase();
-    const filtered = upgradeUI.collections.filter(item =>
-        String(item.name || '').toLocaleLowerCase().includes(term));
-    if (!filtered.length) {
-        return '<div class="ug-picker-empty">В Craft Market нет подходящих активных коллекций.</div>';
-    }
-    return filtered.map(collection =>
+    if (upgradeUI.loadingCollections)
+        return '<div class="ug-picker-empty">Загружаем доступные коллекции…</div>';
+    const query = upgradeUI.collectionFilter.trim().toLocaleLowerCase();
+    const collections = upgradeUI.collections.filter(item =>
+        String(item.name || '').toLocaleLowerCase().includes(query) &&
+        Number(item.floor) > Number(upgradeUI.stakeValue ?? 0));
+    if (upgradeUI.collectionSort === 'popular')
+        collections.sort((a,b) => Number(b.count) - Number(a.count));
+    else if (upgradeUI.collectionSort === 'high')
+        collections.sort((a,b) => Number(b.floor) - Number(a.floor));
+    else collections.sort((a,b) => Number(a.floor) - Number(b.floor));
+    if (!collections.length)
+        return '<div class="ug-picker-empty">Нет коллекций с лотами дороже выбранной ставки.</div>';
+    return collections.map(collection =>
         '<button type="button" class="ug-picker-item ug-collection-item" onclick="ugChooseCollection(' +
         arg(collection.key) + ')">' +
         ugCollectionArt(collection) +
         '<strong>' + ugText(collection.name) + '</strong>' +
         '<small>От ' + ugMoney(collection.floor) + ' GRAM</small>' +
-        '<span>' + ugText(collection.count) + ' лотов</span></button>'
+        '<span class="ug-price-pill">' + ugText(collection.count) + ' лотов</span></button>'
     ).join('');
 }
 function ugRenderCollections() {
     const content = document.getElementById('ug-picker-content');
     if (!content) return;
-    content.innerHTML = '<div class="ug-picker-intro">Выберите коллекцию подарка</div>' +
-        '<label class="ug-picker-search"><span>⌕</span><input type="search" placeholder="Поиск коллекции" ' +
-        'aria-label="Поиск коллекции" value="' + ugText(upgradeUI.collectionFilter) +
-        '" oninput="ugFilterCollections(this.value)"></label>' +
+    content.innerHTML =
+        '<div class="ug-picker-intro">Показываются только цели дороже вашей ставки' +
+        (upgradeUI.stakeValue == null ? '' :
+            '<span class="ug-picker-stake">Ставка: ' + ugMoney(upgradeUI.stakeValue) + ' GRAM</span>') +
+        '</div>' +
+        '<label class="ug-picker-search"><span aria-hidden="true">⌕</span>' +
+        '<input type="search" placeholder="Поиск коллекций…" aria-label="Поиск коллекций"' +
+        ' value="' + ugText(upgradeUI.collectionFilter) + '"' +
+        ' oninput="ugFilterCollections(this.value)"></label>' +
+        '<div class="ug-picker-filters" role="group" aria-label="Сортировка коллекций">' +
+        '<button type="button" data-ug-sort="all" class="' +
+        (upgradeUI.collectionSort === 'all' ? 'is-selected' : '') +
+        '" onclick="ugSetCollectionSort(\'all\')">Все</button>' +
+        '<button type="button" data-ug-sort="popular" class="' +
+        (upgradeUI.collectionSort === 'popular' ? 'is-selected' : '') +
+        '" onclick="ugSetCollectionSort(\'popular\')">Популярные</button>' +
+        '<button type="button" data-ug-sort="high" class="' +
+        (upgradeUI.collectionSort === 'high' ? 'is-selected' : '') +
+        '" onclick="ugSetCollectionSort(\'high\')">Дорогие</button>' +
+        '</div>' +
         '<div class="ug-picker-grid ug-collection-grid" id="ug-collection-results">' +
         ugCollectionCards() + '</div>';
 }
@@ -313,20 +370,22 @@ async function ugChooseCollection(key) {
     upgradeUI.collection = key;
     upgradeUI.collectionName = chosen.name;
     upgradeUI.lots = [];
+    upgradeUI.lotFilter = '';
     upgradeUI.hasMore = false;
     upgradeUI.pickerStep = 'lots';
     upgradeUI.loading = true;
     ugRenderLots();
     const ticket = ++upgradeUI.modalNonce;
     try {
-        const result = await api('upgrade/lots?collection=' + encodeURIComponent(key));
+        const result = await api('upgrade/lots?collection=' + encodeURIComponent(key) +
+            '&stake_gift_id=' + encodeURIComponent(upgradeUI.giftId));
         if (ticket !== upgradeUI.modalNonce || state.page !== 'upgrade' ||
             !appSheet.open || upgradeUI.pickerStep !== 'lots') return;
-        upgradeUI.lots = result.lots || [];
+        upgradeUI.lots = (result.lots || []).filter(lot =>
+            Number(lot.price) > Number(upgradeUI.stakeValue));
         upgradeUI.hasMore = Boolean(result.has_more);
     } catch (error) {
         if (ticket !== upgradeUI.modalNonce || state.page !== 'upgrade') return;
-        upgradeUI.quoteError = error.message;
         toast(error.message);
     } finally {
         if (ticket === upgradeUI.modalNonce) {
@@ -335,31 +394,50 @@ async function ugChooseCollection(key) {
         }
     }
 }
-function ugRenderLots() {
-    const title = document.getElementById('sheet-title');
-    if (title) title.textContent = 'Выберите лот';
-    const content = document.getElementById('ug-picker-content');
-    if (!content) return;
-    const cards = upgradeUI.lots.map(lot =>
+function ugFilterLots(value) {
+    upgradeUI.lotFilter = String(value || '');
+    const target = document.getElementById('ug-lot-results');
+    if (target) target.innerHTML = ugLotCards();
+}
+function ugLotCards() {
+    const term = upgradeUI.lotFilter.trim().toLocaleLowerCase();
+    const lots = upgradeUI.lots.filter(lot =>
+        Number(lot.price) > Number(upgradeUI.stakeValue ?? 0) &&
+        [lot.name, lot.number, lot.model].some(text =>
+            String(text || '').toLocaleLowerCase().includes(term)));
+    if (!lots.length)
+        return '<div class="ug-picker-empty">' +
+            (upgradeUI.loading ? 'Загрузка лотов…' :
+                'Нет подходящих лотов дороже вашей ставки.') + '</div>';
+    return lots.map(lot =>
         '<button type="button" class="ug-picker-item ug-lot-item' +
         (upgradeUI.lotId === lot.id ? ' selected' : '') +
         '" onclick="ugSelectLot(' + arg(lot.id) + ')">' +
         ugArtFrame(lot, 'ug-picker-art ug-lot-art') +
         '<strong>' + ugText(lot.name) + '</strong>' +
-        '<small>#' + ugText(lot.number || '—') + (lot.model ? ' · ' + ugText(lot.model) : '') + '</small>' +
-        '<span>' + ugMoney(lot.price) + ' GRAM</span></button>'
+        '<small>№' + ugText(lot.number || '—') +
+        (lot.model ? ' · ' + ugText(lot.model) : '') + '</small>' +
+        '<span class="ug-price-pill">◆ ' + ugMoney(lot.price) + ' GRAM</span></button>'
     ).join('');
-    content.innerHTML = '<div class="ug-lots-top"><button type="button" onclick="ugBackToCollections()">‹ Коллекции</button>' +
-        '<strong>' + ugText(upgradeUI.collectionName) + '</strong></div>' +
-        '<div class="ug-picker-intro">Выберите конкретный лот Craft Market</div>' +
-        '<div class="ug-picker-grid">' +
-        (cards || '<div class="ug-picker-empty">' + (upgradeUI.loading ?
-        'Загрузка лотов...' : 'В этой коллекции нет доступных лотов.') + '</div>') + '</div>' +
-        (upgradeUI.hasMore ? '<button type="button" class="ug-picker-more" onclick="ugLoadMore()">Показать ещё</button>' : '');
+}
+function ugRenderLots() {
+    const content = document.getElementById('ug-picker-content');
+    if (!content) return;
+    content.innerHTML =
+        '<div class="ug-lots-top"><button type="button" onclick="ugBackToCollections()">' +
+        '‹ Коллекции</button><strong>' + ugText(upgradeUI.collectionName) + '</strong></div>' +
+        '<div class="ug-picker-intro">Выберите подарок дороже вашей ставки' +
+        '<span class="ug-picker-stake">Ставка: ' + ugMoney(upgradeUI.stakeValue) + ' GRAM</span></div>' +
+        '<label class="ug-picker-search"><span aria-hidden="true">⌕</span>' +
+        '<input type="search" placeholder="Поиск подарков…" aria-label="Поиск подарков"' +
+        ' value="' + ugText(upgradeUI.lotFilter) + '"' +
+        ' oninput="ugFilterLots(this.value)"></label>' +
+        '<div class="ug-picker-grid ug-lot-grid" id="ug-lot-results">' +
+        ugLotCards() + '</div>' +
+        (upgradeUI.hasMore ?
+            '<button type="button" class="ug-picker-more" onclick="ugLoadMore()">Показать ещё</button>' : '');
 }
 function ugBackToCollections() {
-    const title = document.getElementById('sheet-title');
-    if (title) title.textContent = 'Выберите коллекцию';
     upgradeUI.modalNonce++;
     upgradeUI.pickerStep = 'collections';
     upgradeUI.loading = false;
@@ -372,9 +450,12 @@ async function ugLoadMore() {
     const key = upgradeUI.collection;
     try {
         const result = await api('upgrade/lots?collection=' + encodeURIComponent(key) +
+            '&stake_gift_id=' + encodeURIComponent(upgradeUI.giftId) +
             '&offset=' + upgradeUI.lots.length);
-        if (ticket !== upgradeUI.modalNonce || !appSheet.open || upgradeUI.pickerStep !== 'lots') return;
-        upgradeUI.lots.push(...(result.lots || []));
+        if (ticket !== upgradeUI.modalNonce || !appSheet.open ||
+            upgradeUI.pickerStep !== 'lots') return;
+        upgradeUI.lots.push(...(result.lots || []).filter(lot =>
+            Number(lot.price) > Number(upgradeUI.stakeValue)));
         upgradeUI.hasMore = Boolean(result.has_more);
     } catch (error) {
         if (ticket === upgradeUI.modalNonce) toast(error.message);
