@@ -155,7 +155,7 @@ const inventoryToolbarPaths = {
 
 function inventoryToolbarIcon(action) {
     if (action === 'craft') return anvilArt('inventory-anvil');
-    if (action === 'transfer') return `<span class="inventory-send-oval-icon">${crafterTelegramPlaneSVG()}</span>`;
+    if (action === 'transfer') return crafterTelegramPlaneSVG();
     return `<svg viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="${inventoryToolbarPaths[action === 'unlist' ? 'sell' : action]}"/></svg>`;
 }
 
