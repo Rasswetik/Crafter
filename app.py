@@ -1225,6 +1225,8 @@ def create_app(config=None):
     install_arena(app, db, auth, record, staking_catalog, canonical_name, demo_stake_prices)
     from admin_user_tools import install_admin_user_tools
     install_admin_user_tools(app, db, auth, audit, record)
+    from launch_readiness import install_launch_readiness
+    install_launch_readiness(app, db, auth, audit)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     return app
