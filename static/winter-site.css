@@ -1,0 +1,81 @@
+/* Crafter festive additions: subtle image-based lights, no branches or bells.
+   Light layers are non-interactive and never cover buttons or market gifts. */
+#app > header{position:relative;isolation:isolate}
+#app > header::before{
+  content:"";position:absolute;inset:-1px 2px auto;z-index:0;
+  height:25px;pointer-events:none;opacity:.32;
+  background:url("/static/assets/winter-garland.png") 50% 0/100% auto no-repeat;
+  filter:drop-shadow(0 1px 3px #eab65e60);
+}
+#app > header > *{position:relative;z-index:1}
+#app.craft-view > header > .craft-header{
+  position:absolute;left:50%;top:50%;z-index:3;
+  transform:translate(-50%,-50%);display:flex!important;
+  align-items:center;justify-content:center;gap:0;
+  margin:0;padding:0;min-width:28px;
+}
+#app.craft-view > header > .craft-header h1{display:none!important}
+#app.craft-view > header > .craft-header .info-btn{
+  margin:0;width:28px;height:28px;border-radius:50%;font-weight:700;
+  display:grid;place-items:center;
+}
+.winter-promos{
+  position:relative;display:grid;gap:8px;margin:0 0 16px;
+  min-width:0;width:100%;isolation:isolate;
+}
+.winter-promos.market-winter-promos{
+  display:flex;gap:9px;overflow-x:auto;overflow-y:hidden;
+  scroll-snap-type:x mandatory;scrollbar-width:none;
+  padding:2px 0 8px;margin:0 0 8px;
+  overscroll-behavior-inline:contain;
+}
+.winter-promos.market-winter-promos::-webkit-scrollbar{display:none}
+.winter-promo{
+  display:block;appearance:none;width:100%;padding:0;margin:0;
+  overflow:hidden;background:#071e35;border:1px solid #89cfff51;
+  border-radius:13px;box-shadow:0 5px 18px #00101e71;
+  cursor:pointer;touch-action:pan-y;text-align:left;
+}
+.winter-promos.market-winter-promos .winter-promo{
+  flex:0 0 min(86%,450px);scroll-snap-align:start;
+}
+.winter-promo-art{
+  display:block;width:100%;height:auto;aspect-ratio:3/1;
+  background-image:url("/static/assets/winter-banners-atlas.avif");
+  background-size:100% 300%;background-repeat:no-repeat;
+  user-select:none;pointer-events:none;
+}
+.winter-promo-art-arena{background-position:center top}
+.winter-promo-art-lucky{background-position:center center}
+.winter-promo-art-leaders{background-position:center bottom}
+.winter-promo:focus-visible{outline:2px solid #abdcff;outline-offset:2px}
+.winter-promo:active{transform:scale(.989)}
+.winter-promos-hub{grid-template-columns:1fr;}
+.winter-promo-grouped{margin:9px 0 14px}
+.crafter-games:has(.winter-promos){padding-top:0}
+.crafter-games .winter-promos{grid-column:1/-1}
+.craft-page .winter-promos{position:relative;z-index:2;margin:4px 0 5px}
+.arena-page .winter-promos{margin:4px 0 12px}
+.crafter-games::before,.craft-page::after,.arena-page .arena-highlights::before{
+  content:"";position:relative;z-index:1;pointer-events:none;display:block;
+  background:url("/static/assets/winter-garland.png") center/contain no-repeat;
+  width:100%;height:27px;opacity:.62;filter:drop-shadow(0 0 4px #ffe7ae58);
+}
+.craft-page::after{position:absolute;top:0;left:0;height:22px}
+.arena-page .arena-highlights{position:relative}
+.arena-page .arena-highlights::before{
+  position:absolute;inset:-18px 5px auto;width:calc(100% - 10px);height:20px;
+}
+@media(min-width:1000px){
+  .winter-promos.market-winter-promos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));overflow:visible}
+  .winter-promos.market-winter-promos .winter-promo{min-width:0}
+  .winter-promos-hub{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:385px){
+  #app > header::before{height:18px;opacity:.24}
+  .winter-promos.market-winter-promos .winter-promo{flex-basis:89%}
+  .winter-promo{border-radius:10px}
+}
+@media(prefers-reduced-motion:reduce){
+  .winter-promo:active{transform:none}
+}
