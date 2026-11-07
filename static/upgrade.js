@@ -79,6 +79,7 @@ function ugPickGift(id) {
     ugInvalidate();
 }
 function ugInvalidate(redraw = true) {
+    upgradeUI.nonce += 1;
     upgradeUI.quote = null;
     upgradeUI.quoteError = '';
     upgradeUI.pendingRequestId = null;
