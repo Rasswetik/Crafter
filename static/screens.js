@@ -230,6 +230,8 @@ async function renderAdminPortal(content) {
     const [status] = await Promise.all([api('admin/status'), state.catalogReady]);
     if (!content.isConnected) return;
     content.innerHTML = `<section class="panel"><h3>Каталог подарков</h3><p>Коллекций: ${state.catalog.collections.length}. Цены и изображения загружаются отдельно от выдачи подарков.</p><p>${status.mode==='partner'?'Partner API подключён':'Открытый API · без ключа'}</p><div id="sync-progress" class="notice">${esc(status.sync?.error||'Готово к обновлению')}</div><button class="primary" onclick="refreshPortal(this)">Обновить каталог Portal</button><p class="sub">При недоступности Portal сохраняется предыдущий каталог. Исходные оценки TON не выдаются за актуальные цены GRAM.</p></section><section class="panel"><h3>Коллекции и модели</h3><select class="field" id="catalog-collection" onchange="showCatalogModels(this.value)"><option value="">Выберите коллекцию</option>${state.catalog.collections.map(c=>`<option value="${esc(c.short_name||c.id)}">${esc(c.name)}</option>`).join('')}</select><div id="catalog-models"></div></section>`;
+    if(typeof renderPortalsPartnerAdmin==='function') await renderPortalsPartnerAdmin(content);
+    if(typeof renderPortalsLocalResetAdmin==='function') await renderPortalsLocalResetAdmin(content);
 }
 let userSearchTimer;
 function searchUsers(q){clearTimeout(userSearchTimer);userSearchTimer=setTimeout(()=>loadUsers(q),250)}
