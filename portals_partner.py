@@ -9,7 +9,7 @@ import os
 import re
 import secrets
 import time
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -31,8 +31,8 @@ def to_gram(value):
         abort(400, description="Некорректная цена GRAM")
     if not amount.is_finite() or amount < CENT or amount > Decimal("1000000"):
         abort(400, description="Некорректная цена GRAM")
-    if amount != amount.quantize(CENT):
-        abort(400, description="Цена должна иметь не более двух знаков после запятой")
+    if amount != amount.quantize(Decimal("0.000000001")):
+        abort(400, description="Цена GRAM должна содержать не более 9 знаков после запятой")
     return amount
 
 def install_portals_partner(app, db, auth, record, audit):
@@ -246,8 +246,12 @@ def install_portals_partner(app, db, auth, record, audit):
                 abort(409, description="Данные Portals устарели. Обновите каталог перед покупкой.")
             prices = {gift_id:to_gram(found[gift_id]["price"]) for gift_id in ids}
             total = sum(prices.values(), Decimal("0"))
-            if payload.get("expected_total") is not None and to_gram(payload["expected_total"]) != total:
-                abort(409, description="Цена изменилась — обновите корзину")
+            if payload.get("expected_total") is not None:
+                # UI shows 2 decimals, but partner pricing may be fractional
+                # to 9 decimals. Never round the actual paid API price.
+                visible = sum((p.quantize(CENT, rounding=ROUND_HALF_UP) for p in prices.values()), Decimal("0"))
+                if to_gram(payload["expected_total"]) != visible:
+                    abort(409, description="Цена изменилась — обновите корзину")
             row = db().execute("SELECT balance FROM demo_accounts WHERE user_id=?",(g.user["id"],)).fetchone()
             balance = Decimal(row["balance"]) if row else Decimal("0")
             if total > balance:
@@ -255,7 +259,10 @@ def install_portals_partner(app, db, auth, record, audit):
             for gift_id in ids:
                 other = db().execute("SELECT status FROM portals_partner_order_items WHERE nft_id=?", (gift_id,)).fetchone()
                 if other:
-                    abort(409, description="Этот подарок уже находится в обработке")
+                    if other["status"] == "failed":
+                        db().execute("DELETE FROM portals_partner_order_items WHERE nft_id=? AND status='failed'",(gift_id,))
+                    else:
+                        abort(409, description="Этот подарок уже находится в обработке")
             order_id = secrets.token_hex(16)
             db().execute("UPDATE demo_accounts SET balance=? WHERE user_id=?",(str(balance-total),g.user["id"]))
             db().execute("INSERT INTO portals_partner_orders VALUES (?,?,?,?,?,?,?,?)",
