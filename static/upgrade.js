@@ -533,7 +533,7 @@ async function ugPlay() {
     upgradeUI.spinning = true;
     if (btn) {
         btn.disabled = true;
-        btn.textContent = 'Upgrade...';
+        btn.textContent = 'Улучшаем…';
     }
     if (!upgradeUI.pendingRequestId) upgradeUI.pendingRequestId = ugNewRequestId();
     let result;
@@ -553,11 +553,13 @@ async function ugPlay() {
         toast(error.message);
         return;
     }
-    const needle = document.getElementById('ug-needle');
-    if (needle) needle.style.transform = 'rotate(' +
-        (2160 + Number(result.roll_bps || 0) / 10000 * 360) + 'deg)';
+    // The outer pointer stays still while the chance sectors rotate beneath it.
+    // On stop, pointer position corresponds exactly to the authoritative roll_bps.
+    const rotor = document.getElementById('ug-wheel-rotor');
+    const landing = 2160 - (Number(result.roll_bps || 0) / 10000) * 360;
+    if (rotor) rotor.style.transform = 'rotate(' + landing + 'deg)';
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    await new Promise(resolve => setTimeout(resolve, reduced ? 80 : 4300));
+    await new Promise(resolve => setTimeout(resolve, reduced ? 80 : 4500));
     if (state.page !== 'upgrade') return;
     const prize = result.gift || {};
     const successful = Boolean(result.success);
