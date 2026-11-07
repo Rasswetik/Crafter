@@ -1,0 +1,79 @@
+/* Faithful approved image from the conversation. The image contains no
+   pre-rendered loading caption/progress. The bar below remains live UI. */
+.splash.splash-approved{
+  background:#03192c;
+  display:block;
+  overflow:hidden;
+}
+.splash-approved .splash-approved-poster{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  z-index:5;
+  overflow:hidden;
+  isolation:isolate;
+}
+.splash-approved .splash-approved-photo{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center center;
+  pointer-events:none;
+  user-select:none;
+}
+.splash-approved .splash-frame,
+.splash-approved .splash-winter-sky,
+.splash-approved .splash-winter-snowbank,
+.splash-approved .splash-holiday-lights{display:none!important}
+.splash-approved::before{display:none!important}
+.splash:not(.splash-approved) .splash-approved-poster{display:none!important}
+.splash-approved .splash-approved-status{
+  position:absolute;
+  top:75.1%;
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:13px;
+  width:min(60vw,250px);
+  z-index:6;
+  color:#d8ebff;
+  text-shadow:0 2px 7px #082344;
+  font-size:clamp(10px,1.25vh,13px);
+  font-weight:700;
+  letter-spacing:.23em;
+  white-space:nowrap;
+}
+.splash-approved .splash-approved-status .splash-progress{
+  position:relative;
+  display:block;
+  width:min(100%,188px);
+  height:5px;
+  border-radius:99px;
+  border:1px solid #7bb4e866;
+  background:#274a75b2;
+  overflow:hidden;
+  box-shadow:0 0 10px #237bc040;
+}
+.splash-approved .splash-approved-status .splash-progress::after{display:none!important}
+.splash-approved .splash-approved-status .splash-progress-fill{
+  display:block;
+  height:100%;
+  width:0%;
+  border-radius:inherit;
+  background:linear-gradient(90deg,#49a8fb,#cbf0ff);
+  box-shadow:0 0 8px #c1efff;
+  transition:width .3s ease;
+}
+@media (min-aspect-ratio: 2/3){
+  /* Short screens would otherwise crop the header and the snow at the base. */
+  .splash-approved .splash-approved-photo{object-fit:contain}
+  .splash-approved .splash-approved-status{top:76.2%}
+}
+@media(prefers-reduced-motion:reduce){
+  .splash-approved .splash-approved-status .splash-progress-fill{transition:none}
+}
