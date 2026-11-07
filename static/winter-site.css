@@ -1,39 +1,76 @@
-/* Winter decor is an overlay, never a block in the page layout.
-   Important: keep the header, main content, banners and bottom navigation in place. */
+/* Crafter: restrained, separate evergreen garlands. No layout shifts.
+   Decorations sit at the margins and do not intercept buttons or navigation. */
 
-/* Suppress old markup on pages that still have cached templates. */
-#app > .site-winter-garland { display:none!important; }
+/* Remove the obsolete full-width garland on clients with cached markup. */
+#app > .site-winter-garland,
 #app > .site-winter-garland::after { display:none!important; }
 
-/* Hang a short evergreen light string from the upper LEFT edge. */
-#app > header {
-  position:relative;
-  isolation:isolate;
-}
-#app > header::before {
+/* Two short, asymmetric loops hang from opposite sides of the top edge. */
+#app > header { position:relative; isolation:isolate; }
+#app > header::before,
+#app > header::after {
   content:"";
   position:absolute;
-  top:-10px;
-  left:-5px;
-  width:min(270px,62vw);
-  height:82px;
   z-index:0;
-  background-image:url("/static/assets/crafter-hanging-lights.svg?v=2");
+  top:-9px;
+  height:67px;
+  background-image:url("/static/assets/crafter-hanging-lights.svg?v=3");
   background-repeat:no-repeat;
-  background-position:left top;
-  background-size:100% auto;
+  background-position:top left;
+  background-size:100% 100%;
+  opacity:.92;
   pointer-events:none!important;
   user-select:none;
-  opacity:.96;
 }
-/* Display the garland BEHIND all original clickable header controls. */
-#app > header > * { z-index:1; }
-@media (max-width:390px) {
-  #app > header::before {width:min(225px,61vw);top:-9px;left:-6px}
+#app > header::before {left:-5px;width:min(220px,46%);}
+#app > header::after {
+  right:-3px;
+  top:-12px;
+  width:min(162px,33%);
+  height:50px;
+  transform:scaleX(-1);
+  opacity:.80;
 }
-/* No blinking, wide graphic, height, padding or offset added to the page. */
+#app > header > * { position:relative;z-index:1; }
 
-/* Preserve the original centred information button on the Craft screen. */
+/* Two *small* side vines at different heights, well outside the banner copy.
+   They are purely visual pseudo-elements, not inserted rows or fixed overlays. */
+#app::before,
+#app::after {
+  content:"";
+  position:absolute;
+  z-index:2;
+  width:22px;
+  height:139px;
+  background:url("/static/assets/crafter-side-vine.svg?v=1") no-repeat center/100% 100%;
+  pointer-events:none!important;
+  user-select:none;
+  opacity:.87;
+}
+#app::before {left:-5px;top:218px;}
+#app::after {
+  right:-4px;
+  top:407px;
+  height:153px;
+  transform:scaleX(-1);
+  opacity:.77;
+}
+
+/* Smaller screens: keep decorations inside the narrow margins. */
+@media(max-width:390px) {
+  #app > header::before {left:-4px;width:45%;height:56px;}
+  #app > header::after {right:-2px;width:31%;height:43px;}
+  #app::before {width:17px;height:116px;top:218px;left:-4px;}
+  #app::after {width:18px;height:124px;top:393px;right:-4px;}
+}
+@media(min-width:760px) {
+  #app > header::before {width:235px;}
+  #app > header::after {width:175px;}
+  #app::before {left:0;}
+  #app::after {right:0;}
+}
+
+/* Preserve the pre-existing compact Craft rules button. */
 #app.craft-view > header > .craft-header {
   position:absolute;
   top:50%;
