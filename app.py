@@ -334,12 +334,40 @@ def create_app(config=None):
     @app.get('/api/catalog')
     @auth()
     def catalog():
-        # Public collection discovery is independent of the Partner key.
+        # Official public API first. No Partner key or request slot is consumed.
+        collections,updated=cached('portals:public:collections',[])
+        if not collections or not updated or int(time.time())-updated>300:
+            try:
+                raw=portal('collections/preview')
+                items=raw if isinstance(raw,list) else (raw.get('collections') or raw.get('items') or raw.get('results') or [])
+                fresh=[]
+                for c in items:
+                    if not isinstance(c,dict) or not c.get('id') or not c.get('name'):
+                        continue
+                    short=c.get('short_name') or c.get('shortName') or ''
+                    price=c.get('floor_price') or c.get('floor') or '0'
+                    fresh.append({**c, 'short_name':short,
+                                  'photo_url':c.get('photo_url') or ('https://portal-market.com/collection_previews/'+str(short)+'.webp' if short else ''),
+                                  'floor_price':str(price), 'price_unit':'GRAM'})
+                if fresh:
+                    collections=fresh
+                    updated=int(time.time())
+                    with db():
+                        db().execute('INSERT INTO cache VALUES (?,?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',
+                                     ('portals:public:collections',json.dumps(collections),updated))
+            except Exception:
+                pass
+        if collections:
+            return dict(collections=collections,attributes={},source='portals_public',price_unit='GRAM',
+                        updated_at=updated,demo=app.config['DEMO_MODE'])
+        # An independent market source is displayed as TON, never relabelled GRAM.
         try:return dict(collections=public_catalog(),attributes={},source='thermos',price_unit='TON',demo=app.config['DEMO_MODE'])
         except Exception:pass
         collections,updated=cached('collections',[]);attributes,_=cached('attributes',{})
         if not collections:collections=[{k:v for k,v in c.items() if k!='models'} for c in catalog_seed['collections']]
-        return dict(collections=collections,attributes=attributes,updated_at=updated,demo=app.config['DEMO_MODE'],source='portals' if updated else 'snapshot',snapshot_updated_at=catalog_seed.get('updated_at'))
+        return dict(collections=collections,attributes=attributes,updated_at=updated,
+                    demo=app.config['DEMO_MODE'],source='portals' if updated else 'snapshot',
+                    snapshot_updated_at=catalog_seed.get('updated_at'))
     @app.get('/api/market/collection-volumes')
     @auth()
     def market_collection_volumes():
@@ -1067,7 +1095,7 @@ def create_app(config=None):
         def worker():
             with app.app_context():
                 try:
-                    data=portal('collections/preview');rows=data.get('collections') or data.get('items') or []
+                    data=portal('collections/preview');rows=(data if isinstance(data,list) else (data.get('collections') or data.get('items') or data.get('results') or []))
                     if not rows:raise ValueError('Источник вернул пустой каталог')
                     rows=[{**c,'short_name':c.get('short_name') or c.get('shortName') or '', 'photo_url':c.get('photo_url') or 'https://portal-market.com/collection_previews/'+str(c.get('short_name') or c.get('shortName') or '')+'.webp'} for c in rows]
                     catalog_job['total']=len(rows)
