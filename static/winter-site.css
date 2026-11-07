@@ -1,11 +1,11 @@
-/* Crafter winter details. Keep all ordinary page layout, banners and navigation.
-   Garland is decoration within the header stacking context, not a document-flow row. */
+/* Winter decor is an overlay, never a block in the page layout.
+   Important: keep the header, main content, banners and bottom navigation in place. */
 
-/* Safe fallback for cached HTML containing the previous stand-alone garland. */
+/* Suppress old markup on pages that still have cached templates. */
 #app > .site-winter-garland { display:none!important; }
+#app > .site-winter-garland::after { display:none!important; }
 
-/* The gentle evergreen arc is attached to one top corner of the site.
-   The header's actual controls always paint above it and remain clickable. */
+/* Hang a short evergreen light string from the upper LEFT edge. */
 #app > header {
   position:relative;
   isolation:isolate;
@@ -13,29 +13,27 @@
 #app > header::before {
   content:"";
   position:absolute;
-  top:-11px;
-  left:-7px;
-  z-index:-1;
-  width:clamp(164px,49%,244px);
-  height:clamp(62px,18vw,90px);
-  background:url("/static/assets/crafter-hanging-lights.svg") no-repeat left top / 100% 100%;
-  opacity:.93;
-  pointer-events:none;
+  top:-10px;
+  left:-5px;
+  width:min(270px,62vw);
+  height:82px;
+  z-index:0;
+  background-image:url("/static/assets/crafter-hanging-lights.svg?v=2");
+  background-repeat:no-repeat;
+  background-position:left top;
+  background-size:100% auto;
+  pointer-events:none!important;
   user-select:none;
-  animation:crafter-garland-glow 6s ease-in-out infinite;
+  opacity:.96;
 }
-@keyframes crafter-garland-glow {
-  0%,100% {opacity:.86}
-  48% {opacity:1}
-}
+/* Display the garland BEHIND all original clickable header controls. */
+#app > header > * { z-index:1; }
 @media (max-width:390px) {
-  #app > header::before { top:-9px; left:-9px; width:clamp(155px,49%,185px); height:66px; }
+  #app > header::before {width:min(225px,61vw);top:-9px;left:-6px}
 }
-@media (prefers-reduced-motion:reduce) {
-  #app > header::before {animation:none;opacity:.95}
-}
+/* No blinking, wide graphic, height, padding or offset added to the page. */
 
-/* Preserve the compact centred info button on Craft. */
+/* Preserve the original centred information button on the Craft screen. */
 #app.craft-view > header > .craft-header {
   position:absolute;
   top:50%;
