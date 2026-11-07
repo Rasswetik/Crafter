@@ -4,26 +4,33 @@ const html=fs.readFileSync('templates/index.html','utf8');
 const css=fs.readFileSync('static/winter-site.css','utf8');
 const splash=fs.readFileSync('static/splash-approved.css','utf8');
 const ordinaryBanners=fs.readFileSync('static/market-banners.js','utf8');
+const hangingLights=fs.readFileSync('static/assets/crafter-hanging-lights.svg','utf8');
 
-// No winter promo script or auto-inserted mode cards on ANY page.
+// No injected winter promo cards; ordinary Crafter banners are preserved.
 assert.doesNotMatch(html,/\/static\/winter-promos\.js/);
 assert.doesNotMatch(html,/<section class="winter-promos/);
 assert.doesNotMatch(css,/\.winter-promos|\.winter-promo(?!-)/);
 assert.doesNotMatch(css,/winter-banners-atlas\.avif/);
-assert.ok(!fs.existsSync('static/winter-promos.js'),'Remove the injected winter promo module');
-
-// Keep the existing genuine game/market/event banner system.
+assert.ok(!fs.existsSync('static/winter-promos.js'));
 assert.match(html,/\/static\/market-banners\.js/);
 assert.match(html,/\/static\/banner-carousel\.js/);
 assert.match(ordinaryBanners,/makeBannerCarousel/);
 assert.match(html,/\/static\/arena\.js/);
-assert.match(html,/class="craft-header"><button class="info-btn"/);
 
-// Real transparent PNG garland, no generated promo panels.
-assert.match(html,/<\/header><div class="site-winter-garland" aria-hidden="true"><\/div><main id="main">/);
-assert.match(css,/winter-garland\.png/);
+// Garland lives inside the existing header, never as a block above the content.
+assert.doesNotMatch(html,/class="site-winter-garland"/);
+assert.match(html,/<\/header><main id="main">/);
+assert.match(css,/#app > header::before/);
+assert.match(css,/background:url\("\/static\/assets\/crafter-hanging-lights\.svg"\)/);
+assert.match(css,/#app > \.site-winter-garland \{ display:none!important; \}/);
 assert.match(css,/pointer-events:none/);
-assert.match(css,/background-size:100% auto/);
+assert.doesNotMatch(css,/#app > \.site-winter-garland\s*\{[^}]*height:clamp/s);
+assert.match(hangingLights,/<svg/);
+assert.match(hangingLights,/#[0-9a-f]{6}/i);
+assert.doesNotMatch(hangingLights,/bell/i);
+
+// Existing Craft info button and splash stay intact.
+assert.match(html,/class="craft-header"><button class="info-btn"/);
 assert.match(css,/#app\.craft-view > header > \.craft-header/);
 assert.match(splash,/object-fit:contain!important/);
-console.log('No injected winter banners. Existing banner system and transparent garland retained.');
+console.log('Crafter header garland is nonblocking; standard banners and menus are unchanged.');
