@@ -145,6 +145,7 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
         ${kind==='craft'?'<button type="button" class="secondary" data-ice-copy-arena>⧉ Скопировать баннер из Ice Arena</button>':''}
         <button type="button" class="primary" data-ice-save="publish">Опубликовать</button>
         <button type="button" class="secondary" data-ice-save="hide">Скрыть с сайта</button>
+        <button type="button" class="secondary" data-ice-delete>Удалить баннер</button>
       </div>
       <p class="sub" id="ice-editor-status" role="status">Загружено. Изменения появятся у игроков после сохранения.</p>
     </section>
@@ -224,6 +225,17 @@ async function renderIceBannerAdmin(content=document.querySelector('#admin-conte
   panel.addEventListener('input',iceEditInput);
   panel.addEventListener('change',iceEditChange);
   panel.addEventListener('click',iceEditClick);
+  panel.querySelector('[data-ice-delete]')?.addEventListener('click',async()=>{
+    if(iceEdit.busy)return;
+    if(!confirm('Удалить баннер из '+(iceEdit.kind==='craft'?'Craft':'Arena')+
+       '? Он исчезнет с сайта; настройки придётся создавать заново.'))return;
+    iceEdit.busy=true;
+    try{
+      await api('admin/'+iceEdit.kind+'/banner/delete',{});
+      toast('Баннер удалён с сайта');
+      await renderIceBannerAdmin(content,iceEdit.kind);
+    }catch(e){iceEdit.busy=false;toast(e.message);}
+  });
   iceList();iceProperties();icePaint();
 }
 

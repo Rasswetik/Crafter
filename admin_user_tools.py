@@ -55,17 +55,30 @@ def install_admin_user_tools(app, db, auth, audit, record):
             abort(400,description='Количество записей: от 1 до 200')
         if uid is not None and uid <= 0:
             abort(400,description='Некорректный Telegram ID')
-        user_history = db().execute("""
-            SELECT user_id,kind,payload,created FROM history
-            WHERE (? IS NULL OR user_id=?)
-            ORDER BY created DESC LIMIT ?
-        """,(uid,uid,limit)).fetchall()
+        # PostgreSQL cannot infer a type for an untyped NULL placeholder in
+        # (? IS NULL OR ...). Construct one of two parameterized queries instead.
+        if uid is None:
+            user_history = db().execute("""
+                SELECT user_id,kind,payload,created FROM history
+                ORDER BY created DESC LIMIT ?
+            """, (limit,)).fetchall()
+        else:
+            user_history = db().execute("""
+                SELECT user_id,kind,payload,created FROM history
+                WHERE user_id=? ORDER BY created DESC LIMIT ?
+            """, (uid,limit)).fetchall()
         activity=[]
         for row in user_history:
             try: data=json.loads(row['payload'])
             except (ValueError,TypeError): data={}
-            # Do not emit session/API credentials or full arbitrary history payload.
-            gift = data.get('gift') or (data.get('gifts') or [{}])[0]
+            # Legacy history may contain lists, plain strings, empty gift arrays or
+            # malformed gift payloads; never let one row break the whole audit page.
+            if not isinstance(data,dict):
+                data={}
+            gift=data.get('gift')
+            if not isinstance(gift,dict):
+                gifts=data.get('gifts')
+                gift=next((item for item in gifts if isinstance(item,dict)),{}) if isinstance(gifts,list) else {}
             activity.append({
                 'type':'history','user_id':row['user_id'],
                 'kind':row['kind'],'created':row['created'],

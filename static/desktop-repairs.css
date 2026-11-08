@@ -1,0 +1,194 @@
+/* Desktop-specific repairs to the live Crafter layout.
+   Mobile <1024px intentionally retains the original game UI. */
+@media (min-width:1024px) {
+  #crafter-desktop-sidebar {
+    border-radius:18px;
+    border-color:#343638;
+    background:linear-gradient(135deg,#ffffff08,#ffffff03),#191b1ecc;
+    box-shadow:inset 0 1px #ffffff14,0 12px 30px #0005;
+  }
+  .desktop-sidebar-logo{font-size:17px;letter-spacing:-.02em;padding:3px 9px 6px}
+  .desktop-sidebar-account{border-radius:13px!important;min-height:68px}
+  .desktop-sidebar-link{min-height:42px!important;border-radius:11px!important}
+  .desktop-sidebar-link.is-active{
+    border-color:#a4a8af4a!important;
+    color:#fff!important;
+    background:linear-gradient(130deg,#ffffff23,#ffffff0c)!important;
+  }
+  #app,#app.games-view,#app.arena-view,#app.staking-view {
+    min-width:0!important;
+    overflow-x:hidden!important;
+  }
+  #app > header {
+    min-width:0;
+    min-height:116px!important;
+    height:116px!important;
+    padding:65px clamp(15px,2vw,29px) 11px!important;
+    display:flex!important;
+    align-items:center!important;
+    gap:12px!important;
+    justify-content:space-between!important;
+    position:relative!important;
+  }
+  #app > header::before {height:60px!important;top:0!important;z-index:0}
+  #app > header > .brand {display:none!important}
+  #app > header > .games-profile-settings {display:none!important}
+  #app > header > .winter-currency-balance {order:0;min-width:73px;margin-right:auto;z-index:2}
+  #app > header > .balance{order:100;margin-left:auto;z-index:2}
+  #app > header > .craft-header,
+  #app.craft-view > header > .craft-header {
+    position:static!important;
+    transform:none!important;
+    margin:0!important;
+    min-width:0!important;
+    flex:0 0 auto;
+    order:20;
+    z-index:2;
+  }
+  #app > header > .staking-rules-button,
+  #app > header > .arena-rules-button{
+    order:20;
+    position:static!important;
+    transform:none!important;
+    z-index:2;
+    flex-shrink:0;
+  }
+  #app > main {min-width:0;max-width:none!important;overflow:visible}
+  #main {min-width:0;max-width:100%}
+  #main .market-banner-strip {
+    display:grid!important;
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:12px!important;
+    width:100%;max-width:100%;min-width:0;
+    margin-bottom:16px;
+  }
+  #main .market-banner-strip>.market-banner-tile{
+    width:100%;height:auto;min-width:0;min-height:0;
+    aspect-ratio:3/1;
+    border-radius:14px;
+  }
+  #main .market-banner-tile img{width:100%;height:100%;object-fit:cover}
+  #main #gifts-grid.grid:not(.list),
+  #main .grid:not(.list) {
+    display:grid!important;
+    grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    gap:12px!important;
+    min-width:0;
+    width:100%;
+    align-items:stretch;
+  }
+  #main #gifts-grid.grid:not(.list)>.gift,
+  #main .grid:not(.list)>.gift {
+    display:flex!important;
+    flex-direction:column!important;
+    min-width:0!important;
+    width:100%!important;max-width:100%!important;
+    padding:8px!important;
+    margin:0!important;
+    border-radius:15px!important;
+    overflow:hidden!important;
+    gap:3px;
+  }
+  #main .grid:not(.list)>.gift .art {
+    flex:0 0 auto;
+    display:block;
+    width:100%!important;
+    height:auto!important;
+    aspect-ratio:1;
+    overflow:hidden;
+  }
+  #main .grid:not(.list)>.gift .art img{width:100%!important;height:100%!important;object-fit:contain!important}
+  #main .grid:not(.list)>.gift h3,
+  #main .grid:not(.list)>.gift .number{
+    width:100%;
+    min-width:0;max-width:100%;
+    margin:4px 0 0!important;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    font-size:12px!important;line-height:1.3;
+  }
+  #main .grid:not(.list)>.gift .number{margin:0 0 6px!important;color:#9da0a5}
+  #main .grid:not(.list)>.gift .gift-bottom{width:100%;margin-top:auto;min-width:0;gap:6px}
+  #main .grid:not(.list)>.gift .price{flex:1 1 auto;min-width:0;max-width:100%;font-size:12px!important}
+  #main #gifts-grid.grid.list {
+    display:grid!important;
+    grid-template-columns:repeat(1,minmax(0,1fr))!important;
+    gap:10px!important;
+    width:100%;
+  }
+  #main #gifts-grid.grid.list>.gift {
+    display:grid!important;
+    grid-template-columns:106px minmax(0,1fr)!important;
+    grid-template-rows:repeat(3,auto)!important;
+    align-content:center;
+    align-items:center;
+    column-gap:14px;
+    padding:9px!important;
+    min-width:0;min-height:126px;
+    border-radius:15px;
+  }
+  #main #gifts-grid.grid.list>.gift>.art{
+    grid-area:1/1/4/2!important;
+    width:106px!important;height:106px!important;
+    aspect-ratio:1!important;
+    overflow:hidden;border-radius:11px;
+  }
+  #main #gifts-grid.grid.list>.gift>h3,
+  #main #gifts-grid.grid.list>.gift>.number{
+    grid-column:2!important;min-width:0;max-width:100%;
+    margin:0!important;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+  }
+  #main #gifts-grid.grid.list>.gift>.gift-bottom,
+  #main #gifts-grid.grid.list>.gift>.price{
+    grid-column:2!important;
+    grid-row:auto!important;
+    width:min(260px,100%)!important;margin:0!important;
+  }
+  #main #gifts-grid.grid.list>.gift .gift-bottom .price {min-width:0}
+  #main .staking-gift-grid{
+    display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
+    gap:12px!important;width:100%;min-width:0;
+  }
+  #main .staking-gift-grid>.stake-gift-card{min-width:0;max-width:100%;padding:8px}
+  #main .staking-gift-grid>.stake-gift-card .stake-gift-art{width:100%;height:auto;aspect-ratio:1}
+  #main .staking-gift-grid>.stake-gift-card .stake-gift-art img{width:100%;height:100%;object-fit:contain}
+  #main .crafter-skeleton .skeleton-grid{grid-template-columns:repeat(5,minmax(0,1fr))!important}
+  #main .crafter-skeleton .skeleton-gift{min-height:0!important;aspect-ratio:.72}
+  /* Profile settings belong alongside the inventory control, not inside the garland. */
+  #main .profile-identity{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+  #main .profile-settings-button{display:grid;place-items:center;width:42px;height:42px;flex:0 0 42px;
+    border:1px solid #575b60;border-radius:14px;background:#ffffff10;color:#e4e5e7}
+  #main .profile-settings-button svg{width:21px;height:21px}
+  #main .profile-inventory{margin-left:auto}
+  .games-profile-hero{max-width:100%;overflow:hidden}
+}
+@media(min-width:1250px){
+  #main #gifts-grid.grid:not(.list),#main .grid:not(.list),
+  #main .staking-gift-grid {
+    grid-template-columns:repeat(7,minmax(0,1fr))!important;
+    gap:11px!important;
+  }
+  #main .crafter-skeleton .skeleton-grid{grid-template-columns:repeat(7,minmax(0,1fr))!important}
+}
+@media(min-width:1700px){
+  #main #gifts-grid.grid:not(.list),#main .grid:not(.list),
+  #main .staking-gift-grid{gap:15px!important}
+  #main #gifts-grid.grid:not(.list)>.gift{padding:10px!important}
+}
+@media(max-width:1023.98px){
+  #main .profile-settings-button{display:grid;place-items:center;width:38px;height:38px;border:1px solid #414244;
+    border-radius:12px;background:#ffffff10;color:#eee}
+  #main .profile-settings-button svg{width:20px;height:20px}
+}
+/* Display-width short winter loading must not revert to a narrow letterboxed poster. */
+@media (min-aspect-ratio: 4/5) and (max-width:1023.98px) {
+  .splash.splash-approved {background:#061b30!important}
+  .splash-approved .splash-approved-poster{display:none!important}
+  .splash-approved .splash-frame{display:flex!important;z-index:5;position:relative;
+    flex-direction:column;justify-content:center;gap:12px;
+    width:min(96vw,600px);height:95dvh;margin:auto!important;transform:none!important}
+  .splash-approved .splash-brand {display:block!important;font-size:clamp(27px,6vh,48px);text-align:center}
+  .splash-approved .splash-art {display:block!important;width:min(53dvh,55vw,390px);aspect-ratio:1;margin:0 auto}
+  .splash-approved .splash-status{display:flex!important;z-index:5}
+  .splash-approved .splash-winter-sky,.splash-approved .splash-winter-snowbank,
+  .splash-approved .splash-holiday-lights{display:block!important}
+}
