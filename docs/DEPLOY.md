@@ -4,7 +4,8 @@ Ubuntu/Debian with systemd + nginx + PostgreSQL. Render still works (`gunicorn.c
 
 ## 1. Install
 ```bash
-sudo useradd -m -d /opt/crafter crafter
+sudo useradd -m crafter
+sudo mkdir -p /opt/crafter && sudo chown crafter:crafter /opt/crafter
 sudo -u crafter git clone https://github.com/Rasswetik/Crafter.git /opt/crafter
 cd /opt/crafter && sudo -u crafter python3 -m venv .venv
 sudo -u crafter .venv/bin/pip install -r requirements.txt
