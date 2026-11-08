@@ -554,7 +554,7 @@ async function adminRevokeRole(uid){
     if(!state.me?.is_primary_admin)return;
     if(!confirm('Отозвать права администратора ID '+uid+'?'))return;
     try{
-        await api('admin/admins/'+uid,{_method:'DELETE'});
+        await api('admin/admins/'+uid+'/revoke',{});
         toast('Административный доступ отозван');
         await renderAdminRoles();
     }catch(error){toast(error.message);}
