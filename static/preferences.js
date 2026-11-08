@@ -385,13 +385,28 @@ renderProfile = function(...args) {
 };
 document.documentElement.lang = crafterPrefs.language;
 crafterApplyTheme();
-const crafterUiObserver = new MutationObserver(mutations => {
-    for (const mutation of mutations) {
-        if (mutation.type === 'characterData') crafterTranslateTextNode(mutation.target);
-        else for (const added of mutation.addedNodes) crafterLocalizeTree(added);
-    }
-});
-crafterUiObserver.observe(document.body, {childList:true,subtree:true,characterData:true});
+// DOM updates from a 7-column gifts grid may create hundreds of text nodes.
+ // Batch localization into one frame, keeping live language switching intact.
+ const crafterLocalizePending=new Set();
+ let crafterLocalizeFrame=false;
+ const crafterUiObserver = new MutationObserver(mutations => {
+     for (const mutation of mutations) {
+         if (mutation.type === 'characterData') crafterLocalizePending.add(mutation.target);
+         else for(const node of mutation.addedNodes)crafterLocalizePending.add(node);
+     }
+     if (crafterLocalizeFrame || !crafterLocalizePending.size)return;
+     crafterLocalizeFrame=true;
+     requestAnimationFrame(()=>{
+         crafterLocalizeFrame=false;
+         const queued=[...crafterLocalizePending];
+         crafterLocalizePending.clear();
+         for(const node of queued){
+             if((node.nodeType===1||node.nodeType===3) && !node.isConnected)continue;
+             crafterLocalizeTree(node);
+         }
+     });
+ });
+ crafterUiObserver.observe(document.body, {childList:true,subtree:true,characterData:true});
 crafterLocalizeTree(document.body);
 const crafterSystemQuery = matchMedia('(prefers-color-scheme: light)');
 if (crafterSystemQuery.addEventListener) crafterSystemQuery.addEventListener('change', crafterApplyTheme);
