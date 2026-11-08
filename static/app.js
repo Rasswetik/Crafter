@@ -126,7 +126,7 @@ function crafterLoading(page = '') {
         ${block(grid ? 'search' : 'title')}
         ${grid ? '<div class="skeleton-filters">' + block('chip').repeat(3) + '</div>' : ''}
         <div class="${grid ? 'skeleton-grid' : 'skeleton-stack'}">
-            ${grid ? block('gift').repeat(4) : block('panel') + block('row').repeat(3)}
+            ${grid ? block('gift').repeat(window.innerWidth>=1400?11:window.innerWidth>=1024?7:4) : block('row').repeat(4)}
         </div>
     </div>`;
 }
