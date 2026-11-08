@@ -1,0 +1,300 @@
+"""Crafter administration: maintenance, finance and individual user profiles.
+
+Existing custody, payout and moderation endpoints remain authoritative. Money
+flow is not labelled accounting profit. All mutating operations are admin-only.
+"""
+import json
+import time
+from collections import defaultdict
+from datetime import date, datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
+from zoneinfo import ZoneInfo
+
+from flask import abort, g, jsonify, request
+
+MAINTENANCE_KEY = "site_maintenance_v2"
+BERLIN = ZoneInfo("Europe/Berlin")
+
+
+def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings):
+    def maintenance():
+        row = db().execute(
+            "SELECT payload FROM settings WHERE key=?", (MAINTENANCE_KEY,)
+        ).fetchone()
+        if not row:
+            return {"enabled": False, "message": "", "changed_at": None}
+        try:
+            value = json.loads(row["payload"])
+        except (ValueError, TypeError):
+            value = {}
+        return {
+            "enabled": bool(value.get("enabled")),
+            "message": str(value.get("message") or "")[:180],
+            "changed_at": value.get("changed_at"),
+        }
+
+    def valid_admin_request():
+        raw = request.headers.get("X-Telegram-Init-Data", "")
+        if not raw:
+            return bool(app.config["DEMO_MODE"] and 1 in app.config["ADMIN_IDS"])
+        token = app.config["BOT_TOKEN"]
+        user = None
+        if token:
+            try:
+                user = verify_telegram(raw, token)
+            except (ValueError, KeyError, TypeError):
+                pass
+        if user is None:
+            try:
+                alternative = bot_settings().get("token")
+                if alternative and alternative != token:
+                    user = verify_telegram(raw, alternative)
+            except (ValueError, KeyError, TypeError):
+                pass
+        return bool(user and user.get("id") in app.config["ADMIN_IDS"])
+
+    @app.before_request
+    def enforce_site_maintenance():
+        path = request.path
+        if not path.startswith("/api/"):
+            return None
+        # Status and authenticated admin check are always available for retry.
+        if path in ("/api/site/maintenance", "/api/site/maintenance/access"):
+            return None
+        state = maintenance()
+        if state["enabled"] and not valid_admin_request():
+            response = jsonify({
+                "error": "Сервис находится на технических работах",
+                "maintenance": True,
+                "message": state["message"],
+            })
+            response.status_code = 503
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["Retry-After"] = "60"
+            return response
+        return None
+
+    @app.get("/api/site/maintenance")
+    def public_maintenance():
+        state = maintenance()
+        response = jsonify(state)
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/api/site/maintenance/access")
+    @auth()
+    def maintenance_access():
+        return {"is_admin": bool(g.is_admin), "maintenance": maintenance()}
+
+    @app.get("/api/admin/maintenance")
+    @auth(admin=True)
+    def admin_maintenance():
+        return maintenance()
+
+    @app.post("/api/admin/maintenance")
+    @auth(admin=True)
+    def admin_set_maintenance():
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or type(data.get("enabled")) is not bool:
+            abort(400, description="Укажите состояние технических работ")
+        enabled = data["enabled"]
+        confirmation = "ENABLE_MAINTENANCE" if enabled else "DISABLE_MAINTENANCE"
+        if data.get("confirm") != confirmation:
+            abort(400, description="Подтвердите изменение режима")
+        reason = str(data.get("message") or "").strip()
+        if len(reason) > 180:
+            abort(400, description="Сообщение слишком длинное")
+        value = {"enabled": enabled, "message": reason,
+                 "changed_at": int(time.time()), "actor": g.user["id"]}
+        with db():
+            db().execute("BEGIN IMMEDIATE")
+            db().execute(
+                "INSERT INTO settings(key,payload) VALUES(?,?) "
+                "ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
+                (MAINTENANCE_KEY, json.dumps(value, ensure_ascii=False)),
+            )
+        audit(("Maintenance enabled" if enabled else "Maintenance disabled") +
+              (" by admin " + str(g.user["id"])))
+        return {"ok": True, **maintenance()}
+
+    def window_range():
+        period = request.args.get("period", "week").lower()
+        now = datetime.now(BERLIN)
+        start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        if period == "day":
+            start, end = start_today, now
+        elif period == "week":
+            start, end = start_today - timedelta(days=6), now
+        elif period == "month":
+            start, end = start_today - timedelta(days=29), now
+        elif period == "all":
+            start, end = datetime(2020, 1, 1, tzinfo=BERLIN), now
+        elif period == "custom":
+            try:
+                start_date = date.fromisoformat(request.args.get("from", ""))
+                end_date = date.fromisoformat(request.args.get("to", ""))
+            except ValueError:
+                abort(400, description="Укажите даты в формате ГГГГ-ММ-ДД")
+            if end_date < start_date or (end_date - start_date).days > 1095:
+                abort(400, description="Выберите период до трёх лет")
+            if start_date > now.date():
+                abort(400, description="Начало периода ещё не наступило")
+            start = datetime.combine(start_date, datetime.min.time(), tzinfo=BERLIN)
+            end = min(now, datetime.combine(end_date + timedelta(days=1),
+                                             datetime.min.time(), tzinfo=BERLIN))
+        else:
+            abort(400, description="Период: day, week, month, all, custom")
+        return period, start, end
+
+    def nonnegative(value):
+        try:
+            number = Decimal(str(value if value is not None else "0"))
+        except (ValueError, InvalidOperation, TypeError):
+            return Decimal("0")
+        return number if number.is_finite() and number >= 0 else Decimal("0")
+
+    def financial_report(user_id=None):
+        period, start, end = window_range()
+        start_ts, end_ts = int(start.timestamp()), int(end.timestamp())
+        totals = {
+            "deposit_gram": Decimal("0"),
+            "deposit_ton": Decimal("0"),
+            "withdraw_gram": Decimal("0"),
+            "withdraw_ton": Decimal("0"),
+        }
+        counts = defaultdict(int)
+        buckets = defaultdict(lambda: {
+            "deposit_gram": Decimal("0"), "deposit_ton": Decimal("0"),
+            "withdraw_gram": Decimal("0"), "withdraw_ton": Decimal("0"),
+        })
+        def add_rows(table, kind, good_status):
+            query = (
+                f"SELECT payload,status,created FROM {table} "
+                "WHERE created>=? AND created<?"
+            )
+            params = [start_ts, end_ts]
+            if user_id is not None:
+                query += " AND user_id=?"
+                params.append(user_id)
+            query += " ORDER BY created DESC LIMIT 25000"
+            rows = db().execute(query, tuple(params)).fetchall()
+            for row in rows:
+                status = str(row["status"] or "")
+                counts[kind + "_" + status] += 1
+                if status not in good_status:
+                    continue
+                try:
+                    payload = json.loads(row["payload"])
+                except (TypeError, ValueError):
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                # Existing wallet payload stores both GRAM credited/reserved
+                # and TON chain value. Keep units separate; never add them.
+                gram = nonnegative(payload.get("gram"))
+                ton = nonnegative(payload.get("ton"))
+                timestamp = datetime.fromtimestamp(int(row["created"]), BERLIN)
+                days = (end - start).days
+                if days > 120:
+                    label = timestamp.strftime("%Y-%m")
+                elif days > 45:
+                    label = (timestamp.date() -
+                             timedelta(days=timestamp.weekday())).isoformat()
+                else:
+                    label = timestamp.strftime("%Y-%m-%d")
+                for unit, amount in (("gram", gram), ("ton", ton)):
+                    key = kind + "_" + unit
+                    totals[key] += amount
+                    buckets[label][key] += amount
+        add_rows("ton_deposits", "deposit", {"confirmed"})
+        add_rows("ton_withdrawals", "withdraw", {"confirmed"})
+        deposited = totals["deposit_gram"]
+        withdrawn = totals["withdraw_gram"]
+        values = {key: str(value.quantize(Decimal(".01")))
+                  for key, value in totals.items()}
+        series = [{"date": day, **{k: str(v.quantize(Decimal(".01")))
+                                   for k, v in vals.items()}}
+                  for day, vals in sorted(buckets.items())]
+        # The difference is NET CASH FLOW, not business profit; expenses and
+        # fees may not have reconciled records.
+        return {
+            "period": period, "start": start.date().isoformat(),
+            "end": end.date().isoformat(), "totals": values,
+            "net_gram": str((deposited - withdrawn).quantize(Decimal(".01"))),
+            "counts": dict(counts), "series": series,
+            "finance_note": "Разница депозитов и выводов — денежный поток, не чистая прибыль. "
+                            "Прибыль требует учёта комиссий, расходов и себестоимости.",
+            "authoritative_profit": None,
+        }
+
+    @app.get("/api/admin/finance")
+    @auth(admin=True)
+    def admin_finance():
+        return financial_report()
+
+    @app.get("/api/admin/user/<int:uid>")
+    @auth(admin=True)
+    def admin_user_profile(uid):
+        user = db().execute(
+            "SELECT u.id,u.name,u.username,u.referrer,u.created,"
+            "COALESCE(d.balance,'0') balance,"
+            "(SELECT count(*) FROM inventory i WHERE i.user_id=u.id) gifts,"
+            "EXISTS(SELECT 1 FROM user_bans b WHERE b.user_id=u.id) banned "
+            "FROM users u LEFT JOIN demo_accounts d ON d.user_id=u.id "
+            "WHERE u.id=?", (uid,),
+        ).fetchone()
+        if not user:
+            abort(404, description="Пользователь не найден")
+        deposits = db().execute(
+            "SELECT id,status,created,payload FROM ton_deposits "
+            "WHERE user_id=? ORDER BY created DESC LIMIT 30", (uid,)
+        ).fetchall()
+        withdrawals = db().execute(
+            "SELECT id,status,created,payload FROM ton_withdrawals "
+            "WHERE user_id=? ORDER BY created DESC LIMIT 30", (uid,)
+        ).fetchall()
+        gift_withdrawals = db().execute(
+            "SELECT id,status,created FROM gift_withdrawals "
+            "WHERE user_id=? ORDER BY created DESC LIMIT 30", (uid,)
+        ).fetchall()
+        latest = db().execute(
+            "SELECT id,kind,created FROM history WHERE user_id=? "
+            "ORDER BY created DESC LIMIT 40", (uid,)
+        ).fetchall()
+        def sanitized(rows):
+            result = []
+            for item in rows:
+                try:
+                    payload = json.loads(item["payload"])
+                except (TypeError, ValueError):
+                    payload = {}
+                result.append({
+                    "id": item["id"], "status": item["status"],
+                    "created": item["created"],
+                    "gram": str(nonnegative(payload.get("gram"))),
+                    "ton": str(nonnegative(payload.get("ton"))),
+                    "network": str(payload.get("network") or "")[:20],
+                })
+            return result
+        return {
+            "user": dict(user),
+            "deposits": sanitized(deposits),
+            "withdrawals": sanitized(withdrawals),
+            "gift_withdrawals": [dict(row) for row in gift_withdrawals],
+            "recent": [dict(row) for row in latest],
+        }
+
+    @app.get("/api/admin/crafts/report")
+    @auth(admin=True)
+    def admin_craft_report():
+        recent = db().execute(
+            "SELECT user_id,kind,created FROM history "
+            "WHERE kind IN ('craft','arena_result','gift_granted') "
+            "ORDER BY created DESC LIMIT 100"
+        ).fetchall()
+        counts = defaultdict(int)
+        for row in recent:
+            counts[row["kind"]] += 1
+        return {"recent": [dict(r) for r in recent],
+                "recent_counts": dict(counts),
+                "note": "Подсчитаны последние 100 операций; это не полная финансовая статистика."}
