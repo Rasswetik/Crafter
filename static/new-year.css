@@ -60,3 +60,8 @@
 @media(max-width:460px){.ny-hud{gap:6px}.ny-balance{padding:9px;gap:5px}.ny-balance img{width:26px;height:26px}.ny-balance strong{font-size:17px}.ny-right{gap:5px}.ny-right .ny-balance{padding:9px 8px}.ny-right .ny-balance strong{font-size:13px}.ny-hero{min-height:153px;padding:22px}.ny-hero::after{font-size:30px}.ny-admin-fields{grid-template-columns:1fr}.ny-admin-fields .full{grid-column:auto}}
 /* Bottom nav gains an additional seasonal route without overflow. */
 @media(max-width:1023px){#nav .nav-main:has(.ny-nav-tab) button{flex:1 1 0!important;min-width:0;padding:0 1px!important}#nav .nav-main:has(.ny-nav-tab) .nav-label{font-size:9px}}
+
+/* Simple text-only New Year navigation control, no decorative icon. */
+#nav .nav-main .ny-nav-tab{display:flex;align-items:center;justify-content:center;gap:0;white-space:nowrap}
+#nav .nav-main .ny-nav-tab .nav-label{display:block;font-size:11px;font-weight:800;line-height:1.1}
+#crafter-desktop-sidebar .ny-desktop-link{justify-content:flex-start;text-align:left;padding-left:17px!important;font-weight:750}

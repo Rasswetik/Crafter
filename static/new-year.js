@@ -36,7 +36,7 @@ function navSeason(){
         button.type='button';
         button.dataset.gamePage='new-year';
         button.setAttribute('aria-label','Новый год');
-        button.innerHTML='<span class="stake-nav-icon">'+SEASON_ICON+'</span><span class="nav-label">Новый год</span>';
+        button.innerHTML='<span class="nav-label">Новый год</span>';
         button.addEventListener('click',()=>go('new-year'));
         const market=main.querySelector('[data-game-page="market"]');
         if(market)market.after(button);else main.prepend(button);
@@ -48,7 +48,7 @@ function navSeason(){
         button.type='button';
         button.className='desktop-sidebar-link ny-desktop-link'+(state.page==='new-year'?' is-active':'');
         button.setAttribute('aria-current',state.page==='new-year'?'page':'false');
-        button.innerHTML='<span class="desktop-sidebar-link-icon">'+SEASON_ICON+'</span><span>Новый год</span>';
+        button.innerHTML='<span>Новый год</span>';
         button.addEventListener('click',()=>go('new-year'));
         const market=desktop.querySelector('button[onclick*="market"]');
         if(market)market.after(button);else desktop.prepend(button);
