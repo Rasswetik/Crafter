@@ -39,16 +39,51 @@ function giftCountWord(n){const a=n%10,b=n%100;return b>=11&&b<=14?'подарк
 const cartGrid=filterGrid;filterGrid=function(){cartGrid();updateCartFloat()};
 const cartGo=go;go=async function(page){document.querySelector('#app').classList.remove('cart-view');document.querySelector('#cart-float')?.remove();await cartGo(page);restoreCart();updateCartFloat()};
 function openCart(){restoreCart();state.cartError='';state.cartBalanceLoading=true;state.cartBalanceError='';state.page='cart';document.querySelector('#app').classList.remove('craft-view');document.querySelector('#app').classList.add('cart-view');document.querySelector('#cart-float')?.remove();renderCart();refreshCartBalance()}
-function renderCart(){const items=[...state.cart.values()],chosen=selectedCart(),total=cartTotal(chosen),balance=Number(state.me.balance||0),missing=Math.max(0,Math.round((total-balance)*100)/100),enough=!state.cartBalanceLoading&&!state.cartBalanceError&&balance>=total;document.querySelector('#main').innerHTML=`<div class="cart-heading"><button onclick="go('market')">‹ Маркет</button><b>Корзина</b></div><div class="cart-tools"><button onclick="toggleAllCart()"><span class="cart-check ${chosen.length===items.length&&items.length?'checked':''}">${chosen.length===items.length&&items.length?'✓':''}</span>${chosen.length?'Снять выделение':'Выбрать всё'} · ${items.length}</button><button class="cart-remove" onclick="removeCartSelected()" ${!chosen.length?'disabled':''}>Удалить · ${chosen.length}</button><button type="button" class="primary cart-pay-top" onclick="payCart()" ${!chosen.length||!enough||state.cartBuying?'disabled':''}>${state.cartBuying?'Оплата…':'Оплатить'} <small>${cartFunds(total)} GRAM</small></button></div><div class="cart-list">${items.map(g=>`<article class="cart-row"><button class="cart-row-select" onclick="selectCart(${arg(g.id)})" aria-label="Выбрать ${esc(g.name)}"><img ${giftPicture(g)} alt=""><span class="cart-row-info"><b>${esc(g.name)}</b><small>#${esc(g.number||'—')}</small><strong>${gramIcon()} ${money(g.price)}</strong></span><span class="cart-check ${state.cartSelected.has(g.id)?'checked':''}">${state.cartSelected.has(g.id)?'✓':''}</span></button></article>`).join('')||'<div class="inventory-empty">'+icon('basket')+'<h2>Корзина пуста</h2><p>Добавьте подарки в маркете</p><button class="primary" onclick="go(\'market\')">Перейти в маркет</button></div>'}</div>${items.length?`<div class="cart-checkout"><div class="cart-available"><span>Доступно на балансе</span><b>${state.cartBalanceLoading?"Проверяем…":state.cartBalanceError?"—":cartFunds(balance)+" GRAM"}</b><button onclick="refreshCartBalance()" aria-label="Обновить баланс" ${state.cartBalanceLoading?"disabled":""}>↻</button></div><div class="cart-sum"><span>К оплате</span><b>${cartFunds(total)} GRAM</b></div><p class="cart-balance-error">${esc(state.cartBalanceError||state.cartError||(!state.cartBalanceLoading&&chosen.length&&missing>0?'Недостаточно средств: не хватает '+cartFunds(missing)+' GRAM':''))}</p><button class="primary" id="cart-pay" onclick="payCart()" ${!chosen.length||!enough||state.cartBuying?'disabled':''}>${state.cartBuying?'Оплата…':state.cartBalanceLoading?'Проверяем баланс…':'Оплатить с помощью GRAM'}<small>${money(total)} GRAM · ${chosen.length} ${giftCountWord(chosen.length)}</small></button></div>`:''}`}
+function renderCart(){
+    if(state.page!=='cart')return;
+    const items=[...state.cart.values()];
+    const chosen=selectedCart();
+    const total=cartTotal(chosen);
+    const balance=Number(state.me?.balance||0);
+    const missing=Math.max(0,Math.round((total-balance)*100)/100);
+    const enough=!state.cartBalanceLoading&&!state.cartBalanceError&&balance>=total;
+    // Keep the button clickable while a stale balance is being checked, so a
+    // user always receives feedback instead of an apparently dead control.
+    const pending=Boolean(state.cartBuying);
+    const payDisabled=!chosen.length||pending;
+    const status=state.cartError||state.cartBalanceError||
+        (state.cartBalanceLoading&&chosen.length?'Проверяем баланс…':
+         (!state.cartBalanceLoading&&chosen.length&&!enough?'Недостаточно средств: не хватает '+cartFunds(missing)+' GRAM':''));
+    const selectedCount=chosen.length;
+    document.querySelector('#main').innerHTML=`<div class="cart-heading"><button onclick="go('market')">‹ Маркет</button><b>Корзина</b></div><div class="cart-tools"><button onclick="toggleAllCart()"><span class="cart-check ${selectedCount===items.length&&items.length?'checked':''}">${selectedCount===items.length&&items.length?'✓':''}</span>${selectedCount?'Снять выделение':'Выбрать всё'} · ${items.length}</button><button class="cart-remove" onclick="removeCartSelected()" ${!selectedCount?'disabled':''}>Удалить · ${selectedCount}</button><button type="button" class="primary cart-pay-top" onclick="payCart()" ${payDisabled?'disabled':''}>${pending?'Оплата…':'Оплатить'} <small>${cartFunds(total)} GRAM</small></button></div>${status?'<div class="cart-top-feedback" role="status">'+esc(status)+'</div>':''}<div class="cart-list">${items.map(g=>`<article class="cart-row"><button class="cart-row-select" onclick="selectCart(${arg(g.id)})" aria-label="Выбрать ${esc(g.name)}"><img ${giftPicture(g)} alt=""><span class="cart-row-info"><b>${esc(g.name)}</b><small>#${esc(g.number||'—')}</small><strong>${gramIcon()} ${money(g.price)}</strong></span><span class="cart-check ${state.cartSelected.has(g.id)?'checked':''}">${state.cartSelected.has(g.id)?'✓':''}</span></button></article>`).join('')||'<div class="inventory-empty">'+icon('basket')+'<h2>Корзина пуста</h2><p>Добавьте подарки в маркете</p><button class="primary" onclick="go(\'market\')">Перейти в маркет</button></div>'}</div>${items.length?`<div class="cart-checkout"><div class="cart-available"><span>Доступно на балансе</span><b>${state.cartBalanceLoading?"Проверяем…":state.cartBalanceError?"—":cartFunds(balance)+" GRAM"}</b><button onclick="refreshCartBalance()" aria-label="Обновить баланс" ${state.cartBalanceLoading?"disabled":""}>↻</button></div><div class="cart-sum"><span>К оплате</span><b>${cartFunds(total)} GRAM</b></div><p class="cart-balance-error">${esc(status)}</p><button class="primary" id="cart-pay" onclick="payCart()" ${payDisabled?'disabled':''}>${pending?'Оплата…':state.cartBalanceLoading?'Проверяем баланс…':'Оплатить с помощью GRAM'}<small>${money(total)} GRAM · ${selectedCount} ${giftCountWord(selectedCount)}</small></button></div>`:''}`;
+}
 function selectCart(id){if(state.cartBuying)return;state.cartError='';state.cartSelected.has(id)?state.cartSelected.delete(id):state.cartSelected.add(id);renderCart()}
 function toggleAllCart(){if(state.cartBuying)return;state.cartError='';state.cartSelected=state.cartSelected.size===state.cart.size?new Set():new Set(state.cart.keys());renderCart()}
 function removeCartSelected(){if(state.cartBuying)return;for(const id of state.cartSelected)state.cart.delete(id);state.cartSelected.clear();saveCart();renderCart()}
 async function payCart(){
     if(state.cartBuying)return;
-    const items=selectedCart();if(!items.length)return;
+    const items=selectedCart();
+    if(!items.length){toast('Выберите подарки для оплаты');return;}
+    if(state.cartBalanceLoading){
+        state.cartError='Баланс ещё обновляется. Повторите оплату после проверки.';
+        renderCart();toast(state.cartError);return;
+    }
+    if(state.cartBalanceError){
+        state.cartError=state.cartBalanceError;
+        renderCart();toast(state.cartError);return;
+    }
+    const amount=cartTotal(items);
+    if(!Number.isFinite(amount)||amount<=0){
+        state.cartError='Не удалось определить сумму покупки. Перезагрузите корзину.';
+        renderCart();toast(state.cartError);return;
+    }
+    if(Number(state.me.balance)<amount){
+        state.cartError='Недостаточно средств: не хватает '+cartFunds(amount-Number(state.me.balance))+' GRAM';
+        renderCart();toast(state.cartError);return;
+    }
     if(!state.me.demo&&items.some(g=>g.resale||g.price_unit!=='GRAM'||!/^[a-f0-9-]{36}$/i.test(g.id))){
         state.cartError='В этой корзине доступны только реальные лоты Portals с ценами в GRAM';
-        renderCart();return;
+        renderCart();toast(state.cartError);return;
     }
     const ids=items.map(g=>g.id).sort();
     const key='crafter-cart-payment:'+state.me.user.id+':'+ids.join('|');
@@ -72,7 +107,7 @@ async function payCart(){
     }catch(e){
         state.cartError=e.message||'Не удалось подтвердить покупку';
         toast(state.cartError);
-    }finally{state.cartBuying=false;renderCart();}
+    }finally{state.cartBuying=false;if(state.page==='cart')renderCart();}
 }
 
 function cartFunds(value){return Number(value).toLocaleString('ru-RU',{minimumFractionDigits:2,maximumFractionDigits:2})}

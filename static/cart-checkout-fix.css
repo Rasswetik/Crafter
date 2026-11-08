@@ -1,0 +1,69 @@
+/* Crafter basket and checkout positioning — graphite liquid glass, desktop-only. */
+@media(min-width:1024px){
+  #app:not(.cart-view) > #cart-float{
+    position:fixed!important;
+    top:auto!important;left:auto!important;
+    right:clamp(23px,3vw,48px)!important;
+    bottom:calc(24px + env(safe-area-inset-bottom))!important;
+    transform:none!important;
+    z-index:90!important;
+    display:inline-flex!important;align-items:center;gap:11px;
+    max-width:min(290px,calc(100vw - 360px))!important;
+    min-height:54px!important;
+    margin:0!important;padding:10px 17px!important;
+    border:1px solid #ffffff6b!important;
+    border-radius:19px!important;
+    background:linear-gradient(140deg,#ffffff29,#ffffff09),#24262be3!important;
+    color:#f2f3f5!important;
+    box-shadow:inset 0 1px #ffffff3b,0 12px 36px #0009!important;
+    backdrop-filter:blur(22px) saturate(.8);
+    -webkit-backdrop-filter:blur(22px) saturate(.8);
+    cursor:pointer!important;
+    overflow:hidden;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #app:not(.cart-view) > #cart-float:hover{
+    border-color:#ffffffa8!important;
+    background:linear-gradient(140deg,#ffffff34,#ffffff12),#313338ed!important;
+  }
+  #app:not(.cart-view) > #cart-float>svg{
+    width:23px!important;height:23px!important;flex:0 0 23px!important;
+    color:#e9eef3!important;
+  }
+  #app:not(.cart-view) > #cart-float span{min-width:0;text-align:left}
+  #app:not(.cart-view) > #cart-float b{
+    display:block!important;font-size:14px!important;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    font-weight:830!important;max-width:205px;
+  }
+  #app:not(.cart-view) > #cart-float small{
+    color:#bbc0c7!important;font-size:11px!important;
+    white-space:nowrap!important;
+  }
+  /* The actionable checkout button stays in the top-right of the cart,
+     while the receipt summary remains in the normal document flow. */
+  #app.cart-view #main .cart-tools .cart-pay-top{
+    position:relative!important;z-index:2!important;
+    border-radius:14px!important;
+    min-height:46px!important;
+    cursor:pointer!important;
+  }
+  #app.cart-view #main .cart-tools .cart-pay-top:disabled{
+    opacity:.48!important;cursor:not-allowed!important;
+  }
+}
+.cart-top-feedback{
+  margin:-3px 0 14px;
+  padding:11px 13px;
+  border:1px solid #ffffff44;
+  border-radius:13px;
+  background:linear-gradient(135deg,#ffffff18,#ffffff06),#25262acb;
+  color:#e9d0cf;
+  line-height:1.5;
+  font-size:12px;
+  overflow-wrap:anywhere;
+  box-shadow:inset 0 1px #ffffff19;
+}
+@media(max-width:1023.98px){
+  #cart-float{max-width:calc(100vw - 32px)}
+}
