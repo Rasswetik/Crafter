@@ -55,11 +55,18 @@ def install_admin_user_tools(app, db, auth, audit, record):
             abort(400,description='Количество записей: от 1 до 200')
         if uid is not None and uid <= 0:
             abort(400,description='Некорректный Telegram ID')
-        user_history = db().execute("""
-            SELECT user_id,kind,payload,created FROM history
-            WHERE (? IS NULL OR user_id=?)
-            ORDER BY created DESC LIMIT ?
-        """,(uid,uid,limit)).fetchall()
+        # PostgreSQL cannot infer a type for an untyped NULL placeholder in
+        # (? IS NULL OR ...). Construct one of two parameterized queries instead.
+        if uid is None:
+            user_history = db().execute("""
+                SELECT user_id,kind,payload,created FROM history
+                ORDER BY created DESC LIMIT ?
+            """, (limit,)).fetchall()
+        else:
+            user_history = db().execute("""
+                SELECT user_id,kind,payload,created FROM history
+                WHERE user_id=? ORDER BY created DESC LIMIT ?
+            """, (uid,limit)).fetchall()
         activity=[]
         for row in user_history:
             try: data=json.loads(row['payload'])
