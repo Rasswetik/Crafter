@@ -51,6 +51,7 @@ if [ ! -f "$ENV" ]; then
   read -rp  "BOT_USERNAME (без @): " BOT_USERNAME
   read -rp  "Ваш числовой Telegram ID (администратор): " ADMIN_ID
   FERNET="$("$APP/.venv/bin/python" -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
+  TGKEY="$("$APP/.venv/bin/python" -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())')"
   cat > "$ENV" <<EOF
 DEMO_MODE=0
 MARKET_TEST_PURCHASES=1
@@ -60,6 +61,7 @@ PRIMARY_ADMIN_ID=$ADMIN_ID
 ADMIN_IDS=$ADMIN_ID
 DATABASE_URL=postgresql://crafter:$DBPASS@127.0.0.1:5432/crafter
 CRAFTER_PORTALS_FERNET_KEY=$FERNET
+TELEGRAM_SESSION_KEY=$TGKEY
 MARKET_REFRESH_SECONDS=900
 CATALOG_REFRESH_ON_START=1
 PORT=5000

@@ -131,3 +131,36 @@ def test_portals_failure_restores_gift_and_refunds_fee(client, monkeypatch):
     job, inv, wd = state(client, wid)
     assert job[0] == 'failed' and wd[0] == 'failed' and inv[0] == 'unlisted'
     assert client.get('/api/me', headers=signed(43)).json['balance'].startswith('5')
+
+
+def test_import_session_connects_the_relayer_and_stores_it_encrypted(client, monkeypatch):
+    import telegram_deposits
+    from cryptography.fernet import Fernet
+    monkeypatch.setenv('TELEGRAM_SESSION_KEY', Fernet.generate_key().decode())
+    monkeypatch.setenv('TELEGRAM_API_ID', '12345')
+    monkeypatch.setenv('TELEGRAM_API_HASH', 'a' * 32)
+    seen = {}
+
+    async def fake_with_client(api_id, api_hash, session, operation):
+        seen['session'] = session
+
+        class C:
+            async def is_user_authorized(self):
+                return True
+
+            async def get_me(self):
+                class Me:
+                    id, first_name, last_name, username, bot = 777, 'Relay', 'Er', 'relayer', False
+                return Me()
+        return await operation(C())
+    monkeypatch.setattr(telegram_deposits, 'with_client', fake_with_client)
+    client.get('/api/me', headers=signed(43))
+    good = '1' + 'A' * 120
+    assert client.post('/api/admin/telegram-deposits/import-session', headers=signed(43), json={'session': good}).status_code == 403
+    assert client.post('/api/admin/telegram-deposits/import-session', headers=signed(), json={'session': 'nope'}).status_code == 400
+    r = client.post('/api/admin/telegram-deposits/import-session', headers=signed(), json={'session': good})
+    assert r.status_code == 200 and r.json['connected'] is True and r.json['account_id'] == 777
+    assert seen['session'] == good
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        stored = db.execute("SELECT payload FROM settings WHERE key='telegram_deposit_connection'").fetchone()[0]
+    assert good not in stored                                  # the session is stored encrypted only

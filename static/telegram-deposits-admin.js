@@ -53,6 +53,12 @@ function relayerConfiguration(info) {
             </form>
             <p class="relayer-config-description">API-ключи хранятся зашифрованно. Для замены ключей сначала отключите аккаунт Relayer. Существующую сессию и пароли здесь не показываем.</p>
             ${!info.connected ? `<div class="relayer-login">
+                <h4>Импорт готовой сессии</h4>
+                <p class="relayer-config-description">Если у вас уже есть давняя сессия Telethon, вставьте её строку (StringSession). Подключение без ожидания. Важно: после импорта закройте эту сессию на всех других устройствах и больше не запускайте её, иначе Telegram её отзовёт. API ID и API Hash должны быть теми же, с которыми создана сессия.</p>
+                <label class="form-label">Строка сессии<input id="tg-deposit-session" class="field" type="password" autocomplete="off" spellcheck="false" placeholder="1BVts..."></label>
+                <button type="button" class="primary" onclick="telegramDepositImport()">Импортировать сессию</button>
+            </div>
+            <div class="relayer-login">
                 <h4>Подключить Telegram</h4>
                 <label class="form-label">Номер Telegram<input id="tg-deposit-phone" class="field" type="tel" autocomplete="tel" placeholder="+79990000000"></label>
                 <button type="button" class="secondary" onclick="telegramDepositLogin('send-code')">Получить код</button>
@@ -182,6 +188,17 @@ async function telegramDepositAction(action) {
     }
 }
 
+async function telegramDepositImport() {
+    const input = document.querySelector('#tg-deposit-session');
+    try {
+        await api('admin/telegram-deposits/import-session', {session: input.value.trim()});
+        input.value = '';
+        await renderTelegramDeposits();
+        toast('Аккаунт подключён');
+    } catch (error) {
+        toast(relayerErrorText(error));
+    }
+}
 async function telegramDepositLogin(action) {
     const body = action === 'send-code' ? {phone: document.querySelector('#tg-deposit-phone')?.value.trim()} :
                  action === 'verify-code' ? {code: document.querySelector('#tg-deposit-code')?.value.trim()} :

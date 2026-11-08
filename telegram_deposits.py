@@ -143,7 +143,7 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
     def cipher():
         key = os.getenv('TELEGRAM_SESSION_KEY', '').strip()
         if not key:
-            raise ValueError('Задайте TELEGRAM_SESSION_KEY в Render (Fernet-ключ)')
+            raise ValueError('Задайте TELEGRAM_SESSION_KEY в файле .env на сервере (Fernet-ключ)')
         try:
             return Fernet(key.encode('ascii'))
         except (ValueError, TypeError):
@@ -503,6 +503,32 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         save(c)
         audit('Telegram deposit session disconnected')
         return {'ok': True}
+
+    @app.post('/api/admin/telegram-deposits/import-session')
+    @auth(admin=True)
+    def import_session():
+        """Connect the relayer with an already-authorised Telethon StringSession (no new login, no waiting period).
+        The same session must not be used anywhere else at the same time, or Telegram revokes it."""
+        api_id, api_hash = credentials()          # must be the API ID/Hash the session was created with
+        session = str((request.get_json(silent=True) or {}).get('session', '')).strip()
+        if not re.fullmatch(r'1[A-Za-z0-9_\-+/=]{80,600}', session):
+            abort(400, description='Это не строка сессии Telethon (StringSession). Она начинается с цифры 1 и длинная.')
+
+        async def check(client):
+            if not await client.is_user_authorized():
+                raise ValueError('not authorized')
+            return await complete(client)
+        try:
+            profile = asyncio.run(with_client(api_id, api_hash, session, check))
+        except Exception:
+            abort(400, description='Сессия недействительна или создана с другими API ID / API Hash')
+        c = config()
+        c.update(session=encrypt(session), account_id=profile['id'], account_name=profile['name'],
+                 account_username=profile['username'], baseline_done=False)
+        c.pop('pending', None)
+        save(c)
+        audit('Telegram relayer session imported')
+        return {'ok': True, 'step': 'connected', **status()}
 
     def relayer_credentials():
         """(api_id, api_hash, session, account_id) of the connected relayer account."""
