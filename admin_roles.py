@@ -17,11 +17,28 @@ SECTIONS = (
 )
 
 def ensure_admin_tables(db):
+    # Telegram IDs regularly exceed signed 32-bit integer range. SQLite INTEGER
+    # is already 64-bit, but PostgreSQL INTEGER is not. Migrate existing grants
+    # without dropping roles or promoting new administrators.
     db.execute("""CREATE TABLE IF NOT EXISTS admin_role_grants (
-      user_id INTEGER PRIMARY KEY, role TEXT NOT NULL,
-      permissions TEXT NOT NULL, updated_by INTEGER NOT NULL,
-      updated INTEGER NOT NULL
+      user_id BIGINT PRIMARY KEY, role TEXT NOT NULL,
+      permissions TEXT NOT NULL, updated_by BIGINT NOT NULL,
+      updated BIGINT NOT NULL
     )""")
+    if hasattr(db, "connection"):
+        columns = db.execute("""
+            SELECT column_name,data_type FROM information_schema.columns
+            WHERE table_schema=current_schema()
+              AND table_name='admin_role_grants'
+              AND column_name IN ('user_id','updated_by')
+        """).fetchall()
+        for col in columns:
+            if col["data_type"] in ("integer", "smallint"):
+                # Only run DDL on legacy 32-bit columns, not on every restart.
+                db.execute(
+                    "ALTER TABLE admin_role_grants ALTER COLUMN " +
+                    col["column_name"] + " TYPE BIGINT"
+                )
 
 def resolve_primary_admin(config):
     static = set(config.get("ADMIN_IDS", ()))
