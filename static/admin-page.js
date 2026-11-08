@@ -4,6 +4,7 @@ const adminSections = {
     users:        {label:'Пользователи',detail:'Отдельные профили, баланс, инвентарь',group:'main',glyph:'gift',render:renderAdminUsers},
     maintenance:  {label:'Технические работы',detail:'Доступ администратора, стеклянная заглушка',group:'main',glyph:'shield',render:renderAdminMaintenance},
     audit:        {label:'История действий',detail:'Операции и аудит',group:'main',glyph:'grid',render:renderAdminActivity},
+    cancellations:{label:'Управление отменами',detail:'Просмотр отменённых операций',group:'main',glyph:'rotate-ccw',render:renderAdminCancellations},
     nft_withdraw: {label:'Выводы NFT',detail:'Ручная передача подарков',group:'money',glyph:'gift',render:renderAdminNFTQueue},
     ton_withdraw: {label:'Выводы TON',detail:'Ручные заявки и подтверждения',group:'money',glyph:'wallet',render:renderAdminTONQueue},
     tonconnect:   {label:'Автовывод TON',detail:'Политика, кошелёк, обработчик',group:'money',glyph:'wallet',render:renderTonAdmin},
@@ -26,6 +27,7 @@ const adminGroupTitles = {main:'Обзор',money:'Финансовые опер
 function adminCanOpenSection(id){
     const me=state.me||{};
     if(id==='admins')return Boolean(me.is_primary_admin);
+    if(id==='cancellations')return Boolean(me.is_primary_admin||me.admin_permissions?.includes('*')||me.admin_permissions?.includes('audit'));
     if(!me.is_admin)return false;
     return Boolean(me.is_primary_admin||me.admin_permissions?.includes('*')||
         me.admin_permissions?.includes(id));
