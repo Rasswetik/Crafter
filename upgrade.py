@@ -1,0 +1,193 @@
+"""Upgrade mode: stake one gift, pick a pricier target gift, spin the wheel.
+
+Reuses the craft machinery (market candidates, awarding, internal lots) so a won
+target comes from the same sources as a Lucky Craft: Portals market listings or
+Crafter player lots. The server rolls with ``secrets`` and returns the roll so the
+client only animates a result that is already settled.
+"""
+import json
+import secrets
+import time
+import uuid
+from decimal import Decimal
+
+from flask import abort, g, request
+
+STAKE_ORIGINS = ('admin-grant', 'application-craft', 'local-purchase', 'portals-partner')
+MIN_BPS, MAX_BPS = 100, 9499      # 1% .. 94.99%; the 5% house edge is built into the ratio
+EDGE_BPS = 9500
+QUOTE_TTL = 120
+TARGET_LIMIT = 60
+
+
+def chance_bps(stake, target):
+    """Win chance in basis points for a stake worth ``stake`` aiming at ``target``."""
+    if stake <= 0 or target <= 0:
+        return 0
+    return int(stake / target * EDGE_BPS)
+
+
+def roll_wins(roll, bps):
+    return 0 <= roll < bps
+
+
+def install_upgrade(app, db, auth, record, ctx):
+    with app.app_context():
+        db().executescript("""
+            CREATE TABLE IF NOT EXISTS upgrade_quotes (
+                id TEXT PRIMARY KEY, user_id INTEGER NOT NULL, payload TEXT NOT NULL, created INTEGER NOT NULL);
+            CREATE TABLE IF NOT EXISTS upgrade_requests (
+                user_id INTEGER NOT NULL, request_id TEXT NOT NULL, result TEXT NOT NULL,
+                PRIMARY KEY(user_id, request_id));
+        """)
+        db().commit()
+
+    owned = ctx['owned']
+    positive_price = ctx['positive_price']
+
+    def stake_gift(gift_id):
+        gift = next((x for x in owned() if x['id'] == gift_id), None)
+        if (not gift or gift['status'] != 'unlisted' or gift.get('test_only') or gift.get('catalog_only')
+                or gift.get('origin') not in STAKE_ORIGINS):
+            abort(409, description='Этот подарок нельзя поставить в апгрейд')
+        value = positive_price(gift.get('price')) if gift.get('price_unit', 'GRAM') == 'GRAM' else None
+        if value is None:
+            abort(409, description='У подарка нет оценки в GRAM')
+        return gift, value
+
+    def lots(target, uid):
+        rows = db().execute("""SELECT l.id,l.price,l.seller_id,i.payload FROM crafter_listings l
+            JOIN inventory i ON i.user_id=l.seller_id AND i.nft_id=l.gift_id AND i.status='listed'
+            WHERE l.seller_id!=? ORDER BY l.listed_at DESC""", (uid,))
+        name = ctx['canonical_name'](target['name'])
+        for row in rows:
+            gift = json.loads(row['payload'])
+            if ctx['canonical_name'](gift.get('name', '')) == name:
+                yield {**{k: gift.get(k) for k in ('name', 'number', 'model', 'image', 'backdrop', 'symbol',
+                                                    'background', 'collection_id')},
+                       'id': row['id'], 'price': row['price'], 'source': 'crafter'}
+
+    def view(gift, price, source):
+        return {'id': gift['id'], 'name': gift.get('name'), 'number': gift.get('number'),
+                'model': gift.get('model', ''), 'backdrop': gift.get('backdrop', ''),
+                'symbol': gift.get('symbol', ''), 'image': gift.get('image', ''),
+                'background': gift.get('background'), 'collection_id': gift.get('collection_id'),
+                'price': str(price), 'price_unit': 'GRAM', 'source': source}
+
+    def collection(collection_id):
+        target = next((c for c in ctx['public_catalog']() if str(c['id']) == str(collection_id)), None)
+        if not target:
+            abort(400, description='Выберите коллекцию')
+        return target
+
+    def offers(target, uid, value):
+        """Market lots (Portals) + Crafter player lots, cheapest first."""
+        # Only lots whose chance falls in [MIN_BPS, MAX_BPS] can ever be offered.
+        ctx['ensure_listings'](target, value * EDGE_BPS / (MAX_BPS + 1), value * EDGE_BPS / MIN_BPS)
+        out = []
+        for gift, price in ctx['market_candidates'](target):
+            if gift.get('model') and gift.get('image'):
+                out.append((view(gift, price, 'portals'), price))
+        for lot in lots(target, uid):
+            price = positive_price(lot['price'])
+            if price is not None:
+                out.append((view(lot, price, 'crafter'), price))
+        out.sort(key=lambda item: item[1])
+        return out
+
+    @app.get('/api/upgrade/targets')
+    @auth()
+    def upgrade_targets():
+        gift, value = stake_gift(request.args.get('stake_id', ''))
+        target = collection(request.args.get('collection_id'))
+        shown = []
+        for item, price in offers(target, g.user['id'], value):
+            bps = chance_bps(value, price)
+            if MIN_BPS <= bps <= MAX_BPS:
+                shown.append({**item, 'chance': bps / 100})
+        return {'stake_value': str(value), 'gifts': shown[:TARGET_LIMIT], 'collection': {
+            'id': target['id'], 'name': target['name'], 'photo_url': target.get('photo_url', '')}}
+
+    @app.post('/api/upgrade/quote')
+    @auth()
+    def upgrade_quote():
+        data = request.get_json(silent=True) or {}
+        gift, value = stake_gift(data.get('stake_id', ''))
+        target = collection(data.get('collection_id'))
+        listing_id = data.get('listing_id')
+        if not isinstance(listing_id, str) or not 1 <= len(listing_id) <= 150:
+            abort(400, description='Выберите целевой подарок')
+        found = next(((item, price) for item, price in offers(target, g.user['id'], value)
+                      if item['id'] == listing_id), None)
+        if not found:
+            abort(409, description='Целевой подарок недоступен. Обновите список.')
+        item, price = found
+        bps = chance_bps(value, price)
+        if not MIN_BPS <= bps <= MAX_BPS:
+            abort(409, description='Для этой цели нужна другая ставка')
+        quote = {'stake_id': gift['id'], 'stake_value': str(value), 'listing_id': listing_id,
+                 'source': item['source'], 'price': str(price), 'chance_bps': bps,
+                 'collection_id': str(target['id'])}
+        qid = uuid.uuid4().hex
+        with db():
+            db().execute('INSERT INTO upgrade_quotes VALUES(?,?,?,?)',
+                         (qid, g.user['id'], json.dumps(quote), int(time.time())))
+        return {'quote_id': qid, 'chance': bps / 100, 'stake_value': str(value), 'target_value': str(price),
+                'expires_at': int(time.time()) + QUOTE_TTL}
+
+    @app.post('/api/upgrade')
+    @auth()
+    def upgrade_spin():
+        data = request.get_json(silent=True) or {}
+        rid, qid = data.get('request_id'), data.get('quote_id')
+        if not isinstance(rid, str) or not 1 <= len(rid) <= 100 or not isinstance(qid, str):
+            abort(400)
+        uid = g.user['id']
+        notify = None
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            prior = db().execute('SELECT result FROM upgrade_requests WHERE user_id=? AND request_id=?',
+                                 (uid, rid)).fetchone()
+            if prior:
+                return json.loads(prior[0])
+            row = db().execute('SELECT payload,created FROM upgrade_quotes WHERE id=? AND user_id=?',
+                               (qid, uid)).fetchone()
+            if not row or time.time() - row['created'] > QUOTE_TTL:
+                abort(409, description='Расчёт устарел. Повторите выбор.')
+            q = json.loads(row['payload'])
+            gift, value = stake_gift(q['stake_id'])
+            if str(value) != q['stake_value']:
+                abort(409, description='Оценка ставки изменилась. Повторите выбор.')
+            target = collection(q['collection_id'])
+            price = Decimal(q['price'])
+            reward = None
+            roll = secrets.randbelow(10000)
+            win = roll_wins(roll, q['chance_bps'])
+            lot = listing = None
+            if win:
+                if q['source'] == 'crafter':
+                    lot = ctx['available_crafter_lot'](q['listing_id'], uid)
+                    if Decimal(lot['price']) != price:
+                        abort(409, description='Лот изменился. Повторите выбор.')
+                else:
+                    listing = next((gf for gf, p in ctx['market_candidates'](target)
+                                    if gf['id'] == q['listing_id'] and p == price), None)
+                    if listing is None:
+                        abort(409, description='Целевой подарок уже недоступен. Повторите выбор.')
+            db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?', (uid, gift['id']))
+            if win and lot is not None:
+                sale = ctx['settle_crafter_lot'](lot, uid, 'upgrade')
+                reward, notify = sale['gift'], (lot['seller_id'], sale)
+            elif win:
+                reward = ctx['award_market_gift'](target, listing, price.quantize(Decimal('0.01')))
+                db().execute('INSERT INTO inventory VALUES(?,?,?,?)',
+                             (uid, reward['id'], json.dumps(reward), 'unlisted'))
+            result = {'success': win, 'chance': q['chance_bps'] / 100, 'roll': roll / 100,
+                      'gift': reward, 'stake': {k: gift.get(k) for k in ('id', 'name', 'number', 'image')},
+                      'stake_value': q['stake_value'], 'target_value': q['price'], 'mode': 'upgrade'}
+            result['balls_earned'] = record('upgrade', result)
+            db().execute('INSERT INTO upgrade_requests VALUES(?,?,?)', (uid, rid, json.dumps(result)))
+            db().execute('DELETE FROM upgrade_quotes WHERE id=?', (qid,))
+        if notify:
+            ctx['notify_sale'](*notify)
+        return result

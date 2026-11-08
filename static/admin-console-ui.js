@@ -313,6 +313,7 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
         ['craft','Крафты','Режим сборки подарков'],
         ['arena','Arena','Игровая арена'],
         ['staking','Стейкинг','Начисление по APR'],
+        ['upgrade','Апгрейд','Колесо апгрейдов'],
     ];
     content.innerHTML=adminQueueHeader('Управление режимами',
         'При отключении сервер блокирует новые игровые запросы обычных пользователей. Администраторы сохраняют доступ.')+

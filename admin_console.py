@@ -53,7 +53,7 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
                 pass
         return bool(user and admin_access(user.get("id"))["is_admin"])
 
-    MODE_DEFAULTS = {'craft': True, 'arena': True, 'staking': True}
+    MODE_DEFAULTS = {'craft': True, 'arena': True, 'staking': True, 'upgrade': True}
 
     def site_modes():
         row = db().execute("SELECT payload FROM settings WHERE key='site_modes_v1'").fetchone()
@@ -118,6 +118,7 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
         mode = ('craft' if path == '/api/craft' or path.startswith('/api/craft/')
                 else 'arena' if path == '/api/arena' or path.startswith('/api/arena/')
                 else 'staking' if path == '/api/staking' or path.startswith('/api/staking/')
+                else 'upgrade' if path == '/api/upgrade' or path.startswith('/api/upgrade/')
                 else None)
         if mode and not site_modes()[mode] and not valid_admin_request():
             return jsonify(error='Режим временно отключён администратором',

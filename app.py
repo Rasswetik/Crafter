@@ -1417,6 +1417,32 @@ def create_app(config=None):
     install_portals_partner(app, db, auth, record, audit)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
+    def ensure_upgrade_listings(target, low, high):
+        import portals_public
+        import thermos
+        key = 'public:market:upgrade:%s:%d:%d' % (target['id'], int(low), int(high))
+        fresh = db().execute('SELECT 1 FROM cache WHERE key=? AND updated>=?', (key, int(time.time()) - 60)).fetchone()
+        if fresh:
+            return
+        params = {'collection_id': target['id'], 'sort_by': 'price asc',
+                  'min_price': str(int(low)), 'max_price': str(int(high) + 1)}
+        try:
+            try:
+                offers = portals_public.listings(params, public_catalog())
+            except (OSError, ValueError, StopIteration, KeyError):
+                offers = thermos.gifts(params, public_catalog())
+        except (OSError, ValueError, KeyError):
+            return  # Crafter player lots can still be offered
+        with db():
+            db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',
+                         (key, json.dumps(offers), int(time.time())))
+    from upgrade import install_upgrade
+    install_upgrade(app, db, auth, record, dict(
+        owned=owned, positive_price=positive_price, public_catalog=public_catalog,
+        canonical_name=canonical_name, market_candidates=craft_market_candidates,
+        ensure_listings=ensure_upgrade_listings, award_market_gift=award_market_gift,
+        available_crafter_lot=available_crafter_lot, settle_crafter_lot=settle_crafter_lot,
+        notify_sale=notify_crafter_sale))
     if not app.config.get('TESTING'):
         from market_refresh import refresh_interval, start_market_refresh
         start_market_refresh(start_catalog_refresh, refresh_interval(), app.extensions.setdefault('crafter_market_refresh', {}))

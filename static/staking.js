@@ -1,13 +1,13 @@
 /* Crafter Games Hub and gift staking. The existing craft mechanic is preserved. */
 const stakeUi = {status:null, picked:new Set(), tutorialStep:0, gifts:[], pending:false};
-const crafterModePolicy = {craft:true,arena:true,staking:true};
+const crafterModePolicy = {craft:true,arena:true,staking:true,upgrade:true};
 let crafterModePolicyLoaded = false;
 async function loadCrafterModePolicy() {
     if (crafterModePolicyLoaded) return;
     crafterModePolicyLoaded = true;
     try {
         const data = await api('site/modes');
-        for (const id of ['craft','arena','staking'])
+        for (const id of ['craft','arena','staking','upgrade'])
             if (typeof data.modes?.[id] === 'boolean') crafterModePolicy[id] = data.modes[id];
         if (state.page === 'games') renderGamesHub();
         if (typeof nav === 'function') nav();
@@ -29,17 +29,18 @@ const gameNavIcons = {games: gamesHubIcon, gift: stakingGiftIcon, staking: staki
 nav = function() {
     const root = document.querySelector('#nav');
     if (!root) return;
-    const inGames = Boolean(state.gamesMode || ['games','craft','arena','events'].includes(state.page));
+    const inGames = Boolean(state.gamesMode || ['games','craft','arena','events','upgrade'].includes(state.page));
     const sidePage = inGames ? 'market' : 'games';
     const sideLabel = inGames ? 'Маркет' : 'Игры';
     const destinations = inGames ? [
-        ['games','games','Hub'], ...(window.crafterOfflinePreview ? [] : [['arena','arena','Arena']])
+        ['games','games','Hub'], ['upgrade','upgrade','Апгрейд'], ...(window.crafterOfflinePreview ? [] : [['arena','arena','Arena']])
     ] : [
         ['market','market','Маркет'],['gifts','gift','Мои подарки'],
         ['staking','staking','Стейкинг']
     ];
     const visibleDestinations = destinations.filter(([page]) =>
         (page !== 'arena' || crafterCanSeeMode('arena')) &&
+        (page !== 'upgrade' || crafterCanSeeMode('upgrade')) &&
         (page !== 'staking' || crafterCanSeeMode('staking')));
     root.classList.toggle('games-nav', inGames);
     root.innerHTML = `<button class="games-entry" type="button" onclick="go('${sidePage}')" aria-label="${sideLabel}">
@@ -130,6 +131,12 @@ function renderGamesHub() {
             <span class="crafter-game-emblem">${anvilArt('crafter-game-anvil')}</span>
             <span class="crafter-pepe-motion" aria-hidden="true"><img class="crafter-pepe-picture" src="/static/assets/splash-magnate.png" alt="" loading="lazy" decoding="async"><span class="crafter-pepe-lottie" data-crafter-lottie="magnate"></span></span>
         </button>` : ''}
+        ${!crafterCanSeeMode('upgrade') ? '' : `<button class="crafter-game-tile crafter-upgrade-tile" onclick="go('upgrade')" type="button">
+            <span class="crafter-game-label"><strong>Апгрейд</strong>
+                <span>Поставьте подарок и получите дороже</span>
+                <span class="crafter-game-open">Играть</span></span>
+            <span class="crafter-game-emblem crafter-upgrade-emblem">${window.crafterUpgradeIcon || ''}</span>
+        </button>`}
         ${window.crafterOfflinePreview || !crafterCanSeeMode('arena') ? '' : `<button class="crafter-game-tile arena-tile crafter-swords-tile" onclick="go('arena')" type="button">
             <span class="crafter-game-label"><strong>Arena</strong>
                 <span>Один раунд. Один победитель.</span>
