@@ -232,6 +232,13 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings):
     def admin_finance():
         return financial_report()
 
+    @app.get("/api/admin/users/<int:uid>/finance")
+    @auth(admin=True)
+    def admin_user_finance(uid):
+        if not db().execute("SELECT 1 FROM users WHERE id=?", (uid,)).fetchone():
+            abort(404, description="Пользователь не найден")
+        return financial_report(user_id=uid)
+
     @app.get("/api/admin/user/<int:uid>")
     @auth(admin=True)
     def admin_user_profile(uid):
