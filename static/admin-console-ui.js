@@ -329,7 +329,6 @@ async function openAdminUserPage(uid){
     history.pushState({adminUser:id},'', '/admin/user/'+id);
     document.querySelector('#main')?.setAttribute('data-admin-user',String(id));
     await renderAdminUserDetail(id);
-    scrollTo({top:0,behavior:'instant'});
 }
 async function renderAdminUserDetail(uid){
     const main=document.querySelector('#main');
