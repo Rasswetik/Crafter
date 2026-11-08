@@ -35,6 +35,9 @@ function adminNavCards() {
             '</button>').join('')+'</div>').join('');
 }
 async function renderAdmin() {
+    const activeNavigation=document.getElementById('admin-navigation');
+    const savedNavScroll=activeNavigation?.scrollTop||0;
+    const keepMenuOpen=activeNavigation?.classList.contains('is-open')||false;
     const main=document.querySelector('#main');
     if(!main)return;
     const section=adminSections[state.adminSection]||adminSections.finance;
@@ -51,6 +54,12 @@ async function renderAdmin() {
         '<p>'+section.detail+'</p></div></div>'+
         '<div id="admin-content" class="admin-content"><p class="admin-loading-panel">Загрузка раздела…</p></div>'+
         '</section></div>';
+    const newNavigation=document.getElementById('admin-navigation');
+    if(newNavigation) {
+        newNavigation.scrollTop=savedNavScroll;
+        newNavigation.classList.toggle('is-open', keepMenuOpen);
+        newNavigation.querySelector('[aria-current="page"]')?.setAttribute('tabindex','0');
+    }
     const content=main.querySelector('#admin-content');
     try{
         await section.render(content);
@@ -68,8 +77,14 @@ function openAdminSection(id){
     adminConsoleState.userRequest++;
     const next='/admin?section='+encodeURIComponent(state.adminSection);
     if(location.pathname+location.search!==next)history.pushState({section:state.adminSection},'',next);
+    // Keep the current viewport/selected menu position on section changes.
+    // Rebuilding the entire navigation used to jump the admin to the top.
+    const currentY=window.scrollY;
     renderAdmin();
-    window.scrollTo({top:0,behavior:'instant'});
+    requestAnimationFrame(()=>{
+        if(!window.matchMedia('(max-width:740px)').matches)
+            window.scrollTo({top:currentY,behavior:'instant'});
+    });
 }
 window.addEventListener('popstate',()=>{
     const match=location.pathname.match(/^\/admin\/user\/([1-9]\d*)$/);
