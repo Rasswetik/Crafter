@@ -34,6 +34,10 @@ async function api(path, body) {
         });
         const data = await response.json();
         if (!response.ok) {
+            if (response.status === 503 && data.maintenance &&
+                typeof window.crafterShowMaintenance === 'function') {
+                window.crafterShowMaintenance(data.message || '');
+            }
             const error = Error(data.error || 'Ошибка запроса');
             error.status = response.status;
             throw error;
