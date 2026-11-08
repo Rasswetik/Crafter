@@ -27,7 +27,11 @@ def test_purchase_notification_contains_validated_direct_telegram_nft(monkeypatc
         'Lucky Locket #13826</a> for 14.5 GRAM.'
     )
     assert '<a href="https://t.me/nft/luckylocket-13826">View NFT in Telegram</a>' in receipt['text']
-    assert receipt['link_preview_options']['is_disabled']
+    assert receipt['link_preview_options']['url'] == 'https://t.me/nft/luckylocket-13826'
+    assert receipt['link_preview_options']['prefer_large_media'] is True
+    assert receipt['reply_markup']['inline_keyboard'][0][0] == {
+        'text':'🎁 VIEW COLLECTIBLE','url':'https://t.me/nft/luckylocket-13826'
+    }
 
 
 def test_purchase_notification_reuses_verified_url_or_slug_but_not_fake_data(monkeypatch):
