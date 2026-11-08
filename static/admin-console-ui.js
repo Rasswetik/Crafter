@@ -528,20 +528,25 @@ async function renderAdminRoles(content=document.querySelector('#admin-content')
        '<div class="admin-mini-summary">'+
        adminMetric('Администраторов',active.length,'')+
        adminMetric('Отозванных доступов',inactive.length,'')+'</div>'+
-       '<section class="admin-glass-panel admin-roles-panel"><h3>Добавить администратора</h3>'+
-       '<label>Telegram ID<input id="admin-role-uid" type="text" inputmode="numeric"'+
-       ' placeholder="Числовой Telegram ID"></label>'+
+       '<section class="admin-glass-panel admin-roles-panel" id="admin-role-form"><div class="admin-role-form-head">'+
+       '<div><h3>Добавить администратора</h3><p>Назначьте доступ к функциям Crafter. Условия можно менять в любое время.</p></div>'+
+       '<span class="admin-role-owner-tag">Доступно только владельцу</span></div>'+
+       '<label>Telegram ID или @username<input id="admin-role-uid" type="text" autocomplete="off"'+
+       ' placeholder="@username или числовой Telegram ID"></label>'+
        '<label>Уровень прав<select id="admin-role-kind" onchange="adminRoleTogglePermissions()">'+
        '<option value="sections">Выбранные разделы</option>'+
        '<option value="full">Все разделы</option></select></label>'+
        '<fieldset id="admin-role-options" class="admin-role-options"><legend>Доступные разделы</legend>'+
+       '<div class="admin-role-option-actions"><span id="admin-role-selection-count">0 разделов выбрано</span>'+
+       '<button type="button" onclick="adminSetRoleSections(true)">Выбрать все</button>'+
+       '<button type="button" onclick="adminSetRoleSections(false)">Снять выбор</button></div>'+
        adminRoleData.sections.map(p=>
-         '<label><input type="checkbox" value="'+esc(p)+'" name="admin-role-section">'+
+         '<label><input type="checkbox" value="'+esc(p)+'" name="admin-role-section" onchange="adminRoleUpdateCount()">'+
          esc(adminRoleLabels[p]||p)+'</label>').join('')+'</fieldset>'+
        '<button type="button" class="admin-button-primary admin-role-save" '+
        'onclick="adminSaveRole()">Выдать права</button>'+
-       '<p class="admin-small-warning">Пользователь должен сначала зайти в Crafter.'+
-       ' Роли проверяются сервером для каждого запроса.</p></section>'+
+       '<p class="admin-small-warning">Пользователь должен сначала открыть Crafter хотя бы один раз.'+
+       ' Доступ проверяется сервером при каждом запросе.</p></section>'+
        '<section class="admin-glass-panel admin-roles-panel"><h3>Администраторы</h3>'+
        '<div class="admin-admin-list">'+(adminRoleData.admins||[]).map(row=>
           '<div class="admin-admin-row"><div class="admin-role-user">'+
@@ -554,28 +559,56 @@ async function renderAdminRoles(content=document.querySelector('#admin-content')
           '<small>'+esc(row.permissions.includes('*')?'Все разделы':
              row.permissions.map(p=>adminRoleLabels[p]||p).join(', ')||'Нет прав')+
           '</small></div>'+
-          (row.is_primary_admin?'': '<button type="button" class="admin-role-remove"'+
-             ' onclick="adminRevokeRole('+row.user_id+')">Удалить права</button>')+
+          (row.is_primary_admin?'': '<div class="admin-role-row-actions">'+
+             '<button type="button" class="admin-role-edit" onclick="adminEditRole('+row.user_id+')">Изменить</button>'+
+             '<button type="button" class="admin-role-remove"'+
+             ' onclick="adminRevokeRole('+row.user_id+')">Удалить права</button></div>')+
           '</div>').join('')+'</div></section>';
+    adminRoleTogglePermissions();
 }
 function adminRoleTogglePermissions(){
     const all=document.getElementById('admin-role-kind')?.value==='full';
     const options=document.getElementById('admin-role-options');
     if(options)options.hidden=all;
+    adminRoleUpdateCount();
+}
+function adminRoleUpdateCount(){
+    const count=document.querySelectorAll('#admin-role-options input[name="admin-role-section"]:checked').length;
+    const label=document.getElementById('admin-role-selection-count');
+    if(label)label.textContent=count+' '+(count===1?'раздел':count>=2&&count<=4?'раздела':'разделов')+' выбрано';
+}
+function adminSetRoleSections(checked){
+    document.querySelectorAll('#admin-role-options input[name="admin-role-section"]').forEach(el=>{el.checked=checked});
+    adminRoleUpdateCount();
+}
+function adminEditRole(uid){
+    const existing=(adminRoleData?.admins||[]).find(a=>Number(a.user_id)===Number(uid));
+    if(!existing||existing.is_primary_admin)return;
+    const input=document.getElementById('admin-role-uid');
+    const kind=document.getElementById('admin-role-kind');
+    if(input)input.value=String(uid);
+    if(kind)kind.value=existing.role==='full'?'full':'sections';
+    document.querySelectorAll('#admin-role-options input[name="admin-role-section"]').forEach(el=>{
+        el.checked=existing.permissions.includes(el.value);
+    });
+    adminRoleTogglePermissions();
+    document.querySelector('#admin-role-form')?.scrollIntoView({behavior:'smooth',block:'start'});
+    input?.focus({preventScroll:true});
 }
 async function adminSaveRole(){
     if(!state.me?.is_primary_admin)return;
     const value=document.getElementById('admin-role-uid')?.value.trim();
     const role=document.getElementById('admin-role-kind')?.value;
-    if(!/^[1-9]\d{0,18}$/.test(value||''))return toast('Введите Telegram ID');
-    const uid=Number(value);
-    if(!Number.isSafeInteger(uid))return toast('Некорректный Telegram ID');
+    const isId=/^[1-9]\d{0,18}$/.test(value||'');
+    const isUsername=/^@?[A-Za-z][A-Za-z0-9_]{4,31}$/.test(value||'');
+    if(!isId&&!isUsername)return toast('Введите Telegram ID или @username');
+    if(isId&&!Number.isSafeInteger(Number(value)))return toast('Некорректный Telegram ID');
     const permissions=role==='full'?[]:[...document.querySelectorAll(
        'input[name="admin-role-section"]:checked')].map(x=>x.value);
     if(role!=='full'&&!permissions.length)return toast('Выберите хотя бы один раздел');
-    if(!confirm('Выдать права Telegram ID '+uid+'?'))return;
+    if(!confirm('Сохранить права для '+value+'?'))return;
     try{
-        await api('admin/admins',{user_id:uid,role,permissions});
+        await api('admin/admins',{user_id:value,role,permissions});
         toast('Права администратора сохранены');
         await renderAdminRoles();
     }catch(error){toast(error.message);}
