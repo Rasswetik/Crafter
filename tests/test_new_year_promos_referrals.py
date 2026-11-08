@@ -52,6 +52,7 @@ def test_new_year_permissions_lots_balances_and_idempotent_checkout(client):
     assert not client.get('/api/new-year',headers=player).json['lots']
     gifts=client.get('/api/inventory',headers=player).json['gifts']
     assert len([item for item in gifts if item['id']==reward['id']])==1
+    assert client.get('/api/me',headers=player).json['inventory_value']=='0'
     assert client.post('/api/resale/listings',headers=player,json={
         'action':'sell','items':[{'id':reward['id'],'price':'1.0'}]}).status_code==409
     assert client.post('/api/admin/new-year/lots/'+lot_id+'/status',

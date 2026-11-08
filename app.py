@@ -325,6 +325,9 @@ def create_app(config=None):
                 if price:
                     cached_floors[canonical_name(collection.get('name') or '')] = (price, unit)
         for gift in inventory:
+            # Preview-only gifts are not real, transferable NFT assets.
+            if gift.get('test_only'):
+                continue
             price = positive_price(gift.get('price'))
             unit = 'TON' if gift.get('price_unit') == 'TON' else 'GRAM'
             if price is None:
