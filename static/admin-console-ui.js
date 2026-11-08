@@ -212,22 +212,67 @@ async function renderAdminActivity(content=document.querySelector('#admin-conten
             '<p class="admin-empty">История пуста.</p>')+'</div>';
 }
 async function renderAdminCrafts(content=document.querySelector('#admin-content')){
-    content.innerHTML=adminQueueHeader('Управление крафтами','Проверка последних крафтов, наград и корректировок.')+
+    content.innerHTML=adminQueueHeader('Управление крафтами',
+        'Статистика крафтов и управление доступными коллекциями и моделями.')+
         '<p class="admin-loading-panel">Загрузка…</p>';
-    const data=await api('admin/crafts/report');
+    const [data,configured]=await Promise.all([
+        api('admin/crafts/report'),api('admin/selection')
+    ]);
     if(!content.isConnected)return;
-    content.innerHTML=adminQueueHeader('Управление крафтами','Каталог, настройки целей и операции крафта.')+
-        '<div class="admin-mini-summary">'+adminMetric('Крафтов',data.recent_counts?.craft||0,'','В последних 100 операциях')+
+    const rules=configured.selection||{};
+    const keys=Object.keys(rules).sort();
+    const collections=(state.catalog?.collections||[]).map(c=>
+        '<option value="'+esc(c.short_name||c.id)+'">'+esc(c.name)+'</option>').join('');
+    content.innerHTML=adminQueueHeader('Управление крафтами',
+        'Управляйте разрешёнными моделями, каталогом и просматривайте последние операции.')+
+        '<div class="admin-mini-summary">'+
+        adminMetric('Крафтов',data.recent_counts?.craft||0,'','Из последних 100 операций')+
         adminMetric('Выдач подарков',data.recent_counts?.gift_granted||0,'')+'</div>'+
+        '<div class="admin-glass-panel"><h3>Доступные модели крафта</h3>'+
+        '<p class="admin-small-warning">Укажите точные названия моделей через запятую. '+
+        'Ограничения сохраняются на сервере и применяются к правилам крафта.</p>'+
+        '<div class="admin-craft-rules">'+
+        (keys.length?keys.map(key=>
+            '<label class="admin-craft-rule"><strong>'+esc(key)+'</strong>'+
+            '<input type="text" data-craft-key="'+esc(key)+'" value="'+
+            esc((rules[key]||[]).join(', '))+'" placeholder="Модели через запятую"></label>'
+        ).join(''):'<p class="admin-empty">Индивидуальных ограничений нет.</p>')+
+        '</div><div class="admin-craft-add"><label>Коллекция'+
+        '<select id="admin-craft-new-collection"><option value="">Выберите коллекцию</option>'+
+        collections+'</select></label><label>Модели'+
+        '<input type="text" id="admin-craft-new-models" placeholder="Model 1, Model 2"></label></div>'+
+        '<button type="button" class="admin-button-primary admin-craft-save" '+
+        'onclick="adminSaveCraftSelections()">Сохранить правила</button></div>'+
         '<div class="admin-glass-panel"><h3>Настройки и каталог</h3>'+
-        '<div class="admin-glass-action-grid"><button onclick="openAdminSection(\'portal\')">'+
-        'Коллекции и модели →</button><button onclick="openAdminSection(\'modes\')">'+
-        'Доступность режимов →</button></div></div>'+
+        '<div class="admin-glass-action-grid">'+
+        '<button onclick="openAdminSection(\'portal\')">Коллекции и модели →</button>'+
+        '<button onclick="openAdminSection(\'modes\')">Доступность режимов →</button>'+
+        '</div></div>'+
         '<div class="admin-glass-panel"><h3>Последние операции</h3>'+
         (data.recent||[]).map(x=>'<div class="admin-log-entry"><div><b>'+
             esc(x.kind)+'</b><small>'+adminWhen(x.created)+'</small></div>'+
             '<button type="button" onclick="openAdminUserPage('+Number(x.user_id)+')">'+
-            'ID '+Number(x.user_id)+'</button></div>').join('')+'</div>'+adminNotice(data.note||'');
+            'ID '+Number(x.user_id)+'</button></div>').join('')+'</div>'+
+        adminNotice(data.note||'');
+}
+async function adminSaveCraftSelections(){
+    const rules={};
+    document.querySelectorAll('[data-craft-key]').forEach(input=>{
+        const entries=String(input.value||'').split(',').map(x=>x.trim()).filter(Boolean);
+        if(entries.length) rules[input.dataset.craftKey]=Array.from(new Set(entries));
+    });
+    const collection=document.getElementById('admin-craft-new-collection')?.value||'';
+    const models=document.getElementById('admin-craft-new-models')?.value||'';
+    if(collection){
+        const names=models.split(',').map(x=>x.trim()).filter(Boolean);
+        if(!names.length)return toast('Введите названия моделей для выбранной коллекции');
+        rules[collection]=Array.from(new Set([...(rules[collection]||[]),...names]));
+    }
+    try{
+        await api('admin/selection',{selection:rules});
+        toast('Правила крафта сохранены');
+        await renderAdminCrafts();
+    }catch(error){toast(error.message);}
 }
 async function renderAdminModes(content=document.querySelector('#admin-content')){
     content.innerHTML=adminQueueHeader('Управление режимами','Включение и отключение существующих режимов на сервере.')+
