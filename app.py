@@ -289,6 +289,20 @@ def create_app(config=None):
         if postgres_url:
             db().execute('SELECT 1').fetchone()
         return {'ok': True}
+    def purchase_mode():
+        """'test' (gift bought without Portals checks) or 'work' (Portals availability + balance + real purchase).
+        Set from the admin panel; MARKET_TEST_PURCHASES is only the default before it is set."""
+        row = db().execute("SELECT payload FROM settings WHERE key='purchase_mode_v1'").fetchone()
+        if row:
+            try:
+                mode = json.loads(row[0]).get('mode')
+            except (ValueError, TypeError, AttributeError):
+                mode = None
+            if mode in ('test', 'work'):
+                return mode
+        return 'test' if app.config.get('MARKET_TEST_PURCHASES') else 'work'
+    app.extensions['crafter_purchase_mode'] = purchase_mode
+    app.extensions['crafter_public_catalog'] = lambda: public_catalog()
     def positive_price(value):
         try:
             price = Decimal(str(value))
@@ -367,7 +381,7 @@ def create_app(config=None):
                     referral_balance=referral_data['balance'], referral_rate=referral_data['rate'],
                     referral_earned=referral_data['total_earned'], new_year_enabled=new_year_enabled(),
                     new_year_reward_per_ton=10, new_year_gram_per_ton=str(seasonal_conversion()),
-                    market_test_purchases=app.config['MARKET_TEST_PURCHASES'],
+                    market_test_purchases=purchase_mode() == 'test', purchase_mode=purchase_mode(),
                     invite_link=link)
 
     @app.post('/api/referral')
@@ -731,7 +745,7 @@ def create_app(config=None):
         if any(preview):
             if not all(preview):
                 abort(409,description='В одном крафте нельзя смешивать демо и настоящие подарки')
-            if not app.config.get('MARKET_TEST_PURCHASES'):
+            if purchase_mode() != 'test':
                 abort(409,description='Демонстрационный крафт отключён')
             if any(x.get('origin') not in ('market-test','demo-craft') for x in chosen):
                 abort(409,description='Этот тестовый подарок не подходит для крафта')
@@ -917,7 +931,7 @@ def create_app(config=None):
             internal = q.get('listing_source') == 'crafter'
             preview=q.get('listing_source')=='preview'
             if preview:
-                if not app.config.get('MARKET_TEST_PURCHASES'):
+                if purchase_mode() != 'test':
                     abort(409,description='Демо-крафт отключён')
                 rows=db().execute("SELECT nft_id,payload,status FROM inventory WHERE user_id=?",
                                   (g.user['id'],)).fetchall()
@@ -1442,7 +1456,8 @@ def create_app(config=None):
         canonical_name=canonical_name, market_candidates=craft_market_candidates,
         ensure_listings=ensure_upgrade_listings, award_market_gift=award_market_gift,
         available_crafter_lot=available_crafter_lot, settle_crafter_lot=settle_crafter_lot,
-        notify_sale=notify_crafter_sale))
+        notify_sale=notify_crafter_sale, test_mode=lambda: purchase_mode() == 'test',
+        gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
     if not app.config.get('TESTING'):
         from market_refresh import refresh_interval, start_market_refresh
         start_market_refresh(start_catalog_refresh, refresh_interval(), app.extensions.setdefault('crafter_market_refresh', {}))

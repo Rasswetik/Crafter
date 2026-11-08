@@ -214,6 +214,69 @@ def install_portals_partner(app, db, auth, record, audit):
         audit("Portals live checkout " + ("enabled" if enabled else "disabled"))
         return status()
 
+    def work_blockers(current):
+        missing = []
+        if not current["key_configured"]:
+            missing.append("Не сохранён ключ Portals Partner API")
+        if not current["server_gate"]:
+            missing.append("На сервере не задано CRAFTER_PORTALS_LIVE_PURCHASES=1")
+        if not current["durable_db"]:
+            missing.append("Не подключена база PostgreSQL (DATABASE_URL)")
+        if not current["verified_recently"]:
+            missing.append("Ключ не проверен за последний час — нажмите «Проверить подключение»")
+        return missing
+
+    def purchase_mode_info():
+        current = status()
+        return {"mode": app.extensions["crafter_purchase_mode"](),
+                "can_work": not work_blockers(current), "missing": work_blockers(current)}
+
+    @app.get("/api/admin/purchase-mode")
+    @auth(admin=True)
+    def admin_purchase_mode():
+        return purchase_mode_info()
+
+    @app.post("/api/admin/purchase-mode")
+    @auth(admin=True)
+    def admin_set_purchase_mode():
+        body = request.get_json(silent=True) or {}
+        mode = body.get("mode")
+        if mode not in ("test", "work") or body.get("confirm") != "SET_PURCHASE_MODE":
+            abort(400, description="Выберите режим ТЕСТ или РАБОТА и подтвердите")
+        if mode == "work":
+            missing = work_blockers(status())
+            if missing:
+                abort(409, description="Режим РАБОТА недоступен: " + "; ".join(missing))
+        with db():
+            db().execute("BEGIN IMMEDIATE")
+            db().execute("INSERT INTO settings(key,payload) VALUES('purchase_mode_v1',?) "
+                         "ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
+                         (json.dumps({"mode": mode}),))
+            row = policy()
+            db().execute("INSERT INTO portals_partner_policy VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled",
+                         (int(mode == "work"), row[1]))
+        audit("Purchase mode: " + mode.upper())
+        return purchase_mode_info()
+
+    def verify_lots(ids, found):
+        """Ask Portals (public catalogue, no partner quota) whether each lot is still listed at the same price."""
+        import portals_public
+        from concurrent.futures import ThreadPoolExecutor
+        catalog = app.extensions["crafter_public_catalog"]()
+
+        def check(gift_id):
+            gift = found[gift_id]
+            params = {"collection_id": gift.get("collection_id"), "search": str(gift.get("number") or "")}
+            live = portals_public.listings(params, catalog)["gifts"]
+            return any(x["id"] == gift_id and Decimal(str(x["price"])) == Decimal(str(gift["price"])) for x in live)
+        try:
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                results = list(pool.map(check, ids))
+        except (OSError, ValueError, KeyError, StopIteration, InvalidOperation):
+            abort(503, description="Не удалось проверить наличие лота на Portals. Повторите позже")
+        if not all(results):
+            abort(409, description="Лот уже недоступен на Portals или цена изменилась. Обновите маркет")
+
     @app.get("/api/admin/portal/partner/orders")
     @auth(admin=True)
     def portal_partner_orders():
@@ -271,6 +334,13 @@ def install_portals_partner(app, db, auth, record, audit):
         if not partner_key() or not app.config.get("DATABASE_URL"):
             abort(409, description="Нет защищённого ключа Partner API или PostgreSQL")
         ids = sorted(ids)
+        replay = db().execute("SELECT 1 FROM portals_partner_orders WHERE user_id=? AND request_id=?",
+                              (g.user["id"], rid)).fetchone()
+        if not replay:
+            cached = public_rows(set(ids))
+            if len(cached) != len(ids):
+                abort(409, description="Данные Portals устарели. Обновите каталог перед покупкой.")
+            verify_lots(ids, cached)      # network check happens before any balance is reserved
         with db():
             db().execute("BEGIN IMMEDIATE")
             previous = db().execute("SELECT * FROM portals_partner_orders WHERE user_id=? AND request_id=?",

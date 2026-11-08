@@ -342,3 +342,10 @@ body.admin-page input,body.admin-page select,body.admin-page textarea{max-width:
 .admin-role-remove{border:1px solid #da8e9a73!important;border-radius:12px!important;background:#a43a4b21!important;color:#f6b6be!important;padding:9px 12px!important;font-size:11px!important}
 @media(max-width:700px){.admin-role-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:380px){.admin-role-options{grid-template-columns:1fr}}
+.admin-purchase-mode{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;margin-bottom:12px}
+.admin-purchase-mode h3{margin:0 0 5px}.admin-purchase-mode p{margin:0;font-size:12px;opacity:.8}
+.admin-mode-missing{margin-top:8px!important;color:#ffb0b8;opacity:1!important}
+.admin-purchase-switch{display:flex;gap:4px;padding:4px;border-radius:18px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
+.admin-purchase-switch button{min-width:92px;height:38px;border-radius:14px;font-weight:800;letter-spacing:.5px;color:#aeb7c5}
+.admin-purchase-switch button.is-active{background:#1689ff;color:#fff;box-shadow:0 4px 16px rgba(22,137,255,.4)}
+@media(max-width:560px){.admin-purchase-mode{grid-template-columns:1fr}}

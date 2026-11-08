@@ -74,7 +74,7 @@ const crafterTranslationPairs = [
     ['Предложения на ваши подарки появятся здесь','Offers for your gifts will appear here'],
     ['Открыть маркет','Open market'],['Показать ещё','Show more'],['Загрузка…','Loading…'],
     ['Подарок получен','Gift received'],['Подарок отправлен','Gift sent'],
-    ['Подарок добавлен в инвентарь','Gift added to inventory'],['Подарок добавлен в «Мои подарки»','Gift added to My gifts'],
+    ['Подарок добавлен в инвентарь','Gift added to inventory'],['Подарки добавлены в инвентарь','Gifts added to inventory'],['Покупка · 1 TON = 10 шаров','Purchase · 1 TON = 10 balls'],['Подарок добавлен в «Мои подарки»','Gift added to My gifts'],
     ['Скрафтить','Craft'],['Выбрать','Select'],['Выберите подарки','Choose gifts'],
     ['Выполнено','Completed'],['Не удалось','Failed'],['Успешно','Successful'],['Изготовление','Crafting'],
     ['Полученные','Received'],['Отправленные','Sent'],['Сначала новые','Newest first'],

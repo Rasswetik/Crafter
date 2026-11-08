@@ -457,7 +457,7 @@ function showGiftDetail(gift, source) {
               ? (window.crafterSeasonRewardForFloor?.(gift) || '')
               : !own && !gift.own_listing && !gift.catalog_only
               ? (window.crafterSeasonRewardHTML?.('purchase',gift.price,gift.price_unit || 'GRAM',
-                    state.me?.market_test_purchases?'Демо-покупка · 1 TON = 10 шаров':'После подтверждённой покупки · 1 TON = 10 шаров') || '')
+                    state.me?.market_test_purchases?'Покупка · 1 TON = 10 шаров':'После подтверждённой покупки · 1 TON = 10 шаров') || '')
               : ''}
         ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` :
             own && gift.test_only && ['market-test','demo-craft'].includes(gift.origin) ?
@@ -540,7 +540,7 @@ async function localBuyGift(id) {
         if(typeof window.crafterSeasonBalanceRefresh==='function')
             window.crafterSeasonBalanceRefresh();
         if (button?.isConnected) closeSheet();
-        toast(testing?'Подарок добавлен в тестовый инвентарь':portal?'Portals подтвердил покупку. NFT находится на партнёрском хранении.':'Подарок добавлен в инвентарь');
+        toast(testing?'Подарок добавлен в инвентарь':portal?'Portals подтвердил покупку. NFT находится на партнёрском хранении.':'Подарок добавлен в инвентарь');
     } catch (e) {
         if (button?.isConnected) purchaseError(e.message || 'Не удалось купить подарок');
         if (gift.resale && e.status === 409 && state.page === 'market') changedFilter();

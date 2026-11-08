@@ -56,6 +56,8 @@ def test_partner_key_requires_admin_and_masks_secret(tmp_path,monkeypatch):
 
 def test_partner_checkout_is_real_idempotent_and_partially_reconciled(tmp_path,monkeypatch):
     client=make_partner(tmp_path,monkeypatch)
+    import portals_public  # work-mode availability check: Portals still lists the lot at the same price
+    monkeypatch.setattr(portals_public,'listings',lambda *a,**k:{'gifts':[{'id':NFT,'price':'4.25'}]})
     key=save_key(client)
     seen=[]
     def fake_wire(req,timeout=None):

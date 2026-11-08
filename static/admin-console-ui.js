@@ -307,7 +307,7 @@ async function adminSaveCraftSelections(){
 async function renderAdminModes(content=document.querySelector('#admin-content')){
     content.innerHTML=adminQueueHeader('Управление режимами','Включение и отключение существующих режимов на сервере.')+
         '<p class="admin-loading-panel">Загрузка…</p>';
-    const info=await api('admin/modes');
+    const [info,buy]=await Promise.all([api('admin/modes'),api('admin/purchase-mode').catch(()=>null)]);
     if(!content.isConnected)return;
     const list=[
         ['craft','Крафты','Режим сборки подарков'],
@@ -317,6 +317,13 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
     ];
     content.innerHTML=adminQueueHeader('Управление режимами',
         'При отключении сервер блокирует новые игровые запросы обычных пользователей. Администраторы сохраняют доступ.')+
+        (buy?'<section class="admin-glass-panel admin-purchase-mode"><div><h3>Режим покупок</h3>'+
+            '<p>ТЕСТ — подарок покупается без проверки Portals. РАБОТА — проверяется наличие лота на Portals и баланс, затем подарок покупается и попадает в инвентарь.</p>'+
+            (buy.mode==='test'&&buy.missing?.length?'<p class="admin-mode-missing">Для РАБОТА не хватает: '+buy.missing.map(esc).join('; ')+'</p>':'')+'</div>'+
+            '<div class="admin-purchase-switch" role="group" aria-label="Режим покупок">'+
+            ['test','work'].map(m=>'<button type="button" class="'+(buy.mode===m?'is-active':'')+'" '+(buy.mode===m?'aria-pressed="true"':'aria-pressed="false"')+
+                ' onclick="adminSetPurchaseMode('+arg(m)+')">'+(m==='test'?'ТЕСТ':'РАБОТА')+'</button>').join('')+
+            '</div></section>':'')+
         '<div class="admin-mode-list">'+list.map(([id,name,details])=>{
             const enabled=Boolean(info.modes?.[id]);
             return '<section class="admin-glass-panel admin-mode-card"><div>'+
@@ -331,6 +338,14 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
         '<button onclick="openAdminSection(\'staking\')">Стейкинг — APR →</button>'+
         '<button onclick="openAdminSection(\'events\')">Ивенты и награды →</button>'+
         '</div></div>';
+}
+async function adminSetPurchaseMode(mode){
+    if(!confirm('Переключить режим покупок на '+(mode==='work'?'РАБОТА (реальные покупки через Portals)':'ТЕСТ (без проверки Portals)')+'?'))return;
+    try{
+        await api('admin/purchase-mode',{mode,confirm:'SET_PURCHASE_MODE'});
+        toast('Режим покупок: '+(mode==='work'?'РАБОТА':'ТЕСТ'));
+        await renderAdminModes();
+    }catch(error){toast(error.message);}
 }
 async function adminChangeMode(mode,enabled){
     if(!confirm((enabled?'Включить':'Отключить')+' режим '+mode+' для всех обычных пользователей?'))return;

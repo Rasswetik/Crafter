@@ -30,7 +30,7 @@ def install_market_test(app, db, auth, record, demo_gifts):
     @app.post('/api/market/test/buy')
     @auth()
     def buy_test_gifts():
-        if not app.config.get('MARKET_TEST_PURCHASES', False):
+        if app.extensions['crafter_purchase_mode']() != 'test':
             abort(409,description='Тестовые покупки отключены')
         data=request.get_json(silent=True) or {}
         ids=data.get('gift_ids')
@@ -107,7 +107,7 @@ def install_market_test(app, db, auth, record, demo_gifts):
     @auth()
     def sell_test_gift():
         """Simulated sale of a preview collectible; never creates a public market lot."""
-        if not app.config.get('MARKET_TEST_PURCHASES',False):
+        if app.extensions['crafter_purchase_mode']() != 'test':
             abort(409,description='Демонстрационные продажи отключены')
         data=request.get_json(silent=True) or {}
         gift_id,rid=data.get('gift_id'),data.get('request_id')
