@@ -94,7 +94,7 @@ def test_desktop_and_maintenance_are_real_code_not_static_mockups():
     overlay=(root/'static/site-maintenance.css').read_text(encoding='utf-8')
     page=(root/'templates/index.html').read_text(encoding='utf-8')
     admin=(root/'static/admin-page.js').read_text(encoding='utf-8')
-    assert 'crafterDesktopNavRefresh' in desktop and "go('profile')" in desktop
+    assert 'crafterDesktopNavRefresh' in desktop and 'desktop-sidebar-account' in desktop
     assert 'crafter-desktop-sidebar' in css and 'repeat(11,minmax(0,1fr))' in css
     assert 'min-aspect-ratio:16/9' in splash and 'max-height:680px' in splash
     assert 'crafter-maintenance-snow' in overlay and 'crafter-top-canopy.svg' in overlay
