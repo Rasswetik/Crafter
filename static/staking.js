@@ -1,5 +1,22 @@
 /* Crafter Games Hub and gift staking. The existing craft mechanic is preserved. */
 const stakeUi = {status:null, picked:new Set(), tutorialStep:0, gifts:[], pending:false};
+const crafterModePolicy = {craft:true,arena:true,staking:true};
+let crafterModePolicyLoaded = false;
+async function loadCrafterModePolicy() {
+    if (crafterModePolicyLoaded) return;
+    crafterModePolicyLoaded = true;
+    try {
+        const data = await api('site/modes');
+        for (const id of ['craft','arena','staking'])
+            if (typeof data.modes?.[id] === 'boolean') crafterModePolicy[id] = data.modes[id];
+        if (state.page === 'games') renderGamesHub();
+        if (typeof nav === 'function') nav();
+    } catch(_) { crafterModePolicyLoaded = false; }
+}
+function crafterCanSeeMode(mode) {
+    return Boolean(state.me?.is_admin || crafterModePolicy[mode]);
+}
+
 const stakingMachinePNG = '<img class="staking-machine-png" src="/static/assets/staking-machine.png" alt="Стейкинг подарков" decoding="async">';
 const magnateArt = (className) => `<img class="${className}" src="/static/assets/craft-magnate.webp" alt="" decoding="async">`;
 const gamesHubIcon = '<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.71925 7.38372L1.12057 12.7718C0.90383 14.7224 2.43075 16.4284 4.39339 16.4284C5.64068 16.4284 6.78091 15.7237 7.33872 14.6081L7.85714 13.5713H12.1429L12.6613 14.6081C13.2191 15.7237 14.3593 16.4284 15.6066 16.4284C17.5693 16.4284 19.0962 14.7224 18.8794 12.7718L18.2807 7.38373C18.0396 5.2133 16.205 3.57129 14.0212 3.57129H5.97875C3.79497 3.57129 1.96041 5.2133 1.71925 7.38372ZM6.25001 6.24986C6.74312 6.24986 7.14287 6.6496 7.14287 7.14272V7.91665H7.91679C8.40991 7.91665 8.80965 8.31639 8.80965 8.8095C8.80965 9.30262 8.40991 9.70236 7.91679 9.70236H7.14287V10.476C7.14287 10.9692 6.74312 11.3689 6.25001 11.3689C5.75691 11.3689 5.35715 10.9692 5.35715 10.476V9.70236H4.58347C4.09035 9.70236 3.69061 9.30262 3.69061 8.8095C3.69061 8.31639 4.09035 7.91665 4.58347 7.91665H5.35715V7.14272C5.35715 6.6496 5.75691 6.24986 6.25001 6.24986ZM13.2366 10.5952C13.7297 10.5952 14.1295 10.1955 14.1295 9.70236C14.1295 9.20925 13.7297 8.8095 13.2366 8.8095C12.7435 8.8095 12.3438 9.20925 12.3438 9.70236C12.3438 10.1955 12.7435 10.5952 13.2366 10.5952ZM15.9152 7.4887C15.9152 7.98182 15.5154 8.38156 15.0223 8.38156C14.5293 8.38156 14.1295 7.98182 14.1295 7.4887C14.1295 6.99559 14.5293 6.59585 15.0223 6.59585C15.5154 6.59585 15.9152 6.99559 15.9152 7.4887Z"/></svg>';
@@ -21,10 +38,13 @@ nav = function() {
         ['market','market','Маркет'],['gifts','gift','Мои подарки'],
         ['staking','staking','Стейкинг']
     ];
+    const visibleDestinations = destinations.filter(([page]) =>
+        (page !== 'arena' || crafterCanSeeMode('arena')) &&
+        (page !== 'staking' || crafterCanSeeMode('staking')));
     root.classList.toggle('games-nav', inGames);
     root.innerHTML = `<button class="games-entry" type="button" onclick="go('${sidePage}')" aria-label="${sideLabel}">
         <span class="stake-nav-icon">${gameNavIcons[sidePage] || icon(sidePage)}</span><span class="nav-label">${sideLabel}</span></button>
-        <div class="nav-main">${destinations.map(([page,kind,title]) => `
+        <div class="nav-main">${visibleDestinations.map(([page,kind,title]) => `
         <button type="button" onclick="go('${page}')" class="${state.page === page || (page === 'games' && state.page === 'craft') ? 'active' : ''}"
             data-game-page="${page}" aria-label="${title}"><span class="stake-nav-icon">${gameNavIcons[kind] || icon(kind)}</span><span class="nav-label">${title}</span></button>`).join('')}</div>
         <button class="profile-nav ${state.page === 'profile' ? 'active' : ''}" onclick="go('profile')" aria-label="Профиль">
@@ -103,14 +123,14 @@ const crafterArenaSwordArt = '<svg class="crafter-animated-swords" viewBox="0 0 
 function renderGamesHub() {
     document.querySelector('#main').innerHTML = `<section class="crafter-games">
         <div class="crafter-hub-craft-banner arena-event-banner-slot" id="craft-hub-banner" hidden></div>
-        <button class="crafter-game-tile crafter-pepe-tile" onclick="go('craft')" type="button">
+        ${crafterCanSeeMode('craft') ? `<button class="crafter-game-tile crafter-pepe-tile" onclick="go('craft')" type="button">
             <span class="crafter-game-label"><strong>Крафты</strong>
                 <span>Соберите подарки и выберите цель</span>
                 <span class="crafter-game-open">Играть</span></span>
             <span class="crafter-game-emblem">${anvilArt('crafter-game-anvil')}</span>
             <span class="crafter-pepe-motion" aria-hidden="true"><img class="crafter-pepe-picture" src="/static/assets/splash-magnate.png" alt="" loading="lazy" decoding="async"><span class="crafter-pepe-lottie" data-crafter-lottie="magnate"></span></span>
-        </button>
-        ${window.crafterOfflinePreview ? '' : `<button class="crafter-game-tile arena-tile crafter-swords-tile" onclick="go('arena')" type="button">
+        </button>` : ''}
+        ${window.crafterOfflinePreview || !crafterCanSeeMode('arena') ? '' : `<button class="crafter-game-tile arena-tile crafter-swords-tile" onclick="go('arena')" type="button">
             <span class="crafter-game-label"><strong>Arena</strong>
                 <span>Один раунд. Один победитель.</span>
                 <span class="crafter-game-open">Играть</span></span>
@@ -119,6 +139,7 @@ function renderGamesHub() {
     </section>`;
     if(typeof crafterCraftBannerMount==='function')crafterCraftBannerMount('craft-hub-banner');
     if(typeof crafterLottieEnhance==='function')crafterLottieEnhance(document.querySelector('#main'));
+    loadCrafterModePolicy();
 }
 
 function stakeFormat(n) {

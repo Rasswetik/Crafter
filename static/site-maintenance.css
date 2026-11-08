@@ -1,0 +1,57 @@
+/* Crafter technical works — full-screen liquid glass and controlled motion. */
+#crafter-maintenance { display:none; position:fixed; inset:0; z-index:2147483647;
+  align-items:center; justify-items:center; padding:clamp(16px,4vw,38px);
+  background:radial-gradient(circle at 60% 25%,#193e5d89,transparent 43%),
+  radial-gradient(circle at 0 95%,#20476664,transparent 48%),#080d15eb;
+  color:#eff8ff; overflow-y:auto; isolation:isolate;
+  -webkit-backdrop-filter:blur(28px); backdrop-filter:blur(28px);
+}
+#crafter-maintenance.is-active {display:grid}
+body.maintenance-locked {overflow:hidden!important}
+#crafter-maintenance:before {
+  content:'';position:absolute;inset:0;pointer-events:none;opacity:.22;z-index:-1;
+  background-image:radial-gradient(#a3d5ff 1px,transparent 1.4px);
+  background-size:24px 24px;
+}
+.crafter-maintenance-card {
+  position:relative;width:min(100%,455px);padding:clamp(24px,6vw,41px);
+  text-align:center;display:grid;justify-items:center;gap:15px;
+  border:1px solid #d5f1ff5e;border-radius:32px;
+  background:linear-gradient(145deg,#f8ffff22,#e3f4ff0b 38%,#6cc6ff0b 100%),#192a3a9c;
+  box-shadow:inset 0 1px 0 #ffffff58,inset 0 -1px #09111f9c,0 25px 65px #000a;
+  -webkit-backdrop-filter:blur(32px) saturate(1.55);backdrop-filter:blur(32px) saturate(1.55);
+}
+.crafter-maintenance-card:before{
+  content:'';position:absolute;inset:7px;border:1px solid #ffffff12;border-radius:26px;pointer-events:none
+}
+.crafter-maintenance-kicker {font-size:10px;letter-spacing:.24em;font-weight:850;color:#a9d7f3}
+.crafter-maintenance-gear {
+  width:118px;height:118px;display:grid;place-items:center;border-radius:35px;
+  background:linear-gradient(135deg,#d6faff2c,#80caff14);
+  border:1px solid #e7ffff64;
+  box-shadow:inset 0 2px #fff5,0 13px 38px #17456578,0 0 30px #9de6ff32
+}
+.crafter-maintenance-gear svg{
+  width:74px;height:74px;stroke:#a9e4ff;stroke-width:1.45;
+  filter:drop-shadow(0 0 11px #8edbffb9);
+  animation:crafter-gear-spin 9s linear infinite
+}
+@keyframes crafter-gear-spin {to{transform:rotate(360deg)}}
+.crafter-maintenance-card h1 {
+  font-size:clamp(25px,6.5vw,33px);font-weight:830;line-height:1.12;
+  letter-spacing:-.045em;margin:5px 0 0;color:#f3faff
+}
+.crafter-maintenance-card p {color:#b5cede;font-size:13px;line-height:1.6;margin:0;max-width:30ch}
+.crafter-maintenance-button {
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;max-width:330px;min-height:55px;
+  padding:14px 17px;border-radius:17px;
+  border:1px solid #dcf7ffad!important;
+  background:linear-gradient(160deg,#b4e9ffdb,#5ebcef9e 70%,#3593c4c9)!important;
+  box-shadow:inset 0 1px #fff9,0 8px 27px #41abf369!important;
+  color:#0b2438!important;font-size:14px!important;font-weight:850!important;
+}
+.crafter-maintenance-button:disabled {opacity:.68}
+.crafter-maintenance-button svg{width:18px;height:18px;stroke-width:2}
+#crafter-maintenance-status {font-size:11px;color:#93b3c9;min-height:15px}
+@media(prefers-reduced-motion:reduce){.crafter-maintenance-gear svg{animation:none}}

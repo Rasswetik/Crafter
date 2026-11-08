@@ -45,5 +45,6 @@ jobs:
           node tests/test_winter_currency.cjs
           node tests/test_splash_winter.cjs
           node tests/test_winter_site.cjs
+          node tests/test_maintenance_ui.cjs
       - name: Gift dialog, share links and offer UI checks
         run: node tests/test_gift_share.cjs

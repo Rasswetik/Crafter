@@ -229,10 +229,27 @@ def create_app(config=None):
         # The official partner feed quotes real listing/floor prices in GRAM.
         price=n.get('price') or n.get('floor_price') or '0'
         return dict(id=n['id'],name=n.get('name','Gift'),collection_id=n.get('collection_id',''),model=attrs.get('model',''),symbol=attrs.get('symbol',attrs.get('pattern','')),backdrop=attrs.get('backdrop',''),price=str(price),price_unit='GRAM',source_price_unit='GRAM',floor_price=n.get('floor_price'),number=n.get('external_collection_number',''),image=n.get('photo_url',''))
+    def is_maintenance_enabled():
+        row = db().execute("SELECT payload FROM settings WHERE key='site_maintenance_v2'").fetchone()
+        if not row:
+            return False
+        try:
+            return bool(json.loads(row['payload']).get('enabled'))
+        except (ValueError, TypeError):
+            return False
+
     @app.get('/')
-    def index():return render_template('index.html')
+    def index():
+        return render_template('index.html', site_maintenance=is_maintenance_enabled())
+
     @app.get('/admin')
-    def admin_page():return render_template('admin.html')
+    def admin_page():
+        return render_template('admin.html')
+
+    @app.get('/admin/user/<int:uid>')
+    def admin_user_page(uid):
+        return render_template('admin_user.html', uid=uid)
+
 
     @app.get('/collections/<slug>')
     def collection_page(slug):
@@ -1258,6 +1275,8 @@ def create_app(config=None):
     install_arena(app, db, auth, record, staking_catalog, canonical_name, demo_stake_prices)
     from admin_user_tools import install_admin_user_tools
     install_admin_user_tools(app, db, auth, audit, record)
+    from admin_console import install_admin_console
+    install_admin_console(app, db, auth, audit, verify_telegram, bot_settings)
     from launch_readiness import install_launch_readiness
     install_launch_readiness(app, db, auth, audit)
     from portals_partner import install_portals_partner
