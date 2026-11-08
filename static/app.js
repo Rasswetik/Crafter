@@ -10,6 +10,10 @@ const money=x=>{let n=Number(x);return Number.isFinite(n)?n.toLocaleString('ru-R
 let state={page:'market',me:null,gifts:[],catalog:{collections:[],attributes:{}},selected:[],list:false,query:'',collection:'',model:'',backdrop:'',sort:false,inventory:[],crafting:false,selection:{}};
 let tg=window.Telegram?.WebApp;
 const telegramSessionKey = 'crafter:telegram-session';
+function crafterWebSession() {
+    try { return localStorage.getItem('crafter-web-session') || ''; }
+    catch { return ''; }
+}
 function telegramInitData() {
     if (tg?.initData) return tg.initData;
     try { return sessionStorage.getItem(telegramSessionKey) || ''; }
@@ -27,6 +31,7 @@ async function api(path, body) {
     const timer = setTimeout(() => controller.abort(), upload ? 45000 : path.startsWith('market') ? 18000 : 12000);
     try {
         const headers = {'X-Telegram-Init-Data': telegramInitData()};
+        if (!headers['X-Telegram-Init-Data'] && crafterWebSession()) headers['X-Crafter-Web-Session'] = crafterWebSession();
         if (!upload) headers['Content-Type'] = 'application/json';
         const response = await fetch('/api/' + path, {
             method: body === undefined ? 'GET' : 'POST', signal: controller.signal, headers,
@@ -37,6 +42,10 @@ async function api(path, body) {
             if (response.status === 503 && data.maintenance &&
                 typeof window.crafterShowMaintenance === 'function') {
                 window.crafterShowMaintenance(data.message || '');
+            }
+            if (response.status === 401 && crafterWebSession() && !telegramInitData()) {
+                try { localStorage.removeItem('crafter-web-session'); } catch {}
+                location.reload();
             }
             const error = Error(data.error || 'Ошибка запроса');
             error.status = response.status;

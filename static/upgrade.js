@@ -2,7 +2,7 @@
    The server rolls and settles; this file only presents the already-decided result. */
 (function () {
 'use strict';
-const RADIUS = 100, CIRC = 2 * Math.PI * RADIUS;
+const RADIUS = 116, CIRC = 2 * Math.PI * RADIUS;
 const ui = {done: false, stake: null, collection: null, target: null, offers: [], quote: null, spinning: false,
             gifts: [], collections: [], chance: 0, angle: 0};
 
@@ -20,24 +20,21 @@ function giftArt(g) {
 }
 function wheel() {
     return `<div class="upg-wheel" id="upg-wheel">
-        <svg viewBox="0 0 240 240" aria-hidden="true">
-            <defs><linearGradient id="upg-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7fd0ff"/><stop offset="1" stop-color="#2f7bff"/></linearGradient>
-                <filter id="upg-glow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="4"/></filter></defs>
-            <circle class="upg-track" cx="120" cy="120" r="${RADIUS}"/>
-            <g>
-                <circle class="upg-zone-glow" id="upg-zone-glow" cx="120" cy="120" r="${RADIUS}" filter="url(#upg-glow)" stroke-dasharray="0 ${CIRC}"/>
-                <circle class="upg-zone" id="upg-zone" cx="120" cy="120" r="${RADIUS}" stroke-dasharray="0 ${CIRC}"/>
-            </g>
+        <svg viewBox="0 0 260 260" aria-hidden="true">
+            <circle class="upg-track" cx="130" cy="130" r="${RADIUS}"/>
+            <circle class="upg-zone" id="upg-zone" cx="130" cy="130" r="${RADIUS}" stroke-dasharray="0 ${CIRC}"/>
         </svg>
-        <div class="upg-core"><div class="upg-core-gift" id="upg-core-gift"></div><b id="upg-percent">0%</b><small id="upg-label">шанс</small></div>
         <div class="upg-pointer" id="upg-pointer"><i></i></div>
+        <div class="upg-core"><div class="upg-core-gift" id="upg-core-gift"></div><b id="upg-percent"></b><small id="upg-label"></small></div>
     </div>`;
 }
+const plusIcon = '<svg class="upg-plus" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';
 function slot(kind) {
     const isStake = kind === 'stake', item = isStake ? ui.stake : ui.target;
     const disabled = !isStake && !ui.stake;
-    const body = item ? `${giftArt(item)}<strong>${h(item.name)}</strong><small>#${h(item.number || '')} · ${fmt(item.price)} GRAM</small>`
-        : `<span class="upg-plus">+</span><strong>${isStake ? 'Выбрать ставку' : 'Выбрать цель'}</strong><small>${isStake ? 'Ваш подарок' : 'Подарок дороже ставки'}</small>`;
+    const body = item
+        ? `<img class="upg-thumb" ${centerPicture(item)} alt="" draggable="false"><span class="upg-slot-text"><strong>${h(item.name)}</strong><small>#${h(item.number || '')} · ${fmt(item.price)} GRAM</small></span>`
+        : `${plusIcon}<strong>${isStake ? 'Выбрать ставку' : 'Выбрать цель'}</strong>`;
     return `<button type="button" class="upg-slot ${item ? 'is-filled' : ''}" data-slot="${kind}" ${disabled || ui.spinning ? 'disabled' : ''}>${body}</button>`;
 }
 function render() {
@@ -45,8 +42,7 @@ function render() {
     if (!main) return;
     main.innerHTML = `<section class="upg">${wheel()}
         <div class="upg-slots">${slot('stake')}${slot('target')}</div>
-        <button type="button" class="upg-go" id="upg-go" disabled>Апгрейд</button>
-        <p class="upg-note">Шанс = ценность ставки / цена цели (−5% комиссии). Результат определяет сервер.</p></section>`;
+        <button type="button" class="upg-go" id="upg-go" disabled>Апгрейд</button></section>`;
     main.querySelector('[data-slot="stake"]').onclick = openStakeSheet;
     main.querySelector('[data-slot="target"]').onclick = openCollectionSheet;
     main.querySelector('#upg-go').onclick = () => (ui.done ? resetRound() : spin());
@@ -77,23 +73,21 @@ function refreshGo() {
 /* ---- wheel ---- */
 function setChance(percent, animate = true) {
     ui.chance = percent;
-    const zone = document.querySelector('#upg-zone'), glow = document.querySelector('#upg-zone-glow'),
-          label = document.querySelector('#upg-percent');
+    const zone = document.querySelector('#upg-zone'), label = document.querySelector('#upg-percent');
     if (!zone) return;
-    const len = Math.max(0, Math.min(100, percent)) / 100 * CIRC;
+    const clamped = Math.max(0, Math.min(100, percent));
+    const len = clamped / 100 * CIRC;
     // The zone is centred on the bottom point (180°) and grows evenly to both sides.
-    const turn = 90 - Math.max(0, Math.min(100, percent)) * 1.8;
-    for (const el of [zone, glow]) {
-        el.style.opacity = len > 0 ? '' : '0';
-        el.style.transition = animate ? 'stroke-dasharray 1.1s cubic-bezier(.2,.8,.2,1), transform 1.1s cubic-bezier(.2,.8,.2,1)' : 'none';
-        el.style.transform = `rotate(${turn}deg)`;
-        el.setAttribute('stroke-dasharray', `${len} ${CIRC}`);
-    }
-    if (!animate) { label.textContent = (percent ? percent.toFixed(2).replace(/\.?0+$/, '') : '0') + '%'; return; }
+    zone.style.opacity = len > 0 ? '' : '0';
+    zone.style.transition = animate ? 'stroke-dasharray 1.1s cubic-bezier(.2,.8,.2,1), transform 1.1s cubic-bezier(.2,.8,.2,1)' : 'none';
+    zone.style.transform = `rotate(${90 - clamped * 1.8}deg)`;
+    zone.setAttribute('stroke-dasharray', `${len} ${CIRC}`);
+    const text = v => (v > 0 ? v.toFixed(2).replace(/\.?0+$/, '') + '%' : '');
+    if (!animate || !percent) { label.textContent = text(percent); return; }
     const from = parseFloat(label.textContent) || 0, start = performance.now();
     const step = now => {
         const t = Math.min(1, (now - start) / 1100), e = 1 - Math.pow(1 - t, 3);
-        label.textContent = (from + (percent - from) * e).toFixed(percent % 1 ? 2 : 0).replace(/\.?0+$/, '') + '%';
+        label.textContent = text(from + (percent - from) * e);
         if (t < 1 && document.body.contains(label)) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);

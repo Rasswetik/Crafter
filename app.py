@@ -138,6 +138,7 @@ def create_app(config=None):
             @wraps(fn)
             def run(*args,**kwargs):
                 raw=request.headers.get('X-Telegram-Init-Data','')
+                web_session=request.headers.get('X-Crafter-Web-Session','')
                 try:
                     if raw:
                         # The environment token is normally enough. Do not query
@@ -153,6 +154,10 @@ def create_app(config=None):
                             if not fallback or fallback == primary:
                                 raise ValueError('signature')
                             g.user = verify_telegram(raw, fallback)
+                    elif web_session:
+                        found=app.extensions['crafter_web_session_user'](web_session)
+                        if not found:abort(401,description='Сессия сайта истекла. Войдите снова.')
+                        g.user=found
                     elif app.config['DEMO_MODE']:g.user={'id':1,'first_name':'Гошан','username':'goshan_wow'}
                     else:abort(401,description='Откройте приложение через Telegram')
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):abort(401,description='Недействительная авторизация Telegram')
@@ -1442,6 +1447,8 @@ def create_app(config=None):
     install_auto_nft(app, db, auth, audit)
     from game_type import install_game_type
     install_game_type(app, db, auth, audit)
+    from web_login import install_web_login
+    install_web_login(app, db, auth, audit, lambda: (bot_settings().get('username') or app.config['BOT_USERNAME']))
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     def ensure_upgrade_listings(target, low, high):

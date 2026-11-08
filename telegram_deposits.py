@@ -140,10 +140,29 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             raise ValueError('Укажите API ID и API Hash в разделе Relayer')
         return int(value), secret.lower()
 
-    def cipher():
+    def session_key():
+        """TELEGRAM_SESSION_KEY from the environment, else a key file created once next to the database."""
         key = os.getenv('TELEGRAM_SESSION_KEY', '').strip()
+        if key:
+            return key
+        from pathlib import Path
+        path = Path(app.config['DATABASE']).resolve().parent / 'telegram_session.key'
+        try:
+            if path.exists():
+                return path.read_text().strip()
+            path.parent.mkdir(parents=True, exist_ok=True)
+            fresh = Fernet.generate_key().decode()
+            fd = os.open(str(path), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, 'w') as handle:
+                handle.write(fresh)
+            return fresh
+        except OSError:
+            return ''
+
+    def cipher():
+        key = session_key()
         if not key:
-            raise ValueError('Задайте TELEGRAM_SESSION_KEY в файле .env на сервере (Fernet-ключ)')
+            raise ValueError('Не удалось создать ключ шифрования сессии: нет прав записи в папку базы данных')
         try:
             return Fernet(key.encode('ascii'))
         except (ValueError, TypeError):
@@ -162,7 +181,7 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         c = config()
         stored = bool(c.get('api_id_encrypted') and c.get('api_hash_encrypted'))
         env = bool(os.getenv('TELEGRAM_API_ID') and os.getenv('TELEGRAM_API_HASH'))
-        return bool(os.getenv('TELEGRAM_SESSION_KEY')) and (stored or env)
+        return bool(session_key()) and (stored or env)
 
     def status():
         c = config()
@@ -174,7 +193,7 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             api_credentials_source=('relayer' if c.get('api_id_encrypted') and c.get('api_hash_encrypted')
                                     else 'render' if os.getenv('TELEGRAM_API_ID') and os.getenv('TELEGRAM_API_HASH')
                                     else 'missing'),
-            session_key_configured=bool(os.getenv('TELEGRAM_SESSION_KEY')),
+            session_key_configured=bool(session_key()),
             notification_emoji=c.get('notification_emoji') or '🎁',
             account_id=c.get('account_id'), account_name=c.get('account_name', ''),
             account_username=c.get('account_username', ''),

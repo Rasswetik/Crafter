@@ -164,3 +164,28 @@ def test_import_session_connects_the_relayer_and_stores_it_encrypted(client, mon
     with sqlite3.connect(client.application.config['DATABASE']) as db:
         stored = db.execute("SELECT payload FROM settings WHERE key='telegram_deposit_connection'").fetchone()[0]
     assert good not in stored                                  # the session is stored encrypted only
+
+
+def test_relayer_session_key_is_created_automatically_when_env_is_missing(client, monkeypatch):
+    import telegram_deposits
+    from pathlib import Path
+    monkeypatch.delenv('TELEGRAM_SESSION_KEY', raising=False)
+    monkeypatch.setenv('TELEGRAM_API_ID', '12345')
+    monkeypatch.setenv('TELEGRAM_API_HASH', 'b' * 32)
+
+    async def fake_with_client(api_id, api_hash, session, operation):
+        class C:
+            async def is_user_authorized(self):
+                return True
+
+            async def get_me(self):
+                class Me:
+                    id, first_name, last_name, username, bot = 5, 'A', 'B', 'rel', False
+                return Me()
+        return await operation(C())
+    monkeypatch.setattr(telegram_deposits, 'with_client', fake_with_client)
+    assert client.get('/api/admin/telegram-deposits', headers=signed()).json['session_key_configured'] is True
+    r = client.post('/api/admin/telegram-deposits/import-session', headers=signed(), json={'session': '1' + 'B' * 120})
+    assert r.status_code == 200 and r.json['connected'] is True
+    key_file = Path(client.application.config['DATABASE']).resolve().parent / 'telegram_session.key'
+    assert key_file.exists() and len(key_file.read_text().strip()) == 44          # a Fernet key, created once
