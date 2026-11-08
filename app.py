@@ -366,6 +366,7 @@ def create_app(config=None):
                     referral_tier_rates=referral_data['levels'], referral_commission_live=True,
                     referral_balance=referral_data['balance'], referral_rate=referral_data['rate'],
                     referral_earned=referral_data['total_earned'], new_year_enabled=new_year_enabled(),
+                    new_year_reward_per_ton=10, new_year_gram_per_ton=str(seasonal_conversion()),
                     market_test_purchases=app.config['MARKET_TEST_PURCHASES'],
                     invite_link=link)
 
@@ -919,6 +920,8 @@ def create_app(config=None):
         db().execute('INSERT INTO history VALUES(?,?,?,?,?)',
                      (history_id,owner,kind,json.dumps(snapshot),int(time.time())))
         accrue_referral(owner,history_id,kind,snapshot)
+        if (callback := app.extensions.get('crafter_new_year_trade_accrue')):
+            callback(owner,history_id,kind,snapshot)
     @app.get('/api/history')
     @auth()
     def history():
@@ -1267,6 +1270,9 @@ def create_app(config=None):
     referral_snapshot,accrue_referral=install_referral_rewards(app,db,auth,record,audit)
     from new_year import install_new_year
     new_year_enabled=install_new_year(app,db,auth,record,audit)
+    from new_year_trade_rewards import install_new_year_trade_rewards
+    seasonal_accrue,seasonal_conversion=install_new_year_trade_rewards(app,db,audit)
+    app.extensions['crafter_new_year_trade_accrue']=seasonal_accrue
     from promocodes import install_promocodes
     install_promocodes(app,db,auth,record,audit)
     from market_test import install_market_test

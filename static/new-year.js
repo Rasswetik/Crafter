@@ -98,8 +98,8 @@ async function showNewYear(){
             '<h1>Новогодний маркет</h1><p>Коллекционные NFT-подарки за новогодние шары.</p></section>'+
             '<div class="ny-section-title"><h2>Праздничные подарки</h2><span>'+data.lots.length+' лотов</span></div>'+
             (data.lots.length?'<div class="ny-grid">'+data.lots.map(lotTile).join('')+'</div>':
-             '<div class="ny-empty">'+displayOrnament()+'<h3>Скоро появятся подарки</h3>'+
-             '<p>Администрация пока не разместила новогодние лоты.</p></div>')+
+             '<div class="ny-empty">'+displayOrnament()+'<h3>Подарочки уже в пути!</h3>'+
+             '<p>Совсем скоро здесь появятся новогодние NFT-подарки. Следите за обновлениями!</p></div>')+
             '</div>';
         main.querySelectorAll('[data-ny-lot]').forEach(btn=>{
             btn.addEventListener('click',()=>openLot(btn.dataset.nyLot));

@@ -95,6 +95,7 @@ function renderResaleEditor() {
         </div>
         <div class="resale-editor-footer">
             ${unlist ? '' : `<div class="resale-fee"><span>Комиссия маркета (4%)</span><b><span data-resale-fee>0</span> ${gramIcon()}</b></div>`}
+            ${unlist ? '' : (window.crafterSeasonRewardHTML?.('sale',1,'GRAM','По цене продажи · начисляется после сделки') || '')}
             <p class="resale-error" role="alert" hidden></p>
             <button type="button" class="primary resale-confirm" disabled>
                 <b data-resale-label></b><small data-resale-subtitle></small>
@@ -119,6 +120,7 @@ function renderResaleEditor() {
         const sum = amounts.reduce((total, price) => total + price, 0);
         const fee = unlist ? 0 : amounts.reduce((total, price) => total + Math.floor((price * 4 + 50) / 100), 0);
         if (!unlist) editor.querySelector('[data-resale-fee]').textContent = money(fee / 100);
+        if (!unlist) window.crafterSeasonRewardUpdate?.(editor,sum / 100,'GRAM');
         const count = gifts.length + ' ' + giftCountWord(gifts.length);
         editor.querySelector('[data-resale-label]').textContent = unlist ? 'Снять с продажи ' + count :
             edit ? 'Сохранить цену' : 'Продать ' + (gifts.length === 1 ? 'подарок' : count);

@@ -450,6 +450,11 @@ function showGiftDetail(gift, source) {
             ${listed ? `<div class="owned-listing-price"><span>Цена продажи</span><strong>${money(gift.listing_price ?? gift.price)} GRAM</strong>
                 <button type="button" onclick="startResale('edit', ${arg(gift.id)})">Редактировать</button></div>` : ''}
         </div>
+        ${own && !gift.test_only && !gift.catalog_only
+            ? (window.crafterSeasonRewardForFloor?.(gift) || '')
+            : !own && !gift.own_listing && !gift.catalog_only && !gift.test_only
+              ? (window.crafterSeasonRewardHTML?.('purchase',gift.price,gift.price_unit || 'GRAM') || '')
+              : ''}
         ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` : own && gift.test_only ? `<div class="ny-footnote">Тестовый подарок в инвентаре Crafter. Вывод и продажа недоступны.</div>` : own ? `<div class="product-actions owned-gift-actions">
             <button class="secondary" onclick="requestGiftWithdrawal(${arg(gift.id)})">Вывести NFT</button>
             <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>

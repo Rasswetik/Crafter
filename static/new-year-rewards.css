@@ -1,0 +1,11 @@
+/* Seasonal ball rewards for purchases, resale editor, and owned-gift cards. */
+.crafter-season-reward{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:13px 0 14px;padding:13px 15px;border:1px solid #49647564;border-radius:17px;background:linear-gradient(108deg,#293a485d,#1c25305e);box-shadow:inset 0 1px #ffffff18}
+.crafter-season-reward>div{min-width:0}.crafter-season-reward>div>span{display:block;font-size:13px;color:#cad8e7;font-weight:650}
+.crafter-season-reward>div>small{display:block;margin-top:4px;font-size:10px;line-height:1.35;color:#8f9eaf}
+.crafter-season-reward>strong{display:flex;align-items:center;gap:5px;color:#ffe8ad;font-size:19px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.crafter-season-reward>strong>img{width:23px;height:23px;object-fit:contain}
+.resale-editor-footer .crafter-season-reward{margin:7px 0 11px;padding:8px 12px}
+.resale-editor-footer .crafter-season-reward>strong{font-size:17px}
+.cart-checkout .crafter-season-reward{margin:9px 0 11px}
+.ny-empty{max-width:680px;margin:10px auto 0}
+@media(max-width:390px){.crafter-season-reward{padding:10px}.crafter-season-reward>div>span{font-size:12px}.crafter-season-reward>strong{font-size:16px}}
