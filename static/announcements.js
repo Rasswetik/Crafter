@@ -17,20 +17,22 @@ let crafterPopupActive=null;
 let crafterAnnouncementEntryStarted=false;
 function crafterCloseAnnouncement(){
  const dialog=crafterPopupActive;
- if(!dialog)return;
+ if(!dialog||dialog.classList.contains('crafter-announcement-closing'))return;
  clearTimeout(dialog.crafterCloseTimer);
  dialog.classList.add('crafter-announcement-closing');
- dialog.addEventListener('animationend',()=>{
+ let finished=false;
+ const finish=()=>{
+  if(finished)return;
+  finished=true;
   if(dialog.open)dialog.close();
   dialog.remove();
   if(crafterPopupActive===dialog)crafterPopupActive=null;
+ };
+ dialog.addEventListener('animationend',event=>{
+  if(event.target===dialog)finish();
  },{once:true});
- // Animation-disabled environments must still close.
- dialog.crafterCloseTimer=setTimeout(()=>{
-  if(dialog.open)dialog.close();
-  dialog.remove();
-  if(crafterPopupActive===dialog)crafterPopupActive=null;
- },450);
+ // Never keep the visitor in a modal when reduced-motion events are absent.
+ dialog.crafterCloseTimer=setTimeout(finish,260);
 }
 function crafterShowAnnouncement(cfg,preview=false){
  if(!cfg||crafterPopupActive)return;
@@ -53,11 +55,8 @@ function crafterShowAnnouncement(cfg,preview=false){
  const close=document.createElement('button');
  close.type='button';close.className='crafter-announcement-close';
  close.setAttribute('aria-label','Закрыть объявление');
- close.disabled=true;
- close.innerHTML='<svg class="crafter-announcement-ring" viewBox="0 0 44 44" aria-hidden="true">'+
-  '<circle cx="22" cy="22" r="19" stroke="currentColor" fill="none" stroke-width="3" opacity=".24"/>'+
-  '<circle class="crafter-announcement-ring-progress" cx="22" cy="22" r="19" stroke="currentColor" fill="none" stroke-width="3"/></svg>'+
-  '<span aria-hidden="true">×</span>';
+ close.innerHTML='<svg class="crafter-announcement-cross" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">'+
+  '<path d="M6 6 18 18M18 6 6 18"/></svg>';
  const card=document.createElement('div');
  card.className='crafter-announcement-card';
  const media=document.createElement('div');media.className='crafter-announcement-media';
@@ -102,26 +101,17 @@ function crafterShowAnnouncement(cfg,preview=false){
  });
  card.append(media,text,action);
  banner.append(close,card);
- const delay=Math.min(12,Math.max(1,Number(cfg.close_delay)||3));
- banner.style.setProperty('--announcement-close-delay',delay+'s');
- close.addEventListener('click',()=>{if(!close.disabled)crafterCloseAnnouncement();});
+ // No unskippable close delay. Click, Escape or backdrop dismisses instantly.
+ close.addEventListener('click',crafterCloseAnnouncement);
  banner.addEventListener('cancel',event=>{
-  if(close.disabled){event.preventDefault();return;}
   event.preventDefault();crafterCloseAnnouncement();
  });
  banner.addEventListener('click',event=>{
-  if(event.target===banner&&!close.disabled)crafterCloseAnnouncement();
+  if(event.target===banner)crafterCloseAnnouncement();
  });
  document.body.append(banner);
  crafterPopupActive=banner;
  banner.showModal();
- const ring=close.querySelector('.crafter-announcement-ring-progress');
- ring.style.animationDuration=delay+'s';
- banner.crafterCloseTimer=setTimeout(()=>{
-  if(!banner.isConnected)return;
-  close.disabled=false;
-  close.classList.add('crafter-announcement-close-ready');
- },delay*1000);
 }
 async function crafterAnnouncementsOnEnter(){
  if(crafterAnnouncementEntryStarted)return;
