@@ -1,4 +1,4 @@
-"""Administrative GRAM promo codes (TON Balance in the Crafter UI)."""
+"""Administrative GRAM or seasonal-ball promo rewards."""
 import json
 import secrets
 import re
@@ -26,6 +26,7 @@ def install_promocodes(app, db, auth, record, audit):
         db().executescript("""
             CREATE TABLE IF NOT EXISTS promo_codes(
                 code TEXT PRIMARY KEY, reward TEXT NOT NULL,
+                currency TEXT NOT NULL DEFAULT 'GRAM',
                 uses_limit BIGINT NOT NULL, used BIGINT NOT NULL DEFAULT 0,
                 active BIGINT NOT NULL DEFAULT 1, created_by BIGINT NOT NULL,
                 created BIGINT NOT NULL
@@ -35,6 +36,15 @@ def install_promocodes(app, db, auth, record, audit):
                 reward TEXT NOT NULL, PRIMARY KEY(code,user_id)
             );
         """)
+        # Existing production promo codes are always denominated in GRAM.
+        # Add the field without rebuilding the table or losing usage history.
+        database=db()
+        if hasattr(database,'connection') and not isinstance(database.connection,type(None)):
+            database.execute("ALTER TABLE promo_codes ADD COLUMN IF NOT EXISTS currency TEXT NOT NULL DEFAULT 'GRAM'")
+        else:
+            columns=[row['name'] for row in database.execute("PRAGMA table_info(promo_codes)").fetchall()]
+            if 'currency' not in columns:
+                database.execute("ALTER TABLE promo_codes ADD COLUMN currency TEXT NOT NULL DEFAULT 'GRAM'")
 
     @app.get('/api/admin/promocodes')
     @auth(admin=True)
@@ -53,7 +63,18 @@ def install_promocodes(app, db, auth, record, audit):
         except (TypeError, ValueError):abort(400,description='Неверный лимит активаций')
         if str(body.get('limit',0))!=str(limit) or not 1<=limit<=1000000:
             abort(400,description='Количество активаций: 1–1000000')
-        reward=to_amount(body.get('reward'))
+        currency=body.get('currency','GRAM')
+        if currency not in ('GRAM','BALL'):
+            abort(400,description='Тип награды: основной баланс или новогодние шары')
+        if currency=='GRAM':
+            reward=str(to_amount(body.get('reward')))
+        else:
+            raw=body.get('reward')
+            try: balls=int(raw)
+            except (ValueError,TypeError):abort(400,description='Введите целое число шаров')
+            if str(raw)!=str(balls) or not 1<=balls<=1000000000:
+                abort(400,description='Награда: от 1 до 1 000 000 000 шаров')
+            reward=str(balls)
         with db():
             db().execute('BEGIN IMMEDIATE')
             if code:
@@ -66,11 +87,11 @@ def install_promocodes(app, db, auth, record, audit):
                         code=generated;break
                 if not code:abort(503,description='Не удалось создать уникальный код')
             db().execute(
-                "INSERT INTO promo_codes(code,reward,uses_limit,used,active,created_by,created) "
-                "VALUES(?,?,?,0,1,?,?)",
-                (code,str(reward),limit,g.user['id'],int(time.time())))
+                "INSERT INTO promo_codes(code,reward,currency,uses_limit,used,active,created_by,created) "
+                "VALUES(?,?,?,?,0,1,?,?)",
+                (code,reward,currency,limit,g.user['id'],int(time.time())))
         audit('Promo created '+code)
-        return {'ok':True,'code':code,'reward':str(reward),'limit':limit}
+        return {'ok':True,'code':code,'reward':reward,'currency':currency,'limit':limit}
 
     @app.post('/api/admin/promocodes/<code>/status')
     @auth(admin=True)
@@ -107,13 +128,29 @@ def install_promocodes(app, db, auth, record, audit):
                 "UPDATE promo_codes SET used=used+1 WHERE code=? AND active=1 AND used<uses_limit",
                 (code,)).rowcount!=1:
                 abort(409,description='Активации закончились')
+            currency=row['currency'] or 'GRAM'
             account=db().execute("SELECT balance FROM demo_accounts WHERE user_id=?",(uid,)).fetchone()
             before=Decimal(str(account['balance'])) if account else Decimal('0')
-            after=before+Decimal(row['reward'])
-            db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) "
-                         "ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance",
-                         (uid,str(after)))
+            after=before
+            new_year_balance=None
+            if currency=='BALL':
+                wallet=db().execute("SELECT balls,donate,tinsel FROM new_year_wallets WHERE user_id=?",(uid,)).fetchone()
+                count=int(wallet['balls']) if wallet else 0
+                updated=count+int(row['reward'])
+                if updated>1000000000:
+                    abort(409,description='Баланс новогодних шаров превысит максимальное значение')
+                db().execute("INSERT INTO new_year_wallets(user_id,balls) VALUES(?,?) "
+                             "ON CONFLICT(user_id) DO UPDATE SET balls=excluded.balls",(uid,updated))
+                new_year_balance={'balls':updated,'donate':int(wallet['donate']) if wallet else 0,
+                                  'tinsel':int(wallet['tinsel']) if wallet else 0}
+            else:
+                after=before+Decimal(row['reward'])
+                db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) "
+                             "ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance",
+                             (uid,str(after)))
             db().execute("INSERT INTO promo_claims(code,user_id,claimed_at,reward) VALUES(?,?,?,?)",
                          (code,uid,int(time.time()),row['reward']))
-            record('promo_redeem',{'code':code,'reward':row['reward'],'balance_after':str(after)},uid=uid)
-        return {'ok':True,'reward':row['reward'],'balance':str(after),'currency':'GRAM'}
+            record('promo_redeem',{'code':code,'reward':row['reward'],'currency':currency,
+                                   'balance_after':str(after),'new_year_balance':new_year_balance},uid=uid)
+        return {'ok':True,'reward':row['reward'],'balance':str(after),
+                'currency':currency,'new_year_balance':new_year_balance}

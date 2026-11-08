@@ -18,67 +18,136 @@ _LIMIT = 10**9
 
 
 
-def portal_nft_metadata(slug):
-    """Resolve the exact Telegram collectible from the Portals public NFT catalogue.
+def telegram_nft_metadata(slug):
+    """Retrieve exact collectible traits from Telegram's public NFT page.
 
-    An external collection number is a prefix search; we MUST compare the returned
-    number and the collection slug before trusting attributes or artwork.
+    Avoid relying on Portals listing availability for ownership-independent
+    attributes. The public page is descriptive, never custody proof.
     """
-    collection, index = slug.rsplit('-', 1)
-    number = int(index)
-    label = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', collection.replace('_',' '))
+    from html import unescape
+    from html.parser import HTMLParser
+    from urllib.parse import urlsplit
+    from urllib.request import Request, urlopen
+
+    class GiftPageParser(HTMLParser):
+        def __init__(self):
+            super().__init__(convert_charrefs=True)
+            self.meta={}
+            self.current=''
+            self.cell=''
+            self.cells=[]
+            self.rows=[]
+            self.in_row=False
+        def handle_starttag(self,tag,attrs):
+            attr=dict(attrs)
+            if tag=='meta':
+                key=(attr.get('name') or attr.get('property') or '').lower()
+                if key and isinstance(attr.get('content'),str):
+                    self.meta[key]=attr['content']
+            if tag=='tr':
+                self.in_row=True
+                self.cells=[]
+            elif self.in_row and tag in ('th','td'):
+                self.current=tag
+                self.cell=''
+        def handle_data(self,data):
+            if self.current:
+                self.cell+=data
+        def handle_endtag(self,tag):
+            if tag==self.current and tag in ('th','td'):
+                self.cells.append((tag,self.cell.strip()))
+                self.current=''
+            if tag=='tr':
+                if self.cells:self.rows.append(self.cells)
+                self.in_row=False
+    request=Request('https://t.me/nft/'+slug,headers={
+        'Accept':'text/html','User-Agent':'Mozilla/5.0 (compatible; Crafter/1.0)'})
     try:
-        data = portals_get('nfts/search', {
-            'external_collection_number': number, 'name_filter': label,
-            'limit': 100, 'offset': 0,
-        })
-    except (HTTPError, URLError, TimeoutError, ValueError, KeyError, OSError) as error:
-        abort(503, description='Portals сейчас не возвращает данные NFT. Попробуйте позже.')
-    results = data.get('results', []) if isinstance(data, dict) else []
-    canonical = lambda s: re.sub(r'[^a-z0-9]', '', str(s or '').lower())
-    wanted = canonical(collection)
-    for nft in results if isinstance(results, list) else []:
-        if not isinstance(nft, dict):
-            continue
-        try:
-            if int(nft.get('external_collection_number', -1)) != number:
-                continue
-        except (ValueError, TypeError):
-            continue
-        tg_slug = str(nft.get('tg_id') or '')
-        if canonical(nft.get('name')) != wanted and canonical(tg_slug.rsplit('-',1)[0]) != wanted:
-            continue
-        # The exact NFT has been verified by collection AND full number.
-        attrs = {}
-        rarity = {}
-        for entry in nft.get('attributes') or []:
-            if not isinstance(entry, dict):
-                continue
-            key = str(entry.get('type') or '').lower()
-            if key not in ('model', 'backdrop', 'symbol', 'pattern'):
-                continue
-            value = entry.get('value')
-            if isinstance(value, str):
-                attrs['symbol' if key == 'pattern' else key] = value[:100]
-            try:
-                per_mille = float(entry.get('rarity_per_mille'))
-                if 0 <= per_mille <= 1000:
-                    rarity['symbol' if key == 'pattern' else key] = per_mille
-            except (TypeError, ValueError):
-                pass
-        photo = nft.get('photo_url')
-        if not isinstance(photo, str) or not photo.startswith('https://'):
-            photo = ''
-        return {
-            'model': attrs.get('model', ''), 'symbol': attrs.get('symbol', ''),
-            'backdrop': attrs.get('backdrop', ''),
-            'floor_price': str(nft.get('floor_price') or ''),
-            'floor_unit': 'GRAM',
-            'image': photo, 'portal_nft_id': str(nft.get('id') or ''),
-            'rarity': rarity, 'portal_verified_at': int(time.time()),
-            'portal_status': str(nft.get('status') or ''),
-        }
-    abort(404, description='Точный NFT по указанной ссылке не найден в Portals (коллекция и номер).')
+        with urlopen(request,timeout=6) as response:
+            actual=urlsplit(response.geturl())
+            if actual.hostname not in ('t.me','telegram.me') or actual.path.lower().rstrip('/')!='/nft/'+slug.lower():
+                raise ValueError('Collectible link was redirected')
+            html=response.read(1_250_001)
+            if len(html)>1_250_000:
+                raise ValueError('Telegram page too large')
+    except (HTTPError,URLError,TimeoutError,OSError,ValueError):
+        abort(503,description='Telegram сейчас не возвращает данные NFT. Попробуйте позже.')
+    parser=GiftPageParser()
+    parser.feed(html.decode('utf-8','replace'))
+    meta=parser.meta
+    description=unescape(meta.get('twitter:description') or meta.get('og:description') or '')
+    fields={}
+    for line in description.splitlines():
+        match=re.match(r'^\s*(Model|Backdrop|Background|Symbol|Pattern)\s*:\s*(.*?)\s*$',line,re.I)
+        if match:
+            fields[match.group(1).lower()]=match.group(2)
+    for row in parser.rows:
+        th=next((value for tag,value in row if tag=='th'),None)
+        td=next((value for tag,value in row if tag=='td'),None)
+        if th and td and th.strip().lower() in ('model','backdrop','background','symbol','pattern'):
+            fields[th.strip().lower()]=td
+    def parse_trait(*keys):
+        for key in keys:
+            value=fields.get(key,'')
+            if value:
+                raw=re.sub(r'\s+',' ',value).strip()
+                rare=re.search(r'\s+(\d+(?:\.\d+)?)\s*%\s*$',raw)
+                val=raw[:rare.start()].strip() if rare else raw
+                return val[:100],float(rare.group(1)) if rare else None
+        return '',None
+    model,model_rarity=parse_trait('model')
+    symbol,symbol_rarity=parse_trait('symbol','pattern')
+    backdrop,backdrop_rarity=parse_trait('backdrop','background')
+    if not all((model,symbol,backdrop)):
+        abort(503,description='Telegram не вернул модель, узор или фон этого NFT.')
+    title=meta.get('og:title') or meta.get('twitter:title') or ''
+    idx=slug.rsplit('-',1)[-1]
+    if title:
+        numbers=re.findall(r'#(\d+)',title)
+        if numbers and idx not in numbers:
+            abort(409,description='Telegram вернул информацию о другом NFT.')
+    rarity={}
+    for key,value in (('model',model_rarity),('symbol',symbol_rarity),('backdrop',backdrop_rarity)):
+        if value is not None and 0<=value<=100:
+            rarity[key]=value*10
+    image=meta.get('og:image') or meta.get('twitter:image') or ''
+    if not isinstance(image,str) or not image.startswith('https://'):
+        image='https://nft.fragment.com/gift/'+slug.lower()+'.webp'
+    return {'model':model,'symbol':symbol,'backdrop':backdrop,
+            'image':image,'rarity':rarity,'telegram_verified_at':int(time.time()),
+            'metadata_source':'telegram'}
+
+def portals_collection_floor(slug):
+    """Best-effort Portals floor for a collection; never block NFT details."""
+    canonical=lambda value: re.sub(r'[^a-z0-9]','',str(value or '').lower())
+    name=canonical(slug.rsplit('-',1)[0])
+    try:
+        raw=portals_get('collections',{'limit':5000})
+        rows=raw if isinstance(raw,list) else raw.get('collections',raw.get('items',[]))
+        collection=next((item for item in rows if canonical(item.get('name'))==name),None)
+        if not collection:
+            return ''
+        floor=collection.get('floor_price')
+        if floor is not None and float(floor)>0:
+            return str(floor)
+        if not collection.get('id'):
+            return ''
+        result=portals_get('nfts/search',{
+            'collection_id':collection['id'],'status':'listed',
+            'sort_by':'price asc','limit':1,'offset':0})
+        gifts=result.get('results',[])
+        if gifts and float(gifts[0].get('price',0))>0:
+            return str(gifts[0]['price'])
+    except (HTTPError,URLError,TimeoutError,KeyError,ValueError,TypeError,OSError,StopIteration):
+        pass
+    return ''
+
+def collectible_metadata(slug):
+    verified=telegram_nft_metadata(slug)
+    verified['floor_price']=portals_collection_floor(slug)
+    verified['floor_unit']='GRAM'
+    verified['floor_checked_at']=int(time.time())
+    return verified
 
 
 def install_new_year(app, db, auth, record, audit):
@@ -121,9 +190,10 @@ def install_new_year(app, db, auth, record, audit):
             'floor_price':extra.get('floor_price',''),
             'floor_unit':extra.get('floor_unit','GRAM'),
             'rarity':extra.get('rarity',{}),
-            'image':extra.get('image',''),
+            'image':extra.get('image') or 'https://nft.fragment.com/gift/'+row['slug'].lower()+'.webp',
             'portal_nft_id':extra.get('portal_nft_id',''),
             'portal_verified_at':extra.get('portal_verified_at',0),
+            'telegram_verified_at':extra.get('telegram_verified_at',0),
             'telegram_url':row['nft_url'], 'telegram_slug':row['slug'],
             'collection_id':re.sub(r'[^a-z0-9]','',row['title'].lower()),
             'price_unit':'BALL', 'price':int(row['price'])
@@ -180,9 +250,20 @@ def install_new_year(app, db, auth, record, audit):
         if not row or row['status'] != 'active':
             abort(404, description='Лот уже недоступен')
         extra = json.loads(row['metadata'])
-        if int(extra.get('portal_verified_at') or 0) < int(time.time()) - 900:
-            verified = portal_nft_metadata(row['slug'])
+        now=int(time.time())
+        update=False
+        if int(extra.get('telegram_verified_at') or 0) < now - 86400:
+            verified=telegram_nft_metadata(row['slug'])
             extra.update(verified)
+            update=True
+        if int(extra.get('floor_checked_at') or 0) < now - 600:
+            floor=portals_collection_floor(row['slug'])
+            if floor or not extra.get('floor_price'):
+                extra['floor_price']=floor
+            extra['floor_unit']='GRAM'
+            extra['floor_checked_at']=now
+            update=True
+        if update:
             with db():
                 db().execute("UPDATE new_year_lots SET metadata=? WHERE id=? AND status='active'",
                              (json.dumps(extra,ensure_ascii=False),lot_id))
@@ -205,7 +286,7 @@ def install_new_year(app, db, auth, record, audit):
             abort(400,description='Стоимость: от 1 до 1 000 000 000 шаров')
         title=re.sub(r'(?<=[a-z])(?=[A-Z])',' ',prefix.replace('_',' ')).strip()
         # Fetch real NFT attributes and image; never trust manually supplied metadata.
-        extra=portal_nft_metadata(slug)
+        extra=collectible_metadata(slug)
         lot_id=uuid.uuid4().hex
         with db():
             db().execute('BEGIN IMMEDIATE')

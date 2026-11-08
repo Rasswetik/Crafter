@@ -28,8 +28,11 @@ async function submitPromo(form){
     button.disabled=true;
     try{
         const result=await api('promocodes/redeem',{code});
-        feedback(form,true,'Получено: '+liveAmount(result.reward)+' GRAM');
+        const balls=result.currency==='BALL';
+        feedback(form,true,'Получено: '+liveAmount(result.reward)+(balls?' шаров':' GRAM'));
         if(state.me){state.me.balance=result.balance;updateBalance();}
+        if(balls&&typeof window.crafterNewYearUpdateBalance==='function')
+            window.crafterNewYearUpdateBalance(result.new_year_balance);
         refreshLiveBalance();
     }catch(error){feedback(form,false,error.message||'Промокод неверный');}
     finally{redeeming=false;if(button.isConnected)button.disabled=false;}
@@ -89,9 +92,19 @@ function referralMarkup(){
     const rates=[5,6,7,8,10];
     const level=Math.max(1,Math.min(5,Number(me.referral_level)||1));
     const link=me.invite_link||'Ссылка недоступна';
-    return '<section class="crafter-referral-glass">'+
-        '<div class="crafter-referral-heading"><span>CRAFTER · РЕФЕРАЛЫ</span><h2>Приглашай друзей, получай GRAM</h2>'+
-        '<p>До 10% от комиссии Crafter за игры и сделки приглашённых друзей.</p></div>'+
+    const storageKey='crafter-referral-open:'+String(me.user?.id||'default');
+    let expanded=false;
+    try{expanded=sessionStorage.getItem(storageKey)==='1';}catch(_){}
+    return '<details class="crafter-referral-glass" id="crafter-referral-panel" '+
+        (expanded?'open':'')+'>'+
+        '<summary class="crafter-referral-summary">'+
+        '<span class="crafter-referral-summary-title"><small>CRAFTER · РЕФЕРАЛЫ</small>'+
+        '<strong>Реферальная система</strong></span>'+
+        '<span class="crafter-referral-summary-metrics"><span>'+level+' ур. · '+rates[level-1]+'%</span>'+
+        '<strong id="crafter-referral-balance">'+liveAmount(me.referral_balance)+' GRAM</strong></span>'+
+        '<span class="crafter-referral-chevron" aria-hidden="true">⌄</span>'+
+        '</summary><div class="crafter-referral-content">'+
+        '<p class="crafter-referral-description">До 10% от комиссии Crafter за игры и сделки приглашённых друзей.</p>'+
         '<div class="crafter-referral-tiers">'+rates.map((rate,i)=>
             '<div class="crafter-referral-tier'+(i+1===level?' is-current':'')+'"><small>'+String(i+1)+' ур.</small><strong>'+rate+'%</strong></div>'
         ).join('')+'</div>'+
@@ -102,10 +115,8 @@ function referralMarkup(){
         '<button type="button" id="crafter-referral-copy">Копировать</button></div>'+
         '<div class="crafter-referral-actions"><button type="button" id="crafter-referral-share">✈ Пригласить друзей</button>'+
         '<button type="button" id="crafter-referral-withdraw">Вывести баланс</button></div>'+
-        '<div class="crafter-referral-earnings">Реферальный баланс <strong id="crafter-referral-balance">'+
-        liveAmount(me.referral_balance)+' GRAM</strong></div>'+
         '<p class="crafter-referral-note">Минимум для перевода — 1 GRAM. Начисления поступают с оплаченных комиссий.</p>'+
-        '</section>';
+        '</div></details>';
 }
 function enhanceProfile(){
     const root=document.querySelector('#main');
@@ -116,6 +127,11 @@ function enhanceProfile(){
     root.querySelector('.crafter-referral-glass')?.remove();
     const profile=root.querySelector('.portal-profile');
     profile?.insertAdjacentHTML('afterend',referralMarkup());
+    const referrals=root.querySelector('#crafter-referral-panel');
+    referrals?.addEventListener('toggle',()=>{
+        const key='crafter-referral-open:'+String(state.me?.user?.id||'default');
+        try{sessionStorage.setItem(key,referrals.open?'1':'0');}catch(_){}
+    });
     root.querySelector('#crafter-referral-copy')?.addEventListener('click',copyReferral);
     root.querySelector('#crafter-referral-share')?.addEventListener('click',shareReferral);
     root.querySelector('#crafter-referral-withdraw')?.addEventListener('click',withdrawReferral);

@@ -59,3 +59,26 @@
 }
 .crafter-promo-modal{padding:5px 0 8px}
 .crafter-profile-promo:focus-visible{outline:2px solid #82c2ff;outline-offset:3px}
+
+/* Compact, expandable referral summary; the user controls the detail view. */
+.crafter-referral-glass{margin:12px 0!important;padding:0!important;border-radius:19px!important;overflow:hidden}
+.crafter-referral-glass:not([open]){background:linear-gradient(120deg,#2837468a,#181d24)!important}
+.crafter-referral-summary{list-style:none;display:flex;align-items:center;gap:13px;padding:14px 17px;cursor:pointer;min-height:67px}
+.crafter-referral-summary::-webkit-details-marker{display:none}
+.crafter-referral-summary-title{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}
+.crafter-referral-summary-title small{font-size:9px;letter-spacing:.14em;color:#9cb4cd;font-weight:800}
+.crafter-referral-summary-title strong{font-size:14px;color:#f5f7fa;white-space:nowrap}
+.crafter-referral-summary-metrics{display:flex;flex-direction:column;align-items:flex-end;gap:4px;white-space:nowrap}
+.crafter-referral-summary-metrics span{font-size:11px;color:#b7cde6}
+.crafter-referral-summary-metrics strong{font-size:14px;color:#f1f5fa}
+.crafter-referral-chevron{font-size:21px;line-height:1;color:#9fb1c3;transition:transform .17s}
+.crafter-referral-glass[open] .crafter-referral-chevron{transform:rotate(180deg)}
+.crafter-referral-content{padding:2px 17px 17px;border-top:1px solid #ffffff1b}
+.crafter-referral-description{font-size:12px;line-height:1.5;margin:11px 0;color:#a6b1be}
+.crafter-referral-content .crafter-referral-tiers{gap:5px}
+.crafter-referral-content .crafter-referral-tier{padding:8px 2px}
+.crafter-referral-content .crafter-referral-stats{margin:11px 0}
+.crafter-referral-content .crafter-referral-stats>div{padding:10px}
+.crafter-referral-content .crafter-referral-actions{margin:10px 0 0}
+.crafter-referral-content .crafter-referral-actions button{min-height:42px}
+@media(max-width:410px){.crafter-referral-summary{padding:12px 11px;gap:7px}.crafter-referral-summary-title strong{font-size:12px}.crafter-referral-summary-metrics strong{font-size:12px}.crafter-referral-content{padding:2px 12px 14px}}

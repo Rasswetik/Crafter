@@ -8,13 +8,13 @@ import new_year
 
 
 def test_new_year_permissions_lots_balances_and_idempotent_checkout(client,monkeypatch):
-    monkeypatch.setattr(new_year,'portal_nft_metadata',lambda slug: {
+    monkeypatch.setattr(new_year,'telegram_nft_metadata',lambda slug: {
         'model':'Iron Rose','symbol':'Coonskin Cap','backdrop':'Persimmon',
-        'floor_price':'4.28','floor_unit':'GRAM',
         'image':'https://nft.fragment.com/verified/photo.webp',
-        'portal_nft_id':'exact-gift-id','rarity':{'model':30},
-        'portal_verified_at':int(time.time()),'portal_status':'unlisted'
+        'rarity':{'model':30},'telegram_verified_at':int(time.time()),
+        'metadata_source':'telegram'
     })
+    monkeypatch.setattr(new_year,'portals_collection_floor',lambda slug:'4.28')
     admin=signed(42)
     player=signed(43)
     assert client.get('/api/me',headers=admin).status_code==200
@@ -126,30 +126,84 @@ def test_referral_five_levels_and_minimum_cash_out(client):
                        json={'request_id':'referral-withdraw-1'}).status_code==409
 
 
-def test_portals_exact_nft_metadata_rejects_wrong_collection_and_number(monkeypatch):
-    requested=[]
-    def stub_get(path,params):
-        requested.append((path,params))
-        return {'results':[
-            {'name':'Another Gift','external_collection_number':426793,
-             'attributes':[{'type':'Model','value':'Incorrect'}]},
-            {'name':'Chill Flame','external_collection_number':426794,
-             'attributes':[{'type':'Model','value':'Incorrect'}]},
-            {'name':'Chill Flame','external_collection_number':426793,
-             'id':'verified-id','photo_url':'https://portal-market.com/photo/exact.png',
-             'floor_price':'1.97','status':'unlisted',
-             'attributes':[{'type':'Model','value':'Iron Rose','rarity_per_mille':30},
-                           {'type':'Symbol','value':'Coonskin Cap','rarity_per_mille':4},
-                           {'type':'Backdrop','value':'Persimmon','rarity_per_mille':12}]}
-        ]}
-    monkeypatch.setattr(new_year,'portals_get',stub_get)
-    result=new_year.portal_nft_metadata('ChillFlame-426793')
-    assert requested[0][0]=='nfts/search'
-    assert requested[0][1]['external_collection_number']==426793
-    assert result['model']=='Iron Rose'
-    assert result['symbol']=='Coonskin Cap'
-    assert result['backdrop']=='Persimmon'
-    assert result['floor_price']=='1.97'
-    assert result['floor_unit']=='GRAM'
-    assert result['image']=='https://portal-market.com/photo/exact.png'
-    assert result['rarity']['symbol']==4
+def test_telegram_exact_nft_metadata_without_portals_listing(monkeypatch):
+    import urllib.request
+    from io import BytesIO
+    slug='ChillFlame-426793'
+    body='''<!doctype html><html><head>
+      <meta property="og:title" content="Chill Flame #426793">
+      <meta name="twitter:description" content="Model: Iron Rose&#10;Backdrop: Persimmon&#10;Symbol: Coonskin Cap">
+      <meta property="og:image" content="https://cdn.telegram.org/gift/exact.png">
+      </head><body><table><tr><th>Model</th><td>Iron Rose 3%</td></tr>
+      <tr><th>Backdrop</th><td>Persimmon 1.2%</td></tr>
+      <tr><th>Symbol</th><td>Coonskin Cap 0.4%</td></tr></table></body></html>'''
+    class Response:
+        def __enter__(self):return self
+        def __exit__(self,*args):return False
+        def geturl(self):return 'https://t.me/nft/'+slug
+        def read(self,limit):return body.encode()
+    monkeypatch.setattr(urllib.request,'urlopen',lambda *a,**kw:Response())
+    data=new_year.telegram_nft_metadata(slug)
+    assert data['metadata_source']=='telegram'
+    assert data['model']=='Iron Rose'
+    assert data['symbol']=='Coonskin Cap'
+    assert data['backdrop']=='Persimmon'
+    assert data['image']=='https://cdn.telegram.org/gift/exact.png'
+    assert data['rarity']=={'model':30.0,'symbol':4.0,'backdrop':12.0}
+
+
+def test_portals_collection_floor_from_exact_collection(monkeypatch):
+    requests=[]
+    def fake_portals(path,params):
+        requests.append((path,params))
+        if path=='collections':
+            return {'collections':[{'id':'not-lunar','name':'Another Gift'},
+                                   {'id':'lunar-id','name':'Lunar Snake'}]}
+        assert path=='nfts/search'
+        assert params['collection_id']=='lunar-id' and params['sort_by']=='price asc'
+        return {'results':[{'price':'4.23'}]}
+    monkeypatch.setattr(new_year,'portals_get',fake_portals)
+    assert new_year.portals_collection_floor('LunarSnake-98916')=='4.23'
+    assert new_year.portals_collection_floor('MissingGift-1')==''
+
+
+def test_promo_ball_reward_separate_from_gram_and_repeat_protection(client):
+    admin=signed(42)
+    first=signed(43)
+    second=signed(44)
+    for header in (admin,first,second):
+        assert client.get('/api/me',headers=header).status_code==200
+    made=client.post('/api/admin/promocodes',headers=admin,json={
+        'currency':'BALL','reward':'250','limit':'1'})
+    assert made.status_code==200,made.json
+    code=made.json['code']
+    assert made.json['currency']=='BALL'
+    assert client.post('/api/admin/promocodes',headers=admin,json={
+        'currency':'BALL','reward':'0.5','limit':'1'}).status_code==400
+    result=client.post('/api/promocodes/redeem',headers=first,json={'code':code})
+    assert result.status_code==200,result.json
+    assert result.json['currency']=='BALL'
+    assert result.json['new_year_balance']['balls']==250
+    assert client.get('/api/balance',headers=first).json['balance']=='0'
+    assert client.get('/api/balance',headers=first).json['new_year']['balls']==250
+    assert client.post('/api/promocodes/redeem',headers=first,json={'code':code}).status_code==409
+    assert client.post('/api/promocodes/redeem',headers=second,json={'code':code}).status_code==409
+
+
+
+def test_seasonal_frontend_and_admin_users_navigation_regression():
+    from pathlib import Path
+    root=Path(__file__).resolve().parent.parent
+    ny=(root/'static/new-year.js').read_text(encoding='utf-8')
+    promo=(root/'static/promo-profile.js').read_text(encoding='utf-8')
+    admin=(root/'static/admin-page.js').read_text(encoding='utf-8')
+    create=(root/'static/promocodes-admin.js').read_text(encoding='utf-8')
+    assert 'Лоты публикует администрация Crafter.' not in ny
+    assert 'Загрузка данных NFT из Telegram' in ny
+    assert 'crafter-referral-panel' in promo
+    assert 'sessionStorage.setItem(key' in promo
+    assert 'admin-header-users-button' in admin
+    assert "adminCanOpenSection('users')" in admin
+    assert 'option value="BALL"' in create
+    assert 'option value="GRAM"' in create
+    assert "new_year_balance" in promo

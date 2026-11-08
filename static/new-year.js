@@ -95,7 +95,7 @@ async function showNewYear(){
         lastData=data;updateHeaderWallet(data.balance);
         main.innerHTML='<div class="new-year-page">'+
             '<section class="ny-hero"><small>CRAFTER · WINTER EVENT</small>'+
-            '<h1>Новогодний маркет</h1><p>Коллекционные подарки за новогодние шары. Лоты публикует администрация Crafter.</p></section>'+
+            '<h1>Новогодний маркет</h1><p>Коллекционные NFT-подарки за новогодние шары.</p></section>'+
             '<div class="ny-section-title"><h2>Праздничные подарки</h2><span>'+data.lots.length+' лотов</span></div>'+
             (data.lots.length?'<div class="ny-grid">'+data.lots.map(lotTile).join('')+'</div>':
              '<div class="ny-empty">'+displayOrnament()+'<h3>Скоро появятся подарки</h3>'+
@@ -113,7 +113,7 @@ async function showNewYear(){
 async function openLot(id){
     const original=lastData?.lots?.find(x=>x.id===id);
     if(!original)return toast('Лот недоступен, обновите страницу');
-    sheet('','<div class="ny-detail-loading">Загрузка данных NFT из Portals…</div>');
+    sheet('','<div class="ny-detail-loading">Загрузка данных NFT из Telegram…</div>');
     const detail=document.querySelector('#sheet-body');
     try{
         const response=await api('new-year/lots/'+encodeURIComponent(id)+'/details');
@@ -228,7 +228,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
       '<label class="ny-admin-switch"><span><b>Показывать Новый год всем игрокам</b><small class="sub" style="display:block;margin-top:6px">Кнопка появится в мобильной панели и под Маркетом на ПК.</small></span>'+
       '<input type="checkbox" id="ny-admin-enabled" '+(result.enabled?'checked':'')+'></label></section>'+
       '<section class="ny-admin-section"><h3>Создать NFT-лот</h3>'+
-      '<p class="sub">NFT, изображение, модель, фон, узор и флор загружаются напрямую из Portals по точной ссылке.</p>'+
+      '<p class="sub">Модель, фон, узор и изображение — по ссылке Telegram; флор коллекции — из Portals.</p>'+
       '<form id="ny-admin-lot-form"><div class="ny-admin-fields">'+
       '<label class="full">Ссылка на NFT<input name="url" placeholder="https://t.me/nft/ChillFlame-426793" required type="url"></label>'+
       '<label>Цена в шарах<input name="price" type="number" min="1" max="1000000000" step="1" required></label>'+

@@ -63,6 +63,11 @@ async function renderAdmin() {
     main.innerHTML='<div class="admin-dashboard">'+
         '<aside class="admin-navigation" id="admin-navigation" aria-label="Меню админки">'+
         '<div class="admin-nav-head"><small>CRAFTER / CONSOLE</small><strong>Разделы</strong></div>'+
+        (adminCanOpenSection('users')?
+         '<button type="button" class="admin-owner-quick admin-users-quick '+(state.adminSection==='users'?'is-current':'')+
+         '" onclick="openAdminSection(\'users\')"><span class="admin-owner-quick-icon">'+icon('users')+
+         '</span><span><b>Пользователи</b><small>Поиск · профили · балансы · подарки</small></span>'+
+         '<span class="admin-nav-arrow">›</span></button>':'')+
         (state.me?.is_primary_admin?
          '<button type="button" class="admin-owner-quick '+(state.adminSection==='admins'?'is-current':'')+
          '" onclick="openAdminSection(\'admins\')"><span class="admin-owner-quick-icon">'+icon('shield')+
@@ -74,6 +79,9 @@ async function renderAdmin() {
         'onclick="adminToggleMenu()" aria-label="Открыть меню">☰ Меню</button>'+
         '<div><small>ПАНЕЛЬ УПРАВЛЕНИЯ</small><h2>'+section.label+'</h2>'+
         '<p>'+section.detail+'</p></div>'+
+        (adminCanOpenSection('users')&&state.adminSection!=='users'?
+         '<button type="button" class="admin-header-owner-button admin-header-users-button" onclick="openAdminSection(\'users\')">'+
+         icon('user')+'<span>Пользователи</span></button>':'')+
         (state.me?.is_primary_admin&&state.adminSection!=='admins'?
          '<button type="button" class="admin-header-owner-button" onclick="openAdminSection(\'admins\')">'+
          icon('shield')+'<span>Администраторы</span></button>':'')+'</div>'+
