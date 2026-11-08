@@ -366,7 +366,8 @@ function crafterOpenSettings() {
 function crafterAddProfileSettings() {
     const root = document.querySelector('#main');
     const identity = root?.querySelector('.profile-identity');
-    if (!identity || state.gamesMode || root.querySelector('.crafter-open-settings')) return;
+    // Unified profile is used in Hub and outside it; inject exactly one settings button.
+    if (!identity || identity.querySelector('.crafter-open-settings, .profile-settings-button')) return;
     const control = document.createElement('button');
     control.type = 'button';
     control.className = 'crafter-open-settings';
