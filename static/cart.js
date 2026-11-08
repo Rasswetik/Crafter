@@ -64,24 +64,25 @@ async function payCart(){
     if(state.cartBuying)return;
     const items=selectedCart();
     if(!items.length){toast('Выберите подарки для оплаты');return;}
-    if(state.cartBalanceLoading){
+    if(state.cartBalanceLoading&&!state.me.market_test_purchases){
         state.cartError='Баланс ещё обновляется. Повторите оплату после проверки.';
         renderCart();toast(state.cartError);return;
     }
-    if(state.cartBalanceError){
+    if(state.cartBalanceError&&!state.me.market_test_purchases){
         state.cartError=state.cartBalanceError;
         renderCart();toast(state.cartError);return;
     }
+    const testing=Boolean(state.me.market_test_purchases && items.every(g=>!g.resale));
     const amount=cartTotal(items);
-    if(!Number.isFinite(amount)||amount<=0){
+    if((!Number.isFinite(amount)||amount<=0) && !testing){
         state.cartError='Не удалось определить сумму покупки. Перезагрузите корзину.';
         renderCart();toast(state.cartError);return;
     }
-    if(Number(state.me.balance)<amount){
+    if(!testing&&Number(state.me.balance)<amount){
         state.cartError='Недостаточно средств: не хватает '+cartFunds(amount-Number(state.me.balance))+' GRAM';
         renderCart();toast(state.cartError);return;
     }
-    if(!state.me.demo&&items.some(g=>g.resale||g.price_unit!=='GRAM'||!/^[a-f0-9-]{36}$/i.test(g.id))){
+    if(!testing&&!state.me.demo&&items.some(g=>g.resale||g.price_unit!=='GRAM'||!/^[a-f0-9-]{36}$/i.test(g.id))){
         state.cartError='В этой корзине доступны только реальные лоты Portals с ценами в GRAM';
         renderCart();toast(state.cartError);return;
     }
@@ -89,10 +90,10 @@ async function payCart(){
     const key='crafter-cart-payment:'+state.me.user.id+':'+ids.join('|');
     state.cartBuying=true;state.cartError='';renderCart();
     try{
-        const result=await api(state.me.demo?'local/cart/buy':'portals/buy',{
+        const result=await api(testing?'market/test/buy':state.me.demo?'local/cart/buy':'portals/buy',{
             gift_ids:ids,expected_total:String(cartTotal(items)),request_id:paymentRequestId(key)
         });
-        if(!state.me.demo&&result.status!=='complete')throw Error('Покупка требует проверки. Не оплачивайте повторно.');
+        if(!testing&&!state.me.demo&&result.status!=='complete')throw Error('Покупка требует проверки. Не оплачивайте повторно.');
         const gifts=result.gifts||[];
         const purchasedIds=gifts.map(g=>g.source_id||g.id);
         if(purchasedIds.length){
@@ -103,7 +104,7 @@ async function payCart(){
         state.me.balance=result.balance;
         state.me.inventory_count=(state.me.inventory_count||0)+gifts.length;
         updateBalance();
-        toast(result.failed?.length?'Покупка частичная: '+gifts.length+' из '+ids.length: 'Покупка подтверждена');
+        toast(testing?'Подарки добавлены в тестовый инвентарь':result.failed?.length?'Покупка частичная: '+gifts.length+' из '+ids.length: 'Покупка подтверждена');
     }catch(e){
         state.cartError=e.message||'Не удалось подтвердить покупку';
         toast(state.cartError);

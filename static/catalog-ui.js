@@ -423,7 +423,7 @@ function showGiftDetail(gift, source) {
         <div class="portal-product${own ? ' owned-gift-product' : ''}">
             ${giftPattern(gift)}<img ${giftPicture(gift)} alt="${esc(gift.name)}" decoding="async">
             <div class="gift-detail-tools" role="group" aria-label="Действия с подарком">
-                ${own && gift.status === 'unlisted' ? `<button type="button" class="gift-detail-tool gift-send-tool"
+                ${own && gift.status === 'unlisted' && !gift.test_only && !gift.catalog_only ? `<button type="button" class="gift-detail-tool gift-send-tool"
                     onclick="startGiftTransfer(${arg(gift.id)})" aria-label="Отправить подарок" title="Отправить подарок">
                     ${crafterTelegramPlaneSVG()}
                 </button>` : ''}
@@ -450,7 +450,7 @@ function showGiftDetail(gift, source) {
             ${listed ? `<div class="owned-listing-price"><span>Цена продажи</span><strong>${money(gift.listing_price ?? gift.price)} GRAM</strong>
                 <button type="button" onclick="startResale('edit', ${arg(gift.id)})">Редактировать</button></div>` : ''}
         </div>
-        ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` : own ? `<div class="product-actions owned-gift-actions">
+        ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` : own && gift.test_only ? `<div class="ny-footnote">Тестовый подарок в инвентаре Crafter. Вывод и продажа недоступны.</div>` : own ? `<div class="product-actions owned-gift-actions">
             <button class="secondary" onclick="requestGiftWithdrawal(${arg(gift.id)})">Вывести NFT</button>
             <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>
         </div>` : source === 'market' ? `<div class="market-gift-actions market-offer-actions">
@@ -504,12 +504,13 @@ async function localBuyGift(id) {
     document.querySelector('#purchase-error')?.remove();
     const requestKey = 'crafter-purchase:' + state.me.user.id + ':' + id + (gift.resale ? ':' + gift.price : '');
     try {
-        const portal = !state.me.demo && !gift.resale;
+        const testing = Boolean(state.me.market_test_purchases && !gift.resale);
+        const portal = !testing && !state.me.demo && !gift.resale;
         if (portal && (gift.price_unit !== 'GRAM' || !/^[a-f0-9-]{36}$/i.test(id))) {
             throw Error('Нужен действующий лот Portals с ценой в GRAM');
         }
-        const result = await api(gift.resale ? 'resale/buy' : state.me.demo ? 'local/buy' : 'portals/buy',
-            portal ? {gift_ids:[id],expected_total:String(gift.price),request_id:paymentRequestId(requestKey)}
+        const result = await api(testing ? 'market/test/buy' : gift.resale ? 'resale/buy' : state.me.demo ? 'local/buy' : 'portals/buy',
+            (portal || testing) ? {gift_ids:[id],expected_total:String(gift.price),request_id:paymentRequestId(requestKey)}
                    : {id,expected_price:gift.price,request_id:paymentRequestId(requestKey)});
         if (portal && result.status !== 'complete') throw Error('Покупка Portals требует проверки; не отправляйте её снова');
         const bought = result.gift || result.gifts?.[0];
@@ -521,7 +522,7 @@ async function localBuyGift(id) {
         state.inventory = [...state.inventory.filter(item => item.id !== bought.id), {...bought,status:'unlisted'}];
         updateBalance();
         if (button?.isConnected) closeSheet();
-        toast(portal?'Portals подтвердил покупку. NFT находится на партнёрском хранении.':'Подарок добавлен в инвентарь');
+        toast(testing?'Подарок добавлен в тестовый инвентарь':portal?'Portals подтвердил покупку. NFT находится на партнёрском хранении.':'Подарок добавлен в инвентарь');
     } catch (e) {
         if (button?.isConnected) purchaseError(e.message || 'Не удалось купить подарок');
         if (gift.resale && e.status === 409 && state.page === 'market') changedFilter();

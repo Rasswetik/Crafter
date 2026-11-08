@@ -355,6 +355,7 @@ def install_portals_partner(app, db, auth, record, audit):
                       "id":gift_id,
                       "price":str(prices[gift_id]),
                       "source_id":gift_id,
+                      "source_number":found[gift_id].get("number"),
                       "origin":"portals-partner",
                       "partner_custody":True,
                       "price_unit":"GRAM"}

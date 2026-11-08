@@ -353,7 +353,7 @@ function crafterOpenSettings() {
                 <input type="checkbox" role="switch" ${crafterPrefs.animations ? 'checked' : ''}>
             </label>
         </section>
-        <button type="button" class="primary crafter-support" disabled>Поддержка</button>
+        <button type="button" class="primary crafter-support" onclick="crafterOpenSupport()">Поддержка</button>
     </div>`);
     const root = document.querySelector('#crafter-settings');
     root.querySelector('input[role="switch"]').onchange = event => {
@@ -411,3 +411,5 @@ crafterLocalizeTree(document.body);
 const crafterSystemQuery = matchMedia('(prefers-color-scheme: light)');
 if (crafterSystemQuery.addEventListener) crafterSystemQuery.addEventListener('change', crafterApplyTheme);
 else if (crafterSystemQuery.addListener) crafterSystemQuery.addListener(crafterApplyTheme);
+
+function crafterOpenSupport(){const url="https://t.me/crafter_support";if(window.Telegram?.WebApp?.openTelegramLink)window.Telegram.WebApp.openTelegramLink(url);else window.open(url,"_blank","noopener,noreferrer");}

@@ -38,7 +38,7 @@ DEMO_GIFTS = [
 
 def create_app(config=None):
     app = Flask(__name__)
-    app.config.update(DATABASE=os.getenv('DATABASE',str(Path('/var/data/crafter.sqlite3') if Path('/var/data').is_dir() else ROOT/'instance/app.sqlite3')), DEMO_MODE=os.getenv('DEMO_MODE','0')=='1', BOT_TOKEN=os.getenv('BOT_TOKEN',''), ADMIN_IDS={int(x.strip()) for x in os.getenv('ADMIN_IDS','').split(',') if x.strip().isdigit()}, PORTALS_API_KEY=os.getenv('PORTALS_API_KEY',''), BOT_USERNAME=os.getenv('BOT_USERNAME',''), PRIMARY_ADMIN_ID=os.getenv('PRIMARY_ADMIN_ID',''), MAX_CONTENT_LENGTH=16384)
+    app.config.update(DATABASE=os.getenv('DATABASE',str(Path('/var/data/crafter.sqlite3') if Path('/var/data').is_dir() else ROOT/'instance/app.sqlite3')), DEMO_MODE=os.getenv('DEMO_MODE','0')=='1', BOT_TOKEN=os.getenv('BOT_TOKEN',''), ADMIN_IDS={int(x.strip()) for x in os.getenv('ADMIN_IDS','').split(',') if x.strip().isdigit()}, PORTALS_API_KEY=os.getenv('PORTALS_API_KEY',''), BOT_USERNAME=os.getenv('BOT_USERNAME',''), PRIMARY_ADMIN_ID=os.getenv('PRIMARY_ADMIN_ID',''), MAX_CONTENT_LENGTH=16384, MARKET_TEST_PURCHASES=os.getenv('MARKET_TEST_PURCHASES','1')!='0')
     app.config['DATABASE_URL'] = os.getenv('DATABASE_URL', '')
     if config: app.config.update(config)
     catalog_seed=json.loads(gzip.decompress((ROOT/'data/catalog_seed.json.gz').read_bytes())) if (ROOT/'data/catalog_seed.json.gz').exists() else {'collections':[]}
@@ -296,6 +296,19 @@ def create_app(config=None):
             return None
         return price if price.is_finite() and price > 0 else None
 
+    @app.get('/api/balance')
+    @auth()
+    def live_balance():
+        uid=g.user['id']
+        row=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(uid,)).fetchone()
+        balls=db().execute('SELECT balls,donate,tinsel FROM new_year_wallets WHERE user_id=?',(uid,)).fetchone()
+        referred=db().execute('SELECT balance FROM referral_balances WHERE user_id=?',(uid,)).fetchone()
+        response=jsonify(user_id=uid,balance=str(row[0]) if row else '0',
+                         referral_balance=str(referred[0]) if referred else '0',
+                         new_year={key:int(balls[key]) if balls else 0 for key in ('balls','donate','tinsel')})
+        response.headers['Cache-Control']='no-store'
+        return response
+
     @app.get('/api/me')
     @auth()
     def me():
@@ -337,16 +350,20 @@ def create_app(config=None):
             if price:
                 volume += price
         balance = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (g.user['id'],)).fetchone()[0]
+        referral_data=referral_snapshot(g.user['id'])
         return dict(user=g.user, is_admin=g.is_admin, is_primary_admin=g.is_primary_admin,
                     admin_permissions=g.admin_permissions, demo=app.config['DEMO_MODE'],
                     inventory_count=len(inventory), balance=balance, inventory_value_ton=str(valuation['TON']),
                     inventory_value=str(valuation['GRAM']), bought=bought, sold=sold, volume=str(volume),
                     games_played=games_played, best_game_win=str(best_game_win),
-                    referrals=refs,
-                    referral_level=min(3,1+refs//10),
-                    referral_progress=(100 if refs>=20 else (refs%10)*10),
-                    referral_until_next=(0 if refs>=20 else 10-(refs%10)),
-                    referral_tier_rates=[10,5,10], referral_commission_live=False,
+                    referrals=referral_data['referrals'],
+                    referral_level=referral_data['level'],
+                    referral_progress=referral_data['progress'],
+                    referral_until_next=referral_data['until_next'],
+                    referral_tier_rates=referral_data['levels'], referral_commission_live=True,
+                    referral_balance=referral_data['balance'], referral_rate=referral_data['rate'],
+                    referral_earned=referral_data['total_earned'], new_year_enabled=new_year_enabled(),
+                    market_test_purchases=app.config['MARKET_TEST_PURCHASES'],
                     invite_link=link)
 
     @app.post('/api/referral')
@@ -895,8 +912,10 @@ def create_app(config=None):
         account = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (owner,)).fetchone()
         if account:
             snapshot['balance_after'] = str(account['balance'])
+        history_id=uuid.uuid4().hex
         db().execute('INSERT INTO history VALUES(?,?,?,?,?)',
-                     (uuid.uuid4().hex,owner,kind,json.dumps(snapshot),int(time.time())))
+                     (history_id,owner,kind,json.dumps(snapshot),int(time.time())))
+        accrue_referral(owner,history_id,kind,snapshot)
     @app.get('/api/history')
     @auth()
     def history():
@@ -959,6 +978,8 @@ def create_app(config=None):
             if any(gift_id not in inventory or inventory[gift_id]['status'] != 'unlisted' for gift_id in ids):
                 abort(409, description='Один из подарков недоступен для отправки')
             gifts = [inventory[gift_id] for gift_id in ids]
+            if any(gift.get('test_only') or gift.get('catalog_only') for gift in gifts):
+                abort(409,description='Тестовые подарки нельзя отправлять')
             conflict = db().execute(
                 'SELECT 1 FROM inventory WHERE user_id=? AND nft_id IN (' + ','.join('?' for _ in ids) + ') LIMIT 1',
                 [recipient_id, *ids],
@@ -987,6 +1008,7 @@ def create_app(config=None):
             db().execute('BEGIN IMMEDIATE')
             gifts={x['id']:x for x in owned()}
             if any(x not in gifts for x in ids):abort(409,description='Подарок недоступен')
+            if any(gifts[x].get('test_only') for x in ids):abort(409,description='Тестовые подарки нельзя выводить или продавать')
             for nft in ids:
                 gift=gifts[nft]
                 if action=='sell':
@@ -1238,6 +1260,14 @@ def create_app(config=None):
         except Exception:
             app.logger.warning('Telegram purchase notification was not delivered')
 
+    from referral_rewards import install_referral_rewards
+    referral_snapshot,accrue_referral=install_referral_rewards(app,db,auth,record,audit)
+    from new_year import install_new_year
+    new_year_enabled=install_new_year(app,db,auth,record,audit)
+    from promocodes import install_promocodes
+    install_promocodes(app,db,auth,record,audit)
+    from market_test import install_market_test
+    install_market_test(app,db,auth,record,DEMO_GIFTS)
     from offers import install_offer_display, install_trading_offers
     close_lot_offers, expire_offers, register_offers = install_trading_offers(
         app, db, auth, record, canonical_name, notify_crafter_sale,

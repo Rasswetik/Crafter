@@ -247,7 +247,7 @@ def notify_gift_purchase(config, buyer, gift, price, default_token):
         return
     label = escape(str(gift.get('name') or 'Gift') +
                    (f" #{gift['number']}" if gift.get('number') else ''))
-    url = verified_nft_link(gift)
+    url = '' if gift.get('test_only') else verified_nft_link(gift)
     if url:
         label = f'<a href="{escape(url, quote=True)}">{label}</a>'
     amount = str(price).rstrip('0').rstrip('.') if '.' in str(price) else str(price)
@@ -256,9 +256,12 @@ def notify_gift_purchase(config, buyer, gift, price, default_token):
     if url:
         message += (f'\n\n🔗 <a href="{escape(url, quote=True)}">'
                     'View NFT in Telegram</a>')
-    bot_api(token, 'sendMessage', {'chat_id': buyer, 'parse_mode': 'HTML',
-                                  'link_preview_options': {'is_disabled': True},
-                                  'text': message})
+    kwargs = {'chat_id':buyer, 'parse_mode':'HTML', 'text':message,
+              'link_preview_options': {'url':url,'prefer_large_media':True,
+                                       'show_above_text':False} if url else {'is_disabled':True}}
+    if url:
+        kwargs['reply_markup'] = {'inline_keyboard': [[{'text':'🎁 VIEW COLLECTIBLE','url':url}]]}
+    bot_api(token,'sendMessage',kwargs)
 
 
 

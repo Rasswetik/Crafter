@@ -1,0 +1,48 @@
+/* Crafter profile: promo code and referral glass, adaptive to mobile and desktop. */
+.crafter-referral-glass{position:relative;margin:20px 0;padding:22px;border:1px solid #d0ddec2d;border-radius:27px;background:radial-gradient(ellipse at 96% 0,#738eb12f,transparent 48%),linear-gradient(140deg,#ffffff12,#ffffff04 65%),#1a1e24;box-shadow:inset 0 1px #fff2,0 14px 42px #0004;backdrop-filter:blur(19px);-webkit-backdrop-filter:blur(19px)}
+.crafter-referral-heading>span{font-size:10px;font-weight:850;letter-spacing:.16em;color:#a9bcd0}
+.crafter-referral-heading h2{font-size:20px;margin:10px 0 7px;color:#f7f8fc}
+.crafter-referral-heading p{font-size:12px;margin:0 0 19px;color:#9da9b6}
+.crafter-referral-tiers{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.crafter-referral-tier{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;min-width:0;padding:11px 2px;border:1px solid #ffffff20;border-radius:13px;background:#ffffff08}
+.crafter-referral-tier small{font-size:10px;color:#8994a3;white-space:nowrap}
+.crafter-referral-tier strong{font-size:16px;color:#e3e7eb}
+.crafter-referral-tier.is-current{border-color:#9dceff9c;background:linear-gradient(135deg,#518bd03d,#617da536);box-shadow:inset 0 1px #ffffff32}
+.crafter-referral-tier.is-current strong{color:#b6ddff}
+.crafter-referral-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin:16px 0}
+.crafter-referral-stats>div{border:1px solid #ffffff16;border-radius:15px;padding:12px 9px;background:#12171f88}
+.crafter-referral-stats small{font-size:11px;color:#929ba8}
+.crafter-referral-stats strong{display:block;margin-top:7px;font-size:17px}
+.crafter-referral-link{display:flex;align-items:center;gap:9px;border:1px solid #ffffff26;background:#0e141bc4;padding:7px 7px 7px 11px;border-radius:17px;min-width:0}
+.crafter-referral-link>span{display:block;flex:1;min-width:0;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;color:#bfcde0;font-size:12px}
+.crafter-referral-link>button{flex:none;border-radius:12px;background:#334254;color:#f0f3f7;padding:10px 13px;font-size:12px;font-weight:750}
+.crafter-referral-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:12px 0}
+.crafter-referral-actions button{min-height:47px;border-radius:16px;font-size:12px;font-weight:800;border:1px solid #ffffff23;background:#27323c}
+.crafter-referral-actions button:first-child{background:linear-gradient(135deg,#2d8be9,#496eb7)}
+.crafter-referral-earnings{display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px solid #ffffff1d;padding-top:15px;font-size:12px;color:#949fac}
+.crafter-referral-earnings strong{font-size:16px;color:#f1f5f8}
+.crafter-referral-note{color:#7e8998;font-size:11px;line-height:1.5;margin:12px 0 0}
+.profile-identity .crafter-profile-promo{flex:0 0 39px;width:39px;height:39px;display:grid;place-items:center;border-radius:12px;border:1px solid #ffffff30;background:#ffffff0e;color:#dfeafa;box-shadow:inset 0 1px #fff2}
+.profile-identity .crafter-profile-promo svg{height:22px;width:22px}
+.crafter-profile-desktop-promo{display:none}
+.crafter-promo-modal{padding:20px 0 12px}
+.crafter-promo-symbol{display:grid;place-items:center;width:65px;height:65px;margin:0 auto 22px;border:1px solid #8bafcc73;border-radius:19px;background:linear-gradient(140deg,#436f9a,#30384a);box-shadow:0 7px 35px #2b8aca37}
+.crafter-promo-symbol svg{width:32px;height:32px}
+.crafter-promo-form{display:flex;align-items:stretch;gap:7px;width:100%}
+.crafter-promo-form input{min-width:0;flex:1;border-radius:15px;border:1px solid #4a515c;background:#13181f;color:#eef4fa;font-size:14px;font-weight:700;padding:0 13px;min-height:47px;outline:none}
+.crafter-promo-form button{width:47px;flex:0 0 47px;display:grid;place-items:center;border-radius:13px;background:#188cff;border:1px solid #6cb7ff7a}
+.crafter-promo-form.is-error input{border-color:#ff6373!important;box-shadow:0 0 0 1px #ff637355}
+.crafter-promo-form.is-success input{border-color:#4dce86!important;box-shadow:0 0 0 1px #47ce8955}
+.crafter-promo-feedback{font-size:12px;line-height:1.5;min-height:22px;margin:7px 4px 0;color:#969ea8}
+.crafter-promo-form.is-success+.crafter-promo-feedback{color:#54d98b}
+.crafter-promo-form.is-error+.crafter-promo-feedback{color:#ff6e7b}
+.promo-result{margin-top:12px;padding:12px;border:1px solid #ffffff24;border-radius:14px;background:#151b21;font-size:12px}
+.promo-result button{margin-left:8px;padding:7px 12px}
+.promo-result[hidden]{display:none}
+@media(max-width:420px){.crafter-referral-glass{padding:16px}.crafter-referral-link>button{padding:10px 8px}.crafter-referral-tiers{gap:4px}.crafter-referral-tier strong{font-size:14px}.crafter-referral-tier small{font-size:9px}.crafter-referral-actions button{font-size:11px}}
+@media(min-width:1024px){
+  .profile-identity .crafter-profile-promo{display:none}
+  .crafter-profile-desktop-promo{display:block;margin-top:18px;padding:16px 18px;border-radius:19px;border:1px solid #ffffff22;background:#111721a3}
+  .crafter-profile-desktop-promo>span{display:block;margin-bottom:10px;font-size:11px;font-weight:800;letter-spacing:.12em;color:#a7b6c9}
+  .crafter-profile-desktop-promo .crafter-promo-form{max-width:450px}
+}
