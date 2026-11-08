@@ -43,3 +43,31 @@ def test_admin_action_history_and_cancellation_sections_are_visible():
     assert "cancellations:{label:'Управление отменами'" in admin
     assert 'renderAdminCancellations(' in console
     assert 'Не удалось получить журнал:' in console
+
+
+def test_event_banner_delete_is_real_and_admin_only(client):
+    owner=signed(42)
+    visitor=signed(43)
+    client.get('/api/me',headers=owner)
+    for kind in ('craft','arena'):
+        path=f'/api/admin/{kind}/banner/delete'
+        assert client.post(path,headers=visitor,json={}).status_code==403
+        response=client.post(path,headers=owner,json={})
+        assert response.status_code==200,response.json
+        assert response.json['ok'] is True
+        loaded=client.get(f'/api/admin/{kind}/banner',headers=owner)
+        assert loaded.status_code==200
+        assert loaded.json['banner']['enabled'] is False
+        public=client.get(f'/api/{kind}/banner')
+        assert public.status_code==200
+        assert public.json['banner'] is None
+
+
+def test_hidden_craft_event_banner_is_not_replaced_by_a_fake_placeholder():
+    root=Path(__file__).resolve().parent.parent
+    client=(root/'static/arena-banner.js').read_text(encoding='utf-8')
+    editor=(root/'static/ice-banner-admin.js').read_text(encoding='utf-8')
+    assert "if(!response.banner)" in client
+    assert "const config=response.banner||{" not in client
+    assert 'data-ice-delete' in editor
+    assert "banner/delete" in editor
