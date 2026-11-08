@@ -71,8 +71,10 @@ def required_section(path):
         return "maintenance"
     if p.startswith("logs") or p == "status":
         return "audit"
-    if p.startswith("withdrawals/gift/"):
+    if p.startswith("withdrawals/gift/") or p == "withdrawals/nft":
         return "nft_withdraw"
+    if p == "withdrawals/ton":
+        return "ton_withdraw"
     if p.startswith("withdrawals"):
         return "nft_withdraw|ton_withdraw"
     if p.startswith("tonconnect/auto"):
@@ -114,7 +116,7 @@ def can_access_admin_path(access, path):
     if required is None or required == "database":
         return False
     if required == "nft_withdraw|ton_withdraw":
-        return any(p in access["permissions"] for p in ("nft_withdraw", "ton_withdraw"))
+        return all(p in access["permissions"] for p in ("nft_withdraw", "ton_withdraw"))
     return required in access["permissions"]
 
 def install_admin_management(app, db, auth, audit, access):
