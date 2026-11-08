@@ -131,6 +131,23 @@ def sale_sticker(gift):
     return None
 
 
+def verified_nft_link(gift):
+    """Return only a validated direct Telegram NFT link from known gift identity.
+
+    An arbitrary display number on a synthetic gift is not proof that an NFT
+    exists. Prefer a previously provided Telegram URL/slug or a real source number.
+    """
+    url = str(gift.get('telegram_url') or '')
+    if re.fullmatch(r'https://(?:t\.me|telegram\.me)/nft/[a-z0-9]+-[1-9][0-9]*', url, re.I):
+        return url
+    slug = str(gift.get('telegram_slug') or '')
+    if not re.fullmatch(r'[a-z0-9]+-[1-9][0-9]*', slug, re.I):
+        collection = re.sub(r'[^a-zA-Z0-9]', '', str(gift.get('name') or '')).lower()
+        serial = str(gift.get('source_number') or '')
+        slug = f'{collection}-{serial}' if collection and re.fullmatch(r'[1-9][0-9]*', serial) else ''
+    return f'https://t.me/nft/{slug}' if slug else ''
+
+
 def notify_gift_sale(config, seller, gift, proceeds, default_token):
     token = config.get('token') or default_token
     if not token:
@@ -138,14 +155,7 @@ def notify_gift_sale(config, seller, gift, proceeds, default_token):
     name = str(gift.get('name') or 'Gift')
     number = str(gift.get('number') or '')
     label = escape(name + (f' #{number}' if number else ''))
-    url = str(gift.get('telegram_url') or '')
-    if not re.fullmatch(r'https://(?:t\.me|telegram\.me)/nft/[a-z0-9]+-[1-9][0-9]*', url, re.I):
-        slug = str(gift.get('telegram_slug') or '')
-        if not re.fullmatch(r'[a-z0-9]+-[1-9][0-9]*', slug, re.I):
-            collection = re.sub(r'[^a-zA-Z0-9]', '', name).lower()
-            serial = str(gift.get('source_number') or '')
-            slug = f'{collection}-{serial}' if collection and re.fullmatch(r'[1-9][0-9]*', serial) else ''
-        url = f'https://t.me/nft/{slug}' if slug else ''
+    url = verified_nft_link(gift)
     if url:
         label = f'<a href="{escape(url, quote=True)}">{label}</a>'
     amount = str(proceeds)
@@ -237,11 +247,18 @@ def notify_gift_purchase(config, buyer, gift, price, default_token):
         return
     label = escape(str(gift.get('name') or 'Gift') +
                    (f" #{gift['number']}" if gift.get('number') else ''))
+    url = verified_nft_link(gift)
+    if url:
+        label = f'<a href="{escape(url, quote=True)}">{label}</a>'
     amount = str(price).rstrip('0').rstrip('.') if '.' in str(price) else str(price)
+    message = (f'✅ Successfully purchased {label} for {escape(amount)} GRAM. '
+               'The gift is now in your Crafter inventory.')
+    if url:
+        message += (f'\n\n🔗 <a href="{escape(url, quote=True)}">'
+                    'View NFT in Telegram</a>')
     bot_api(token, 'sendMessage', {'chat_id': buyer, 'parse_mode': 'HTML',
                                   'link_preview_options': {'is_disabled': True},
-                                  'text': f'✅ Successfully purchased {label} for {escape(amount)} GRAM. '
-                                          'The gift is now in your Crafter inventory.'})
+                                  'text': message})
 
 
 
