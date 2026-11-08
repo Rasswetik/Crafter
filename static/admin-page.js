@@ -20,12 +20,25 @@ const adminSections = {
     'telegram-bot':{label:'Telegram-бот',detail:'Уведомления и настройки',group:'system',glyph:'send',render:renderTelegramBotAdmin},
     announcements:{label:'Анонсы',detail:'Окна и сообщения',group:'system',glyph:'grid',render:renderAdminAnnouncements},
     snow:         {label:'Снег на сайте',detail:'Погода и оформление',group:'system',glyph:'gift',render:renderAdminSnow},
+    admins:       {label:'Управление админами',detail:'Роли и права по разделам',group:'system',glyph:'shield',render:renderAdminRoles},
 };
 const adminGroupTitles = {main:'Обзор',money:'Финансовые операции',manage:'Управление',system:'Система'};
+function adminCanOpenSection(id){
+    const me=state.me||{};
+    if(id==='admins')return Boolean(me.is_primary_admin);
+    if(!me.is_admin)return false;
+    return Boolean(me.is_primary_admin||me.admin_permissions?.includes('*')||
+        me.admin_permissions?.includes(id));
+}
+function adminAllowedSection(id){
+    if(adminSections[id]&&adminCanOpenSection(id))return id;
+    return Object.keys(adminSections).find(adminCanOpenSection)||'finance';
+}
+
 function adminNavCards() {
     return Object.entries(adminGroupTitles).map(([group, title]) =>
         '<div class="admin-nav-group"><span class="admin-nav-heading">'+title+'</span>'+
-        Object.entries(adminSections).filter(([id,item])=>item.group===group).map(([id,item])=>
+        Object.entries(adminSections).filter(([id,item])=>item.group===group&&adminCanOpenSection(id)).map(([id,item])=>
             '<button type="button" class="admin-nav-link'+
             (state.adminSection===id?' is-current':'')+
             '" onclick="openAdminSection('+arg(id)+')" aria-current="'+
@@ -40,8 +53,8 @@ async function renderAdmin() {
     const keepMenuOpen=activeNavigation?.classList.contains('is-open')||false;
     const main=document.querySelector('#main');
     if(!main)return;
-    const section=adminSections[state.adminSection]||adminSections.finance;
-    if(!adminSections[state.adminSection])state.adminSection='finance';
+    state.adminSection=adminAllowedSection(state.adminSection);
+    const section=adminSections[state.adminSection];
     main.removeAttribute('data-admin-user');
     main.innerHTML='<div class="admin-dashboard">'+
         '<aside class="admin-navigation" id="admin-navigation" aria-label="Меню админки">'+
@@ -72,7 +85,7 @@ function adminToggleMenu(){
 }
 function openAdminSection(id){
     closeSheet();
-    state.adminSection=adminSections[id]?id:'finance';
+    state.adminSection=adminAllowedSection(id);
     adminConsoleState.activeUser=null;
     adminConsoleState.userRequest++;
     const next='/admin?section='+encodeURIComponent(state.adminSection);
