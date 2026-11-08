@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Crafter one-shot installer for a fresh Ubuntu 22.04/24.04 VPS (run as root).
 #   git clone https://github.com/Rasswetik/Crafter.git /tmp/crafter-setup && bash /tmp/crafter-setup/deploy/setup.sh
+# Or with an uploaded archive:  apt-get install -y unzip && mkdir -p /opt/crafter && unzip -o Crafter-server.zip -d /opt/crafter && bash /opt/crafter/deploy/setup.sh
 # Safe to re-run: it updates the code and keeps your .env and database.
 set -euo pipefail
 
@@ -25,6 +26,9 @@ id crafter >/dev/null 2>&1 || useradd -m -s /bin/bash crafter
 mkdir -p "$APP" && chown crafter:crafter "$APP"
 if [ -d "$APP/.git" ]; then
   sudo -u crafter git -C "$APP" pull --ff-only
+elif [ -f "$APP/app.py" ]; then
+  echo "Код уже загружен в $APP (из архива) — GitHub не нужен"
+  chown -R crafter:crafter "$APP"
 else
   sudo -u crafter git clone "$REPO" "$APP"
 fi

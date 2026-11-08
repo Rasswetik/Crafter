@@ -174,7 +174,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         if not still_listed(gift, ton_price):
             abort(409, description='Лот уже недоступен на маркете или цена изменилась — выберите другой')
         if balance_ton() < ton_price + FEE_WITHDRAW_OTHER_TON:
-            abort(409, description='Этот подарок сейчас нельзя выкупить — выберите другой')
+            abort(409, description='Ошибка покупки. Попробуйте позже.')
 
     portals_can_buy = app.extensions.get('crafter_portals_can_buy')
 
@@ -234,8 +234,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
             missing.append('Не сохранён токен Thermos (админка → «Термос»)')
         else:
             try:
-                if balance_ton() <= 0:
-                    missing.append('Баланс Thermos равен нулю — пополните его (адрес в разделе «Термос»)')
+                balance_ton()                 # only proves the token works; a zero balance does not block WORK mode
             except HTTPException as error:
                 missing.append(str(error.description))
         if relayer_id() is None:
@@ -341,7 +340,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                     abort(409, description='Лот уже недоступен или цена изменилась. Обновите маркет')
             need = sum((Decimal(str(x['price'])) for x in found.values()), Decimal(0)) + FEE_WITHDRAW_OTHER_TON * len(ids)
             if balance_ton() < need:
-                abort(409, description='Сейчас нельзя выкупить этот подарок')
+                abort(409, description='Ошибка покупки. Попробуйте позже.')
         with db():
             db().execute('BEGIN IMMEDIATE')
             previous = db().execute('SELECT * FROM thermos_orders WHERE user_id=? AND request_id=?', (uid, rid)).fetchone()

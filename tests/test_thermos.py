@@ -194,4 +194,17 @@ def test_work_mode_with_thermos_explains_what_is_missing(wired, monkeypatch):
     r = wired.post('/api/admin/purchase-mode', headers=signed(), json={'mode': 'work', 'confirm': 'SET_PURCHASE_MODE'})
     assert r.status_code == 409
     text = r.json['error']
-    assert 'Thermos' in text and 'Relayer' in text and 'CRAFTER_PORTALS_LIVE_PURCHASES' not in text
+    assert 'Relayer' in text and 'CRAFTER_PORTALS_LIVE_PURCHASES' not in text
+    assert 'Баланс Thermos' not in text            # an empty Thermos balance never blocks WORK mode
+
+
+def test_empty_thermos_balance_does_not_block_work_mode_and_players_get_a_generic_error(wired, monkeypatch):
+    monkeypatch.setitem(wired.application.extensions, 'crafter_new_year_trade_conversion', lambda: 10)
+    monkeypatch.setattr(thermos_market, 'urlopen', fake_api(balance_ton='0'))
+    with sqlite3.connect(wired.application.config['DATABASE']) as db:
+        db.execute("DELETE FROM settings WHERE key='purchase_mode_v1'")
+    r = wired.post('/api/admin/purchase-mode', headers=signed(), json={'mode': 'work', 'confirm': 'SET_PURCHASE_MODE'})
+    assert r.status_code == 200 and r.json['mode'] == 'work'
+    bought = buy(wired)
+    assert bought.status_code == 409 and bought.json['error'] == 'Ошибка покупки. Попробуйте позже.'
+    assert balance(wired).startswith('100')                     # nothing was charged
