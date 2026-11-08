@@ -24,6 +24,7 @@ fi
 echo "== 3/7 Пользователь и код"
 id crafter >/dev/null 2>&1 || useradd -m -s /bin/bash crafter
 mkdir -p "$APP" && chown crafter:crafter "$APP"
+chown -R crafter:crafter "$APP"      # a clone made by root must be owned by crafter before git pull
 if [ -d "$APP/.git" ]; then
   sudo -u crafter git -C "$APP" pull --ff-only
 elif [ -f "$APP/app.py" ]; then
