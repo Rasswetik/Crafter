@@ -297,3 +297,23 @@ body.admin-page input,body.admin-page select,body.admin-page textarea{max-width:
  .admin-user-profile .admin-pill{margin:0}
 }
 @media(prefers-reduced-motion:reduce){.admin-maintenance-visual svg{animation:none}}
+
+/* Craft model controls — usable without a desktop or raw JSON editor. */
+.admin-craft-rules{display:grid;gap:9px;margin:14px 0}
+.admin-craft-rule,.admin-craft-add label{
+ display:grid;gap:7px;font-size:11px;color:#abc6d6;font-weight:750;min-width:0
+}
+.admin-craft-rule{
+ grid-template-columns:minmax(95px,1fr) minmax(0,2fr);
+ align-items:center;padding:10px 0;border-bottom:1px solid #e8f6ff16;
+}
+.admin-craft-add{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.admin-craft-rule input,.admin-craft-add input,.admin-craft-add select{
+ width:100%;height:43px;min-width:0;padding:8px 11px;border:1px solid #8ec9ee72;
+ background:#0b1b2e;color:#e6f5ff;border-radius:12px;font:inherit;font-size:12px
+}
+.admin-craft-save{min-height:43px;padding:11px 16px!important;border-radius:12px!important}
+@media(max-width:580px){
+ .admin-craft-rule{grid-template-columns:1fr}
+ .admin-craft-add{grid-template-columns:1fr}
+}
