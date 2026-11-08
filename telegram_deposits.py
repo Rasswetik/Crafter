@@ -549,6 +549,67 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         audit('Telegram relayer session imported')
         return {'ok': True, 'step': 'connected', **status()}
 
+    @app.post('/api/admin/telegram-deposits/credit-link')
+    @auth(admin=True)
+    def credit_by_link():
+        """Admin: put an NFT into a player's inventory by its t.me/nft link, but only if the gift really is on the
+        relayer account (checked live) or in the Thermos account inventory."""
+        body = request.get_json(silent=True) or {}
+        match = re.fullmatch(r'(?:https?://)?t\.me/nft/([A-Za-z0-9_-]{4,120})/?', str(body.get('url', '')).strip())
+        if not match:
+            abort(400, description='Вставьте ссылку вида https://t.me/nft/Название-123')
+        slug = match.group(1)
+        try:
+            uid = int(str(body.get('user_id', '')).strip())
+        except ValueError:
+            abort(400, description='Укажите числовой Telegram ID игрока')
+        if not db().execute('SELECT 1 FROM users WHERE id=?', (uid,)).fetchone():
+            abort(404, description='Игрок не найден: он должен хотя бы раз открыть приложение')
+        gift_id = 'telegram-' + slug.lower()
+        if db().execute('SELECT 1 FROM inventory WHERE nft_id=? LIMIT 1', (gift_id,)).fetchone():
+            abort(409, description='Этот подарок уже лежит в чьём-то инвентаре')
+        gift, where = None, ''
+        try:
+            api_id, api_hash = credentials()
+            c = config()
+            if c.get('session'):
+                _account, _name, records = asyncio.run(fetch_received(api_id, api_hash, decrypt(c['session'])))
+                for entry in records:
+                    candidate = None if getattr(entry, 'refunded', False) else gift_payload(entry)
+                    if candidate and candidate['telegram_slug'].lower() == slug.lower():
+                        gift, where = candidate, 'relayer'
+                        break
+        except ValueError as error:
+            abort(409, description=str(error))
+        except Exception:
+            abort(503, description='Не удалось проверить релейер. Повторите позже.')
+        if gift is None:
+            owns = app.extensions.get('crafter_thermos_owns')
+            if owns and owns(slug):
+                title, _, number = slug.rpartition('-')
+                gift = dict(id=gift_id, name=title or slug, collection_id=re.sub(r'[^a-z0-9]', '', (title or slug).lower()),
+                            number=int(number) if number.isdigit() else 0, model='', symbol='', backdrop='',
+                            background={}, price='0', floor_price='0', price_unit='GRAM', origin='thermos',
+                            relayer_pending=True, telegram_slug=slug, telegram_url='https://t.me/nft/' + slug,
+                            image='https://nft.fragment.com/gift/' + slug.lower() + '.webp')
+                where = 'thermos'
+        if gift is None:
+            abort(404, description='Подарок не найден ни на релейере, ни в инвентаре Thermos')
+        now = int(time.time())
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            if db().execute('SELECT 1 FROM inventory WHERE nft_id=? LIMIT 1', (gift['id'],)).fetchone():
+                abort(409, description='Этот подарок уже лежит в чьём-то инвентаре')
+            db().execute("""INSERT INTO telegram_gift_receipts(slug,sender_id,recipient_id,status,payload,received,processed)
+                VALUES(?,?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET status='credited',recipient_id=excluded.recipient_id,
+                payload=excluded.payload,processed=excluded.processed""",
+                         (slug, None, uid, 'credited', json.dumps(gift), now, now))
+            db().execute('INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)',
+                         (uid, gift['id'], json.dumps(gift), 'unlisted'))
+            record('gift_received', dict(gifts=[gift], sender={'name': 'Администратор', 'username': ''}, telegram=True), uid=uid)
+        audit('NFT %s credited to %d (%s)' % (slug, uid, where))
+        return {'ok': True, 'where': where, 'gift': {'name': gift['name'], 'number': gift['number']}}
+
     def relayer_credentials():
         """(api_id, api_hash, session, account_id) of the connected relayer account."""
         api_id, api_hash = credentials()

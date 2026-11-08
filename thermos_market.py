@@ -225,6 +225,22 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         return 'unknown', 'Часть покупки выполнена — требуется ручная сверка'
     app.extensions['crafter_thermos_acquire'] = acquire
 
+    def owns_gift(slug):
+        """True only when Thermos explicitly says the account owns this unique gift (docs: GET /gifts/me/owned/{name})."""
+        if not api_token():
+            return False
+        try:
+            answer = call('GET', '/gifts/me/owned/' + re.sub(r'[^A-Za-z0-9_-]', '', str(slug)))
+        except HTTPException:
+            return False
+        if not isinstance(answer, dict):
+            return False
+        for key in ('owned', 'is_owned', 'exists', 'credited'):
+            if key in answer:
+                return answer[key] is True
+        return bool(answer.get('owned_gift_id') or answer.get('id'))
+    app.extensions['crafter_thermos_owns'] = owns_gift
+
     def work_blockers():
         """Requirements for WORK mode when Thermos is the market. None -> not Thermos, use the Portals rules."""
         if backend() != 'thermos':

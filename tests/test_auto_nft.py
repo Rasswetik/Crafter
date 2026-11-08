@@ -189,3 +189,67 @@ def test_relayer_session_key_is_created_automatically_when_env_is_missing(client
     assert r.status_code == 200 and r.json['connected'] is True
     key_file = Path(client.application.config['DATABASE']).resolve().parent / 'telegram_session.key'
     assert key_file.exists() and len(key_file.read_text().strip()) == 44          # a Fernet key, created once
+
+
+class _Attr:
+    def __init__(self, kind, name):
+        self.__class__ = type(kind, (), {})
+        self.name = name
+
+
+def _entry(slug, title, num):
+    from types import SimpleNamespace
+    gift = SimpleNamespace(slug=slug, title=title, num=num, attributes=[_Attr('StarGiftAttributeModel', 'Emerald')])
+    return SimpleNamespace(gift=gift, refunded=False, from_id=None, date=None)
+
+
+def _credit_setup(client, monkeypatch, records):
+    import telegram_deposits
+    from cryptography.fernet import Fernet
+    monkeypatch.setenv('TELEGRAM_SESSION_KEY', Fernet.generate_key().decode())
+    monkeypatch.setenv('TELEGRAM_API_ID', '12345')
+    monkeypatch.setenv('TELEGRAM_API_HASH', 'c' * 32)
+    client.get('/api/me', headers=signed(43))
+    cfg = {'session': telegram_deposits_encrypt(client), 'account_id': 5}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO settings VALUES ('telegram_deposit_connection', ?)", (json.dumps(cfg),))
+
+    async def fetch(api_id, api_hash, session):
+        return 5, 'rel', records
+    monkeypatch.setattr(telegram_deposits, 'fetch_received', fetch)
+
+
+def telegram_deposits_encrypt(client):
+    from cryptography.fernet import Fernet
+    import os
+    return Fernet(os.environ['TELEGRAM_SESSION_KEY'].encode()).encrypt(b'1' + b'A' * 120).decode()
+
+
+def test_admin_credits_an_nft_by_link_only_if_it_is_on_the_relayer(client, monkeypatch):
+    _credit_setup(client, monkeypatch, [_entry('SnoopDogg-77', 'Snoop Dogg', 77)])
+    body = {'user_id': '43', 'url': 'https://t.me/nft/SnoopDogg-77'}
+    assert client.post('/api/admin/telegram-deposits/credit-link', headers=signed(43), json=body).status_code == 403
+    assert client.post('/api/admin/telegram-deposits/credit-link', headers=signed(), json={**body, 'url': 'https://evil.com/x'}).status_code == 400
+    missing = client.post('/api/admin/telegram-deposits/credit-link', headers=signed(), json={**body, 'url': 'https://t.me/nft/Other-1'})
+    assert missing.status_code == 404                                   # not on the relayer, not in Thermos
+    ok = client.post('/api/admin/telegram-deposits/credit-link', headers=signed(), json=body)
+    assert ok.status_code == 200 and ok.json['where'] == 'relayer'
+    gifts = client.get('/api/inventory', headers=signed(43)).json['gifts']
+    assert [(g['origin'], g['number']) for g in gifts] == [('telegram-deposit', 77)]
+    again = client.post('/api/admin/telegram-deposits/credit-link', headers=signed(), json=body)
+    assert again.status_code == 409                                      # never credited twice
+    assert client.post('/api/admin/telegram-deposits/credit-link', headers=signed(),
+                       json={'user_id': '999', 'url': 'https://t.me/nft/SnoopDogg-77'}).status_code == 404
+
+
+def test_admin_can_credit_a_gift_held_in_thermos(client, monkeypatch):
+    _credit_setup(client, monkeypatch, [])                                # nothing on the relayer
+    monkeypatch.setitem(client.application.extensions, 'crafter_thermos_owns', lambda slug: slug == 'DeskCalendar-1212')
+    ok = client.post('/api/admin/telegram-deposits/credit-link', headers=signed(),
+                     json={'user_id': '43', 'url': 'https://t.me/nft/DeskCalendar-1212'})
+    assert ok.status_code == 200 and ok.json['where'] == 'thermos'
+    gift, = client.get('/api/inventory', headers=signed(43)).json['gifts']
+    assert gift['origin'] == 'thermos' and gift['number'] == 1212
+    nope = client.post('/api/admin/telegram-deposits/credit-link', headers=signed(),
+                       json={'user_id': '43', 'url': 'https://t.me/nft/Other-5'})
+    assert nope.status_code == 404

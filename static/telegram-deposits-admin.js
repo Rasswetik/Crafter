@@ -146,6 +146,15 @@ async function renderTelegramDeposits(content = document.querySelector('#admin-c
         ${info.last_error ? `<p class="relayer-issue">${esc(info.last_error)}</p>` : ''}
         <p id="tg-deposit-feedback" class="relayer-feedback" role="status"></p>
 
+        <section class="relayer-credit">
+            <h4>Зачислить NFT по ссылке</h4>
+            <p class="relayer-config-description">Подарок добавится в инвентарь игрока, только если он действительно лежит на аккаунте Relayer (проверяется сейчас) или в инвентаре Thermos.</p>
+            <label class="form-label">Telegram ID игрока<input id="credit-user" class="field" inputmode="numeric" autocomplete="off" placeholder="например 5257227756"></label>
+            <label class="form-label">Ссылка на NFT<input id="credit-url" class="field" autocomplete="off" spellcheck="false" placeholder="https://t.me/nft/Название-123"></label>
+            <button type="button" class="primary" onclick="relayerCreditLink()">Зачислить игроку</button>
+            <p id="credit-feedback" class="relayer-feedback" role="status"></p>
+        </section>
+
         <section class="relayer-history">
             <div class="relayer-history-head">
                 <div><h3>История пополнений</h3><span>Все принятые NFT-подарки</span></div>
@@ -188,6 +197,21 @@ async function telegramDepositAction(action) {
     }
 }
 
+async function relayerCreditLink() {
+    const out = document.querySelector('#credit-feedback');
+    if (out) out.textContent = 'Проверяем подарок…';
+    try {
+        const r = await api('admin/telegram-deposits/credit-link', {
+            user_id: document.querySelector('#credit-user').value.trim(), url: document.querySelector('#credit-url').value.trim()});
+        const text = 'Готово: ' + r.gift.name + ' #' + r.gift.number + ' зачислен (' + (r.where === 'relayer' ? 'найден на релейере' : 'найден в Thermos') + ')';
+        if (out) out.textContent = text;
+        toast(text);
+        document.querySelector('#credit-url').value = '';
+    } catch (error) {
+        if (out) out.textContent = error.message;
+        toast(error.message);
+    }
+}
 async function telegramDepositImport() {
     const input = document.querySelector('#tg-deposit-session');
     try {
