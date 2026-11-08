@@ -342,7 +342,12 @@ def create_app(config=None):
                     inventory_count=len(inventory), balance=balance, inventory_value_ton=str(valuation['TON']),
                     inventory_value=str(valuation['GRAM']), bought=bought, sold=sold, volume=str(volume),
                     games_played=games_played, best_game_win=str(best_game_win),
-                    referrals=refs, referral_level=1, referral_progress=min(refs * 10, 100), invite_link=link)
+                    referrals=refs,
+                    referral_level=min(3,1+refs//10),
+                    referral_progress=(100 if refs>=20 else (refs%10)*10),
+                    referral_until_next=(0 if refs>=20 else 10-(refs%10)),
+                    referral_tier_rates=[10,5,10], referral_commission_live=False,
+                    invite_link=link)
 
     @app.post('/api/referral')
     @auth()
