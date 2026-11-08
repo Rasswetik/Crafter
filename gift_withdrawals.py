@@ -78,6 +78,8 @@ def install_gift_withdrawals(app, db, auth, record, audit):
         return {'id': wid, 'status': 'queued'}
 
     @app.get('/api/admin/withdrawals')
+    @app.get('/api/admin/withdrawals/nft')
+    @app.get('/api/admin/withdrawals/ton')
     @auth(admin=True)
     def admin_withdrawals():
         ton = []
@@ -105,6 +107,10 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                           'gift': entry.get('gift', {}),
                           'receiver_user_id': entry.get('receiver_user_id'),
                           'receiver_username': entry.get('receiver_username')})
+        if request.path.endswith('/nft'):
+            return {'ton': [], 'gifts': gifts}
+        if request.path.endswith('/ton'):
+            return {'ton': ton, 'gifts': []}
         return {'ton': ton, 'gifts': gifts}
 
     @app.post('/api/admin/withdrawals/gift/<wid>/resolve')

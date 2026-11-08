@@ -110,3 +110,39 @@ python -m pytest tests -q
 Тесты: `pytest tests/test_admin_console.py` и
 `node tests/test_maintenance_ui.cjs`. Настройка технических работ
 поставляется **выключенной**; включение требует подтверждения администратора.
+
+
+## Desktop interface and winter maintenance (2026-11-08)
+
+- Desktop (>=1024px): true fixed left navigation from existing Crafter routes
+  (profile/avatar, Market, gifts, Hub, Craft, Arena, Staking, settings and admin),
+  while mobile keeps its existing bottom bar.
+- On wider monitors (>=1400px) market and staked NFT gifts use an 11-column grid;
+  no fake NFT renders are introduced. Loading placeholders follow those columns.
+- The existing Christmas canopy repeats naturally over the full desktop header.
+  The splash adapts its original artwork/sprites to 4:3, 16:9, ultrawide and
+  short browser windows.
+- Maintenance overlay uses dark graphite Liquid Glass and independently
+  animated snow with the existing holiday garland. Snow is restored once,
+  then remains under the normal on/off control in the admin console.
+- Admin section navigation retains the sidebar scroll position and no longer
+  forces the browser back to the top.
+
+### Admin rights
+
+Only the primary administrator may open **Админка → Управление админами**.
+They can grant full access or choose individual sections, and revoke grants.
+The backend verifies permissions on every privileged request, including
+financial and withdrawal endpoints. Separate read-only TON and NFT queues
+avoid leaking the other queue to a single-section admin.
+
+Primary admin is the **sole preconfigured Telegram ID in ADMIN_IDS**. If
+ADMIN_IDS lists more than one person, set PRIMARY_ADMIN_ID to the verified
+numeric Telegram user ID of the main IT administrator; we deliberately do not
+promote an account based on a mutable username. All grants and revocations
+are recorded in the audit log.
+
+Referral levels follow 10 invited accounts per level, capped at level 3.
+A planned 10%/5%/10% tier schedule is exposed as reference metadata only:
+real percentage payments are not activated without a defined verified fee source
+and accounting flow.

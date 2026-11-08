@@ -381,3 +381,13 @@ html[data-crafter-theme="light"] #nav .games-entry {background:#fff;color:#41475
 html[data-crafter-theme="light"] #nav.games-nav .nav-main > button.active {
   color:#1174c5!important;background:#d7ebff!important;border-color:#8dc9f5!important;
 }
+
+/* Small Crafter anvil icon integrated into referral progress without stretching. */
+.portal-ref-heading>b{display:flex;align-items:center;gap:7px}
+.portal-ref-heading .referral-mini-anvil,.portal-ref-heading b svg{
+ width:18px;height:18px;flex:0 0 18px;object-fit:contain
+}
+.portal-ref-grid .ref-label{display:inline-flex;align-items:center;gap:7px}
+.portal-ref-grid .referral-mini-anvil,.portal-ref-grid .ref-label svg{
+ width:17px;height:17px;flex:0 0 17px;object-fit:contain
+}

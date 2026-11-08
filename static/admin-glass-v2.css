@@ -317,3 +317,28 @@ body.admin-page input,body.admin-page select,body.admin-page textarea{max-width:
  .admin-craft-rule{grid-template-columns:1fr}
  .admin-craft-add{grid-template-columns:1fr}
 }
+
+/* Per-section role editor: consistent graphite liquid glass across phone/desktop. */
+.admin-roles-panel{display:grid;gap:13px}
+.admin-roles-panel label{display:grid;gap:7px;color:#c5cfdb;font-size:12px}
+.admin-roles-panel input[type="text"],.admin-roles-panel select{
+ min-height:44px;border:1px solid #afb8c454;border-radius:13px;
+ background:#12171f;color:#e9f1fb;padding:10px 13px;font-size:13px;
+}
+.admin-role-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;
+ border:1px solid #ffffff28;border-radius:15px;padding:14px}
+.admin-role-options[hidden]{display:none!important}
+.admin-role-options legend{font-size:11px;font-weight:750;color:#abbcca;padding:0 7px}
+.admin-role-options label{display:flex;align-items:center;gap:7px;padding:7px 3px;cursor:pointer;font-size:11px}
+.admin-role-options input{accent-color:#9ac9ef}
+.admin-role-save{min-height:47px;max-width:250px;border-radius:14px!important;padding:12px 20px!important}
+.admin-admin-list{display:grid;gap:7px}
+.admin-admin-row{display:flex;flex-wrap:wrap;align-items:center;gap:13px;padding:13px 12px;border:1px solid #ffffff26;border-radius:13px;background:#ffffff08}
+.admin-role-user{min-width:110px;flex:1;display:grid;gap:4px}
+.admin-role-user b{font-size:13px}.admin-role-user small{font-size:10px;color:#a5b2c0}
+.admin-role-desc{display:grid;gap:4px;flex:2;min-width:150px}
+.admin-role-desc strong{font-size:11px;color:#d3e2ee}
+.admin-role-desc small{font-size:10px;color:#a0acb9;line-height:1.5}
+.admin-role-remove{border:1px solid #da8e9a73!important;border-radius:12px!important;background:#a43a4b21!important;color:#f6b6be!important;padding:9px 12px!important;font-size:11px!important}
+@media(max-width:700px){.admin-role-options{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:380px){.admin-role-options{grid-template-columns:1fr}}

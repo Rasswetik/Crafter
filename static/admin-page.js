@@ -20,12 +20,25 @@ const adminSections = {
     'telegram-bot':{label:'Telegram-бот',detail:'Уведомления и настройки',group:'system',glyph:'send',render:renderTelegramBotAdmin},
     announcements:{label:'Анонсы',detail:'Окна и сообщения',group:'system',glyph:'grid',render:renderAdminAnnouncements},
     snow:         {label:'Снег на сайте',detail:'Погода и оформление',group:'system',glyph:'gift',render:renderAdminSnow},
+    admins:       {label:'Управление админами',detail:'Роли и права по разделам',group:'system',glyph:'shield',render:renderAdminRoles},
 };
 const adminGroupTitles = {main:'Обзор',money:'Финансовые операции',manage:'Управление',system:'Система'};
+function adminCanOpenSection(id){
+    const me=state.me||{};
+    if(id==='admins')return Boolean(me.is_primary_admin);
+    if(!me.is_admin)return false;
+    return Boolean(me.is_primary_admin||me.admin_permissions?.includes('*')||
+        me.admin_permissions?.includes(id));
+}
+function adminAllowedSection(id){
+    if(adminSections[id]&&adminCanOpenSection(id))return id;
+    return Object.keys(adminSections).find(adminCanOpenSection)||'finance';
+}
+
 function adminNavCards() {
     return Object.entries(adminGroupTitles).map(([group, title]) =>
         '<div class="admin-nav-group"><span class="admin-nav-heading">'+title+'</span>'+
-        Object.entries(adminSections).filter(([id,item])=>item.group===group).map(([id,item])=>
+        Object.entries(adminSections).filter(([id,item])=>item.group===group&&adminCanOpenSection(id)).map(([id,item])=>
             '<button type="button" class="admin-nav-link'+
             (state.adminSection===id?' is-current':'')+
             '" onclick="openAdminSection('+arg(id)+')" aria-current="'+
@@ -35,10 +48,13 @@ function adminNavCards() {
             '</button>').join('')+'</div>').join('');
 }
 async function renderAdmin() {
+    const activeNavigation=document.getElementById('admin-navigation');
+    const savedNavScroll=activeNavigation?.scrollTop||0;
+    const keepMenuOpen=activeNavigation?.classList.contains('is-open')||false;
     const main=document.querySelector('#main');
     if(!main)return;
-    const section=adminSections[state.adminSection]||adminSections.finance;
-    if(!adminSections[state.adminSection])state.adminSection='finance';
+    state.adminSection=adminAllowedSection(state.adminSection);
+    const section=adminSections[state.adminSection];
     main.removeAttribute('data-admin-user');
     main.innerHTML='<div class="admin-dashboard">'+
         '<aside class="admin-navigation" id="admin-navigation" aria-label="Меню админки">'+
@@ -51,6 +67,12 @@ async function renderAdmin() {
         '<p>'+section.detail+'</p></div></div>'+
         '<div id="admin-content" class="admin-content"><p class="admin-loading-panel">Загрузка раздела…</p></div>'+
         '</section></div>';
+    const newNavigation=document.getElementById('admin-navigation');
+    if(newNavigation) {
+        newNavigation.scrollTop=savedNavScroll;
+        newNavigation.classList.toggle('is-open', keepMenuOpen);
+        newNavigation.querySelector('[aria-current="page"]')?.setAttribute('tabindex','0');
+    }
     const content=main.querySelector('#admin-content');
     try{
         await section.render(content);
@@ -63,13 +85,19 @@ function adminToggleMenu(){
 }
 function openAdminSection(id){
     closeSheet();
-    state.adminSection=adminSections[id]?id:'finance';
+    state.adminSection=adminAllowedSection(id);
     adminConsoleState.activeUser=null;
     adminConsoleState.userRequest++;
     const next='/admin?section='+encodeURIComponent(state.adminSection);
     if(location.pathname+location.search!==next)history.pushState({section:state.adminSection},'',next);
+    // Keep the current viewport/selected menu position on section changes.
+    // Rebuilding the entire navigation used to jump the admin to the top.
+    const currentY=window.scrollY;
     renderAdmin();
-    window.scrollTo({top:0,behavior:'instant'});
+    requestAnimationFrame(()=>{
+        if(!window.matchMedia('(max-width:740px)').matches)
+            window.scrollTo({top:currentY,behavior:'instant'});
+    });
 }
 window.addEventListener('popstate',()=>{
     const match=location.pathname.match(/^\/admin\/user\/([1-9]\d*)$/);

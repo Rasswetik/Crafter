@@ -138,7 +138,7 @@ function renderGamesHub() {
         </button>`}
     </section>`;
     if(typeof crafterCraftBannerMount==='function')crafterCraftBannerMount('craft-hub-banner');
-    if(typeof crafterLottieEnhance==='function')crafterLottieEnhance(document.querySelector('#main'));
+    if(typeof crafterLottieEnhance==='function')requestAnimationFrame(()=>crafterLottieEnhance(document.querySelector('#main')));
     loadCrafterModePolicy();
 }
 

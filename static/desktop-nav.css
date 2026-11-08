@@ -1,0 +1,109 @@
+/* Crafter desktop shell — uses the existing live UI and assets, no mockup image. */
+#crafter-desktop-sidebar{display:none}
+@media(min-width:1024px){
+  :root{--crafter-desktop-side:228px;--crafter-desktop-gutter:18px}
+  body{background:#0d0e11!important;min-width:0}
+  #crafter-desktop-sidebar{
+    position:fixed;z-index:9;left:var(--crafter-desktop-gutter);top:var(--crafter-desktop-gutter);
+    bottom:var(--crafter-desktop-gutter);width:var(--crafter-desktop-side);
+    display:flex;flex-direction:column;gap:5px;padding:16px 13px 14px;
+    overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;
+    color:#e5e6e9;border:1px solid #41454a;border-radius:25px;
+    background:linear-gradient(145deg,#ffffff10,#ffffff04 40%,#ffffff06),#17191cdd;
+    box-shadow:inset 0 1px #ffffff24,0 15px 40px #0006;
+    backdrop-filter:blur(25px) saturate(1.16);-webkit-backdrop-filter:blur(25px) saturate(1.16);
+    scrollbar-width:thin;scrollbar-color:#46494e transparent;
+  }
+  .desktop-sidebar-logo{display:flex;align-items:center;gap:10px;padding:4px 7px 12px;font-size:21px;font-weight:850;letter-spacing:-.04em}
+  .desktop-brand-mark{width:32px;height:32px;display:grid;place-items:center;flex-shrink:0}
+  .desktop-brand-mark svg,.desktop-brand-mark img{width:32px;height:32px;object-fit:contain}
+  .desktop-sidebar-account{
+    display:flex;align-items:center;gap:10px;flex-shrink:0;
+    width:100%;text-align:left;min-height:77px;
+    padding:9px!important;margin-bottom:9px;
+    background:linear-gradient(135deg,#d3e5ef16,#f3f3f309)!important;
+    border:1px solid #ffffff23!important;border-radius:16px!important;
+  }
+  .desktop-sidebar-avatar,.desktop-sidebar-avatar .avatar{
+    display:grid;place-items:center;flex:0 0 45px;width:45px;height:45px;
+    overflow:hidden;border-radius:13px;background:#242a30;
+  }
+  .desktop-sidebar-avatar .avatar img,.desktop-sidebar-avatar img{width:100%;height:100%;object-fit:cover}
+  .desktop-sidebar-identity{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+  .desktop-sidebar-identity b{font-size:14px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .desktop-sidebar-identity small{font-size:10px;color:#9799a0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+  .desktop-sidebar-chevron{font-size:23px;color:#9da2a9}
+  .desktop-sidebar-caption{font-size:10px;color:#8d939c;letter-spacing:.15em;font-weight:800;padding:11px 13px 7px}
+  .desktop-sidebar-menu{position:static!important;display:flex;flex-direction:column;gap:4px;width:100%;height:auto;
+    min-height:0;padding:0;margin:0;background:none!important;border:0!important;transform:none!important;
+    box-shadow:none!important;backdrop-filter:none!important}
+  .desktop-sidebar-link,.desktop-sidebar-secondary{
+    flex:none;display:flex;align-items:center;justify-content:flex-start;gap:12px;
+    min-height:45px;width:100%;padding:10px 11px!important;border-radius:13px!important;
+    background:transparent!important;border:1px solid transparent!important;
+    text-align:left;color:#b7bdc7!important;font-size:13px!important;font-weight:730!important;
+  }
+  .desktop-sidebar-link:hover,.desktop-sidebar-secondary:hover{background:#ffffff10!important}
+  .desktop-sidebar-link.is-active{
+    border-color:#92c3eb73!important;background:linear-gradient(145deg,#71b3ed40,#4b81c326)!important;
+    color:#eaf6ff!important;box-shadow:inset 0 1px #ffffff33,0 4px 16px #0002!important
+  }
+  .desktop-sidebar-link-icon{width:22px;height:22px;display:grid;place-items:center;flex-shrink:0}
+  .desktop-sidebar-link-icon svg{width:21px;height:21px}
+  .desktop-sidebar-link-icon img{height:21px;width:21px;object-fit:contain}
+  .desktop-sidebar-divider{height:1px;background:#ffffff23;margin:14px 7px 10px}
+  .desktop-sidebar-footer{margin-top:auto;padding:16px 7px 3px;font-size:10px;color:#858992}
+  #app,#app.arena-view,#app.staking-view,#app.games-view{
+    width:calc(100% - var(--crafter-desktop-side) - 3 * var(--crafter-desktop-gutter))!important;
+    max-width:none!important;
+    margin:var(--crafter-desktop-gutter) var(--crafter-desktop-gutter) var(--crafter-desktop-gutter)
+      calc(var(--crafter-desktop-side) + 2 * var(--crafter-desktop-gutter))!important;
+    min-height:calc(100dvh - 2 * var(--crafter-desktop-gutter));
+    border-radius:25px!important;overflow:clip!important;
+    background:#131415!important;border:1px solid #393c40!important;
+  }
+  #app > header{height:85px;max-width:none;padding:21px clamp(16px,2vw,30px)!important}
+  #app > header .brand{display:flex!important}
+  #app > header .brand .crafter-mark{font-size:20px}
+  #app > main{max-width:none!important;padding:12px clamp(12px,2vw,27px) 34px!important}
+  #nav,#app #nav{display:none!important}
+  .market-banners{max-width:none!important}
+  #main .grid:not(.list),#gifts-grid.grid{
+    grid-template-columns:repeat(7,minmax(0,1fr))!important;
+    gap:9px!important;
+  }
+  #main .grid:not(.list) > .gift .art {border-radius:12px!important}
+  #main .grid:not(.list) > .gift h3{font-size:12px!important}
+  #main .grid:not(.list) > .gift .number{font-size:10px!important}
+  #main .grid:not(.list) > .gift .price{font-size:12px!important;padding:6px 0!important}
+  #main .staking-gift-grid{grid-template-columns:repeat(7,minmax(0,1fr))!important;gap:9px}
+  #main .staking-gift-grid .stake-gift-card{min-width:0;padding:5px;border-radius:13px}
+  #main .staking-gift-grid .stake-gift-art{border-radius:10px}
+  #main .staking-gift-grid .stake-gift-card strong{font-size:11px}
+  #app > header::before {
+    height:76px!important;top:0!important;opacity:.94;
+    background-image:url("/static/assets/crafter-top-canopy.svg?v=1")!important;
+    background-size:300px 76px!important;background-repeat:repeat-x!important;
+    background-position:center top!important;
+  }
+  .crafter-games{max-width:unset}
+  #main .crafter-skeleton .skeleton-grid{grid-template-columns:repeat(7,minmax(0,1fr));gap:9px}
+  #main .crafter-skeleton .skeleton-gift{min-height:135px;aspect-ratio:.74;border-radius:13px}
+}
+@media(min-width:1400px){
+  :root{--crafter-desktop-side:248px;--crafter-desktop-gutter:19px}
+  #main .grid:not(.list),#gifts-grid.grid{
+    grid-template-columns:repeat(11,minmax(0,1fr))!important;gap:8px!important;
+  }
+  #main .staking-gift-grid{grid-template-columns:repeat(11,minmax(0,1fr))!important;gap:8px!important}
+  #main .crafter-skeleton .skeleton-grid{grid-template-columns:repeat(11,minmax(0,1fr))}
+  #main .crafter-skeleton .skeleton-gift{min-height:110px}
+  #main .gift{border-radius:12px!important;padding:5px!important}
+}
+@media(min-width:1900px){
+  #app > main{padding-left:32px!important;padding-right:32px!important}
+  #main .grid:not(.list),#gifts-grid.grid{gap:11px!important}
+}
+@media(max-width:1023.98px){
+  #crafter-desktop-sidebar{display:none!important}
+}

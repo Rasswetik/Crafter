@@ -1,0 +1,46 @@
+/* Existing Crafter splash sprites: landscape, 4:3, ultrawide, no stretched poster. */
+@media(min-width:1024px){
+  .splash.splash-approved{
+    background:radial-gradient(ellipse at 51% 43%,#252d36 0%,#111920 51%,#090d13 100%)!important;
+  }
+  .splash-approved .splash-approved-poster,
+  .splash-approved .splash-approved-status {display:none!important}
+  .splash-approved .splash-frame{
+    display:flex!important;position:relative;z-index:5;max-width:none!important;
+    flex-direction:row;align-items:center;justify-content:center;
+    height:min(85dvh,780px);width:min(90vw,1060px);gap:clamp(20px,5vw,94px);
+    margin:7dvh auto 0!important;padding:16px;
+  }
+  .splash-approved .splash-art{flex:0 0 min(43vw,56dvh,480px);width:min(43vw,56dvh,480px);margin:0!important}
+  .splash-approved .splash-brand{font-size:clamp(45px,5vw,83px);line-height:1.04;text-align:center}
+  .splash-approved .splash-status{display:flex!important;position:relative;align-items:center;gap:13px;min-width:190px}
+  .splash-approved .splash-winter-sky,
+  .splash-approved .splash-winter-snowbank,
+  .splash-approved .splash-holiday-lights{display:block!important}
+  .splash-approved .splash-holiday-lights{
+    width:100%;max-width:none!important;height:83px;top:0;left:0;object-fit:cover;
+  }
+}
+/* 4:3 desktop/laptops: keep art and real progress inside the safe viewport. */
+@media(min-width:1024px) and (max-aspect-ratio:4/3){
+  .splash-approved .splash-frame{gap:2.5vw;width:96vw}
+  .splash-approved .splash-art{flex-basis:min(43vw,46dvh);width:min(43vw,46dvh)}
+  .splash-approved .splash-brand{font-size:clamp(35px,4.5vw,60px)}
+}
+/* 16:9 and ultrawide: balanced center composition, no image stretching. */
+@media(min-aspect-ratio:16/9) and (min-width:1024px){
+  .splash-approved .splash-frame{width:min(76vw,1100px);height:80dvh;margin-top:9dvh!important}
+  .splash-approved .splash-art{flex-basis:min(42vw,60dvh,470px);width:min(42vw,60dvh,470px)}
+}
+@media(min-aspect-ratio:21/9) and (min-width:1400px){
+  .splash-approved .splash-frame{width:min(64vw,1200px)}
+}
+/* Short browser/Telegram Desktop windows must not crop loading status. */
+@media(min-width:1024px) and (max-height:680px){
+  .splash-approved .splash-frame{height:94dvh;margin-top:3dvh!important;gap:3vw}
+  .splash-approved .splash-art{flex-basis:min(40vw,75dvh);width:min(40vw,75dvh)}
+  .splash-approved .splash-brand{font-size:clamp(28px,4vw,55px)}
+}
+@media(max-width:1023.98px){
+  .splash-approved .splash-approved-photo{object-fit:contain!important}
+}

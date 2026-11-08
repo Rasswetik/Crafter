@@ -55,3 +55,58 @@ body.maintenance-locked {overflow:hidden!important}
 .crafter-maintenance-button svg{width:18px;height:18px;stroke-width:2}
 #crafter-maintenance-status {font-size:11px;color:#93b3c9;min-height:15px}
 @media(prefers-reduced-motion:reduce){.crafter-maintenance-gear svg{animation:none}}
+
+/* Neutral graphite glass, existing Crafter holiday canopy and real CSS snow. */
+#crafter-maintenance {
+  background:radial-gradient(ellipse at 50% 28%,#43464d55,transparent 66%),#090a0dd9!important;
+  color:#eff1f3!important;
+  backdrop-filter:blur(30px) saturate(.75)!important;
+  -webkit-backdrop-filter:blur(30px) saturate(.75)!important;
+}
+#crafter-maintenance::after {
+  content:"";position:absolute;top:0;left:0;width:100%;height:89px;
+  z-index:3;pointer-events:none;
+  background:url("/static/assets/crafter-top-canopy.svg?v=1") repeat-x center top / 310px 85px;
+  opacity:.94;
+}
+#crafter-maintenance::before {opacity:.11!important;background-image:radial-gradient(#f4f7fb 1px,transparent 1.5px)!important}
+.crafter-maintenance-card {
+  position:relative;z-index:2;
+  background:linear-gradient(138deg,#ffffff22,#ffffff09 58%,#ffffff0a),#202226bc!important;
+  border:1px solid #e6e9f166!important;
+  box-shadow:inset 0 1px #fff5,inset 0 -2px #ffffff0c,0 25px 70px #0009!important;
+  backdrop-filter:blur(35px) saturate(.68)!important;
+  -webkit-backdrop-filter:blur(35px) saturate(.68)!important;
+}
+.crafter-maintenance-kicker {color:#c5ccd3!important}
+.crafter-maintenance-gear {
+  background:linear-gradient(148deg,#ffffff3b,#ffffff10)!important;
+  border-color:#f1f3f88a!important;
+  box-shadow:inset 0 1px #fffa,0 13px 35px #0006!important;
+}
+.crafter-maintenance-gear svg {stroke:#f5f6f7!important;filter:drop-shadow(0 0 10px #ffffff9a)!important}
+.crafter-maintenance-card h1{color:#fff!important}
+.crafter-maintenance-card p{color:#c1c5cb!important}
+.crafter-maintenance-button {
+  background:linear-gradient(160deg,#f9fafbd9,#bfc5cbd9 80%,#9ca2aadb)!important;
+  border:1px solid #fff!important;color:#16191d!important;
+  box-shadow:inset 0 1px #fff9,0 8px 24px #0008!important;
+}
+#crafter-maintenance-status{color:#b7bdc5!important}
+.crafter-maintenance-snow {position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
+.crafter-maintenance-snow i {
+  position:absolute;display:block;left:var(--x);top:-20px;
+  width:var(--flake-size);height:var(--flake-size);
+  background:#f7f9fd;border-radius:50%;
+  box-shadow:0 0 6px #ffffffba;
+  opacity:0;animation:crafter-maintenance-snow-fall var(--duration) linear var(--delay) infinite;
+}
+@keyframes crafter-maintenance-snow-fall{
+  0%{transform:translate3d(0,-20px,0);opacity:0}
+  8%{opacity:.7}88%{opacity:.7}
+  100%{transform:translate3d(var(--drift),calc(100dvh + 40px),0);opacity:0}
+}
+@media(max-width:520px){
+  #crafter-maintenance::after{height:75px;background-size:245px 72px}
+}
+@media(prefers-reduced-motion:reduce){.crafter-maintenance-snow i{animation:none!important;opacity:0!important}}
