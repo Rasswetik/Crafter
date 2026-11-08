@@ -40,7 +40,7 @@ function adminAllowedSection(id){
 function adminNavCards() {
     return Object.entries(adminGroupTitles).map(([group, title]) =>
         '<div class="admin-nav-group"><span class="admin-nav-heading">'+title+'</span>'+
-        Object.entries(adminSections).filter(([id,item])=>item.group===group&&adminCanOpenSection(id)).map(([id,item])=>
+        Object.entries(adminSections).filter(([id,item])=>id!=='admins'&&item.group===group&&adminCanOpenSection(id)).map(([id,item])=>
             '<button type="button" class="admin-nav-link'+
             (state.adminSection===id?' is-current':'')+
             '" onclick="openAdminSection('+arg(id)+')" aria-current="'+
@@ -61,12 +61,20 @@ async function renderAdmin() {
     main.innerHTML='<div class="admin-dashboard">'+
         '<aside class="admin-navigation" id="admin-navigation" aria-label="Меню админки">'+
         '<div class="admin-nav-head"><small>CRAFTER / CONSOLE</small><strong>Разделы</strong></div>'+
+        (state.me?.is_primary_admin?
+         '<button type="button" class="admin-owner-quick '+(state.adminSection==='admins'?'is-current':'')+
+         '" onclick="openAdminSection(\'admins\')"><span class="admin-owner-quick-icon">'+icon('shield')+
+         '</span><span><b>Управление админами</b><small>Добавить · права · удалить</small></span>'+
+         '<span class="admin-nav-arrow">›</span></button>':'')+
         adminNavCards()+'</aside>'+
         '<section class="admin-workspace">'+
         '<div class="admin-workspace-header"><button type="button" class="admin-mobile-nav-toggle" '+
         'onclick="adminToggleMenu()" aria-label="Открыть меню">☰ Меню</button>'+
         '<div><small>ПАНЕЛЬ УПРАВЛЕНИЯ</small><h2>'+section.label+'</h2>'+
-        '<p>'+section.detail+'</p></div></div>'+
+        '<p>'+section.detail+'</p></div>'+
+        (state.me?.is_primary_admin&&state.adminSection!=='admins'?
+         '<button type="button" class="admin-header-owner-button" onclick="openAdminSection(\'admins\')">'+
+         icon('shield')+'<span>Администраторы</span></button>':'')+'</div>'+
         '<div id="admin-content" class="admin-content"><p class="admin-loading-panel">Загрузка раздела…</p></div>'+
         '</section></div>';
     const newNavigation=document.getElementById('admin-navigation');
