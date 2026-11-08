@@ -113,3 +113,18 @@ def test_work_mode_buys_after_verification(client, work_ready, monkeypatch):
     ids = [g['source_id'] for g in client.get('/api/inventory', headers=signed(43)).json['gifts']]
     assert ids == [LOT]
     assert client.get('/api/me', headers=signed(43)).json['balance'].startswith('15')
+
+
+def test_upgrade_requires_buyable_portals_lot_in_work_mode(client, work_ready, monkeypatch):
+    # work mode, stake worth 1 GRAM, target Portals lot worth 5 GRAM listed in cache
+    import portals_partner
+    monkeypatch.setattr(work_ready, 'listings', lambda *_a, **_k: {'gifts': []})   # lot vanished on Portals
+    monkeypatch.setattr('thermos.collections', lambda: [{'id': 'snoop', 'name': 'Snoop Dogg', 'floor_price': '5', 'photo_url': ''}])
+    stake = {**DEMO_GIFTS[1], 'id': 'stk', 'origin': 'local-purchase', 'price': '1.00', 'price_unit': 'GRAM'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')", (stake['id'], json.dumps(stake)))
+        db.execute("UPDATE settings SET payload=? WHERE key='purchase_mode_v1'", (json.dumps({'mode': 'work'}),)) if False else \
+            db.execute("INSERT OR REPLACE INTO settings VALUES ('purchase_mode_v1', ?)", (json.dumps({'mode': 'work'}),))
+    r = client.post('/api/upgrade/quote', headers=signed(43),
+                    json={'stake_id': 'stk', 'collection_id': 'snoop', 'listing_id': LOT})
+    assert r.status_code == 409          # not listed on Portals any more -> no upgrade

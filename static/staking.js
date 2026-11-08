@@ -135,7 +135,7 @@ function renderGamesHub() {
             <span class="crafter-game-label"><strong>Апгрейд</strong>
                 <span>Поставьте подарок и получите дороже</span>
                 <span class="crafter-game-open">Играть</span></span>
-            <span class="crafter-game-emblem crafter-upgrade-emblem">${window.crafterUpgradeIcon || ''}</span>
+            <span class="hub-wheel" aria-hidden="true"><i class="hub-wheel-ring"></i><i class="hub-wheel-zone"></i><i class="hub-wheel-pointer"></i><b>↑</b></span>
         </button>`}
         ${window.crafterOfflinePreview || !crafterCanSeeMode('arena') ? '' : `<button class="crafter-game-tile arena-tile crafter-swords-tile" onclick="go('arena')" type="button">
             <span class="crafter-game-label"><strong>Arena</strong>

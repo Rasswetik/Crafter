@@ -1,0 +1,44 @@
+/* Polish v2: motion for menus, loading and the New Year arena. No colour changes. */
+@keyframes pv-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes pv-pulse{0%,100%{box-shadow:0 0 0 0 rgba(22,137,255,0)}50%{box-shadow:0 0 22px 2px rgba(22,137,255,.35)}}
+@keyframes pv-frost{from{transform:translateX(-130%)}to{transform:translateX(130%)}}
+@keyframes pv-bar{from{background-position:0 0}to{background-position:60px 0}}
+
+/* Menus: bottom navigation + desktop sidebar */
+#nav button,#nav .games-entry{transition:transform .22s cubic-bezier(.3,1.6,.5,1),background .2s,color .2s}
+#nav button:active{transform:scale(.92)}
+#nav button.active svg,#nav button.active .stake-nav-icon{animation:pv-bounce .45s cubic-bezier(.3,1.6,.5,1)}
+@keyframes pv-bounce{0%{transform:scale(.8)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
+.desktop-sidebar-link{transition:transform .2s cubic-bezier(.3,1.4,.5,1),background .2s,color .2s}
+.desktop-sidebar-link:hover{transform:translateX(3px)}
+.desktop-sidebar-link:hover .desktop-sidebar-link-icon{transform:scale(1.12)}
+.desktop-sidebar-link-icon{transition:transform .22s cubic-bezier(.3,1.6,.5,1)}
+.desktop-sidebar-link:active{transform:scale(.97)}
+.crafter-games,.upg{animation:pv-in .4s cubic-bezier(.2,.8,.2,1) both}
+.crafter-game-tile{transition:transform .25s cubic-bezier(.3,1.4,.5,1),filter .25s}
+.crafter-game-tile:hover{transform:translateY(-3px)}
+.crafter-game-tile:active{transform:scale(.98)}
+.crafter-game-open{transition:transform .2s,box-shadow .2s}
+.crafter-game-tile:hover .crafter-game-open{transform:translateX(3px)}
+
+/* Loading: smoother progress with a moving highlight, softer skeleton */
+.splash-progress-fill{transition:width .55s cubic-bezier(.2,.8,.2,1)!important;
+  background-image:linear-gradient(115deg,rgba(255,255,255,.28) 0 25%,transparent 25% 50%,rgba(255,255,255,.28) 50% 75%,transparent 75%);
+  background-size:60px 100%;animation:pv-bar 1.1s linear infinite}
+#splash.finished{transition:opacity .45s ease,transform .45s ease;transform:scale(1.03)}
+.crafter-skeleton .skeleton-block{animation-duration:1.5s}
+
+/* New Year arena: frost sweep, pulsing primary actions, lively tabs */
+.arena-winter .arena-page{animation:pv-in .5s cubic-bezier(.2,.8,.2,1) both}
+.arena-winter .arena-board{position:relative;overflow:hidden}
+.arena-winter .arena-board::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:linear-gradient(110deg,transparent 35%,rgba(210,236,255,.13) 48%,transparent 62%);animation:pv-frost 6s ease-in-out infinite}
+.arena-winter .arena-actions button:not(:disabled){animation:pv-pulse 2.8s ease-in-out infinite}
+.arena-winter .arena-mode-tabs button,.arena-winter .arena-room-tabs button{transition:transform .2s cubic-bezier(.3,1.5,.5,1),background .2s}
+.arena-winter .arena-mode-tabs button:active,.arena-winter .arena-room-tabs button:active{transform:scale(.94)}
+.arena-winter .arena-private-room-card,.arena-winter .arena-private-item{transition:transform .22s cubic-bezier(.3,1.4,.5,1),box-shadow .22s}
+.arena-winter .arena-private-room-card:hover,.arena-winter .arena-private-item:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,0,0,.35)}
+@media(prefers-reduced-motion:reduce){
+  .crafter-games,.upg,.arena-winter .arena-page,.splash-progress-fill,.arena-winter .arena-board::after,
+  .arena-winter .arena-actions button,#nav button.active svg,#nav button.active .stake-nav-icon{animation:none!important}
+  .desktop-sidebar-link:hover,.crafter-game-tile:hover{transform:none}}

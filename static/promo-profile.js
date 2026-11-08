@@ -92,31 +92,27 @@ function referralMarkup(){
     const rates=[5,6,7,8,10];
     const level=Math.max(1,Math.min(5,Number(me.referral_level)||1));
     const link=me.invite_link||'Ссылка недоступна';
-    const storageKey='crafter-referral-open:'+String(me.user?.id||'default');
-    let expanded=false;
-    try{expanded=sessionStorage.getItem(storageKey)==='1';}catch(_){}
-    return '<details class="crafter-referral-glass" id="crafter-referral-panel" '+
-        (expanded?'open':'')+'>'+
-        '<summary class="crafter-referral-summary">'+
-        '<span class="crafter-referral-summary-title"><small>CRAFTER · РЕФЕРАЛЫ</small>'+
-        '<strong>Реферальная система</strong></span>'+
-        '<span class="crafter-referral-summary-metrics"><span>'+level+' ур. · '+rates[level-1]+'%</span>'+
-        '<strong id="crafter-referral-balance">'+liveAmount(me.referral_balance)+' GRAM</strong></span>'+
-        '<span class="crafter-referral-chevron" aria-hidden="true">⌄</span>'+
-        '</summary><div class="crafter-referral-content">'+
-        '<p class="crafter-referral-description">До 10% от комиссии Crafter за игры и сделки приглашённых друзей.</p>'+
-        '<div class="crafter-referral-tiers">'+rates.map((rate,i)=>
-            '<div class="crafter-referral-tier'+(i+1===level?' is-current':'')+'"><small>'+String(i+1)+' ур.</small><strong>'+rate+'%</strong></div>'
+    const have=Number(me.referrals||0),left=Math.max(0,Number(me.referral_until_next)||0);
+    const pct=level>=5?100:Math.round(100*have/Math.max(1,have+left));
+    return '<section class="rf-card" id="crafter-referral-panel" aria-label="Реферальная система">'+
+        '<div class="rf-top"><div class="rf-title"><small>CRAFTER · РЕФЕРАЛЫ</small><h2>Приглашайте друзей</h2>'+
+        '<p>До 10% от комиссии Crafter за игры и сделки приглашённых.</p></div>'+
+        '<div class="rf-badge" style="--rf-pct:'+pct+'"><span><b>'+level+'</b><small>уровень</small></span></div></div>'+
+        '<div class="rf-balance"><div><small>Реферальный баланс</small>'+
+        '<strong id="crafter-referral-balance">'+liveAmount(me.referral_balance)+' GRAM</strong></div>'+
+        '<button type="button" id="crafter-referral-withdraw">Вывести</button></div>'+
+        '<div class="rf-progress"><div class="rf-progress-head"><span>Ваша ставка: <b>'+rates[level-1]+'%</b></span>'+
+        '<span>'+(level>=5?'Максимальный уровень':'До '+(level+1)+' ур. · ещё '+left)+'</span></div>'+
+        '<div class="rf-bar"><i style="width:'+pct+'%"></i></div></div>'+
+        '<div class="rf-steps">'+rates.map((rate,i)=>
+            '<div class="rf-step'+(i+1<level?' is-done':'')+(i+1===level?' is-current':'')+'"><b>'+rate+'%</b><small>'+(i+1)+' ур.</small></div>'
         ).join('')+'</div>'+
-        '<div class="crafter-referral-stats"><div><small>Рефералов</small><strong>'+Number(me.referrals||0)+'</strong></div>'+
-        '<div><small>Ваш уровень</small><strong>'+level+' / 5</strong></div>'+
-        '<div><small>До следующего</small><strong>'+(me.referral_until_next||0)+'</strong></div></div>'+
-        '<div class="crafter-referral-link"><span>'+esc(link)+'</span>'+
-        '<button type="button" id="crafter-referral-copy">Копировать</button></div>'+
-        '<div class="crafter-referral-actions"><button type="button" id="crafter-referral-share">✈ Пригласить друзей</button>'+
-        '<button type="button" id="crafter-referral-withdraw">Вывести баланс</button></div>'+
-        '<p class="crafter-referral-note">Минимум для перевода — 1 GRAM. Начисления поступают с оплаченных комиссий.</p>'+
-        '</div></details>';
+        '<div class="rf-stats"><div><small>Рефералов</small><strong>'+have+'</strong></div>'+
+        '<div><small>Уровень</small><strong>'+level+' / 5</strong></div>'+
+        '<div><small>До следующего</small><strong>'+(level>=5?'—':left)+'</strong></div></div>'+
+        '<div class="rf-link"><span>'+esc(link)+'</span><button type="button" id="crafter-referral-copy">Копировать</button></div>'+
+        '<button type="button" class="rf-invite" id="crafter-referral-share">✈ Пригласить друзей</button>'+
+        '<p class="rf-note">Минимум для перевода — 1 GRAM. Начисления поступают с оплаченных комиссий.</p></section>';
 }
 function enhanceProfile(){
     const root=document.querySelector('#main');
@@ -124,7 +120,7 @@ function enhanceProfile(){
     if(!identity)return;
     root.querySelector('.portal-referrals')?.remove();
     root.querySelector('.profile-invite')?.remove();
-    root.querySelector('.crafter-referral-glass')?.remove();
+    root.querySelector('.crafter-referral-glass')?.remove();root.querySelector('.rf-card')?.remove();
     const profile=root.querySelector('.portal-profile');
     profile?.insertAdjacentHTML('afterend',referralMarkup());
     const referrals=root.querySelector('#crafter-referral-panel');

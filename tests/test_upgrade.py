@@ -82,3 +82,14 @@ def test_rejects_other_users_gifts_and_cheap_targets(client, setup):
         db.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')", (cheap['id'], json.dumps(cheap)))
     found = client.get('/api/upgrade/targets?stake_id=big-stake&collection_id=snoop', headers=signed(43))
     assert found.json['gifts'] == []      # a 10 GRAM lot is not an upgrade for a 50 GRAM stake
+
+
+def test_crafter_market_lots_come_first(client, setup, monkeypatch):
+    # a cheaper Portals lot must still be listed after the Crafter player lot
+    portals_lot = {'id': 'p-1', 'name': 'Snoop Dogg', 'collection_id': 'snoop', 'number': 5, 'model': 'Emerald',
+                   'image': 'x', 'price': '8', 'price_unit': 'GRAM'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        import time
+        db.execute("INSERT INTO cache VALUES (?,?,?)", ('public:market:t', json.dumps({'gifts': [portals_lot]}), int(time.time())))
+    gifts = targets(client).json['gifts']
+    assert [g['source'] for g in gifts] == ['crafter', 'portals']

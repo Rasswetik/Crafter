@@ -82,3 +82,41 @@
 .crafter-referral-content .crafter-referral-actions{margin:10px 0 0}
 .crafter-referral-content .crafter-referral-actions button{min-height:42px}
 @media(max-width:410px){.crafter-referral-summary{padding:12px 11px;gap:7px}.crafter-referral-summary-title strong{font-size:12px}.crafter-referral-summary-metrics strong{font-size:12px}.crafter-referral-content{padding:2px 12px 14px}}
+
+/* ===== Referral card v2 ===== */
+.rf-card{margin:14px 0;padding:20px;border-radius:26px;border:1px solid #ffffff1c;color:#f2f5fa;
+  background:radial-gradient(120% 90% at 100% 0,#1689ff2e,transparent 55%),linear-gradient(150deg,#ffffff10,#ffffff03 60%),#1b1f27;
+  box-shadow:0 14px 40px #0006,inset 0 1px 0 #ffffff26}
+.rf-top{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.rf-title{min-width:0}.rf-title small{font-size:10px;letter-spacing:.16em;font-weight:800;color:#8fb6e0}
+.rf-title h2{margin:7px 0 5px;font-size:21px;letter-spacing:-.4px}.rf-title p{margin:0;font-size:12px;line-height:1.45;color:#98a6b8}
+.rf-badge{flex:none;width:68px;height:68px;border-radius:50%;display:grid;place-items:center;
+  background:conic-gradient(#1689ff calc(var(--rf-pct)*1%),#ffffff1a 0);padding:4px}
+.rf-badge span{width:100%;height:100%;border-radius:50%;background:#171b22;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.rf-badge b{font-size:22px;line-height:1}.rf-badge small{font-size:9px;color:#8f9db0;margin-top:2px}
+.rf-balance{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px 0 14px;padding:14px 14px 14px 16px;
+  border-radius:20px;background:#0d1219a8;border:1px solid #ffffff16}
+.rf-balance small{display:block;font-size:11px;color:#8e9bae;margin-bottom:5px}
+.rf-balance strong{font-size:24px;letter-spacing:-.5px}
+.rf-balance button{flex:none;height:42px;padding:0 18px;border-radius:15px;font-weight:800;font-size:13px;color:#fff;
+  background:linear-gradient(180deg,#4aa6ff,#1b7cf0);box-shadow:inset 0 1px 0 #ffffff55,0 6px 16px #1689ff4d}
+.rf-progress-head{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:#98a6b8;margin-bottom:8px}
+.rf-progress-head b{color:#cfe6ff}
+.rf-bar{height:8px;border-radius:8px;background:#ffffff14;overflow:hidden}
+.rf-bar i{display:block;height:100%;border-radius:8px;background:linear-gradient(90deg,#1689ff,#7cc4ff);box-shadow:0 0 14px #1689ff99;transition:width .8s cubic-bezier(.2,.8,.2,1)}
+.rf-steps{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:14px 0}
+.rf-step{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 2px;border-radius:14px;background:#ffffff09;border:1px solid #ffffff14}
+.rf-step b{font-size:15px;color:#cdd6e2}.rf-step small{font-size:9px;color:#7f8b9c}
+.rf-step.is-done{background:#1689ff1c;border-color:#1689ff44}.rf-step.is-done b{color:#8cc8ff}
+.rf-step.is-current{background:linear-gradient(160deg,#1689ff55,#1689ff22);border-color:#7cc4ffaa;box-shadow:0 0 18px #1689ff55,inset 0 1px 0 #ffffff44}
+.rf-step.is-current b{color:#fff}
+.rf-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.rf-stats>div{padding:12px 10px;border-radius:16px;background:#ffffff08;border:1px solid #ffffff12;min-width:0}
+.rf-stats small{display:block;font-size:11px;color:#8e9bae}.rf-stats strong{display:block;margin-top:6px;font-size:18px}
+.rf-link{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 14px;border-radius:17px;background:#0d1219c4;border:1px solid #ffffff1c;min-width:0}
+.rf-link span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;color:#b4c4d9}
+.rf-link button{flex:none;height:38px;padding:0 14px;border-radius:12px;background:#ffffff14;border:1px solid #ffffff22;font-size:12px;font-weight:750;color:#eaf1fb}
+.rf-invite{width:100%;height:50px;margin-top:10px;border-radius:18px;font-size:14px;font-weight:800;color:#fff;
+  background:linear-gradient(180deg,#4aa6ff,#1b7cf0);box-shadow:inset 0 1px 0 #ffffff55,0 8px 22px #1689ff4d}
+.rf-note{margin:12px 2px 0;font-size:11px;line-height:1.5;color:#778396}
+@media(max-width:380px){.rf-card{padding:16px}.rf-balance strong{font-size:20px}.rf-title h2{font-size:18px}}

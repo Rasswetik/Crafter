@@ -277,6 +277,21 @@ def install_portals_partner(app, db, auth, record, audit):
         if not all(results):
             abort(409, description="Лот уже недоступен на Portals или цена изменилась. Обновите маркет")
 
+    def can_buy(gift, price):
+        """Work mode: the lot must still be listed on Portals at this price AND the partner wallet must afford it.
+        Aborts with 409/503 otherwise, so games never promise a gift that cannot be bought out."""
+        if app.extensions["crafter_purchase_mode"]() != "work" or not gift.get("id"):
+            return
+        verify_lots([gift["id"]], {gift["id"]: {**gift, "price": str(price)}})
+        wallet = partner("GET", "users/wallets/")
+        try:
+            free = Decimal(str(wallet.get("balance", "0"))) - Decimal(str(wallet.get("frozen_funds", "0")))
+        except InvalidOperation:
+            abort(503, description="Не удалось проверить баланс Portals")
+        if free < Decimal(str(price)):
+            abort(409, description="Этот подарок сейчас нельзя выкупить на Portals — выберите другой")
+    app.extensions["crafter_portals_can_buy"] = can_buy
+
     @app.get("/api/admin/portal/partner/orders")
     @auth(admin=True)
     def portal_partner_orders():

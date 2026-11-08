@@ -1,0 +1,36 @@
+/* Hub v2: stable Crafts tile at any width, animated Upgrade and Arena tiles. Site colours unchanged. */
+.crafter-games .crafter-game-tile{position:relative;overflow:hidden;min-height:176px;isolation:isolate}
+/* Crafts: the Magnate artwork keeps its proportions instead of stretching with the tile. */
+.crafter-games .crafter-pepe-motion{width:auto!important;aspect-ratio:1/1;height:100%;max-width:56%;right:2%;left:auto}
+.crafter-games .crafter-pepe-picture,.crafter-games .crafter-pepe-lottie{width:100%;height:100%;object-fit:contain}
+@media(min-width:900px){
+  .crafter-games{grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+  .crafter-games .crafter-game-tile{min-height:230px;padding:26px}
+  .crafter-games .crafter-game-label strong{font-size:28px}
+}
+/* Upgrade: spinning wheel with a swaying pointer. */
+.crafter-upgrade-tile{background:radial-gradient(ellipse at 78% 40%,#1c4f87 0%,#16304f 52%,#121c2c 100%);border-color:#4f8fd433}
+.crafter-upgrade-tile::before,.crafter-swords-tile::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:linear-gradient(115deg,transparent 35%,#ffffff1c 48%,transparent 60%);transform:translateX(-120%);animation:hub-sheen 5.5s ease-in-out infinite}
+@keyframes hub-sheen{0%,55%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+.crafter-upgrade-tile .crafter-game-label,.crafter-swords-tile .crafter-game-label{position:relative;z-index:2}
+.hub-wheel{position:absolute;right:7%;top:50%;width:clamp(96px,34%,170px);aspect-ratio:1;transform:translateY(-50%);z-index:1;pointer-events:none}
+.hub-wheel i,.hub-wheel b{position:absolute;inset:0;border-radius:50%}
+.hub-wheel-ring{border:9px solid #ffffff22;box-shadow:0 0 36px #1689ff55,inset 0 0 22px #1689ff33}
+.hub-wheel-zone{background:conic-gradient(from 180deg at 50% 50%,#1689ff 0 24%,transparent 0);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 9px),#000 calc(100% - 8px));mask:radial-gradient(farthest-side,transparent calc(100% - 9px),#000 calc(100% - 8px));
+  transform:rotate(-43deg);filter:drop-shadow(0 0 8px #1689ff)}
+.hub-wheel-pointer{animation:hub-spin 6s cubic-bezier(.5,.05,.2,1) infinite}
+.hub-wheel-pointer::before{content:"";position:absolute;left:50%;top:-9px;width:16px;height:18px;margin-left:-8px;background:linear-gradient(160deg,#fff,#6db6ff 50%,#1689ff);clip-path:polygon(0 0,100% 0,50% 100%);filter:drop-shadow(0 3px 6px #1689ffcc)}
+@keyframes hub-spin{0%{transform:rotate(0)}70%{transform:rotate(750deg)}80%{transform:rotate(742deg)}88%{transform:rotate(748deg)}100%{transform:rotate(748deg)}}
+.hub-wheel b{display:grid;place-items:center;inset:22%;font-size:clamp(26px,9vw,44px);color:#cfe6ff;background:#0f1c2f99;border:1px solid #ffffff2b;
+  box-shadow:inset 0 1px 0 #ffffff3d;animation:hub-bob 2.6s ease-in-out infinite;text-shadow:0 0 18px #1689ff}
+@keyframes hub-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+/* Arena: drifting embers behind the crossed swords. */
+.crafter-swords-tile{background:radial-gradient(ellipse at 78% 45%,#5a3f8f 0%,#36295a 52%,#1b1830 100%)}
+.crafter-swords-tile::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.7;
+  background:radial-gradient(circle,#ffffffcc 0 1.2px,transparent 2px) 0 0/46px 46px,radial-gradient(circle,#c9a8ff99 0 1.4px,transparent 2.4px) 23px 23px/62px 62px;
+  animation:hub-embers 14s linear infinite;-webkit-mask:linear-gradient(0deg,transparent,#000 40%,#000 60%,transparent);mask:linear-gradient(0deg,transparent,#000 40%,#000 60%,transparent)}
+@keyframes hub-embers{from{background-position:0 0,23px 23px}to{background-position:0 -92px,23px -108px}}
+.crafter-swords-motion{z-index:1}
+.crafter-swords-tile:hover .crafter-swords-motion,.crafter-upgrade-tile:hover .hub-wheel{transform-origin:center;filter:brightness(1.12)}
+@media(prefers-reduced-motion:reduce){.crafter-upgrade-tile::before,.crafter-swords-tile::before,.crafter-swords-tile::after,.hub-wheel-pointer,.hub-wheel b{animation:none}.hub-wheel-pointer{transform:rotate(220deg)}}

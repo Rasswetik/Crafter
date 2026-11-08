@@ -815,6 +815,8 @@ def create_app(config=None):
             row = db().execute("SELECT payload FROM settings WHERE key='selection'").fetchone()
             permitted = json.loads(row[0]).get(target['id']) if row else None
             listing = collection_craft_listing(target, catalog, permitted)
+        if not listing.get('resale') and listing.get('price_unit', 'GRAM') == 'GRAM':
+            app.extensions['crafter_portals_can_buy'](listing, Decimal(str(listing['price'])))   # work mode only
         return dict(gift_ids=ids, target_id=target['id'], target=target, listing_id=listing['id'],
                     listing_key=market_collectible_key(listing), listing_price=str(listing['price']),
                     target_value=str(cost), input_value=str(value), mode=mode,
@@ -1457,6 +1459,7 @@ def create_app(config=None):
         ensure_listings=ensure_upgrade_listings, award_market_gift=award_market_gift,
         available_crafter_lot=available_crafter_lot, settle_crafter_lot=settle_crafter_lot,
         notify_sale=notify_crafter_sale, test_mode=lambda: purchase_mode() == 'test',
+        can_buy=lambda gift, price: app.extensions['crafter_portals_can_buy'](gift, price),
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
     if not app.config.get('TESTING'):
         from market_refresh import refresh_interval, start_market_refresh

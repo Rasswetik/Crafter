@@ -190,7 +190,7 @@ async function openOffers(collection) {
             const dir = body.querySelector('.upg-sort')?.dataset.dir === 'desc' ? -1 : 1;
             const rows = ui.offers.map((g, i) => [g, i]).filter(([g]) =>
                 !q || `${g.name} ${g.model} ${g.backdrop} ${g.symbol} ${g.number}`.toLowerCase().includes(q))
-                .sort((a, b) => dir * (Number(a[0].price) - Number(b[0].price)));
+                .sort((a, b) => ((b[0].source === 'crafter') - (a[0].source === 'crafter')) || dir * (Number(a[0].price) - Number(b[0].price)));  // Crafter market first, then by price
             body.querySelector('.upg-grid').innerHTML = rows.length ? rows.map(([g, i]) => `<button type="button" class="upg-card" data-i="${i}">
                 ${giftArt(g)}<span class="upg-src">${g.source === 'portals' ? 'Portals' : 'Crafter'}</span>
                 <strong>${h(g.name)}</strong><small>#${h(g.number || '')} · ${fmt(g.price)} GRAM</small>

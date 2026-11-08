@@ -123,7 +123,8 @@ def install_upgrade(app, db, auth, record, ctx):
             price = positive_price(lot['price'])
             if price is not None:
                 out.append((view(lot, price, 'crafter'), price))
-        out.sort(key=lambda item: item[1])
+        # Crafter market lots come first, then Portals; cheapest first inside each group.
+        out.sort(key=lambda item: (item[0]['source'] != 'crafter', item[1], item[0]['id']))
         return out
 
     @app.get('/api/upgrade/targets')
@@ -153,6 +154,8 @@ def install_upgrade(app, db, auth, record, ctx):
         if not found:
             abort(409, description='Целевой подарок недоступен. Обновите список.')
         item, price = found
+        if not gift.get('test_only') and item['source'] == 'portals':
+            ctx['can_buy'](item, price)          # work mode: must be buyable on Portals, else no upgrade
         bps = chance_bps(value, price)
         if not MIN_BPS <= bps <= MAX_BPS:
             abort(409, description='Для этой цели нужна другая ставка')
@@ -175,6 +178,16 @@ def install_upgrade(app, db, auth, record, ctx):
             abort(400)
         uid = g.user['id']
         notify = None
+        # Work mode: re-check outside the write transaction that a Portals lot can still be bought out.
+        pre = db().execute('SELECT payload FROM upgrade_quotes WHERE id=? AND user_id=?', (qid, uid)).fetchone()
+        if pre:
+            pq = json.loads(pre['payload'])
+            pg = next((x for x in owned() if x['id'] == pq['stake_id']), None)
+            if pq['source'] == 'portals' and pg and not pg.get('test_only'):
+                cand = next((gf for gf, p in ctx['market_candidates'](collection(pq['collection_id']))
+                             if gf['id'] == pq['listing_id']), None)
+                if cand:
+                    ctx['can_buy'](cand, Decimal(pq['price']))
         with db():
             db().execute('BEGIN IMMEDIATE')
             prior = db().execute('SELECT result FROM upgrade_requests WHERE user_id=? AND request_id=?',
