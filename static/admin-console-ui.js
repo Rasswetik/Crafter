@@ -470,3 +470,92 @@ async function adminChangeUserBan(uid,banned){
         await renderAdminUserDetail(uid);
     }catch(error){toast(error.message);}
 }
+
+/* Only the verified configured primary administrator can manage other admins. */
+const adminRoleLabels = {
+    finance:'Финансы',users:'Пользователи',maintenance:'Технические работы',
+    audit:'История действий',nft_withdraw:'Выводы NFT',ton_withdraw:'Выводы TON',
+    tonconnect:'Автовывод TON',relayer:'Relayer',crafts:'Крафты',modes:'Режимы',
+    staking:'Стейкинг',arena:'Arena',banners:'Баннеры',
+    craft_banner:'Баннер крафтов',ice_banner:'Баннер Ice Arena',
+    events:'Ивенты',portal:'Portal Market','telegram-bot':'Telegram-бот',
+    announcements:'Анонсы',snow:'Снег'
+};
+let adminRoleData=null;
+async function renderAdminRoles(content=document.querySelector('#admin-content')){
+    if(!state.me?.is_primary_admin){
+        content.textContent='Доступ только главному администратору.';
+        return;
+    }
+    content.innerHTML='<p class="admin-loading-panel">Загрузка администраторов…</p>';
+    try{adminRoleData=await api('admin/admins');}
+    catch(error){content.textContent=error.message;return;}
+    if(!content.isConnected)return;
+    const active=(adminRoleData.admins||[]).filter(x=>x.is_admin);
+    const inactive=(adminRoleData.admins||[]).filter(x=>!x.is_admin);
+    content.innerHTML='<div class="admin-section-intro"><h3>Управление администраторами</h3>'+
+       '<p>Только главный администратор может назначать или отзывать права.</p></div>'+
+       '<div class="admin-mini-summary">'+
+       adminMetric('Администраторов',active.length,'')+
+       adminMetric('Отозванных доступов',inactive.length,'')+'</div>'+
+       '<section class="admin-glass-panel admin-roles-panel"><h3>Добавить администратора</h3>'+
+       '<label>Telegram ID<input id="admin-role-uid" type="text" inputmode="numeric"'+
+       ' placeholder="Числовой Telegram ID"></label>'+
+       '<label>Уровень прав<select id="admin-role-kind" onchange="adminRoleTogglePermissions()">'+
+       '<option value="sections">Выбранные разделы</option>'+
+       '<option value="full">Все разделы</option></select></label>'+
+       '<fieldset id="admin-role-options" class="admin-role-options"><legend>Доступные разделы</legend>'+
+       adminRoleData.sections.map(p=>
+         '<label><input type="checkbox" value="'+esc(p)+'" name="admin-role-section">'+
+         esc(adminRoleLabels[p]||p)+'</label>').join('')+'</fieldset>'+
+       '<button type="button" class="admin-button-primary admin-role-save" '+
+       'onclick="adminSaveRole()">Выдать права</button>'+
+       '<p class="admin-small-warning">Пользователь должен сначала зайти в Crafter.'+
+       ' Роли проверяются сервером для каждого запроса.</p></section>'+
+       '<section class="admin-glass-panel admin-roles-panel"><h3>Администраторы</h3>'+
+       '<div class="admin-admin-list">'+(adminRoleData.admins||[]).map(row=>
+          '<div class="admin-admin-row"><div class="admin-role-user">'+
+          '<b>'+esc(row.name||'Пользователь')+'</b><small>'+
+          (row.username?'@'+esc(row.username)+' · ':'')+'ID '+row.user_id+
+          '</small></div><div class="admin-role-desc">'+
+          '<strong>'+esc(row.is_primary_admin?'Главный администратор':
+             row.role==='full'?'Все права':
+             row.is_admin?'Отдельные права':'Доступ отозван')+'</strong>'+
+          '<small>'+esc(row.permissions.includes('*')?'Все разделы':
+             row.permissions.map(p=>adminRoleLabels[p]||p).join(', ')||'Нет прав')+
+          '</small></div>'+
+          (row.is_primary_admin?'': '<button type="button" class="admin-role-remove"'+
+             ' onclick="adminRevokeRole('+row.user_id+')">Удалить права</button>')+
+          '</div>').join('')+'</div></section>';
+}
+function adminRoleTogglePermissions(){
+    const all=document.getElementById('admin-role-kind')?.value==='full';
+    const options=document.getElementById('admin-role-options');
+    if(options)options.hidden=all;
+}
+async function adminSaveRole(){
+    if(!state.me?.is_primary_admin)return;
+    const value=document.getElementById('admin-role-uid')?.value.trim();
+    const role=document.getElementById('admin-role-kind')?.value;
+    if(!/^[1-9]\d{0,18}$/.test(value||''))return toast('Введите Telegram ID');
+    const uid=Number(value);
+    if(!Number.isSafeInteger(uid))return toast('Некорректный Telegram ID');
+    const permissions=role==='full'?[]:[...document.querySelectorAll(
+       'input[name="admin-role-section"]:checked')].map(x=>x.value);
+    if(role!=='full'&&!permissions.length)return toast('Выберите хотя бы один раздел');
+    if(!confirm('Выдать права Telegram ID '+uid+'?'))return;
+    try{
+        await api('admin/admins',{user_id:uid,role,permissions});
+        toast('Права администратора сохранены');
+        await renderAdminRoles();
+    }catch(error){toast(error.message);}
+}
+async function adminRevokeRole(uid){
+    if(!state.me?.is_primary_admin)return;
+    if(!confirm('Отозвать права администратора ID '+uid+'?'))return;
+    try{
+        await api('admin/admins/'+uid,{_method:'DELETE'});
+        toast('Административный доступ отозван');
+        await renderAdminRoles();
+    }catch(error){toast(error.message);}
+}
