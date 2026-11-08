@@ -69,3 +69,33 @@ async function adminToggleBan(uid,banned) {
     toast(banned?'Пользователь заблокирован':'Пользователь разблокирован');
   }catch(e){toast(e.message);}
 }
+
+/* User settings: seasonal balls are a distinct admin-controlled balance. */
+async function adminLoadUserNewYearBalls(uid){
+    const target=document.querySelector('#admin-user-ny-balance');
+    if(!target)return;
+    try{
+        const info=await api('admin/new-year/users/'+uid+'/wallet');
+        if(target.isConnected)target.textContent=Number(info.balance.balls).toLocaleString('ru-RU')+' шаров';
+    }catch(error){
+        if(target.isConnected)target.textContent=error.message;
+    }
+}
+async function adminAdjustUserNewYearBalls(uid){
+    const input=document.querySelector('#admin-user-ny-delta');
+    const button=document.querySelector('#admin-user-ny-save');
+    const amount=Number(input?.value);
+    if(!Number.isSafeInteger(amount)||amount===0||Math.abs(amount)>1000000000){
+        toast('Укажите целое количество шаров (не 0)');
+        return;
+    }
+    if(button)button.disabled=true;
+    try{
+        const result=await api('admin/new-year/wallet',{user_id:uid,balls:String(amount),donate:'0',tinsel:'0'});
+        const target=document.querySelector('#admin-user-ny-balance');
+        if(target)target.textContent=Number(result.balance.balls).toLocaleString('ru-RU')+' шаров';
+        if(input)input.value='0';
+        toast(amount>0?'Шары выданы пользователю':'Шары списаны');
+    }catch(error){toast(error.message);}
+    finally{if(button?.isConnected)button.disabled=false;}
+}

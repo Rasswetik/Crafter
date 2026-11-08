@@ -538,17 +538,45 @@ async function localBuyGift(id) {
 
 async function requestGiftWithdrawal(id) {
     if (!state.detailGift || state.detailGift.id !== id) return;
-    if (!confirm('Создать заявку на вывод этого NFT в Telegram? Подарок будет заморожен до завершения передачи на Relayer.')) return;
     const gift=state.detailGift;
-    try {
-        const isPartner=gift.origin==='portals-partner';
-        const request_id=paymentRequestId('gift-withdraw:'+state.me.user.id+':'+id);
-        await api(isPartner?'portals/withdraw':'gifts/withdraw',{gift_id:id,request_id});
-        state.inventory=state.inventory.map(item=>item.id===id?{...item,status:'withdrawing'}:item);
-        closeSheet();
-        toast('Заявка отправлена. Подарок заблокирован до подтверждения вывода.');
-        if(state.page==='gifts') go('gifts');
-    }catch(e){toast(e.message)}
+    const isPartner=gift.origin==='portals-partner';
+    const name=esc((gift.name||'NFT')+(gift.number?' #'+gift.number:''));
+    sheet('Вывод NFT',
+        '<div class="crafter-withdraw-dialog">'+
+        '<p>Вывести <strong>'+name+'</strong> в Telegram?</p>'+
+        '<div class="crafter-withdraw-conditions"><span>Комиссия за вывод</span><strong>0,4 GRAM</strong></div>'+
+        '<p class="crafter-withdraw-description">Сначала проверяется подтверждённое хранение NFT. Если автоматическая передача через Portals недоступна, заявка перейдёт в ручную обработку.</p>'+
+        '<button class="primary" type="button" id="crafter-withdraw-confirm">Отправить заявку</button>'+
+        '<div class="crafter-withdraw-result" id="crafter-withdraw-result" role="status"></div>'+
+        '</div>');
+    document.querySelector('#crafter-withdraw-confirm')?.addEventListener('click',async()=>{
+        const button=document.querySelector('#crafter-withdraw-confirm');
+        const status=document.querySelector('#crafter-withdraw-result');
+        if(!button||button.disabled)return;
+        button.disabled=true;
+        try{
+            const request_id=paymentRequestId('gift-withdraw:'+state.me.user.id+':'+id);
+            const result=await api(isPartner?'portals/withdraw':'gifts/withdraw',{gift_id:id,request_id});
+            state.inventory=state.inventory.map(item=>item.id===id?{...item,status:'withdrawing'}:item);
+            button.remove();
+            if(status) {
+                status.classList.add('is-success');
+                status.innerHTML='<strong>Заявка принята</strong><p>'+
+                    (result.mode==='manual'?'Передано на ручную обработку.':'Передано на проверку Portals.')+
+                    ' Подарок зарезервирован до подтверждения вывода. Комиссия: 0,4 GRAM.</p>';
+            }
+            if(result.balance!==undefined&&state.me){
+                state.me.balance=result.balance;
+                updateBalance();
+            }else if(typeof window.crafterRefreshLiveBalance==='function'){
+                window.crafterRefreshLiveBalance();
+            }
+        }catch(error){
+            if(status){status.classList.add('is-error');
+                status.textContent=error.message||'Не удалось отправить заявку';}
+            if(button?.isConnected)button.disabled=false;
+        }
+    });
 }
 function craftGiftById(id){state.selected=[id];state.quote=null;closeSheet();go('craft')}
 

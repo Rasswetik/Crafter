@@ -4,9 +4,17 @@ import sqlite3
 import time
 
 from test_app import client, signed
+import new_year
 
 
-def test_new_year_permissions_lots_balances_and_idempotent_checkout(client):
+def test_new_year_permissions_lots_balances_and_idempotent_checkout(client,monkeypatch):
+    monkeypatch.setattr(new_year,'portal_nft_metadata',lambda slug: {
+        'model':'Iron Rose','symbol':'Coonskin Cap','backdrop':'Persimmon',
+        'floor_price':'4.28','floor_unit':'GRAM',
+        'image':'https://nft.fragment.com/verified/photo.webp',
+        'portal_nft_id':'exact-gift-id','rarity':{'model':30},
+        'portal_verified_at':int(time.time()),'portal_status':'unlisted'
+    })
     admin=signed(42)
     player=signed(43)
     assert client.get('/api/me',headers=admin).status_code==200
@@ -36,6 +44,15 @@ def test_new_year_permissions_lots_balances_and_idempotent_checkout(client):
     assert offer['lots'][0]['gift']['model']=='Iron Rose'
     assert offer['lots'][0]['gift']['number']==426793
     assert offer['lots'][0]['price']==250
+    assert offer['lots'][0]['gift']['image']=='https://nft.fragment.com/verified/photo.webp'
+    preview=client.get('/api/new-year/lots/'+lot_id+'/details',headers=player)
+    assert preview.status_code==200
+    assert preview.json['lot']['gift']['floor_unit']=='GRAM'
+    season_wallet=client.get('/api/admin/new-year/users/43/wallet',headers=admin)
+    assert season_wallet.status_code==200
+    assert season_wallet.json['balance']['balls']==300
+    assert client.get('/api/admin/new-year/users/43/wallet',headers=player).status_code==403
+
 
     order={'lot_id':lot_id,'request_id':'new-year-first-order'}
     first=client.post('/api/new-year/buy',headers=player,json=order)
@@ -50,6 +67,13 @@ def test_new_year_permissions_lots_balances_and_idempotent_checkout(client):
     assert client.post('/api/new-year/buy',headers=player,json={
         'lot_id':lot_id,'request_id':'new-year-second-order'}).status_code==409
     assert not client.get('/api/new-year',headers=player).json['lots']
+    other=signed(44)
+    assert client.get('/api/me',headers=other).status_code==200
+    assert client.post('/api/admin/new-year/wallet',headers=admin,
+                       json={'user_id':44,'balls':'300'}).status_code==200
+    assert client.post('/api/new-year/buy',headers=other,
+                       json={'lot_id':lot_id,'request_id':'other-player-order'}).status_code==409
+    assert client.get('/api/new-year',headers=other).json['balance']['balls']==300
     gifts=client.get('/api/inventory',headers=player).json['gifts']
     assert len([item for item in gifts if item['id']==reward['id']])==1
     assert client.get('/api/me',headers=player).json['inventory_value']=='0'
@@ -100,3 +124,32 @@ def test_referral_five_levels_and_minimum_cash_out(client):
     assert response['referral_rate']==6
     assert client.post('/api/referrals/withdraw',headers=signed(42),
                        json={'request_id':'referral-withdraw-1'}).status_code==409
+
+
+def test_portals_exact_nft_metadata_rejects_wrong_collection_and_number(monkeypatch):
+    requested=[]
+    def stub_get(path,params):
+        requested.append((path,params))
+        return {'results':[
+            {'name':'Another Gift','external_collection_number':426793,
+             'attributes':[{'type':'Model','value':'Incorrect'}]},
+            {'name':'Chill Flame','external_collection_number':426794,
+             'attributes':[{'type':'Model','value':'Incorrect'}]},
+            {'name':'Chill Flame','external_collection_number':426793,
+             'id':'verified-id','photo_url':'https://portal-market.com/photo/exact.png',
+             'floor_price':'1.97','status':'unlisted',
+             'attributes':[{'type':'Model','value':'Iron Rose','rarity_per_mille':30},
+                           {'type':'Symbol','value':'Coonskin Cap','rarity_per_mille':4},
+                           {'type':'Backdrop','value':'Persimmon','rarity_per_mille':12}]}
+        ]}
+    monkeypatch.setattr(new_year,'portals_get',stub_get)
+    result=new_year.portal_nft_metadata('ChillFlame-426793')
+    assert requested[0][0]=='nfts/search'
+    assert requested[0][1]['external_collection_number']==426793
+    assert result['model']=='Iron Rose'
+    assert result['symbol']=='Coonskin Cap'
+    assert result['backdrop']=='Persimmon'
+    assert result['floor_price']=='1.97'
+    assert result['floor_unit']=='GRAM'
+    assert result['image']=='https://portal-market.com/photo/exact.png'
+    assert result['rarity']['symbol']==4

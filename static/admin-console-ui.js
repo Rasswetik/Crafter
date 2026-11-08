@@ -474,6 +474,7 @@ async function adminUserTab(uid,tab){
             '<div class="admin-user-form"><label>GRAM<input id="user-balance" type="number" min="0" '+
             'step=".01" value="'+esc(u.balance)+'"></label>'+
             '<button type="button" onclick="saveUserBalance('+uid+')">Сохранить баланс</button></div></section>'+
+            '<section class="admin-glass-panel"><h3>Новогодние шары</h3>'+'<p class="admin-small-warning">Баланс игрока: <strong id="admin-user-ny-balance">Загрузка…</strong>. Введите положительное число для выдачи или отрицательное для списания.</p>'+'<div class="admin-user-form"><label>Количество шаров<input id="admin-user-ny-delta" type="number" step="1" value="0" min="-1000000000" max="1000000000"></label>'+'<button type="button" id="admin-user-ny-save" onclick="adminAdjustUserNewYearBalls('+uid+')">Применить</button></div></section>'+
             '<section class="admin-glass-panel"><h3>Выдача подарка</h3>'+
             '<p class="admin-small-warning">Административная выдача изменяет только учёт Crafter.</p>'+
             '<select class="field" id="grant-collection" onchange="loadGrantModels(this.value,'+uid+')">'+
@@ -486,6 +487,7 @@ async function adminUserTab(uid,tab){
             '" onclick="adminChangeUserBan('+uid+','+(!u.banned)+')">'+
             (u.banned?'Разблокировать пользователя':'Заблокировать пользователя')+
             '</button></section></div>';
+        if(typeof adminLoadUserNewYearBalls==='function')adminLoadUserNewYearBalls(uid);
     }
 }
 function adminUserFinPeriod(uid,period){

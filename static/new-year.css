@@ -61,7 +61,32 @@
 /* Bottom nav gains an additional seasonal route without overflow. */
 @media(max-width:1023px){#nav .nav-main:has(.ny-nav-tab) button{flex:1 1 0!important;min-width:0;padding:0 1px!important}#nav .nav-main:has(.ny-nav-tab) .nav-label{font-size:9px}}
 
-/* Simple text-only New Year navigation control, no decorative icon. */
-#nav .nav-main .ny-nav-tab{display:flex;align-items:center;justify-content:center;gap:0;white-space:nowrap}
-#nav .nav-main .ny-nav-tab .nav-label{display:block;font-size:11px;font-weight:800;line-height:1.1}
-#crafter-desktop-sidebar .ny-desktop-link{justify-content:flex-start;text-align:left;padding-left:17px!important;font-weight:750}
+
+/* White holiday ornament appears in both navigation systems. */
+#nav .nav-main .ny-nav-tab{display:flex!important;align-items:center;justify-content:center;flex-direction:column;gap:3px;min-width:0}
+#nav .nav-main .ny-nav-tab .stake-nav-icon{display:grid;place-items:center;height:22px;min-height:22px;width:23px}
+#nav .nav-main .ny-nav-tab .ny-nav-icon{display:block;width:21px;height:21px;filter:none}
+#nav .nav-main .ny-nav-tab .nav-label{font-size:10px;font-weight:750;line-height:1.12;white-space:nowrap}
+#crafter-desktop-sidebar .ny-desktop-link{display:flex;align-items:center;justify-content:flex-start;gap:12px;font-weight:730;padding:10px 11px!important}
+#crafter-desktop-sidebar .ny-desktop-link .desktop-sidebar-link-icon{display:grid;place-items:center}
+#crafter-desktop-sidebar .ny-desktop-link .ny-nav-icon{width:21px;height:21px}
+#sheet:has(.ny-detail-visual) .sheet-head h2{display:none}
+#sheet:has(.ny-detail-visual) .sheet-head{min-height:35px}
+.ny-detail-loading,.ny-detail-error{padding:35px 16px;text-align:center;color:#b6bec8}
+.ny-detail-error{color:#f5b1b1}
+.ny-unloaded-art{color:#aab6c5;font-size:16px;font-weight:800;letter-spacing:.17em}
+.ny-property-table strong small{color:#8898b5;font-size:11px;font-weight:650}
+
+/* Withdrawal confirmation and status are always inside the Crafter sheet. */
+.crafter-withdraw-dialog{padding:4px 2px 16px}
+.crafter-withdraw-dialog>p:first-child{color:#edf2f9;font-size:15px;line-height:1.55;margin:0 0 18px}
+.crafter-withdraw-dialog strong{color:#f6f9ff}
+.crafter-withdraw-conditions{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:15px;background:#131d27;border:1px solid #6483a342;border-radius:16px;margin-bottom:12px}
+.crafter-withdraw-conditions span{font-size:12px;color:#aeb8c4}
+.crafter-withdraw-conditions strong{font-size:17px}
+.crafter-withdraw-description{font-size:12px;line-height:1.6;color:#97a7b9;margin-bottom:22px}
+.crafter-withdraw-dialog .primary{width:100%;min-height:48px;border-radius:17px}
+.crafter-withdraw-result{margin-top:15px;font-size:13px;line-height:1.6}
+.crafter-withdraw-result.is-success{color:#75dbaa;border:1px solid #52c89855;background:#112a255e;padding:14px;border-radius:14px}
+.crafter-withdraw-result.is-success p{color:#b2c4ce;margin:8px 0 0}
+.crafter-withdraw-result.is-error{color:#ff8791}

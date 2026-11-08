@@ -10,7 +10,8 @@ let lastData=null;
 function active(){return Boolean(state?.me?.new_year_enabled);}
 function escapeHTML(value){return typeof esc==='function'?esc(value):String(value??'');}
 function safeInt(value){const n=Number(value);return Number.isFinite(n)?n.toLocaleString('ru-RU'):'0';}
-function giftImage(lot){return 'https://nft.fragment.com/gift/'+encodeURIComponent(lot.slug.toLowerCase())+'.webp';}
+function giftImage(lot){return typeof lot.gift.image==='string'&&lot.gift.image.startsWith('https://')?lot.gift.image:'';}
+function nftArt(lot){const url=giftImage(lot);return url?'<img src="'+escapeHTML(url)+'" loading="lazy" alt="'+escapeHTML(lot.gift.name)+'">':'<span class="ny-unloaded-art">NFT</span>';}
 function displayOrnament(){return '<img src="'+ORNAMENT+'" alt="" aria-hidden="true">';}
 function updateHeaderWallet(balance){
     const el=document.querySelector('#app > header > .winter-currency-balance');
@@ -36,7 +37,7 @@ function navSeason(){
         button.type='button';
         button.dataset.gamePage='new-year';
         button.setAttribute('aria-label','Новый год');
-        button.innerHTML='<span class="nav-label">Новый год</span>';
+        button.innerHTML='<span class="stake-nav-icon">'+SEASON_ICON+'</span><span class="nav-label">Новый год</span>';
         button.addEventListener('click',()=>go('new-year'));
         const market=main.querySelector('[data-game-page="market"]');
         if(market)market.after(button);else main.prepend(button);
@@ -48,7 +49,7 @@ function navSeason(){
         button.type='button';
         button.className='desktop-sidebar-link ny-desktop-link'+(state.page==='new-year'?' is-active':'');
         button.setAttribute('aria-current',state.page==='new-year'?'page':'false');
-        button.innerHTML='<span>Новый год</span>';
+        button.innerHTML='<span class="desktop-sidebar-link-icon">'+SEASON_ICON+'</span><span>Новый год</span>';
         button.addEventListener('click',()=>go('new-year'));
         const market=desktop.querySelector('button[onclick*="market"]');
         if(market)market.after(button);else desktop.prepend(button);
@@ -75,9 +76,8 @@ function balances(data){
 }
 function lotTile(lot){
     const name=escapeHTML(lot.gift.name);
-    const url=giftImage(lot);
     return '<button type="button" class="ny-lot" data-ny-lot="'+escapeHTML(lot.id)+'">'+
-        '<div class="ny-lot-art"><img src="'+escapeHTML(url)+'" loading="lazy" alt="'+name+'"></div>'+
+        '<div class="ny-lot-art">'+nftArt(lot)+'</div>'+
         '<div class="ny-lot-name">'+name+'</div>'+
         '<div class="ny-lot-id">#'+escapeHTML(lot.gift.number)+'</div>'+
         '<div class="ny-lot-price">'+displayOrnament()+safeInt(lot.price)+'</div></button>';
@@ -93,7 +93,7 @@ async function showNewYear(){
             state.me.new_year_enabled=false;await go('market');return;
         }
         lastData=data;updateHeaderWallet(data.balance);
-        main.innerHTML='<div class="new-year-page">'+balances(data)+
+        main.innerHTML='<div class="new-year-page">'+
             '<section class="ny-hero"><small>CRAFTER · WINTER EVENT</small>'+
             '<h1>Новогодний маркет</h1><p>Коллекционные подарки за новогодние шары. Лоты публикует администрация Crafter.</p></section>'+
             '<div class="ny-section-title"><h2>Праздничные подарки</h2><span>'+data.lots.length+' лотов</span></div>'+
@@ -110,27 +110,52 @@ async function showNewYear(){
             '<button class="secondary" type="button" onclick="go(\'new-year\')">Повторить</button></div>';
     }
 }
-function openLot(id){
-    const lot=lastData?.lots?.find(x=>x.id===id);
-    if(!lot)return toast('Лот недоступен, обновите страницу');
-    const properties=[
-        ['Модель',lot.gift.model||'—'],['Узор',lot.gift.symbol||'—'],
-        ['Фон',lot.gift.backdrop||'—'],['Мин. цена',lot.gift.floor_price?lot.gift.floor_price+' TON':'—']
-    ];
-    const html='<div class="ny-detail-visual"><img src="'+escapeHTML(giftImage(lot))+
-        '" alt="'+escapeHTML(lot.gift.name)+'"><div class="ny-detail-label">'+
-        escapeHTML(lot.gift.name)+' #'+escapeHTML(lot.gift.number)+'</div></div>'+
-        '<div class="ny-property-table">'+properties.map(([label,value])=>
-            '<div><span>'+label+'</span><strong>'+escapeHTML(value)+'</strong></div>').join('')+
-        '<div><span>Стоимость</span><strong>'+safeInt(lot.price)+' шаров</strong></div></div>'+
-        '<button id="ny-buy" type="button" class="ny-action">'+
-        'Buy Gift · '+safeInt(lot.price)+' '+displayOrnament()+'</button>'+
-        '<a class="ny-detail-view" href="'+escapeHTML(lot.url)+'" target="_blank" rel="noopener noreferrer">Посмотреть NFT в Telegram ↗</a>'+
-        '<p class="ny-footnote">Тестовый период: покупка добавляет запись подарка в Crafter, реальный NFT пока не передаётся.</p>'+
-        '<p id="ny-buy-error" class="purchase-error" role="alert"></p>';
-    sheet('Новогодний подарок',html);
-    document.querySelector('#sheet')?.classList.add('purchase-sheet');
-    document.querySelector('#ny-buy')?.addEventListener('click',()=>buyLot(lot));
+async function openLot(id){
+    const original=lastData?.lots?.find(x=>x.id===id);
+    if(!original)return toast('Лот недоступен, обновите страницу');
+    sheet('','<div class="ny-detail-loading">Загрузка данных NFT из Portals…</div>');
+    const detail=document.querySelector('#sheet-body');
+    try{
+        const response=await api('new-year/lots/'+encodeURIComponent(id)+'/details');
+        if(!detail?.isConnected)return;
+        const lot=response.lot;
+        if(!lastData.lots.some(x=>x.id===id))return;
+        lastData.lots=lastData.lots.map(x=>x.id===id?lot:x);
+        const traits=[
+            ['Модель',lot.gift.model],
+            ['Узор',lot.gift.symbol],
+            ['Фон',lot.gift.backdrop]
+        ];
+        const rarity=lot.gift.rarity||{};
+        const names=['model','symbol','backdrop'];
+        const lines=traits.map(([label,value],i)=>{
+            const percent=Number(rarity[names[i]]);
+            return '<div><span>'+label+'</span><strong>'+
+                escapeHTML(value||'Нет данных Portals')+
+                (Number.isFinite(percent)&&percent>0?' <small>'+safeInt(percent/10)+'%</small>':'')+
+                '</strong></div>';
+        });
+        lines.push('<div><span>Мин. цена</span><strong>'+
+            (lot.gift.floor_price?escapeHTML(lot.gift.floor_price)+' GRAM':'Нет данных Portals')+'</strong></div>');
+        lines.push('<div><span>Стоимость</span><strong>'+safeInt(lot.price)+' шаров</strong></div>');
+        detail.innerHTML='<div class="ny-detail-visual">'+nftArt(lot)+
+            '<div class="ny-detail-label">'+escapeHTML(lot.gift.name)+' #'+
+            escapeHTML(lot.gift.number)+'</div></div>'+
+            '<div class="ny-property-table">'+lines.join('')+'</div>'+
+            '<button id="ny-buy" type="button" class="ny-action">Buy Gift · '+
+            safeInt(lot.price)+' '+displayOrnament()+'</button>'+
+            '<a class="ny-detail-view" href="'+escapeHTML(lot.url)+
+            '" target="_blank" rel="noopener noreferrer">Посмотреть NFT в Telegram ↗</a>'+
+            '<p id="ny-buy-error" class="purchase-error" role="alert"></p>';
+        document.querySelector('#sheet')?.classList.add('purchase-sheet');
+        detail.querySelector('#ny-buy')?.addEventListener('click',()=>buyLot(lot));
+    }catch(error){
+        if(detail?.isConnected)detail.innerHTML='<div class="ny-detail-error" role="alert">'+
+            escapeHTML(error.message||'Данные NFT недоступны')+
+            '<p>Сведения о подарке должны быть подтверждены Portals. Покупка недоступна до загрузки.</p>'+
+            '<button type="button" class="secondary" id="ny-detail-retry">Повторить</button></div>';
+        detail.querySelector('#ny-detail-retry')?.addEventListener('click',()=>openLot(id));
+    }
 }
 async function buyLot(lot){
     if(busy)return;
@@ -148,7 +173,7 @@ async function buyLot(lot){
         if(Array.isArray(state.inventory))state.inventory.push({...result.gift,status:'unlisted'});
         closeSheet();
         await showNewYear();
-        toast('Подарок добавлен в тестовый инвентарь Crafter');
+        toast('Подарок добавлен в инвентарь Crafter');
     }catch(error){
         const output=document.querySelector('#ny-buy-error');
         if(output)output.textContent=error.message;
@@ -203,14 +228,14 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
       '<label class="ny-admin-switch"><span><b>Показывать Новый год всем игрокам</b><small class="sub" style="display:block;margin-top:6px">Кнопка появится в мобильной панели и под Маркетом на ПК.</small></span>'+
       '<input type="checkbox" id="ny-admin-enabled" '+(result.enabled?'checked':'')+'></label></section>'+
       '<section class="ny-admin-section"><h3>Создать NFT-лот</h3>'+
-      '<p class="sub">Ссылка на NFT и стоимость в шарах. Характеристики можно указать вручную до подключения проверенного NFT-каталога.</p>'+
+      '<p class="sub">NFT, изображение, модель, фон, узор и флор загружаются напрямую из Portals по точной ссылке.</p>'+
       '<form id="ny-admin-lot-form"><div class="ny-admin-fields">'+
       '<label class="full">Ссылка на NFT<input name="url" placeholder="https://t.me/nft/ChillFlame-426793" required type="url"></label>'+
       '<label>Цена в шарах<input name="price" type="number" min="1" max="1000000000" step="1" required></label>'+
-      '<label>Модель<input name="model" maxlength="100" placeholder="Iron Rose"></label>'+
-      '<label>Узор<input name="symbol" maxlength="100" placeholder="Coonskin Cap"></label>'+
-      '<label>Фон<input name="backdrop" maxlength="100" placeholder="Persimmon"></label>'+
-      '<label>Мин. цена, TON<input name="floor_price" maxlength="100" placeholder="4.28"></label>'+
+      
+      
+      
+      
       '</div><button class="primary" type="submit">Создать лот</button></form></section>'+
       '<section class="ny-admin-section"><h3>Балансы игроков</h3>'+
       '<p class="sub">Начислить или списать тестовую праздничную валюту. Для списания используйте отрицательное число.</p>'+

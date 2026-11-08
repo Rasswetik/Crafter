@@ -40,8 +40,7 @@ function bindPromo(container){
     });
 }
 function promoSheet(){
-    sheet('Введите промокод','<div class="crafter-promo-modal"><div class="crafter-promo-symbol">'+TICKET+
-        '</div>'+promoForm('crafter-promo-sheet-form')+'</div>');
+    sheet('Промокод','<div class="crafter-promo-modal">'+promoForm('crafter-promo-sheet-form')+'</div>');
     bindPromo(document.querySelector('#sheet-body'));
 }
 window.crafterOpenPromo=promoSheet;
@@ -125,11 +124,11 @@ function enhanceProfile(){
     promo.className='crafter-profile-promo';
     promo.type='button';promo.title='Промокоды';promo.setAttribute('aria-label','Ввести промокод');
     promo.innerHTML=TICKET;promo.addEventListener('click',promoSheet);
-    if(gear)gear.after(promo);else identity.append(promo);
+    if(gear)gear.before(promo);else identity.append(promo);
     const desktop=document.createElement('div');
     desktop.className='crafter-profile-desktop-promo';
     desktop.innerHTML='<span>ПРОМОКОД</span>'+promoForm('crafter-promo-desktop-form');
-    profile?.append(desktop);
+    if(gear)gear.before(desktop);else identity.append(desktop);
     bindPromo(desktop);
 }
 const previousProfile=renderProfile;

@@ -16,6 +16,9 @@ def _deposit_gift(client, uid=43, id='telegram-luckylocket-5469'):
     with sqlite3.connect(client.application.config['DATABASE']) as db:
         db.execute("INSERT INTO inventory VALUES (?,?,?,'unlisted')",
                    (uid,id,json.dumps(gift)))
+        db.execute("INSERT INTO demo_accounts(user_id,balance) VALUES (?,?) "
+                   "ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance",
+                   (uid,'1.0'))
     return gift
 
 
@@ -27,6 +30,9 @@ def test_manual_nft_withdrawals_are_atomic_and_refundable(client):
     queued=client.post('/api/gifts/withdraw',headers=user,json=data)
     assert queued.status_code==200,queued.json
     assert queued.json['status']=='queued'
+    assert queued.json['fee_gram']=='0.4'
+    assert queued.json['mode']=='manual'
+    assert client.get('/api/balance',headers=user).json['balance']=='0.6'
     assert client.post('/api/gifts/withdraw',headers=user,json=data).json==queued.json
     pending=client.get('/api/inventory',headers=user).json['gifts'][0]
     assert pending['status']=='withdrawing'
@@ -43,6 +49,7 @@ def test_manual_nft_withdrawals_are_atomic_and_refundable(client):
     assert client.post(route,headers=admin,
                        json={'decision':'failed','note':'Relayer transfer unavailable'}).status_code==200
     assert client.get('/api/inventory',headers=user).json['gifts'][0]['status']=='unlisted'
+    assert client.get('/api/balance',headers=user).json['balance']=='1.0'
     assert client.post(route,headers=admin,
                        json={'decision':'failed','note':'repeated'}).status_code==409
     assert client.get('/api/wallet/history?types=gift_withdraw_failed',
@@ -50,6 +57,7 @@ def test_manual_nft_withdrawals_are_atomic_and_refundable(client):
     second=client.post('/api/gifts/withdraw',headers=user,
                        json={'gift_id':gift['id'],'request_id':'request-3'})
     assert second.status_code==200
+    assert client.get('/api/balance',headers=user).json['balance']=='0.6'
     response=client.post('/api/admin/withdrawals/gift/'+second.json['id']+'/resolve',
                          headers=admin,json={'decision':'confirmed','note':'Telegram transfer verified #5469'})
     assert response.status_code==200

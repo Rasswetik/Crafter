@@ -107,3 +107,62 @@ def test_partner_checkout_refuses_stale_without_outgoing_request(tmp_path,monkey
         db.execute("UPDATE demo_accounts SET balance='20' WHERE user_id=42")
     order={"gift_ids":[NFT],"request_id":"not-in-cache","expected_total":"4.25"}
     assert client.post("/api/portals/buy",headers=signed(),json=order).status_code==409
+
+
+def test_partner_nft_withdrawal_missing_custody_routes_to_manual_without_transfer(tmp_path,monkeypatch):
+    client=make_partner(tmp_path,monkeypatch)
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO inventory VALUES (?,?,?,'unlisted')",
+            (42,NFT,json.dumps({"id":NFT,"name":"Lucky Locket",
+               "origin":"portals-partner","catalog_only":False})))
+        db.execute("UPDATE demo_accounts SET balance='2.0' WHERE user_id=42")
+    result=client.post('/api/portals/withdraw',headers=signed(),json={
+        'gift_id':NFT,'request_id':'unavailable-custody'})
+    assert result.status_code==200,result.json
+    assert result.json['mode']=='manual' and result.json['fee_gram']=='0.4'
+    assert client.get('/api/balance',headers=signed()).json['balance']=='1.6'
+    assert client.post('/api/portals/withdraw',headers=signed(),json={
+        'gift_id':NFT,'request_id':'unavailable-custody'}).json==result.json
+    queue=client.get('/api/admin/withdrawals/nft',headers=signed()).json['gifts']
+    assert len(queue)==1 and queue[0]['gift']['id']==NFT
+    failed=client.post('/api/admin/withdrawals/gift/'+queue[0]['id']+'/resolve',
+        headers=signed(),json={'decision':'failed','note':'Portals custody not confirmed'})
+    assert failed.status_code==200
+    assert client.get('/api/balance',headers=signed()).json['balance']=='2.0'
+
+
+def test_partner_withdrawal_checks_exact_owned_nft_and_refunds_errored_transfer(tmp_path,monkeypatch):
+    client=make_partner(tmp_path,monkeypatch)
+    key=save_key(client)
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO inventory VALUES (?,?,?,'unlisted')",
+            (42,NFT,json.dumps({"id":NFT,"name":"Lucky Locket","origin":"portals-partner"})))
+        db.execute("UPDATE demo_accounts SET balance='2.0' WHERE user_id=42")
+    called=[]
+    def fake_wire(req,timeout=None):
+        assert req.get_header('Authorization')=='partners '+key
+        called.append(req.full_url)
+        if '/partners/nfts/owned?' in req.full_url:
+            assert 'ids=' in req.full_url
+            return FakeResponse({'nfts':[{'id':NFT}]})
+        if req.full_url.endswith('/partners/nfts/withdraw'):
+            body=json.loads(req.data)
+            assert body=={'gift_ids':[NFT],'recipient_id':42,'unsafe_transfer':False}
+            return FakeResponse({'withdrawals_ids':[111]})
+        if '/partners/nfts/withdrawals/statuses?' in req.full_url:
+            return FakeResponse({'statuses':[{'id':111,'status':'errored'}]})
+        raise AssertionError(req.full_url)
+    monkeypatch.setattr("portals_partner.urlopen",fake_wire)
+    data={'gift_id':NFT,'request_id':'partner-withdraw-test'}
+    created=client.post('/api/portals/withdraw',headers=signed(),json=data)
+    assert created.status_code==200,created.json
+    assert created.json['mode']=='portals' and created.json['status']=='pending'
+    assert client.get('/api/balance',headers=signed()).json['balance']=='1.6'
+    assert client.post('/api/portals/withdraw',headers=signed(),json=data).json['status']=='pending'
+    assert len([url for url in called if url.endswith('/partners/nfts/withdraw')])==1
+    check=client.post('/api/portals/withdraw/check',headers=signed(),
+                      json={'request_id':'partner-withdraw-test'})
+    assert check.status_code==200,check.json
+    assert check.json['status']=='errored'
+    assert client.get('/api/balance',headers=signed()).json['balance']=='2.0'
+    assert client.get('/api/inventory',headers=signed()).json['gifts'][0]['status']=='unlisted'

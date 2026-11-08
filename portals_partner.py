@@ -380,26 +380,65 @@ def install_portals_partner(app, db, auth, record, audit):
         if not isinstance(gift_id,str) or not re.fullmatch(r"[a-fA-F0-9-]{36}",gift_id) or \
            not isinstance(rid,str) or not re.fullmatch(r"[A-Za-z0-9:_-]{1,100}",rid):
             abort(400)
-        if not app.config.get("DATABASE_URL") or not partner_key():
-            abort(409,description="Partner API не настроен")
+        uid=g.user["id"]
+        previous=db().execute("SELECT * FROM portals_partner_withdrawals WHERE user_id=? AND request_id=?",
+                              (uid,rid)).fetchone()
+        if previous:
+            if previous["nft_id"]!=gift_id:
+                abort(409,description="Номер запроса уже использован")
+            return {"ok":True,"status":previous["status"],
+                    "withdrawal_id":previous["portal_withdrawal_id"],"fee_gram":"0.4",
+                    "mode":"portals"}
+        # A previous request may already have been routed to the manual queue.
+        manual=db().execute("SELECT gift_id FROM gift_withdrawals WHERE id=? AND user_id=?",
+                            ("gw-"+str(uid)+"-"+rid,uid)).fetchone()
+        if manual:
+            return app.extensions['crafter_nft_queue_manual'](uid,gift_id,rid,allow_partner=True)
+        row=db().execute("SELECT payload,status FROM inventory WHERE user_id=? AND nft_id=?",
+                         (uid,gift_id)).fetchone()
+        if not row or row["status"]!="unlisted":
+            abort(409,description="Подарок нельзя вывести")
+        gift=json.loads(row["payload"])
+        if gift.get("origin")!="portals-partner" or gift.get("test_only"):
+            abort(409,description="Этот NFT не подтверждён на Portals")
+        # Verify partner custody before attempting a paid external transfer.
+        has_custody=False
+        unavailable=False
+        if app.config.get("DATABASE_URL") and partner_key():
+            try:
+                owned=partner("GET","nfts/owned",query={"ids":[gift_id],"limit":10})
+                candidates=owned.get("nfts",[]) if isinstance(owned,dict) else []
+                has_custody=any(isinstance(nft,dict) and nft.get("id")==gift_id
+                                for nft in candidates)
+            except HTTPException:
+                unavailable=True
+        else:
+            unavailable=True
+        if not has_custody:
+            queue=app.extensions['crafter_nft_queue_manual']
+            return queue(uid,gift_id,rid,allow_partner=True,
+                         reason="Portals: проверка хранения недоступна" if unavailable else
+                                "NFT не найден на партнёрском аккаунте Portals")
         with db():
             db().execute("BEGIN IMMEDIATE")
             old=db().execute("SELECT * FROM portals_partner_withdrawals WHERE user_id=? AND request_id=?",
-                             (g.user["id"],rid)).fetchone()
+                             (uid,rid)).fetchone()
             if old:
                 if old["nft_id"]!=gift_id:abort(409,description="Номер запроса использован")
-                return {"ok":True,"status":old["status"],"withdrawal_id":old["portal_withdrawal_id"]}
-            row=db().execute("SELECT payload,status FROM inventory WHERE user_id=? AND nft_id=?",
-                             (g.user["id"],gift_id)).fetchone()
-            if not row or row["status"]!="unlisted":
-                abort(409,description="Подарок нельзя вывести")
-            gift=json.loads(row["payload"])
-            if gift.get("origin")!="portals-partner":
-                abort(409,description="Для этого подарка используйте его собственный способ вывода")
+                return {"ok":True,"status":old["status"],"withdrawal_id":old["portal_withdrawal_id"],
+                        "fee_gram":"0.4","mode":"portals"}
+            current=db().execute("SELECT status FROM inventory WHERE user_id=? AND nft_id=?",
+                                 (uid,gift_id)).fetchone()
+            if not current or current["status"]!="unlisted":
+                abort(409,description="Подарок уже выводится")
+            fee_id="portals-"+str(uid)+"-"+rid
+            after=app.extensions['crafter_nft_debit_fee'](uid,fee_id)
             db().execute("INSERT INTO portals_partner_withdrawals VALUES(?,?,?,?,?,?,?)",
-                         (secrets.token_hex(16),g.user["id"],gift_id,rid,"processing",None,int(time.time())))
+                         (secrets.token_hex(16),uid,gift_id,rid,"processing",None,int(time.time())))
             db().execute("UPDATE inventory SET status='withdrawing' WHERE user_id=? AND nft_id=?",
-                         (g.user["id"],gift_id))
+                         (uid,gift_id))
+            record("nft_withdraw_fee",{"gift_id":gift_id,"fee_gram":"0.4",
+                                      "method":"portals-partner","balance":str(after)})
         try:
             response=partner("POST","nfts/withdraw",{"gift_ids":[gift_id],"recipient_id":g.user["id"],"unsafe_transfer":False})
             withdraw_ids=response.get("withdrawals_ids")
@@ -413,7 +452,7 @@ def install_portals_partner(app, db, auth, record, audit):
         with db():
             db().execute("UPDATE portals_partner_withdrawals SET status='pending',portal_withdrawal_id=? WHERE user_id=? AND request_id=?",
                          (withdraw_ids[0],g.user["id"],rid))
-        return {"ok":True,"status":"pending","withdrawal_id":withdraw_ids[0]}
+        return {"ok":True,"status":"pending","withdrawal_id":withdraw_ids[0],"mode":"portals","fee_gram":"0.4","balance":str(after)}
 
     @app.post("/api/portals/withdraw/check")
     @auth()
@@ -444,6 +483,9 @@ def install_portals_partner(app, db, auth, record, audit):
                 db().execute("BEGIN IMMEDIATE")
                 db().execute("UPDATE inventory SET status='unlisted' WHERE user_id=? AND nft_id=? AND status='withdrawing'",
                              (g.user["id"],row["nft_id"]))
+                fee_id="portals-"+str(g.user["id"])+"-"+str(rid)
+                if app.extensions['crafter_nft_refund_fee'](g.user["id"],fee_id):
+                    record("nft_withdraw_fee_refunded",{"withdrawal":rid,"fee_gram":"0.4"})
                 db().execute("UPDATE portals_partner_withdrawals SET status=? WHERE id=?",
                              (state,row["id"]))
         return {"status":state,"withdrawal_id":row["portal_withdrawal_id"]}

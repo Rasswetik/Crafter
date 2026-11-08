@@ -8,11 +8,77 @@ import json
 import re
 import time
 import uuid
+from urllib.error import HTTPError, URLError
 
+from portals_public import get as portals_get
 from flask import abort, g, request
 
 _NFT = re.compile(r"^https://(?:t\.me|telegram\.me)/nft/([A-Za-z][A-Za-z0-9_-]{2,90}-[1-9][0-9]{0,14})/?$", re.I)
 _LIMIT = 10**9
+
+
+
+def portal_nft_metadata(slug):
+    """Resolve the exact Telegram collectible from the Portals public NFT catalogue.
+
+    An external collection number is a prefix search; we MUST compare the returned
+    number and the collection slug before trusting attributes or artwork.
+    """
+    collection, index = slug.rsplit('-', 1)
+    number = int(index)
+    label = re.sub(r'(?<=[a-z])(?=[A-Z])', ' ', collection.replace('_',' '))
+    try:
+        data = portals_get('nfts/search', {
+            'external_collection_number': number, 'name_filter': label,
+            'limit': 100, 'offset': 0,
+        })
+    except (HTTPError, URLError, TimeoutError, ValueError, KeyError, OSError) as error:
+        abort(503, description='Portals сейчас не возвращает данные NFT. Попробуйте позже.')
+    results = data.get('results', []) if isinstance(data, dict) else []
+    canonical = lambda s: re.sub(r'[^a-z0-9]', '', str(s or '').lower())
+    wanted = canonical(collection)
+    for nft in results if isinstance(results, list) else []:
+        if not isinstance(nft, dict):
+            continue
+        try:
+            if int(nft.get('external_collection_number', -1)) != number:
+                continue
+        except (ValueError, TypeError):
+            continue
+        tg_slug = str(nft.get('tg_id') or '')
+        if canonical(nft.get('name')) != wanted and canonical(tg_slug.rsplit('-',1)[0]) != wanted:
+            continue
+        # The exact NFT has been verified by collection AND full number.
+        attrs = {}
+        rarity = {}
+        for entry in nft.get('attributes') or []:
+            if not isinstance(entry, dict):
+                continue
+            key = str(entry.get('type') or '').lower()
+            if key not in ('model', 'backdrop', 'symbol', 'pattern'):
+                continue
+            value = entry.get('value')
+            if isinstance(value, str):
+                attrs['symbol' if key == 'pattern' else key] = value[:100]
+            try:
+                per_mille = float(entry.get('rarity_per_mille'))
+                if 0 <= per_mille <= 1000:
+                    rarity['symbol' if key == 'pattern' else key] = per_mille
+            except (TypeError, ValueError):
+                pass
+        photo = nft.get('photo_url')
+        if not isinstance(photo, str) or not photo.startswith('https://'):
+            photo = ''
+        return {
+            'model': attrs.get('model', ''), 'symbol': attrs.get('symbol', ''),
+            'backdrop': attrs.get('backdrop', ''),
+            'floor_price': str(nft.get('floor_price') or ''),
+            'floor_unit': 'GRAM',
+            'image': photo, 'portal_nft_id': str(nft.get('id') or ''),
+            'rarity': rarity, 'portal_verified_at': int(time.time()),
+            'portal_status': str(nft.get('status') or ''),
+        }
+    abort(404, description='Точный NFT по указанной ссылке не найден в Portals (коллекция и номер).')
 
 
 def install_new_year(app, db, auth, record, audit):
@@ -53,7 +119,11 @@ def install_new_year(app, db, auth, record, audit):
             'model':extra.get('model',''), 'symbol':extra.get('symbol',''),
             'backdrop':extra.get('backdrop',''),
             'floor_price':extra.get('floor_price',''),
-            'image':'https://nft.fragment.com/gift/' + row['slug'].lower() + '.webp',
+            'floor_unit':extra.get('floor_unit','GRAM'),
+            'rarity':extra.get('rarity',{}),
+            'image':extra.get('image',''),
+            'portal_nft_id':extra.get('portal_nft_id',''),
+            'portal_verified_at':extra.get('portal_verified_at',0),
             'telegram_url':row['nft_url'], 'telegram_slug':row['slug'],
             'collection_id':re.sub(r'[^a-z0-9]','',row['title'].lower()),
             'price_unit':'BALL', 'price':int(row['price'])
@@ -101,6 +171,24 @@ def install_new_year(app, db, auth, record, audit):
         audit('New Year event '+('enabled' if body['enabled'] else 'disabled'))
         return {'ok':True,'enabled':body['enabled']}
 
+    @app.get('/api/new-year/lots/<lot_id>/details')
+    @auth()
+    def new_year_lot_details(lot_id):
+        if not enabled() and not g.is_admin:
+            abort(404)
+        row = db().execute("SELECT * FROM new_year_lots WHERE id=?",(lot_id,)).fetchone()
+        if not row or row['status'] != 'active':
+            abort(404, description='Лот уже недоступен')
+        extra = json.loads(row['metadata'])
+        if int(extra.get('portal_verified_at') or 0) < int(time.time()) - 900:
+            verified = portal_nft_metadata(row['slug'])
+            extra.update(verified)
+            with db():
+                db().execute("UPDATE new_year_lots SET metadata=? WHERE id=? AND status='active'",
+                             (json.dumps(extra,ensure_ascii=False),lot_id))
+            row = db().execute("SELECT * FROM new_year_lots WHERE id=?",(lot_id,)).fetchone()
+        return {'ok':True,'lot':item(row)}
+
     @app.post('/api/admin/new-year/lots')
     @auth(admin=True)
     def admin_new_year_create():
@@ -116,12 +204,8 @@ def install_new_year(app, db, auth, record, audit):
         if str(body.get('price','')) != str(price) or not 1<=price<=_LIMIT:
             abort(400,description='Стоимость: от 1 до 1 000 000 000 шаров')
         title=re.sub(r'(?<=[a-z])(?=[A-Z])',' ',prefix.replace('_',' ')).strip()
-        extra={}
-        for field in ('model','symbol','backdrop','floor_price'):
-            value=body.get(field,'')
-            if not isinstance(value,str) or len(value)>100 or any(ord(c)<32 for c in value):
-                abort(400,description='Неверные дополнительные сведения о NFT')
-            extra[field]=value.strip()
+        # Fetch real NFT attributes and image; never trust manually supplied metadata.
+        extra=portal_nft_metadata(slug)
         lot_id=uuid.uuid4().hex
         with db():
             db().execute('BEGIN IMMEDIATE')
@@ -150,6 +234,13 @@ def install_new_year(app, db, auth, record, audit):
             db().execute("UPDATE new_year_lots SET status=? WHERE id=?", (next_status,lot_id))
         audit('New Year lot '+lot_id+' status '+next_status)
         return {'ok':True,'status':next_status}
+
+    @app.get('/api/admin/new-year/users/<int:uid>/wallet')
+    @auth(admin=True)
+    def new_year_user_wallet(uid):
+        if not db().execute('SELECT 1 FROM users WHERE id=?',(uid,)).fetchone():
+            abort(404,description='Пользователь не найден')
+        return {'user_id':uid,'balance':wallet(uid)}
 
     @app.post('/api/admin/new-year/wallet')
     @auth(admin=True)

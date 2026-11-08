@@ -46,3 +46,16 @@
   .crafter-profile-desktop-promo>span{display:block;margin-bottom:10px;font-size:11px;font-weight:800;letter-spacing:.12em;color:#a7b6c9}
   .crafter-profile-desktop-promo .crafter-promo-form{max-width:450px}
 }
+
+/* Promo form is a single inline control, not a separate full-width panel. */
+@media(min-width:1024px){
+  .portal-profile .profile-identity{display:flex;align-items:center;gap:12px;flex-wrap:nowrap}
+  .portal-profile .crafter-profile-desktop-promo{display:flex!important;align-items:center;flex:0 1 392px;min-width:225px;margin:0 0 0 auto!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;border-radius:0!important}
+  .portal-profile .crafter-profile-desktop-promo>span{display:none!important}
+  .portal-profile .crafter-profile-desktop-promo .crafter-promo-form{width:100%;max-width:none;margin:0}
+  .portal-profile .crafter-profile-desktop-promo .crafter-promo-form input{height:43px;min-height:43px;background:#141820;border:1px solid #414a56}
+  .portal-profile .crafter-profile-desktop-promo .crafter-promo-form button{width:43px;flex-basis:43px;min-height:43px}
+  .portal-profile .crafter-profile-desktop-promo .crafter-promo-feedback{position:absolute;margin:64px 0 0;color:#6dcaa0}
+}
+.crafter-promo-modal{padding:5px 0 8px}
+.crafter-profile-promo:focus-visible{outline:2px solid #82c2ff;outline-offset:3px}
