@@ -243,9 +243,12 @@ def create_app(config=None):
         return render_template('index.html', site_maintenance=is_maintenance_enabled())
 
     @app.get('/admin')
-    @app.get('/admin/user/<int:uid>')
-    def admin_page(uid=None):
+    def admin_page():
         return render_template('admin.html')
+
+    @app.get('/admin/user/<int:uid>')
+    def admin_user_page(uid):
+        return render_template('admin_user.html', uid=uid)
 
 
     @app.get('/collections/<slug>')
