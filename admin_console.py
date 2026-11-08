@@ -53,13 +53,55 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings):
                 pass
         return bool(user and user.get("id") in app.config["ADMIN_IDS"])
 
+    MODE_DEFAULTS = {'craft': True, 'arena': True, 'staking': True}
+
+    def site_modes():
+        row = db().execute("SELECT payload FROM settings WHERE key='site_modes_v1'").fetchone()
+        if not row:
+            return dict(MODE_DEFAULTS)
+        try:
+            values = json.loads(row['payload'])
+        except (ValueError, TypeError):
+            values = {}
+        if not isinstance(values, dict):
+            values = {}
+        return {key: bool(values.get(key, value)) for key, value in MODE_DEFAULTS.items()}
+
+    @app.get('/api/site/modes')
+    def public_site_modes():
+        response = jsonify(modes=site_modes())
+        response.headers['Cache-Control'] = 'no-store'
+        return response
+
+    @app.get('/api/admin/modes')
+    @auth(admin=True)
+    def admin_modes():
+        return {'modes': site_modes()}
+
+    @app.post('/api/admin/modes')
+    @auth(admin=True)
+    def admin_update_modes():
+        value = request.get_json(silent=True)
+        if (not isinstance(value, dict) or value.get('mode') not in MODE_DEFAULTS
+                or type(value.get('enabled')) is not bool
+                or value.get('confirm') != 'SET_MODE'):
+            abort(400, description='Выберите режим и подтвердите изменение')
+        modes = site_modes()
+        modes[value['mode']] = value['enabled']
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            db().execute('INSERT INTO settings(key,payload) VALUES(?,?) '
+                         'ON CONFLICT(key) DO UPDATE SET payload=excluded.payload',
+                         ('site_modes_v1', json.dumps(modes)))
+        audit('Mode ' + value['mode'] + (' enabled' if value['enabled'] else ' disabled'))
+        return {'ok': True, 'modes': site_modes()}
     @app.before_request
     def enforce_site_maintenance():
         path = request.path
         if not path.startswith("/api/"):
             return None
         # Status and authenticated admin check are always available for retry.
-        if path in ("/api/site/maintenance", "/api/site/maintenance/access"):
+        if path in ("/api/site/maintenance", "/api/site/maintenance/access", "/api/site/modes"):
             return None
         state = maintenance()
         if state["enabled"] and not valid_admin_request():
@@ -72,6 +114,14 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings):
             response.headers["Cache-Control"] = "no-store"
             response.headers["Retry-After"] = "60"
             return response
+        # Enforce disabled game modes on the server, not merely by hiding buttons.
+        mode = ('craft' if path == '/api/craft' or path.startswith('/api/craft/')
+                else 'arena' if path == '/api/arena' or path.startswith('/api/arena/')
+                else 'staking' if path == '/api/staking' or path.startswith('/api/staking/')
+                else None)
+        if mode and not site_modes()[mode] and not valid_admin_request():
+            return jsonify(error='Режим временно отключён администратором',
+                           mode_disabled=mode), 503
         return None
 
     @app.get("/api/site/maintenance")
