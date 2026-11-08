@@ -1216,7 +1216,7 @@ def create_app(config=None):
     @auth(admin=True)
     def status():
         c,t=cached('collections',[])
-        return {'configured':bool(app.config['PORTALS_API_KEY']),'mode':'public','updated_at':t,'collections':len(c),'sync':dict(catalog_job),'users':db().execute('SELECT count(*) FROM users').fetchone()[0],'audit':[dict(x) for x in db().execute('SELECT actor,action,created FROM audit ORDER BY id DESC LIMIT 20')]}
+        return {'configured':bool(app.config['PORTALS_API_KEY']),'mode':'public','updated_at':t,'collections':len(c),'sync':dict(catalog_job),'auto_refresh':dict(app.extensions.get('crafter_market_refresh',{})),'users':db().execute('SELECT count(*) FROM users').fetchone()[0],'audit':[dict(x) for x in db().execute('SELECT actor,action,created FROM audit ORDER BY id DESC LIMIT 20')]}
     @app.post('/api/admin/portal/test')
     @auth(admin=True)
     def test_portal():
@@ -1417,6 +1417,9 @@ def create_app(config=None):
     install_portals_partner(app, db, auth, record, audit)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
+    if not app.config.get('TESTING'):
+        from market_refresh import refresh_interval, start_market_refresh
+        start_market_refresh(start_catalog_refresh, refresh_interval(), app.extensions.setdefault('crafter_market_refresh', {}))
     return app
 
 app=create_app()
