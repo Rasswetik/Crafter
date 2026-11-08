@@ -32,7 +32,10 @@ def test_desktop_grid_never_exceeds_seven_and_mobile_stays_separate():
     assert 'banners.slice(0,3)' in banners
     assert 'desktop-repairs.css' in page
     assert 'if(state.gamesMode)return renderGamesProfile()' not in profile
-    assert 'profile-settings-button' in profile
+    preferences=(root/'static/preferences.js').read_text(encoding='utf-8')
+    assert 'crafterAddProfileSettings' in preferences
+    assert 'crafter-open-settings' in preferences
+    assert 'profile-settings-button' not in profile
 
 
 def test_admin_action_history_and_cancellation_sections_are_visible():
