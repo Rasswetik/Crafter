@@ -4,9 +4,27 @@
   const root = () => document.getElementById('crafter-maintenance');
   const status = () => document.getElementById('crafter-maintenance-status');
 
+  function ensureWinterDecor() {
+    const overlay=root();
+    if(!overlay||overlay.querySelector('.crafter-maintenance-snow'))return;
+    const snow=document.createElement('div');
+    snow.className='crafter-maintenance-snow';
+    snow.setAttribute('aria-hidden','true');
+    for(let i=0;i<37;i++){
+      const flake=document.createElement('i');
+      flake.style.setProperty('--x',((i*67+9)%100)+'%');
+      flake.style.setProperty('--duration',(9+(i*7)%16)+'s');
+      flake.style.setProperty('--delay',(-((i*5)%23))+'s');
+      flake.style.setProperty('--drift',((i*29)%155-76)+'px');
+      flake.style.setProperty('--flake-size',(2+(i*13)%5)+'px');
+      snow.append(flake);
+    }
+    overlay.insertBefore(snow,overlay.firstChild);
+  }
   window.crafterShowMaintenance = function(message) {
     const box = root();
     if (!box) return;
+    ensureWinterDecor();
     box.classList.add('is-active');
     document.body.classList.add('maintenance-locked');
     box.setAttribute('aria-hidden','false');
@@ -55,8 +73,8 @@
     }
   };
   if(document.readyState==='loading') {
-    document.addEventListener('DOMContentLoaded',()=>window.crafterRetryMaintenance(),{once:true});
-  }else{window.crafterRetryMaintenance();}
+    document.addEventListener('DOMContentLoaded',()=>{ensureWinterDecor();window.crafterRetryMaintenance();},{once:true});
+  }else{ensureWinterDecor();window.crafterRetryMaintenance();}
   // Active users are redirected to maintenance as soon as site status changes.
   setInterval(async()=>{
     if(document.hidden)return;
