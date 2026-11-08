@@ -1,8 +1,7 @@
-"""New Year reward ledger for settled Crafter marketplace activity.
+"""New Year rewards for real settlements and explicitly marked preview operations.
 
-10 winter balls per 1 TON of confirmed buying/selling volume.
-Internal GRAM amounts are converted using the TON Connect gram_per_ton
-rate *at the time of settlement*, not treated as TON by default.
+Every 1 TON of recorded activity earns 10 seasonal balls. Preview gifts
+never become real NFT custody or real-balance transactions.
 """
 import json
 import time
@@ -41,11 +40,28 @@ def install_new_year_trade_rewards(app, db, audit=None):
         return Decimal('1')
 
     def accrue(uid, history_id, kind, payload):
-        if kind not in SUPPORTED or payload.get('scope') not in SUPPORTED[kind]:
-            return 0
+        scope=payload.get('scope')
         gift=payload.get('gift') or {}
-        if gift.get('test_only') or gift.get('catalog_only') or gift.get('origin') in (
-                'market-test','new-year-test','local-purchase','admin-grant'):
+        origin=gift.get('origin')
+        is_preview=False
+        amount_key='price'
+        if (kind=='market_test_buy' and scope=='preview' and
+            payload.get('test_mode') is True and origin=='market-test'):
+            is_preview=True
+        elif (kind=='market_test_sale' and scope=='preview' and
+              payload.get('test_mode') is True and origin in ('market-test','demo-craft')):
+            is_preview=True
+        elif (kind=='craft' and scope=='application' and payload.get('mode')=='preview' and
+              payload.get('test_mode') is True and payload.get('consumed')):
+            is_preview=True
+            amount_key='input_value'
+        elif kind in SUPPORTED and scope in SUPPORTED[kind]:
+            if (gift.get('test_only') or gift.get('catalog_only') or
+                origin in ('market-test','new-year-test','local-purchase','admin-grant','demo-craft')):
+                return 0
+        else:
+            return 0
+        if is_preview and not app.config.get('MARKET_TEST_PURCHASES',False):
             return 0
         flag=db().execute("SELECT payload FROM settings WHERE key='new_year_enabled_v1'").fetchone()
         if not flag or flag[0]!='true':
@@ -54,13 +70,17 @@ def install_new_year_trade_rewards(app, db, audit=None):
                         (history_id,)).fetchone():
             return 0
         try:
-            amount=Decimal(str(payload.get('price','0')))
+            amount=Decimal(str(payload.get(amount_key,'0')))
             if not amount.is_finite() or not 0<amount<=MAX_PRICE:
                 return 0
         except (TypeError,ValueError,InvalidOperation):
             return 0
+        unit=str(payload.get('price_unit','GRAM'))
+        if unit not in ('TON','GRAM'):
+            return 0
         rate=conversion()
-        earned=(amount/rate)*BALLS_PER_TON
+        gram_volume=amount*rate if unit=='TON' else amount
+        earned=(gram_volume/rate)*BALLS_PER_TON
         current=db().execute(
             "SELECT balls FROM new_year_wallets WHERE user_id=?",(uid,)).fetchone()
         previous=db().execute(
@@ -70,13 +90,12 @@ def install_new_year_trade_rewards(app, db, audit=None):
         whole=int(combined.to_integral_value(rounding=ROUND_DOWN))
         remainder=combined-Decimal(whole)
         if (int(current['balls']) if current else 0)+whole>MAX_WALLET:
-            # Do not break a legitimate settled purchase because of a full event wallet.
             return 0
         created=int(time.time())
         inserted=db().execute(
             "INSERT INTO new_year_trade_rewards(history_id,user_id,kind,scope,volume_gram,rate_gram_per_ton,balls_delta,created) "
             "VALUES(?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
-            (history_id,uid,kind,payload['scope'],str(amount),str(rate),whole,created))
+            (history_id,uid,kind,scope,str(gram_volume),str(rate),whole,created))
         if not inserted.rowcount:
             return 0
         db().execute(

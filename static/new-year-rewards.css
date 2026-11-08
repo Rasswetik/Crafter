@@ -9,3 +9,11 @@
 .cart-checkout .crafter-season-reward{margin:9px 0 11px}
 .ny-empty{max-width:680px;margin:10px auto 0}
 @media(max-width:390px){.crafter-season-reward{padding:10px}.crafter-season-reward>div>span{font-size:12px}.crafter-season-reward>strong{font-size:16px}}
+
+.crafter-preview-sale{display:flex;flex-direction:column;gap:12px;padding:5px 2px 14px}
+.crafter-preview-sale>p{margin:0;color:#aebbc9;font-size:13px;line-height:1.55}
+.crafter-preview-sale>p strong{color:#f5f6fb}
+.crafter-preview-sale>label{display:flex;flex-direction:column;gap:8px;font-size:12px;color:#cbd5e0}
+.crafter-preview-sale input{height:48px;border:1px solid #435165;border-radius:14px;background:#151a21;color:white;font-size:18px;padding:10px 14px}
+.crafter-preview-sale>.primary{min-height:48px;border-radius:16px}
+.crafter-preview-sale .purchase-error{color:#f58c93;font-size:12px;min-height:1em}

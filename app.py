@@ -727,6 +727,46 @@ def create_app(config=None):
         gifts={x['id']:x for x in owned() if x['status']=='unlisted'}
         if any(x not in gifts for x in ids):abort(409,description='Подарок недоступен')
         chosen=[gifts[x] for x in ids]
+        preview=[bool(x.get('test_only')) for x in chosen]
+        if any(preview):
+            if not all(preview):
+                abort(409,description='В одном крафте нельзя смешивать демо и настоящие подарки')
+            if not app.config.get('MARKET_TEST_PURCHASES'):
+                abort(409,description='Демонстрационный крафт отключён')
+            if any(x.get('origin') not in ('market-test','demo-craft') for x in chosen):
+                abort(409,description='Этот тестовый подарок не подходит для крафта')
+            # Isolated preview mode: no live listing is required or claimed.
+            catalog=public_catalog()
+            target=next((c for c in catalog if str(c['id'])==str(data.get('target_id'))),None)
+            if not target:
+                abort(400,description='Выберите коллекцию результата')
+            ratio=app.extensions['crafter_new_year_trade_conversion']()
+            try:
+                target_ton=Decimal(str(target.get('floor_price') or 0))
+                if not target_ton.is_finite() or target_ton<=0:
+                    abort(409,description='Нет цены выбранной коллекции для демо-крафта')
+                source_floors={canonical_name(c['name']):Decimal(str(c.get('floor_price') or 0))
+                               for c in catalog if c.get('name')}
+                total_ton=Decimal(0)
+                for item in chosen:
+                    amount=Decimal(str(item.get('source_price') or 0))
+                    unit=item.get('source_price_unit') or 'GRAM'
+                    if amount<=0:
+                        amount=source_floors.get(canonical_name(item.get('name','')),Decimal(0))
+                        unit='TON'
+                    if not amount.is_finite() or amount<=0 or unit not in ('TON','GRAM'):
+                        abort(409,description='Нет оценки тестового подарка для крафта')
+                    total_ton+=amount if unit=='TON' else amount/ratio
+            except (ValueError,TypeError,InvalidOperation):
+                abort(409,description='Невозможно рассчитать стоимость демо-крафта')
+            return dict(gift_ids=ids,target_id=str(target['id']),target={
+                            'id':target['id'],'name':target['name'],
+                            'photo_url':target.get('photo_url') or ''},
+                        listing_id='preview:'+str(target['id']),
+                        listing_source='preview',listing_price=str(target_ton),
+                        target_value=str(target_ton),input_value=str(total_ton),
+                        price_unit='TON',mode='preview',scope='application',
+                        chance_bps=min(9500,int(total_ton/target_ton*Decimal(9500))))
         if any(x.get('origin') not in ('admin-grant','application-craft','local-purchase') for x in chosen):abort(409,description='Доступны подарки внутреннего инвентаря Crafter')
         listing_id = data.get('listing_id')
         if isinstance(listing_id, str) and listing_id.startswith('crafter-'):
@@ -813,7 +853,7 @@ def create_app(config=None):
     def craft_quote():
         q=make_quote(request.get_json() or {});qid=uuid.uuid4().hex
         db().execute('INSERT INTO craft_quotes VALUES(?,?,?,?)',(qid,g.user['id'],json.dumps(q),int(time.time())));db().commit()
-        return dict(quote_id=qid,chance=q['chance_bps']/100,input_value=q['input_value'],target_value=q['target_value'],price_unit=q.get('price_unit','TON'),expires_at=int(time.time())+120,scope='application')
+        return dict(quote_id=qid,chance=q['chance_bps']/100,input_value=q['input_value'],target_value=q['target_value'],price_unit=q.get('price_unit','TON'),mode=q.get('mode','collection'),expires_at=int(time.time())+120,scope='application')
 
     def craft_market_candidates(target):
         sold = {row[0] for row in db().execute('SELECT source_id FROM local_sold')}
@@ -875,7 +915,21 @@ def create_app(config=None):
                 abort(409, description='Расчёт устарел. Выберите цель крафта заново.')
             expected_price = Decimal(q.get('listing_price', q['target_value']))
             internal = q.get('listing_source') == 'crafter'
-            if internal:
+            preview=q.get('listing_source')=='preview'
+            if preview:
+                if not app.config.get('MARKET_TEST_PURCHASES'):
+                    abort(409,description='Демо-крафт отключён')
+                rows=db().execute("SELECT nft_id,payload,status FROM inventory WHERE user_id=?",
+                                  (g.user['id'],)).fetchall()
+                by_id={row['nft_id']:(json.loads(row['payload']),row['status']) for row in rows}
+                if any(item not in by_id or by_id[item][1]!='unlisted' or
+                       not by_id[item][0].get('test_only') or
+                       by_id[item][0].get('origin') not in ('market-test','demo-craft')
+                       for item in ids):
+                    abort(409,description='Материалы демо-крафта изменились')
+                listing=None
+                matches=True
+            elif internal:
                 listing = available_crafter_lot(q['listing_id'], g.user['id'])
                 matches = Decimal(listing['price']) == expected_price
             else:
@@ -886,7 +940,19 @@ def create_app(config=None):
                 abort(409, description='Лот изменился. Обновите расчёт крафта.')
             success = secrets.randbelow(10000) < q['chance_bps']
             reward = internal_sale = None
-            if success and internal:
+            if success and preview:
+                target=q['target']
+                reward=dict(id='demo-craft-'+uuid.uuid4().hex,
+                            name=target['name'],collection_id=target['id'],
+                            number=gift_number(str(target['id'])),
+                            image=target.get('photo_url') or '',
+                            model='Demo craft',symbol='',backdrop='',
+                            price='0',price_unit='GRAM',source_price=str(expected_price),
+                            source_price_unit='TON',origin='demo-craft',
+                            test_only=True,catalog_only=True,crafted=True)
+                db().execute('INSERT INTO inventory VALUES(?,?,?,?)',
+                             (g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
+            elif success and internal:
                 internal_sale = settle_crafter_lot(listing, g.user['id'], 'lucky')
                 reward = internal_sale['gift']
             elif success:
@@ -894,6 +960,8 @@ def create_app(config=None):
                 db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
             for nft in ids:db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?',(g.user['id'],nft))
             result=dict(success=success,chance=q['chance_bps']/100,gift=reward,consumed=ids,scope='application',mode=q.get('mode','lucky'))
+            if preview:
+                result.update(test_mode=True,input_value=q['input_value'],price_unit='TON')
             if internal:
                 result.update(listing_id=q['listing_id'], prize_value=str(expected_price))
             record('craft',result)
@@ -1273,6 +1341,7 @@ def create_app(config=None):
     from new_year_trade_rewards import install_new_year_trade_rewards
     seasonal_accrue,seasonal_conversion=install_new_year_trade_rewards(app,db,audit)
     app.extensions['crafter_new_year_trade_accrue']=seasonal_accrue
+    app.extensions['crafter_new_year_trade_conversion']=seasonal_conversion
     from promocodes import install_promocodes
     install_promocodes(app,db,auth,record,audit)
     from market_test import install_market_test

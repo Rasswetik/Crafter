@@ -262,6 +262,7 @@ async function runCraft() {
             page.classList.add('forge-visual-unavailable');
         }
         showForgeResult(status, result, gifts.filter(gift => consumed.has(gift.id)));
+        if(typeof window.crafterSeasonBalanceRefresh==='function')window.crafterSeasonBalanceRefresh();
         refreshMe().catch(() => {});
     } catch (error) {
         if (error.status >= 400 && error.status < 500) state.quote = null;

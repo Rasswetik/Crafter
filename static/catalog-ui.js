@@ -176,6 +176,7 @@ function pickCatalogRow(value) {
 function applyCatalogFilter(){const k=state.sheetKind;if(k==='collection'&&state.collection!==state.sheetValue){state.model='';state.backdrop='';state.symbol=''}state[k]=state.sheetValue;closeSheet();if(state.page==='market')renderMarket();else renderGifts();changedFilter()}
 function craftRules(){const internal=state.target?.listingId?.startsWith('crafter-');sheet('Как работает крафт',`<div class="attributes"><div><span>Оценка подарков</span><b>${internal ? 'Оценка в GRAM' : 'Флор коллекции в TON'}</b></div><div><span>Шанс</span><b>${internal ? 'Оценка подарков / цена лота × 95%' : 'Сумма флоров / флор цели × 95%'}</b></div><div><span>Максимальный шанс</span><b>95%</b></div></div><p class="sub">Выбранные подарки списываются. При успехе результат появляется в инвентаре Crafter. Операция работает с подарками приложения; передачу NFT в Telegram она не выполняет.</p><button class="primary" onclick="closeSheet()">Понятно</button>`)}
 function renderCraft() {
+    const craftEnglish=typeof crafterPrefs!=='undefined'&&crafterPrefs.language==='en';
     const gifts = state.selected.map(id => state.inventory.find(gift =>
         gift.id === id && gift.status === 'unlisted'
     )).filter(Boolean).slice(0, CRAFT_GIFT_LIMIT);
@@ -205,11 +206,12 @@ function renderCraft() {
                     </strong>
                 </div>
             </div>
-            <div class="craft-caption">Добавьте до <b>${CRAFT_GIFT_LIMIT} подарков</b>, чтобы скрафтить</div>
+            <div class="craft-caption">${craftEnglish ? `Add up to <b>${CRAFT_GIFT_LIMIT} gifts</b> to craft` : `Добавьте до <b>${CRAFT_GIFT_LIMIT} подарков</b>, чтобы скрафтить`}</div>
             <button class="target" onclick="chooseTarget()">${state.target ?
                 `<img src="${esc(imageURL(state.target.image))}" alt="">${esc(state.target.name)}${state.target.number ? ` #${esc(state.target.number)}` : ''}` :
                 'Выберите подарок'}${icon('chevron')}</button>
-            <div class="craft-warning">⚠ Если крафт не удастся,<br>подарки сгорят</div>
+            <div class="craft-warning">${craftEnglish?'⚠ If crafting fails, your gifts will be lost':'⚠ Если крафт не удастся, подарки сгорят'}</div>
+            ${quote?.mode==='preview'?(window.crafterSeasonRewardHTML?.('craft',quote.input_value,quote.price_unit,'Демо · за использованные подарки')||''):''}
             <div class="craft-bottom">
                 <button id="craft-button" class="primary craft-action" onclick="${gifts.length ? 'runCraft()' : 'pickGift()'}">
                     ${gifts.length ? 'Скрафтить' : 'Добавить подарки для крафта'}
@@ -279,6 +281,12 @@ async function updateCraftQuote() {
         if (!isCurrent()) return;
         state.quote = quote;
         showCraftChance(quote.chance);
+        document.querySelector('.craft-page .crafter-season-reward')?.remove();
+        if(quote.mode==='preview'){
+            const warning=document.querySelector('.craft-page .craft-warning');
+            warning?.insertAdjacentHTML('afterend',window.crafterSeasonRewardHTML?.(
+                'craft',quote.input_value,quote.price_unit,'Демо · за использованные подарки')||'');
+        }
     } catch (error) {
         if (isCurrent()) {
             document.querySelector('#forge .anvil')?.classList.remove('chance-pending');
@@ -450,12 +458,22 @@ function showGiftDetail(gift, source) {
             ${listed ? `<div class="owned-listing-price"><span>Цена продажи</span><strong>${money(gift.listing_price ?? gift.price)} GRAM</strong>
                 <button type="button" onclick="startResale('edit', ${arg(gift.id)})">Редактировать</button></div>` : ''}
         </div>
-        ${own && !gift.test_only && !gift.catalog_only
-            ? (window.crafterSeasonRewardForFloor?.(gift) || '')
-            : !own && !gift.own_listing && !gift.catalog_only && !gift.test_only
-              ? (window.crafterSeasonRewardHTML?.('purchase',gift.price,gift.price_unit || 'GRAM') || '')
+        ${own && gift.test_only && ['market-test','demo-craft'].includes(gift.origin)
+              ? (window.crafterSeasonRewardHTML?.('sale',gift.source_price||0,gift.source_price_unit||'GRAM','Демо · по цене источника, итог зависит от выбранной цены') || '')
+              : own && !gift.test_only && !gift.catalog_only
+              ? (window.crafterSeasonRewardForFloor?.(gift) || '')
+              : !own && !gift.own_listing && !gift.catalog_only
+              ? (window.crafterSeasonRewardHTML?.('purchase',gift.price,gift.price_unit || 'GRAM',
+                    state.me?.market_test_purchases?'Демо-покупка · 1 TON = 10 шаров':'После подтверждённой покупки · 1 TON = 10 шаров') || '')
               : ''}
-        ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` : own && gift.test_only ? `<div class="ny-footnote">Тестовый подарок в инвентаре Crafter. Вывод и продажа недоступны.</div>` : own ? `<div class="product-actions owned-gift-actions">
+        ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` :
+            own && gift.test_only && ['market-test','demo-craft'].includes(gift.origin) ?
+              `<div class="ny-footnote">Демо-подарок. Реальный вывод NFT недоступен; можно крафтить и проводить тестовую продажу.</div>
+              <div class="product-actions owned-gift-actions">
+                <button class="secondary" onclick="craftGiftById(${arg(gift.id)})">Крафт (демо)</button>
+                <button class="primary" onclick="openPreviewGiftSale(${arg(gift.id)})">Продать (демо)</button>
+              </div>` :
+            own && gift.test_only ? `<div class="ny-footnote">Тестовый NFT нельзя вывести или продать. Для крафта используйте тестовые покупки из маркета.</div>` : own ? `<div class="product-actions owned-gift-actions">
             <button class="secondary" onclick="requestGiftWithdrawal(${arg(gift.id)})">Вывести NFT</button>
             <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>
         </div>` : source === 'market' ? `<div class="market-gift-actions market-offer-actions">
@@ -526,6 +544,8 @@ async function localBuyGift(id) {
         state.me.inventory_count = (state.me.inventory_count || 0) + 1;
         state.inventory = [...state.inventory.filter(item => item.id !== bought.id), {...bought,status:'unlisted'}];
         updateBalance();
+        if(typeof window.crafterSeasonBalanceRefresh==='function')
+            window.crafterSeasonBalanceRefresh();
         if (button?.isConnected) closeSheet();
         toast(testing?'Подарок добавлен в тестовый инвентарь':portal?'Portals подтвердил покупку. NFT находится на партнёрском хранении.':'Подарок добавлен в инвентарь');
     } catch (e) {

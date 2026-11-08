@@ -361,6 +361,28 @@ crafterTranslationPairs.push(
     ["Убрать подарок","Remove gift"],
     ["Тестовый подарок в инвентаре Crafter. Вывод и продажа недоступны.","Test gift in Crafter inventory. Withdrawal and sale are unavailable."]
 );
+crafterTranslationPairs.push(
+    ["Демо-продажа","Demo sale"],
+    ["Крафт (демо)","Craft (demo)"],
+    ["Продать (демо)","Sell (demo)"],
+    ["Награда за крафт","Craft reward"],
+    ["Демо · за использованные подарки","Demo · for consumed gifts"],
+    ["Демо · по цене источника, итог зависит от выбранной цены","Demo · based on source price, final reward depends on your price"],
+    ["Демо-покупка · 1 TON = 10 шаров","Demo purchase · 1 TON = 10 balls"],
+    ["После подтверждённой покупки · 1 TON = 10 шаров","After confirmed purchase · 1 TON = 10 balls"],
+    ["Начисляется после подтверждения демо-продажи","Credited after confirming a demo sale"],
+    ["Завершить демо-продажу","Complete demo sale"],
+    ["Только тестовая продажа. GRAM не начисляются, реальные NFT не передаются.","Simulation only. No GRAM is credited and no real NFTs are transferred."],
+    ["Демо-продажа завершена · шары начислены","Demo sale complete · balls credited"],
+    ["Тестовый подарок недоступен для демо-продажи","This demo gift is unavailable for simulated sale"],
+    ["Укажите корректную демо-цену","Enter a valid demo price"],
+    ["Демо-подарок. Реальный вывод NFT недоступен; можно крафтить и проводить тестовую продажу.","Demo gift. Real NFT withdrawal is unavailable; you can craft and simulate a sale."],
+    ["Тестовый NFT нельзя вывести или продать. Для крафта используйте тестовые покупки из маркета.","This demo NFT cannot be withdrawn or sold. Use market preview purchases for crafting."],
+    ["Если крафт не удастся, подарки сгорят","If crafting fails, gifts will be lost"],
+    ["Изготовление","Crafting"],
+    ["Добавьте до","Add up to"],
+    ["подарков","gifts"]
+);
 const crafterRuEn = new Map(crafterTranslationPairs);
 const crafterEnRu = new Map(crafterTranslationPairs.map(pair=>[pair[1],pair[0]]));
 const crafterTextCache = new WeakMap();

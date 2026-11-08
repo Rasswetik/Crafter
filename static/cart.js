@@ -104,6 +104,7 @@ async function payCart(){
         state.me.balance=result.balance;
         state.me.inventory_count=(state.me.inventory_count||0)+gifts.length;
         updateBalance();
+        if(typeof window.crafterSeasonBalanceRefresh==='function')window.crafterSeasonBalanceRefresh();
         toast(testing?'Подарки добавлены в тестовый инвентарь':result.failed?.length?'Покупка частичная: '+gifts.length+' из '+ids.length: 'Покупка подтверждена');
     }catch(e){
         state.cartError=e.message||'Не удалось подтвердить покупку';
