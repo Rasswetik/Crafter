@@ -88,7 +88,8 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             relayer=(gift.get('origin')=='telegram-deposit' and
                      _TELEGRAM_NFT.fullmatch(str(gift.get('telegram_url') or '')))
             fallback=(allow_partner and gift.get('origin')=='portals-partner')
-            if not relayer and not fallback:
+            bought=(gift.get('origin')=='thermos')      # bought on Thermos: delivered to the relayer
+            if not relayer and not fallback and not bought:
                 abort(409,description='Нужен подтверждённый подарок Relayer или Portals')
             after=debit_fee(uid,wid)
             now=int(time.time())

@@ -19,7 +19,7 @@ const adminSections = {
     craft_banner: {label:'Баннер крафтов',detail:'События, GIF, таймер',group:'manage',glyph:'grid',render:renderCraftBannerAdmin},
     ice_banner:   {label:'Баннер Ice Arena',detail:'Визуальный редактор',group:'manage',glyph:'grid',render:renderIceBannerAdmin},
     events:       {label:'Ивенты и рейтинги',detail:'Награды, лидеры, сроки',group:'manage',glyph:'grid',render:renderAdminEvents},
-    portal:       {label:'Portal Market',detail:'Каталог и модели подарков',group:'system',glyph:'market',render:renderAdminPortal},
+    portal:       {label:'Термос',detail:'Маркеты: токен, баланс, источник цен',group:'system',glyph:'market',render:renderAdminPortal},
     'telegram-bot':{label:'Telegram-бот',detail:'Уведомления и настройки',group:'system',glyph:'send',render:renderTelegramBotAdmin},
     announcements:{label:'Анонсы',detail:'Окна и сообщения',group:'system',glyph:'grid',render:renderAdminAnnouncements},
     snow:         {label:'Снег на сайте',detail:'Погода и оформление',group:'system',glyph:'gift',render:renderAdminSnow},
@@ -42,8 +42,8 @@ function adminAllowedSection(id){
 function adminNavCards() {
     return Object.entries(adminGroupTitles).map(([group, title]) =>
         '<div class="admin-nav-group"><span class="admin-nav-heading">'+title+'</span>'+
-        Object.entries(adminSections).filter(([id,item])=>id!=='admins'&&item.group===group&&adminCanOpenSection(id)).map(([id,item])=>
-            '<button type="button" class="admin-nav-link'+
+        Object.entries(adminSections).filter(([id,item])=>item.group===group&&adminCanOpenSection(id)).map(([id,item])=>
+            '<button type="button" data-search="'+esc((item.label+' '+item.detail).toLowerCase())+'" class="admin-nav-link'+
             (state.adminSection===id?' is-current':'')+
             '" onclick="openAdminSection('+arg(id)+')" aria-current="'+
             (state.adminSection===id?'page':'false')+'">'+
@@ -63,31 +63,20 @@ async function renderAdmin() {
     main.innerHTML='<div class="admin-dashboard">'+
         '<aside class="admin-navigation" id="admin-navigation" aria-label="Меню админки">'+
         '<div class="admin-nav-head"><small>CRAFTER / CONSOLE</small><strong>Разделы</strong></div>'+
-        (adminCanOpenSection('users')?
-         '<button type="button" class="admin-owner-quick admin-users-quick '+(state.adminSection==='users'?'is-current':'')+
-         '" onclick="openAdminSection(\'users\')"><span class="admin-owner-quick-icon">'+icon('users')+
-         '</span><span><b>Пользователи</b><small>Поиск · профили · балансы · подарки</small></span>'+
-         '<span class="admin-nav-arrow">›</span></button>':'')+
-        (state.me?.is_primary_admin?
-         '<button type="button" class="admin-owner-quick '+(state.adminSection==='admins'?'is-current':'')+
-         '" onclick="openAdminSection(\'admins\')"><span class="admin-owner-quick-icon">'+icon('shield')+
-         '</span><span><b>Управление админами</b><small>Добавить · права · удалить</small></span>'+
-         '<span class="admin-nav-arrow">›</span></button>':'')+
-        adminNavCards()+'</aside>'+
+        '<label class="admin-nav-search">'+icon('search')+'<input type="search" id="admin-nav-search" '+
+        'placeholder="Поиск по разделам" autocomplete="off" aria-label="Поиск по разделам" '+
+        'value="'+esc(state.adminNavQuery||'')+'" oninput="adminFilterSections(this.value)"></label>'+
+        adminNavCards()+'<p class="admin-nav-empty" hidden>Ничего не найдено</p></aside>'+
         '<section class="admin-workspace">'+
         '<div class="admin-workspace-header"><button type="button" class="admin-mobile-nav-toggle" '+
         'onclick="adminToggleMenu()" aria-label="Открыть меню">☰ Меню</button>'+
         '<div><small>ПАНЕЛЬ УПРАВЛЕНИЯ</small><h2>'+section.label+'</h2>'+
         '<p>'+section.detail+'</p></div>'+
-        (adminCanOpenSection('users')&&state.adminSection!=='users'?
-         '<button type="button" class="admin-header-owner-button admin-header-users-button" onclick="openAdminSection(\'users\')">'+
-         icon('user')+'<span>Пользователи</span></button>':'')+
-        (state.me?.is_primary_admin&&state.adminSection!=='admins'?
-         '<button type="button" class="admin-header-owner-button" onclick="openAdminSection(\'admins\')">'+
-         icon('shield')+'<span>Администраторы</span></button>':'')+'</div>'+
+'</div>'+
         '<div id="admin-content" class="admin-content"><p class="admin-loading-panel">Загрузка раздела…</p></div>'+
         '</section></div>';
     const newNavigation=document.getElementById('admin-navigation');
+    adminFilterSections(state.adminNavQuery||'');
     if(newNavigation) {
         newNavigation.scrollTop=savedNavScroll;
         newNavigation.classList.toggle('is-open', keepMenuOpen);
@@ -99,6 +88,20 @@ async function renderAdmin() {
     }catch(error){
         if(content.isConnected)content.innerHTML='<div class="admin-glass-note">'+esc(error.message)+'</div>';
     }
+}
+function adminFilterSections(query){
+    state.adminNavQuery=String(query||'');
+    const q=state.adminNavQuery.trim().toLowerCase();
+    const nav=document.getElementById('admin-navigation');
+    if(!nav)return;
+    let shown=0;
+    nav.querySelectorAll('.admin-nav-link').forEach(b=>{
+        const hit=!q||(b.dataset.search||'').includes(q);
+        b.hidden=!hit;if(hit)shown++;
+    });
+    nav.querySelectorAll('.admin-nav-group').forEach(g=>{g.hidden=![...g.querySelectorAll('.admin-nav-link')].some(b=>!b.hidden);});
+    const empty=nav.querySelector('.admin-nav-empty');
+    if(empty)empty.hidden=shown>0;
 }
 function adminToggleMenu(){
     document.getElementById('admin-navigation')?.classList.toggle('is-open');

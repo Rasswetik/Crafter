@@ -56,10 +56,17 @@ function render() {
     refreshGo();
 }
 /* Centre of the wheel: the target gift picture, its chance underneath. */
+/* Transparent model PNG first (never cropped by a backdrop), then the usual fallbacks. */
+function centerPicture(g) {
+    const model = typeof giftAnimationPath === 'function' ? giftAnimationPath(g) : '';
+    if (!model) return giftPicture(g, true);
+    const rest = [typeof imageURL === 'function' ? imageURL(g.image) : g.image].filter(Boolean);
+    return `src="${h(model + '.png')}" data-gift-fallback="${h(JSON.stringify(rest))}" onerror="nextGiftPicture(this)"`;
+}
 function renderCore() {
     const box = document.querySelector('#upg-core-gift');
     if (!box) return;
-    box.innerHTML = ui.target ? `<img ${giftPicture(ui.target, true)} alt="" draggable="false">` : '<span class="upg-core-empty">?</span>';
+    box.innerHTML = ui.target ? `<img ${centerPicture(ui.target)} alt="" draggable="false">` : '<span class="upg-core-empty">?</span>';
     box.classList.toggle('has-gift', Boolean(ui.target));
 }
 function refreshGo() {
@@ -193,7 +200,7 @@ async function openOffers(collection) {
                 !q || `${g.name} ${g.model} ${g.backdrop} ${g.symbol} ${g.number}`.toLowerCase().includes(q))
                 .sort((a, b) => ((b[0].source === 'crafter') - (a[0].source === 'crafter')) || dir * (Number(a[0].price) - Number(b[0].price)));  // Crafter market first, then by price
             body.querySelector('.upg-grid').innerHTML = rows.length ? rows.map(([g, i]) => `<button type="button" class="upg-card" data-i="${i}">
-                ${giftArt(g)}<span class="upg-src">${g.source === 'portals' ? 'Portals' : 'Crafter'}</span>
+                ${giftArt(g)}<span class="upg-src">${g.source === 'crafter' ? 'Crafter' : h(String(g.market || 'Portals').charAt(0).toUpperCase() + String(g.market || 'Portals').slice(1).toLowerCase())}</span>
                 <strong>${h(g.name)}</strong><small>#${h(g.number || '')} · ${fmt(g.price)} GRAM</small>
                 <em>${fmt(g.chance)}%</em></button>`).join('') : '<p class="upg-empty" style="grid-column:1/-1">Ничего не найдено</p>';
         };

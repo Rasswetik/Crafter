@@ -382,6 +382,7 @@ def create_app(config=None):
                     referral_earned=referral_data['total_earned'], new_year_enabled=new_year_enabled(),
                     new_year_reward_per_ton=10, new_year_gram_per_ton=str(seasonal_conversion()),
                     market_test_purchases=purchase_mode() == 'test', purchase_mode=purchase_mode(),
+                    market_backend=app.extensions['crafter_market_backend'](),
                     invite_link=link)
 
     @app.post('/api/referral')
@@ -604,7 +605,9 @@ def create_app(config=None):
                 rows,_=cached('thermos:collections',[])
                 # Prefer public Portals listings (no partner quota), then an independent
                 # TON-denominated market source if public listings fail.
-                if multi_collection or multi_trait:
+                if app.extensions['crafter_market_backend']()=='thermos':
+                    params['markets']='PORTALS,TONNEL,MRKT'
+                if multi_collection or multi_trait or app.extensions['crafter_market_backend']()=='thermos':
                     result=thermos.gifts(params,rows or public_catalog())
                 else:
                     try:
@@ -1433,8 +1436,12 @@ def create_app(config=None):
     install_launch_readiness(app, db, auth, audit)
     from portals_partner import install_portals_partner
     install_portals_partner(app, db, auth, record, audit)
+    from thermos_market import install_thermos_market
+    install_thermos_market(app, db, auth, record, audit, dict(public_catalog=public_catalog))
     from auto_nft import install_auto_nft
     install_auto_nft(app, db, auth, audit)
+    from game_type import install_game_type
+    install_game_type(app, db, auth, audit)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     def ensure_upgrade_listings(target, low, high):
@@ -1464,6 +1471,8 @@ def create_app(config=None):
         available_crafter_lot=available_crafter_lot, settle_crafter_lot=settle_crafter_lot,
         notify_sale=notify_crafter_sale, test_mode=lambda: purchase_mode() == 'test',
         work_mode=lambda: purchase_mode() == 'work',
+        thermos_backend=lambda: app.extensions['crafter_market_backend']() == 'thermos',
+        acquire=lambda gifts: app.extensions['crafter_thermos_acquire'](gifts),
         can_buy=lambda gift, price: app.extensions['crafter_portals_can_buy'](gift, price),
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
     if not app.config.get('TESTING'):

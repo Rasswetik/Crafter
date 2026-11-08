@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from flask import abort, g, request
 
-STAKE_ORIGINS = ('admin-grant', 'application-craft', 'local-purchase', 'portals-partner')
+STAKE_ORIGINS = ('admin-grant', 'application-craft', 'local-purchase', 'portals-partner', 'telegram-deposit', 'thermos')
 TEST_ORIGINS = ('market-test', 'demo-craft')
 MIN_BPS, MAX_BPS = 100, 9499      # 1% .. 94.99%; the 5% house edge is built into the ratio
 EDGE_BPS = 9500
@@ -67,7 +67,28 @@ def install_upgrade(app, db, auth, record, ctx):
             return amount
         if gift.get('catalog_only') or gift.get('origin') not in STAKE_ORIGINS:
             return None
-        return positive_price(gift.get('price')) if gift.get('price_unit', 'GRAM') == 'GRAM' else None
+        price = positive_price(gift.get('price')) if gift.get('price_unit', 'GRAM') == 'GRAM' else None
+        if price is None and gift.get('origin') in ('telegram-deposit', 'portals-partner', 'thermos'):
+            return collection_floor(gift)       # deposited NFTs carry no price: value them at the collection floor
+        return price
+
+    def collection_floor(gift):
+        """GRAM value of a gift priced at its collection's floor in the current catalogue."""
+        floors = getattr(g, '_upgrade_floors', None)
+        if floors is None:
+            floors = {}
+            for c in ctx['public_catalog']():
+                value = positive_price(c.get('floor_price'))
+                if value is None:
+                    continue
+                if c.get('price_unit', 'GRAM') == 'TON':
+                    try:
+                        value = value * Decimal(str(ctx['gram_per_ton']()))
+                    except Exception:
+                        continue
+                floors.setdefault(ctx['canonical_name'](c.get('name', '')), value)
+            g._upgrade_floors = floors
+        return floors.get(ctx['canonical_name'](gift.get('name', '')))
 
     def stake_gift(gift_id):
         gift = next((x for x in owned() if x['id'] == gift_id), None)
@@ -113,20 +134,29 @@ def install_upgrade(app, db, auth, record, ctx):
             abort(400, description='Выберите коллекцию')
         return target
 
+    def market_price(gift, price, test):
+        """GRAM price of a market lot, or None when it cannot be valued. TON lots (Thermos) are converted."""
+        unit = gift.get('price_unit', 'GRAM')
+        if unit == 'GRAM':
+            return price
+        if unit == 'TON' and (test or ctx['thermos_backend']()):
+            return (price * Decimal(str(ctx['gram_per_ton']()))).quantize(Decimal('0.01'))
+        return None
+
     def offers(target, uid, value, test=False):
         """Market lots (Portals) + Crafter player lots, cheapest first."""
         # Only lots whose chance falls in [MIN_BPS, MAX_BPS] can ever be offered.
         ctx['ensure_listings'](target, value * EDGE_BPS / (MAX_BPS + 1), value * EDGE_BPS / MIN_BPS)
         out = []
         for gift, price in ctx['market_candidates'](target):
-            unit = gift.get('price_unit', 'GRAM')
-            if test and unit == 'TON':
-                # Test mode: nothing is verified or bought, so a TON-priced lot is simply valued in GRAM.
-                price = (price * Decimal(str(ctx['gram_per_ton']()))).quantize(Decimal('0.01'))
-            elif unit != 'GRAM':
-                continue
-            if gift.get('image') and (test or gift.get('model')):
-                out.append((view(gift, price, 'portals'), price))
+            price = market_price(gift, price, test)
+            if price is not None and gift.get('image') and (test or gift.get('model')):
+                shown = view(gift, price, 'portals')
+                shown['market'] = gift.get('marketplace') or ('Thermos' if ctx['thermos_backend']() else 'Portals')
+                shown['marketplace'] = gift.get('marketplace')
+                if gift.get('price_unit') == 'TON':
+                    shown['ton_price'] = str(gift['price'])       # exact TON price, needed for re-verification
+                out.append((shown, price))
         for lot in ([] if test else lots(target, uid)):
             price = positive_price(lot['price'])
             if price is not None:
@@ -192,7 +222,8 @@ def install_upgrade(app, db, auth, record, ctx):
             abort(409, description='Целевой подарок недоступен. Обновите список.')
         item, price = found
         if not gift.get('test_only') and item['source'] == 'portals':
-            ctx['can_buy'](item, price)          # work mode: must be buyable on Portals, else no upgrade
+            check = {**item, 'price': item['ton_price'], 'price_unit': 'TON'} if item.get('ton_price') else item
+            ctx['can_buy'](check, price)         # work mode: must be buyable on the market, else no upgrade
         bps = chance_bps(value, price)
         if not MIN_BPS <= bps <= MAX_BPS:
             abort(409, description='Для этой цели нужна другая ставка')
@@ -224,7 +255,7 @@ def install_upgrade(app, db, auth, record, ctx):
                 cand = next((gf for gf, p in ctx['market_candidates'](collection(pq['collection_id']))
                              if gf['id'] == pq['listing_id']), None)
                 if cand:
-                    ctx['can_buy'](cand, Decimal(pq['price']))
+                    ctx['can_buy']({**cand, 'price_unit': cand.get('price_unit', 'GRAM')}, Decimal(pq['price']))
         with db():
             db().execute('BEGIN IMMEDIATE')
             prior = db().execute('SELECT result FROM upgrade_requests WHERE user_id=? AND request_id=?',
@@ -244,7 +275,7 @@ def install_upgrade(app, db, auth, record, ctx):
             reward = None
             roll = secrets.randbelow(10000)
             win = roll_wins(roll, q['chance_bps'])
-            lot = listing = None
+            lot = listing = deferred = None
             if win and gift.get('test_only'):
                 # Test mode: no availability or price re-check, the quoted listing is simply awarded.
                 listing = next((gf for gf, p in ctx['market_candidates'](target)
@@ -258,9 +289,12 @@ def install_upgrade(app, db, auth, record, ctx):
                         abort(409, description='Лот изменился. Повторите выбор.')
                 else:
                     listing = next((gf for gf, p in ctx['market_candidates'](target)
-                                    if gf['id'] == q['listing_id'] and p == price), None)
+                                    if gf['id'] == q['listing_id'] and market_price(gf, p, False) == price), None)
                     if listing is None:
                         abort(409, description='Целевой подарок уже недоступен. Повторите выбор.')
+                    if ctx['thermos_backend']() and ctx['work_mode']():
+                        deferred = listing            # really bought on Thermos after the transaction
+            stake_payload = {k: v for k, v in gift.items() if k not in ('status', 'listing_price')}
             db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?', (uid, gift['id']))
             if win and gift.get('test_only'):
                 reward = {**listing, 'id': 'demo-craft-' + uuid.uuid4().hex, 'collection_id': target['id'],
@@ -272,16 +306,43 @@ def install_upgrade(app, db, auth, record, ctx):
             elif win and lot is not None:
                 sale = ctx['settle_crafter_lot'](lot, uid, 'upgrade')
                 reward, notify = sale['gift'], (lot['seller_id'], sale)
-            elif win:
+            elif win and deferred is None:
                 reward = ctx['award_market_gift'](target, listing, price.quantize(Decimal('0.01')))
                 db().execute('INSERT INTO inventory VALUES(?,?,?,?)',
                              (uid, reward['id'], json.dumps(reward), 'unlisted'))
             result = {'success': win, 'chance': q['chance_bps'] / 100, 'roll': roll / 100,
                       'gift': reward, 'stake': {k: gift.get(k) for k in ('id', 'name', 'number', 'image')},
                       'stake_value': q['stake_value'], 'target_value': q['price'], 'mode': 'upgrade'}
+            if deferred is not None:
+                result['pending'] = True
             result['balls_earned'] = record('upgrade', result)
             db().execute('INSERT INTO upgrade_requests VALUES(?,?,?)', (uid, rid, json.dumps(result)))
             db().execute('DELETE FROM upgrade_quotes WHERE id=?', (qid,))
         if notify:
             ctx['notify_sale'](*notify)
+        if deferred is not None:
+            result = settle_purchase(uid, rid, result, deferred, price, stake_payload)
+        return result
+
+    def settle_purchase(uid, rid, result, listing, price, stake_payload):
+        """Winner of a market lot in WORK mode: buy it for real. Failure returns the stake; unknown goes to review."""
+        outcome, note = ctx['acquire']([listing])
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            if outcome == 'ok':
+                gift = {**listing, 'id': 'thermos-' + uuid.uuid4().hex, 'source_id': listing['id'], 'origin': 'thermos',
+                        'price': str(price), 'price_unit': 'GRAM', 'relayer_pending': True,
+                        'source_price': str(listing['price']), 'source_price_unit': listing.get('price_unit', 'TON')}
+                db().execute('INSERT INTO inventory VALUES(?,?,?,?)', (uid, gift['id'], json.dumps(gift), 'unlisted'))
+                result = {**result, 'gift': gift, 'pending': False}
+            elif outcome == 'failed':
+                db().execute('INSERT INTO inventory VALUES(?,?,?,?) ON CONFLICT DO NOTHING',
+                             (uid, stake_payload['id'], json.dumps(stake_payload), 'unlisted'))
+                result = {**result, 'success': False, 'gift': None, 'pending': False, 'refunded': True,
+                          'note': 'Подарок не удалось выкупить — ставка возвращена'}
+            else:
+                result = {**result, 'pending': False, 'review': True,
+                          'note': 'Выкуп подтверждается вручную. Подарок появится в инвентаре.'}
+            db().execute('UPDATE upgrade_requests SET result=? WHERE user_id=? AND request_id=?',
+                         (json.dumps(result), uid, rid))
         return result

@@ -22,7 +22,7 @@ def test_checkout_button_is_clickable_with_friendly_errors():
     assert "Недостаточно средств: не хватает" in s
     assert 'class="cart-top-feedback" role="status"' in s
     assert "if(state.page==='cart')renderCart()" in s
-    assert "state.me.demo?'local/cart/buy':'portals/buy'" in s
+    assert "(thermos?'thermos/buy':'portals/buy')" in s
 
 
 def test_checkout_new_styles_dont_hide_top_action_or_mobile_checkout():

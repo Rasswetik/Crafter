@@ -1,0 +1,38 @@
+/* Admin: calmer, flatter look. Clear groups, quiet icons, no bright highlights. */
+.admin-navigation{background:#15171b!important;border:1px solid #23272e!important;box-shadow:none!important}
+.admin-nav-head small{color:#6f7782!important;letter-spacing:.14em}
+.admin-nav-head strong{color:#d6dae0!important}
+.admin-nav-search{display:flex;align-items:center;gap:8px;margin:10px 0 6px;padding:0 12px;height:40px;border-radius:12px;
+  background:#101216;border:1px solid #262a31;color:#7d8590}
+.admin-nav-search:focus-within{border-color:#3a414b}
+.admin-nav-search svg{width:16px;height:16px;flex:none}
+.admin-nav-search input{flex:1;min-width:0;height:100%;background:none;border:0;outline:0;color:#e3e6ea;font-size:14px}
+.admin-nav-group{margin-top:12px;padding-top:12px;border-top:1px solid #23272e}
+.admin-nav-group[hidden],.admin-nav-link[hidden],.admin-nav-empty[hidden]{display:none!important}
+.admin-nav-heading{color:#6f7782!important;font-size:10px!important;letter-spacing:.14em;text-transform:uppercase;margin:0 6px 6px!important}
+.admin-nav-link{background:transparent!important;border:1px solid transparent!important;border-radius:11px!important;box-shadow:none!important;color:#c3c8cf!important}
+.admin-nav-link:hover{background:#1c1f25!important}
+.admin-nav-link.is-current{background:#22262d!important;border-color:#30353d!important;color:#f1f3f6!important}
+.admin-nav-icon{background:#1d2026!important;border:1px solid #2a2e35!important;box-shadow:none!important;color:#98a1ac!important}
+.admin-nav-link.is-current .admin-nav-icon{color:#d3d8de!important}
+.admin-nav-arrow{color:#5d646e!important}
+.admin-nav-empty{color:#7d8590;font-size:13px;text-align:center;margin:18px 0}
+.admin-workspace-header small{color:#6f7782!important}
+.admin-glass-panel{background:#17191e!important;border:1px solid #24282f!important;box-shadow:none!important}
+.admin-purchase-switch button.is-active{background:#2b3038!important;color:#f3f5f8!important;box-shadow:none!important}
+.admin-purchase-switch button.is-danger{background:#2a1d20!important;color:#e59aa2!important}
+.admin-purchase-switch{background:#101216!important;border-color:#262a31!important}
+/* Thermos section */
+.th-card h3{margin:0 0 6px}.th-card p{margin:0 0 12px;color:#9aa2ad;font-size:13px;line-height:1.5}
+.th-steps{margin:0 0 14px;padding-left:20px;color:#b4bbc5;font-size:13px;line-height:1.6}
+.th-steps code,.th-info code{background:#101216;border:1px solid #262a31;border-radius:6px;padding:1px 6px;font-size:12px;word-break:break-all}
+.th-status{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-bottom:14px}
+.th-status>div{padding:10px 12px;border-radius:12px;background:#101216;border:1px solid #23272e;font-size:13px;color:#aab1bb;display:flex;justify-content:space-between;gap:8px}
+.th-dot{font-weight:700}.th-dot.is-ok{color:#7fcf9b}.th-dot.is-no{color:#d98c93}
+.th-field{display:block;margin-bottom:10px}.th-field span{display:block;font-size:12px;color:#8e97a3;margin-bottom:6px}
+.th-field input{width:100%;height:44px;border-radius:12px;padding:0 14px;background:#101216;border:1px solid #2a2f37;color:#e8ebef}
+.th-actions{display:flex;flex-wrap:wrap;gap:8px}
+.th-actions button{flex:1 1 200px;height:44px;border-radius:12px;background:#23272e;border:1px solid #30353d;color:#e6e9ee;font-weight:600}
+.th-actions button.is-active{background:#2e343c}
+.th-info{margin-top:12px;font-size:13px;line-height:1.7;color:#c4cad2;min-height:20px}
+.th-note{margin:12px 0 0!important;font-size:12px!important;color:#7d8590!important}

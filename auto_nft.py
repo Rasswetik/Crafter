@@ -70,6 +70,8 @@ def install_auto_nft(app, db, auth, audit):
                 source, stage, slug = 'relayer', 'transfer', gift['telegram_slug']
             elif origin == 'portals-partner':
                 source, stage, slug = 'portals', 'portal_withdraw', ''
+            elif origin == 'thermos':
+                source, stage, slug = 'thermos', 'relay_wait', ''      # already sent to the relayer
             else:
                 continue                      # not automatable: stays in the manual queue
             now = int(time.time())

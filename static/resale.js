@@ -6,7 +6,7 @@ function resaleMarketTabs() {
     const active = state.marketSource;
     return `<div class="resale-market-tabs" aria-label="Источник лотов">
         <button type="button" aria-pressed="${active === 'crafter'}" onclick="selectResaleMarket('crafter')">Craft Market</button>
-        <button type="button" aria-pressed="${active === 'portals'}" onclick="selectResaleMarket('portals')">Portals</button>
+        <button type="button" aria-pressed="${active === 'portals'}" onclick="selectResaleMarket('portals')">${state.me?.market_backend === 'thermos' ? 'Thermos' : 'Portals'}</button>
     </div>`;
 }
 

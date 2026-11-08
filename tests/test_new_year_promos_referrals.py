@@ -202,8 +202,8 @@ def test_seasonal_frontend_and_admin_users_navigation_regression():
     assert 'Загрузка данных NFT из Telegram' in ny
     assert 'crafter-referral-panel' in promo
     assert 'sessionStorage.setItem(key' in promo
-    assert 'admin-header-users-button' in admin
-    assert "adminCanOpenSection('users')" in admin
+    assert 'admin-nav-search' in admin
+    assert "id: 'users'" in admin or 'users:' in admin      # Users stays a regular, searchable section
     assert 'option value="BALL"' in create
     assert 'option value="GRAM"' in create
     assert "new_year_balance" in promo

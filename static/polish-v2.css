@@ -42,3 +42,17 @@
   .crafter-games,.upg,.arena-winter .arena-page,.splash-progress-fill,.arena-winter .arena-board::after,
   .arena-winter .arena-actions button,#nav button.active svg,#nav button.active .stake-nav-icon{animation:none!important}
   .desktop-sidebar-link:hover,.crafter-game-tile:hover{transform:none}}
+
+/* Phones, Games section: three game tabs + Market + Profile need real room (buttons were glued together). */
+@media(max-width:700px){
+  #nav.games-nav{width:calc(100% - 14px)!important;max-width:none!important;gap:6px!important;padding:5px!important;justify-content:space-between}
+  #nav.games-nav .nav-main{flex:1 1 auto!important;max-width:none!important;gap:6px!important;padding:3px!important;justify-content:space-between}
+  #nav.games-nav .nav-main>button{flex:1 1 0!important;min-width:0!important;height:54px!important;margin:0!important;padding:0 4px!important;gap:3px!important;border-radius:22px!important}
+  #nav.games-nav .nav-main>button .nav-label{font-size:clamp(9px,2.7vw,11px)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+  #nav.games-nav>.games-entry,#nav.games-nav>.profile-nav{--games-side-size:clamp(46px,13.5vw,56px)!important;flex:0 0 var(--games-side-size)!important;width:var(--games-side-size)!important;height:var(--games-side-size)!important}
+}
+@media(max-width:360px){
+  #nav.games-nav{gap:4px!important}
+  #nav.games-nav .nav-main{gap:3px!important}
+  #nav.games-nav .nav-main>button .stake-nav-icon svg{width:20px;height:20px}
+}

@@ -114,5 +114,5 @@ def test_desktop_offer_cards_max_six_and_checkout_in_same_toolbar():
     assert 'max-width:1023.98px' in css
     assert 'class="primary cart-pay-top" onclick="payCart()"' in cart
     assert 'id="cart-pay" onclick="payCart()"' in cart
-    assert "state.me.demo?'local/cart/buy':'portals/buy'" in cart
+    assert "(thermos?'thermos/buy':'portals/buy')" in cart
     assert 'desktop-final-layout.css' in index

@@ -65,10 +65,10 @@ def test_owner_shortcut_is_visible_and_layout_is_graphite():
     style = (root / 'static/admin-graphite.css').read_text(encoding='utf-8')
     template = (root / 'templates/admin.html').read_text(encoding='utf-8')
 
-    assert 'admin-owner-quick' in admin
-    assert 'admin-header-owner-button' in admin
-    assert "state.me?.is_primary_admin" in admin
-    assert "id!=='admins'" in admin
+    # Users/Admins are plain, unhighlighted section links; the menu has a search box instead of owner shortcuts.
+    assert 'admin-nav-search' in admin and 'adminFilterSections' in admin
+    assert 'admin-owner-quick' not in admin
+    assert "me.is_primary_admin" in admin
     assert 'adminEditRole' in role_editor
     assert 'Telegram ID или @username' in role_editor
     assert 'admin-role-selection-count' in role_editor

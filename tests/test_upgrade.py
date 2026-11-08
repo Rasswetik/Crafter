@@ -100,3 +100,12 @@ def test_collections_list_puts_crafter_market_first(client, setup):
     assert r.status_code == 200
     first = r.json['collections'][0]
     assert first['name'] == 'Snoop Dogg' and first['crafter'] == 1
+
+
+def test_deposited_relayer_gift_is_valued_at_collection_floor(client, setup):
+    gift = {**DEMO_GIFTS[1], 'id': 'telegram-dep-1', 'origin': 'telegram-deposit', 'price': '0', 'price_unit': 'GRAM',
+            'name': 'Snoop Dogg'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')", (gift['id'], json.dumps(gift)))
+    stakes = {g['id']: g for g in client.get('/api/upgrade/stakes', headers=signed(43)).json['gifts']}
+    assert 'telegram-dep-1' in stakes and Decimal(stakes['telegram-dep-1']['upgrade_value']) > 0

@@ -307,7 +307,7 @@ async function adminSaveCraftSelections(){
 async function renderAdminModes(content=document.querySelector('#admin-content')){
     content.innerHTML=adminQueueHeader('Управление режимами','Включение и отключение существующих режимов на сервере.')+
         '<p class="admin-loading-panel">Загрузка…</p>';
-    const [info,buy,auto]=await Promise.all([api('admin/modes'),api('admin/purchase-mode').catch(()=>null),api('admin/auto-nft').catch(()=>null)]);
+    const [info,buy,auto,gt,th]=await Promise.all([api('admin/modes'),api('admin/purchase-mode').catch(()=>null),api('admin/auto-nft').catch(()=>null),api('admin/game-type').catch(()=>null),Promise.resolve(null)]);
     if(!content.isConnected)return;
     const list=[
         ['craft','Крафты','Режим сборки подарков'],
@@ -324,6 +324,8 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
             ['test','work'].map(m=>'<button type="button" class="'+(buy.mode===m?'is-active':'')+'" '+(buy.mode===m?'aria-pressed="true"':'aria-pressed="false"')+
                 ' onclick="adminSetPurchaseMode('+arg(m)+')">'+(m==='test'?'ТЕСТ':'РАБОТА')+'</button>').join('')+
             '</div></section>':'')+
+        (th?'<section class="admin-glass-panel admin-purchase-mode"><div><h3>Thermos — маркет</h3>'+'<p>Один API для Portals, Tonnel и MRKT. Токен: бот @thermos → /api. Цены в TON, покупки с релейера. Токен: <b>'+(th.token_configured?'сохранён':'не задан')+'</b>.</p>'+'<input id="thermos-token" type="password" autocomplete="off" placeholder="Токен Thermos" style="width:100%;margin:8px 0;height:40px;border-radius:14px;padding:0 12px">'+'<div id="thermos-info" style="font-size:12px;opacity:.85"></div></div>'+'<div class="admin-purchase-switch admin-game-type">'+'<button type="button" onclick="adminThermos(\'token\')">Сохранить токен</button>'+'<button type="button" onclick="adminThermos(\'check\')">Проверить и показать адрес пополнения</button>'+'<button type="button" class="'+(th.backend==='thermos'?'is-active':'')+'" onclick="adminThermos(\''+(th.backend==='thermos'?'portals':'thermos')+'\')">'+(th.backend==='thermos'?'Источник: THERMOS (вернуть Portals)':'Включить Thermos вместо Portals')+'</button></div></section>':'')+
+        (gt?'<section class="admin-glass-panel admin-purchase-mode"><div><h3>Тип игр</h3>'+'<p>Сейчас: <b>'+(gt.demo_mode?'ДЕМО-баланс':'НАСТОЯЩИЙ баланс')+'</b>. Аккаунтов: '+gt.accounts+', подарков: '+gt.gifts_total+' (останутся после сброса: '+gt.gifts_kept_on_reset+', пополненные через передачу NFT).</p>'+'<p>Сброс очищает инвентари, GRAM-балансы, статистику, лоты и офферы. Сохраняются подарки, переданные на релейер, и GRAM, пополненные реальным переводом TON.</p></div>'+'<div class="admin-purchase-switch admin-game-type">'+(gt.demo_mode?'<button type="button" onclick="adminGameType(\'real\')">Перевести на настоящий баланс</button>':'')+'<button type="button" class="is-danger" onclick="adminGameType(\'reset\')">Сбросить статистику</button></div></section>':'')+
         (auto?'<section class="admin-glass-panel admin-purchase-mode"><div><h3>Автовывод NFT</h3>'+'<p>Подарок с Portals выводится на наш релейер, затем релейер передаёт его получателю. Подарок, уже лежащий на релейере, передаётся сразу. '+'Неясный результат никогда не повторяется — задача уходит на ручную проверку.</p>'+(auto.relayer_connected?'':'<p class="admin-mode-missing">Релейер не подключён — автовывод недоступен.</p>')+(auto.jobs?.length?'<p>Последние задачи: '+auto.jobs.slice(0,5).map(j=>esc(j.stage)).join(', ')+'</p>':'')+'</div>'+'<div class="admin-purchase-switch" role="group" aria-label="Автовывод NFT">'+[false,true].map(v=>'<button type="button" class="'+(auto.enabled===v?'is-active':'')+'" onclick="adminSetAutoNft('+v+')">'+(v?'ВКЛ':'ВЫКЛ')+'</button>').join('')+'</div></section>':'')+
         '<div class="admin-mode-list">'+list.map(([id,name,details])=>{
             const enabled=Boolean(info.modes?.[id]);
@@ -339,6 +341,33 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
         '<button onclick="openAdminSection(\'staking\')">Стейкинг — APR →</button>'+
         '<button onclick="openAdminSection(\'events\')">Ивенты и награды →</button>'+
         '</div></div>';
+}
+async function adminThermos(action){
+    const box=document.querySelector('#thermos-info');
+    try{
+        if(action==='token'){
+            const token=document.querySelector('#thermos-token').value.trim();
+            await api('admin/thermos/token',{token});document.querySelector('#thermos-token').value='';toast('Токен сохранён');
+        }else if(action==='check'){
+            const r=await api('admin/thermos/check',{});
+            box.textContent='Подключено. Баланс: '+r.balance_ton+' TON. Пополнение: '+r.deposit_address+' · memo: '+r.deposit_memo;
+            return;
+        }else{
+            if(!confirm(action==='thermos'?'Включить Thermos как источник маркета?':'Вернуть Portals?'))return;
+            await api('admin/thermos/backend',{backend:action,confirm:'SET_MARKET_BACKEND'});toast('Источник маркета изменён');
+        }
+        await renderAdminModes();
+    }catch(error){toast(error.message);}
+}
+async function adminGameType(kind){
+    const real=kind==='real';
+    if(!confirm(real?'Перевести проект на настоящий баланс? Демо-режим будет выключен.':'Сбросить ВСЕ инвентари, балансы и статистику? Останутся только подарки, переданные на релейер, и GRAM из реальных пополнений TON. Действие необратимо.'))return;
+    if(!real&&prompt('Для подтверждения введите: СБРОС')!=='СБРОС')return;
+    try{
+        await api(real?'admin/game-type/real':'admin/game-type/reset',{confirm:real?'SWITCH_TO_REAL':'RESET_ALL_STATS'});
+        toast(real?'Включён настоящий баланс':'Статистика сброшена');
+        await renderAdminModes();
+    }catch(error){toast(error.message);}
 }
 async function adminSetAutoNft(enabled){
     if(!confirm((enabled?'Включить':'Выключить')+' автоматический вывод NFT через релейер?'))return;

@@ -36,7 +36,7 @@ def gifts(params, catalog):
     collections = [item['name'] for item in catalog if str(item['id']) in collection_ids]
     if collection_ids and len(collections) != len(collection_ids):
         raise ValueError('Unknown collection')
-    body={'markets':['PORTALS'],'per_page':20,'page':max(0,int(params.get('offset',0)))//20+1,'ordering':{'price asc':'PRICE_ASC','price desc':'PRICE_DESC','external_collection_number asc':'NUMBER_ASC','external_collection_number desc':'NUMBER_DESC','model_rarity asc':'MODEL_RARITY_ASC','model_rarity desc':'MODEL_RARITY_DESC'}.get(params.get('sort_by'),'PRICE_ASC')}
+    body={'markets':[m for m in (params.get('markets') or 'PORTALS').split(',') if m in ('PORTALS','TONNEL','MRKT')] or ['PORTALS'],'per_page':20,'page':max(0,int(params.get('offset',0)))//20+1,'ordering':{'price asc':'PRICE_ASC','price desc':'PRICE_DESC','external_collection_number asc':'NUMBER_ASC','external_collection_number desc':'NUMBER_DESC','model_rarity asc':'MODEL_RARITY_ASC','model_rarity desc':'MODEL_RARITY_DESC'}.get(params.get('sort_by'),'PRICE_ASC')}
     if collections:body['collections']=collections
     if params.get('search'):body['query']=params['search']
     for src,dst in [('filter_by_models','models'),('filter_by_backdrops','backdrops'),('filter_by_symbols','symbols')]:

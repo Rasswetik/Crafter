@@ -522,7 +522,7 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
                         run_scan()
             except Exception:
                 app.logger.warning('Telegram background deposit check failed')
-            time.sleep(45)
+            time.sleep(max(5, int(os.getenv('TELEGRAM_DEPOSIT_POLL_SECONDS', '10'))))
 
     if not app.config.get('TESTING') and os.getenv('TELEGRAM_DEPOSIT_POLL', '1') == '1':
         threading.Thread(target=background, daemon=True, name='telegram-gift-monitor').start()

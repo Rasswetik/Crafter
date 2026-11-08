@@ -522,11 +522,13 @@ async function localBuyGift(id) {
     try {
         const testing = Boolean(state.me.market_test_purchases && !gift.resale);
         const portal = !testing && !state.me.demo && !gift.resale;
-        if (portal && (gift.price_unit !== 'GRAM' || !/^[a-f0-9-]{36}$/i.test(id))) {
+        const thermos = state.me.market_backend === 'thermos';
+        if (portal && !thermos && (gift.price_unit !== 'GRAM' || !/^[a-f0-9-]{36}$/i.test(id))) {
             throw Error('Нужен действующий лот Portals с ценой в GRAM');
         }
-        const result = await api(testing ? 'market/test/buy' : gift.resale ? 'resale/buy' : state.me.demo ? 'local/buy' : 'portals/buy',
-            (portal || testing) ? {gift_ids:[id],expected_total:String(gift.price),request_id:paymentRequestId(requestKey)}
+        const result = await api(testing ? 'market/test/buy' : gift.resale ? 'resale/buy' : state.me.demo ? 'local/buy' : (thermos ? 'thermos/buy' : 'portals/buy'),
+            (portal && thermos) ? {gift_ids:[id],expected_total_ton:String(gift.price),request_id:paymentRequestId(requestKey)}
+                : (portal || testing) ? {gift_ids:[id],expected_total:String(gift.price),request_id:paymentRequestId(requestKey)}
                    : {id,expected_price:gift.price,request_id:paymentRequestId(requestKey)});
         if (portal && result.status !== 'complete') throw Error('Покупка Portals требует проверки; не отправляйте её снова');
         const bought = result.gift || result.gifts?.[0];

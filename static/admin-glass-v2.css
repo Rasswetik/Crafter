@@ -349,3 +349,5 @@ body.admin-page input,body.admin-page select,body.admin-page textarea{max-width:
 .admin-purchase-switch button{min-width:92px;height:38px;border-radius:14px;font-weight:800;letter-spacing:.5px;color:#aeb7c5}
 .admin-purchase-switch button.is-active{background:#1689ff;color:#fff;box-shadow:0 4px 16px rgba(22,137,255,.4)}
 @media(max-width:560px){.admin-purchase-mode{grid-template-columns:1fr}}
+.admin-game-type{flex-direction:column;align-items:stretch}.admin-game-type button{width:100%;min-width:0;padding:0 14px}
+.admin-purchase-switch button.is-danger{color:#ff8791;background:#ff44551f}

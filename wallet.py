@@ -132,8 +132,8 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
         return url.scheme + '://' + url.netloc
     # Use a new public path to invalidate bad manifest copies cached by wallets.
     MANIFEST_PATH = '/tonconnect-manifest-v2.json'
-    def verified_balance(network):
-        row=db().execute('SELECT gram FROM wallet_balances WHERE user_id=? AND network=?',(g.user['id'],network)).fetchone()
+    def verified_balance(network,uid=None):
+        row=db().execute('SELECT gram FROM wallet_balances WHERE user_id=? AND network=?',(g.user['id'] if uid is None else uid,network)).fetchone()
         return Decimal(row[0]) if row else Decimal(0)
 
     def used_withdrawal_quota(uid, now=None):
@@ -270,7 +270,10 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
     @app.post('/api/wallet/deposit/<did>/check')
     @auth()
     def check_deposit(did):
-        row=db().execute('SELECT * FROM ton_deposits WHERE id=? AND user_id=?',(did,g.user['id'])).fetchone()
+        return confirm_deposit(did,g.user['id'])
+    def confirm_deposit(did,uid):
+        """Verify a pending deposit on-chain and credit it once. Shared by the endpoint and the 10 s worker."""
+        row=db().execute('SELECT * FROM ton_deposits WHERE id=? AND user_id=?',(did,uid)).fetchone()
         if not row:abort(404)
         if row['status']=='confirmed':
             send_deposit_receipt(did)
@@ -284,11 +287,11 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
             if latest=='confirmed':return {'status':'confirmed'}
             try:db().execute('INSERT INTO ton_transactions VALUES(?,?)',(p['network'],found))
             except Exception:abort(409,description='Перевод уже обработан')
-            balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(g.user['id'],)).fetchone()[0])+Decimal(p['gram'])
-            paid=verified_balance(p['network'])+Decimal(p['gram'])
-            db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance),g.user['id']))
-            db().execute('INSERT INTO wallet_balances VALUES(?,?,?) ON CONFLICT (user_id,network) DO UPDATE SET gram=excluded.gram',(g.user['id'],p['network'],str(paid)))
-            db().execute("UPDATE ton_deposits SET status='confirmed',tx=? WHERE id=?",(found,did));record('deposit',dict(gram=p['gram'],ton=p['ton'],network=p['network'],tx=found))
+            balance=Decimal(db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(uid,)).fetchone()[0])+Decimal(p['gram'])
+            paid=verified_balance(p['network'],uid)+Decimal(p['gram'])
+            db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance),uid))
+            db().execute('INSERT INTO wallet_balances VALUES(?,?,?) ON CONFLICT (user_id,network) DO UPDATE SET gram=excluded.gram',(uid,p['network'],str(paid)))
+            db().execute("UPDATE ton_deposits SET status='confirmed',tx=? WHERE id=?",(found,did));record('deposit',dict(gram=p['gram'],ton=p['ton'],network=p['network'],tx=found),uid=uid)
             db().execute("""INSERT INTO ton_deposit_notifications(id,status,updated)
                 VALUES(?,'pending',0) ON CONFLICT(id) DO NOTHING""", (did,))
         send_deposit_receipt(did)
@@ -481,3 +484,32 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
                         lambda network, method, params, key: rpc(network, method, params, key),
                         lambda transactions, recipient, sender, nano, memo, created:
                             confirmed_message(transactions, recipient, sender, nano, memo, created))
+
+    def auto_confirm_deposits():
+        """Every 10 s: credit pending TON deposits as soon as they appear on-chain (no manual check needed)."""
+        import threading
+        from werkzeug.exceptions import HTTPException
+
+        def loop():
+            while True:
+                try:
+                    with app.app_context():
+                        if not config().get('enabled'):
+                            raise StopIteration
+                        cutoff=int(time.time())-6*3600
+                        rows=db().execute("SELECT id,user_id FROM ton_deposits WHERE status='pending' AND created>? ORDER BY created LIMIT 25",(cutoff,)).fetchall()
+                        for row in rows:
+                            try:
+                                confirm_deposit(row['id'],row['user_id'])
+                            except HTTPException:
+                                pass
+                            except Exception:
+                                app.logger.warning('Automatic deposit check failed')
+                except StopIteration:
+                    pass
+                except Exception:
+                    app.logger.warning('Automatic deposit loop failed')
+                time.sleep(int(os.getenv('DEPOSIT_POLL_SECONDS','10')))
+        if not app.config.get('TESTING') and os.getenv('DEPOSIT_POLL_SECONDS','10')!='0':
+            threading.Thread(target=loop,daemon=True,name='ton-deposit-watch').start()
+    auto_confirm_deposits()

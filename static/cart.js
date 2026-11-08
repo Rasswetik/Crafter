@@ -82,7 +82,8 @@ async function payCart(){
         state.cartError='Недостаточно средств: не хватает '+cartFunds(amount-Number(state.me.balance))+' GRAM';
         renderCart();toast(state.cartError);return;
     }
-    if(!testing&&!state.me.demo&&items.some(g=>g.resale||g.price_unit!=='GRAM'||!/^[a-f0-9-]{36}$/i.test(g.id))){
+    const thermos=state.me.market_backend==='thermos';
+    if(!testing&&!state.me.demo&&!thermos&&items.some(g=>g.resale||g.price_unit!=='GRAM'||!/^[a-f0-9-]{36}$/i.test(g.id))){
         state.cartError='В этой корзине доступны только реальные лоты Portals с ценами в GRAM';
         renderCart();toast(state.cartError);return;
     }
@@ -90,9 +91,9 @@ async function payCart(){
     const key='crafter-cart-payment:'+state.me.user.id+':'+ids.join('|');
     state.cartBuying=true;state.cartError='';renderCart();
     try{
-        const result=await api(testing?'market/test/buy':state.me.demo?'local/cart/buy':'portals/buy',{
-            gift_ids:ids,expected_total:String(cartTotal(items)),request_id:paymentRequestId(key)
-        });
+        const result=await api(testing?'market/test/buy':state.me.demo?'local/cart/buy':(thermos?'thermos/buy':'portals/buy'),
+            thermos&&!testing?{gift_ids:ids,expected_total_ton:String(cartTotal(items)),request_id:paymentRequestId(key)}
+            :{gift_ids:ids,expected_total:String(cartTotal(items)),request_id:paymentRequestId(key)});
         if(!testing&&!state.me.demo&&result.status!=='complete')throw Error('Покупка требует проверки. Не оплачивайте повторно.');
         const gifts=result.gifts||[];
         const purchasedIds=gifts.map(g=>g.source_id||g.id);
