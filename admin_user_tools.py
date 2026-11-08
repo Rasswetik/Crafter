@@ -64,8 +64,14 @@ def install_admin_user_tools(app, db, auth, audit, record):
         for row in user_history:
             try: data=json.loads(row['payload'])
             except (ValueError,TypeError): data={}
-            # Do not emit session/API credentials or full arbitrary history payload.
-            gift = data.get('gift') or (data.get('gifts') or [{}])[0]
+            # Legacy history may contain lists, plain strings, empty gift arrays or
+            # malformed gift payloads; never let one row break the whole audit page.
+            if not isinstance(data,dict):
+                data={}
+            gift=data.get('gift')
+            if not isinstance(gift,dict):
+                gifts=data.get('gifts')
+                gift=next((item for item in gifts if isinstance(item,dict)),{}) if isinstance(gifts,list) else {}
             activity.append({
                 'type':'history','user_id':row['user_id'],
                 'kind':row['kind'],'created':row['created'],
