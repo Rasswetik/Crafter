@@ -6,7 +6,9 @@
 
   function ensureWinterDecor() {
     const overlay=root();
-    if(!overlay||overlay.querySelector('.crafter-maintenance-snow'))return;
+    if(!overlay||typeof overlay.querySelector!=='function'||
+       typeof document.createElement!=='function'||
+       overlay.querySelector('.crafter-maintenance-snow'))return;
     const snow=document.createElement('div');
     snow.className='crafter-maintenance-snow';
     snow.setAttribute('aria-hidden','true');
