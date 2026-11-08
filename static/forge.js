@@ -184,7 +184,12 @@ function showForgeResult(status, result, usedGifts = []) {
         <div class="forge-result-actions">
             <button class="primary" onclick="go('gifts')">Мои подарки</button>
             <button class="forge-again" onclick="renderCraft()">Ещё раз</button>
-        </div>`;
+        </div>
+        ${Number.isSafeInteger(result.balls_earned) && result.balls_earned > 0 ?
+            `<p class="forge-season-earned" role="status"><img src="/static/assets/new-year-ornament.svg" alt="" aria-hidden="true">
+              <span>${typeof crafterPrefs !== 'undefined' && crafterPrefs.language === 'en' ?
+                'Automatically earned' : 'Автоматически начислено'} <strong>+${result.balls_earned.toLocaleString('ru-RU')}</strong>
+                ${typeof crafterPrefs !== 'undefined' && crafterPrefs.language === 'en' ? 'balls' : 'шаров'}</span></p>` : ''}`;
     if (gift) {
         status.querySelector('.gift-collection-link').addEventListener('click', () => openGiftCollection(gift, false));
         const art = status.querySelector('.forge-result-art');

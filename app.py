@@ -964,7 +964,9 @@ def create_app(config=None):
                 result.update(test_mode=True,input_value=q['input_value'],price_unit='TON')
             if internal:
                 result.update(listing_id=q['listing_id'], prize_value=str(expected_price))
-            record('craft',result)
+            earned_balls=record('craft',result)
+            if preview:
+                result['balls_earned']=int(earned_balls or 0)
             db().execute('INSERT INTO craft_requests VALUES(?,?,?)',(g.user['id'],request_id,json.dumps(result)))
             db().execute('DELETE FROM craft_quotes WHERE id=?',(qid,))
         if internal_sale:
@@ -988,8 +990,10 @@ def create_app(config=None):
         db().execute('INSERT INTO history VALUES(?,?,?,?,?)',
                      (history_id,owner,kind,json.dumps(snapshot),int(time.time())))
         accrue_referral(owner,history_id,kind,snapshot)
+        earned_balls=0
         if (callback := app.extensions.get('crafter_new_year_trade_accrue')):
-            callback(owner,history_id,kind,snapshot)
+            earned_balls=callback(owner,history_id,kind,snapshot)
+        return int(earned_balls or 0)
     @app.get('/api/history')
     @auth()
     def history():

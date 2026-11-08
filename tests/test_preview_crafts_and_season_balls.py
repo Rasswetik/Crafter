@@ -65,6 +65,7 @@ def test_preview_craft_works_without_real_market_listing_and_awards_balls(client
     result=client.post('/api/craft',headers=user,json=payload)
     assert result.status_code==200,result.json
     assert result.json['success'] and result.json['test_mode']
+    assert result.json['balls_earned']==13  # includes 0.5 carried from the purchase
     reward=result.json['gift']
     assert reward['test_only'] and reward['catalog_only'] and reward['origin']=='demo-craft'
     assert reward['name']=='Astral Shard'
@@ -138,3 +139,9 @@ def test_preview_craft_and_reward_interface_hooks():
     assert "openPreviewGiftSale" in catalog
     assert "craftEnglish" in catalog
     assert "crafterSeasonBalanceRefresh" in forge
+    assert 'class="forge-season-earned"' in forge
+    assert 'Automatically earned' in forge
+    assert 'Автоматически начислено' in forge
+    assert 'result.balls_earned' in forge
+    assert "crafterSeasonRewardHTML?.('craft'" not in catalog
+    assert "document.querySelector('.craft-page .crafter-season-reward')" not in catalog

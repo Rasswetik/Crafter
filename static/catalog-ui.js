@@ -211,7 +211,6 @@ function renderCraft() {
                 `<img src="${esc(imageURL(state.target.image))}" alt="">${esc(state.target.name)}${state.target.number ? ` #${esc(state.target.number)}` : ''}` :
                 'Выберите подарок'}${icon('chevron')}</button>
             <div class="craft-warning">${craftEnglish?'⚠ If crafting fails, your gifts will be lost':'⚠ Если крафт не удастся, подарки сгорят'}</div>
-            ${quote?.mode==='preview'?(window.crafterSeasonRewardHTML?.('craft',quote.input_value,quote.price_unit,'Демо · за использованные подарки')||''):''}
             <div class="craft-bottom">
                 <button id="craft-button" class="primary craft-action" onclick="${gifts.length ? 'runCraft()' : 'pickGift()'}">
                     ${gifts.length ? 'Скрафтить' : 'Добавить подарки для крафта'}
@@ -281,12 +280,6 @@ async function updateCraftQuote() {
         if (!isCurrent()) return;
         state.quote = quote;
         showCraftChance(quote.chance);
-        document.querySelector('.craft-page .crafter-season-reward')?.remove();
-        if(quote.mode==='preview'){
-            const warning=document.querySelector('.craft-page .craft-warning');
-            warning?.insertAdjacentHTML('afterend',window.crafterSeasonRewardHTML?.(
-                'craft',quote.input_value,quote.price_unit,'Демо · за использованные подарки')||'');
-        }
     } catch (error) {
         if (isCurrent()) {
             document.querySelector('#forge .anvil')?.classList.remove('chance-pending');
