@@ -14,7 +14,7 @@ function marketBannerGrid(banners){
     const root=document.createElement('div');
     root.className='market-banner-strip';
     root.setAttribute('aria-label','Баннеры Crafter');
-    for(const banner of banners.slice(0,4)){
+    for(const banner of banners.slice(0,3)){
        const interactive=banner.action!=='none';
        const tile=document.createElement(interactive?'button':'div');
        tile.className='market-banner-tile';
