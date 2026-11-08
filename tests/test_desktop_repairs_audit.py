@@ -71,3 +71,11 @@ def test_hidden_craft_event_banner_is_not_replaced_by_a_fake_placeholder():
     assert "const config=response.banner||{" not in client
     assert 'data-ice-delete' in editor
     assert "banner/delete" in editor
+
+
+def test_postgres_history_query_does_not_use_ambiguous_null_placeholders():
+    root=Path(__file__).resolve().parent.parent
+    source=(root/'admin_user_tools.py').read_text(encoding='utf-8')
+    assert 'WHERE (? IS NULL OR user_id=?)' not in source
+    assert 'if uid is None:' in source
+    assert 'WHERE user_id=? ORDER BY created DESC LIMIT ?' in source
