@@ -197,7 +197,12 @@ async function renderAdminTONQueue(content=document.querySelector('#admin-conten
 async function renderAdminActivity(content=document.querySelector('#admin-content')){
     content.innerHTML=adminQueueHeader('История действий','Журнал операций и администраторских изменений.')+
         '<p class="admin-loading-panel">Загружаем журнал…</p>';
-    const data=await api('admin/logs?limit=200');
+    let data;
+    try { data=await api('admin/logs?limit=200'); }
+    catch(e) { if(content.isConnected)content.innerHTML=
+        adminQueueHeader('История действий','Журнал операций и действий администраторов.')+
+        adminNotice('Не удалось получить журнал: '+e.message);
+        return; }
     if(!content.isConnected)return;
     const events=data.items||[];
     content.innerHTML=adminQueueHeader('История действий','История не включает секреты кошельков и Telegram-сессий.')+
@@ -210,6 +215,31 @@ async function renderAdminActivity(content=document.querySelector('#admin-conten
             (x.user_id>0?'<button type="button" onclick="openAdminUserPage('+Number(x.user_id)+')">'+
                 'ID '+Number(x.user_id)+'</button>':'')+'</div>').join('') :
             '<p class="admin-empty">История пуста.</p>')+'</div>';
+}
+
+/* Cancellation management is review-only: never reverse financial transfers by
+   deleting records or inventing credit movements. */
+async function renderAdminCancellations(content=document.querySelector('#admin-content')){
+    content.innerHTML=adminQueueHeader('Управление отменами',
+        'Отменённые операции и изменения записей. Переводы средств автоматически не отменяются.')+
+        '<p class="admin-loading-panel">Загрузка отмен…</p>';
+    try{
+        const data=await api('admin/logs?limit=200');
+        if(!content.isConnected)return;
+        const entries=(data.items||[]).filter(x=>
+           /cancel|refund|revoke|отмен|возврат|отзыв/i.test(String(x.action||x.kind||x.type||'')));
+        content.innerHTML=adminQueueHeader('Управление отменами',
+           'Журнал отмен и отзывов за последние 200 записей. Возвраты TON/NFT выполняются только через проверенные процессы.')+
+           '<div class="admin-metrics">'+adminMetric('Найдено отмен',entries.length,'')+'</div>'+
+           '<div class="admin-glass-panel admin-activity-table">'+
+           (entries.length?entries.map(x=>'<div class="admin-log-entry"><span class="admin-log-dot"></span>'+
+              '<div><b>'+esc(x.action||x.kind||'Отмена')+'</b><small>'+
+              esc(x.gift?.name||'')+'</small></div><span>'+adminWhen(x.created)+'</span>'+
+              (x.user_id>0?'<button onclick="openAdminUserPage('+Number(x.user_id)+')">ID '+Number(x.user_id)+'</button>':'')+
+              '</div>').join(''):'<p class="admin-empty">Отмен за этот период не найдено.</p>')+
+           '</div>'+adminNotice('История предназначена для проверки. Для возврата средств используйте соответствующий раздел выводов.'));
+    }catch(e){if(content.isConnected)content.innerHTML=adminNotice(
+       'Не удалось открыть отмены: '+e.message);}
 }
 async function renderAdminCrafts(content=document.querySelector('#admin-content')){
     content.innerHTML=adminQueueHeader('Управление крафтами',
