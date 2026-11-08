@@ -156,7 +156,7 @@ function adminQueueHeader(title,description){
 async function renderAdminNFTQueue(content=document.querySelector('#admin-content')){
     content.innerHTML=adminQueueHeader('Вывод NFT','Ручная передача конкретного Telegram-подарка через Relayer, затем подтверждение заявки.')+
         '<p class="admin-loading-panel">Загрузка заявок…</p>';
-    const data=await api('admin/withdrawals');
+    const data=await api('admin/withdrawals/nft');
     if(!content.isConnected)return;
     const list=data.gifts||[];
     content.innerHTML=adminQueueHeader('Вывод NFT','Подтверждайте выдачу только после фактической передачи указанного NFT.')+
@@ -178,7 +178,7 @@ async function renderAdminNFTQueue(content=document.querySelector('#admin-conten
 async function renderAdminTONQueue(content=document.querySelector('#admin-content')){
     content.innerHTML=adminQueueHeader('Вывод TON','Ручные заявки и подтверждения TON Connect.')+
         '<p class="admin-loading-panel">Загрузка заявок…</p>';
-    const data=await api('admin/withdrawals');
+    const data=await api('admin/withdrawals/ton');
     if(!content.isConnected)return;
     const list=data.ton||[];
     content.innerHTML=adminQueueHeader('Вывод TON','Перевод только после подтверждения кошелька. Никаких автоматических заявок по умолчанию.')+
