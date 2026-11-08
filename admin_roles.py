@@ -205,6 +205,7 @@ def install_admin_management(app, db, auth, audit, access):
                                      "permissions": permissions}}
 
     @app.delete("/api/admin/admins/<int:uid>")
+    @app.post("/api/admin/admins/<int:uid>/revoke")
     @auth(admin=True)
     def revoke_admin_role(uid):
         must_be_primary()
