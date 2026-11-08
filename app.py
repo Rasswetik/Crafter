@@ -38,7 +38,7 @@ DEMO_GIFTS = [
 
 def create_app(config=None):
     app = Flask(__name__)
-    app.config.update(DATABASE=os.getenv('DATABASE',str(Path('/var/data/crafter.sqlite3') if Path('/var/data').is_dir() else ROOT/'instance/app.sqlite3')), DEMO_MODE=os.getenv('DEMO_MODE','0')=='1', BOT_TOKEN=os.getenv('BOT_TOKEN',''), ADMIN_IDS={int(x.strip()) for x in os.getenv('ADMIN_IDS','').split(',') if x.strip().isdigit()}, PORTALS_API_KEY=os.getenv('PORTALS_API_KEY',''), BOT_USERNAME=os.getenv('BOT_USERNAME',''), MAX_CONTENT_LENGTH=16384)
+    app.config.update(DATABASE=os.getenv('DATABASE',str(Path('/var/data/crafter.sqlite3') if Path('/var/data').is_dir() else ROOT/'instance/app.sqlite3')), DEMO_MODE=os.getenv('DEMO_MODE','0')=='1', BOT_TOKEN=os.getenv('BOT_TOKEN',''), ADMIN_IDS={int(x.strip()) for x in os.getenv('ADMIN_IDS','').split(',') if x.strip().isdigit()}, PORTALS_API_KEY=os.getenv('PORTALS_API_KEY',''), BOT_USERNAME=os.getenv('BOT_USERNAME',''), PRIMARY_ADMIN_ID=os.getenv('PRIMARY_ADMIN_ID',''), MAX_CONTENT_LENGTH=16384)
     app.config['DATABASE_URL'] = os.getenv('DATABASE_URL', '')
     if config: app.config.update(config)
     catalog_seed=json.loads(gzip.decompress((ROOT/'data/catalog_seed.json.gz').read_bytes())) if (ROOT/'data/catalog_seed.json.gz').exists() else {'collections':[]}
@@ -64,6 +64,14 @@ def create_app(config=None):
         if 'db' in g:g.db.close()
     with app.app_context():
         db().executescript('''CREATE TABLE IF NOT EXISTS local_numbers(collection_id TEXT,number INTEGER,PRIMARY KEY(collection_id,number)); CREATE TABLE IF NOT EXISTS local_purchases(user_id INTEGER,request_id TEXT,result TEXT,PRIMARY KEY(user_id,request_id)); CREATE TABLE IF NOT EXISTS local_sold(source_id TEXT PRIMARY KEY); CREATE TABLE IF NOT EXISTS craft_quotes(id TEXT PRIMARY KEY,user_id INTEGER,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY, name TEXT, username TEXT, referrer INTEGER, created INTEGER); CREATE TABLE IF NOT EXISTS user_avatars(user_id INTEGER PRIMARY KEY,photo_url TEXT NOT NULL); CREATE TABLE IF NOT EXISTS cache(key TEXT PRIMARY KEY, payload TEXT, updated INTEGER); CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY, payload TEXT); CREATE TABLE IF NOT EXISTS audit(id INTEGER PRIMARY KEY, actor INTEGER, action TEXT, created INTEGER); CREATE TABLE IF NOT EXISTS inventory(user_id INTEGER, nft_id TEXT, payload TEXT, status TEXT DEFAULT 'unlisted', PRIMARY KEY(user_id,nft_id)); CREATE TABLE IF NOT EXISTS demo_accounts(user_id INTEGER PRIMARY KEY,balance TEXT); CREATE TABLE IF NOT EXISTS history(id TEXT PRIMARY KEY,user_id INTEGER,kind TEXT,payload TEXT,created INTEGER); CREATE TABLE IF NOT EXISTS craft_requests(user_id INTEGER,request_id TEXT,result TEXT,PRIMARY KEY(user_id,request_id));'''); db().commit()
+    from admin_roles import (ensure_admin_tables, resolve_primary_admin,
+                             access_for_id, can_access_admin_path)
+    with app.app_context(), db():
+        ensure_admin_tables(db())
+    primary_admin_id = resolve_primary_admin(app.config)
+    def admin_access(uid):
+        return access_for_id(db(), uid, app.config['ADMIN_IDS'], primary_admin_id)
+
     def gift_number(collection_id,preferred=None):
         try:preferred=int(preferred)
         except (TypeError,ValueError):preferred=None
@@ -148,8 +156,14 @@ def create_app(config=None):
                     elif app.config['DEMO_MODE']:g.user={'id':1,'first_name':'Гошан','username':'goshan_wow'}
                     else:abort(401,description='Откройте приложение через Telegram')
                 except (ValueError,KeyError,TypeError,json.JSONDecodeError):abort(401,description='Недействительная авторизация Telegram')
-                g.is_admin=g.user['id'] in app.config['ADMIN_IDS']
-                if admin and not g.is_admin:abort(403,description='Доступ только для администратора')
+                role = admin_access(g.user['id'])
+                g.is_admin = role['is_admin']
+                g.is_primary_admin = role['is_primary_admin']
+                g.admin_permissions = role['permissions']
+                if admin and not g.is_admin:
+                    abort(403,description='Доступ только для администратора')
+                if (admin or request.path.startswith('/api/admin/')) and not can_access_admin_path(role, request.path):
+                    abort(403,description='Недостаточно прав на этот раздел админки')
                 if not g.is_admin and db().execute(
                         'SELECT 1 FROM user_bans WHERE user_id=?',(g.user['id'],)).fetchone():
                     abort(403,description='Ваш аккаунт Crafter заблокирован. Обратитесь к администратору.')
@@ -323,7 +337,8 @@ def create_app(config=None):
             if price:
                 volume += price
         balance = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (g.user['id'],)).fetchone()[0]
-        return dict(user=g.user, is_admin=g.is_admin, demo=app.config['DEMO_MODE'],
+        return dict(user=g.user, is_admin=g.is_admin, is_primary_admin=g.is_primary_admin,
+                    admin_permissions=g.admin_permissions, demo=app.config['DEMO_MODE'],
                     inventory_count=len(inventory), balance=balance, inventory_value_ton=str(valuation['TON']),
                     inventory_value=str(valuation['GRAM']), bought=bought, sold=sold, volume=str(volume),
                     games_played=games_played, best_game_win=str(best_game_win),
@@ -1276,7 +1291,9 @@ def create_app(config=None):
     from admin_user_tools import install_admin_user_tools
     install_admin_user_tools(app, db, auth, audit, record)
     from admin_console import install_admin_console
-    install_admin_console(app, db, auth, audit, verify_telegram, bot_settings)
+    install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, admin_access)
+    from admin_roles import install_admin_management
+    install_admin_management(app, db, auth, audit, admin_access)
     from launch_readiness import install_launch_readiness
     install_launch_readiness(app, db, auth, audit)
     from portals_partner import install_portals_partner
