@@ -48,8 +48,7 @@ function render(){
         '<div class="desktop-sidebar-menu" role="navigation">'+visible.map(item=>{
            const p=item[0],label=item[1],iconName=item[2];
            return '<button type="button" class="desktop-sidebar-link '+
-           (page===p?'is-active':'')+'" onclick="go('+JSON.stringify(p)+
-           ')" aria-current="'+(page===p?'page':'false')+'">'+
+           (page===p?'is-active':'')+'" onclick="go(\''+p+'\')" aria-current="'+(page===p?'page':'false')+'">'+
            '<span class="desktop-sidebar-link-icon">'+desktopIcon(iconName)+'</span>'+
            '<span>'+label+'</span></button>';
         }).join('')+'</div>'+
