@@ -5,6 +5,7 @@ configuration safely identifies that person; multi-admin installations must spec
 PRIMARY_ADMIN_ID explicitly rather than guessing by display name/username.
 """
 import json
+import re
 import time
 from flask import abort, g, request
 
@@ -171,12 +172,30 @@ def install_admin_management(app, db, auth, audit, access):
         body = request.get_json(silent=True)
         if not isinstance(body, dict):
             abort(400, description="Укажите пользователя и права")
-        try:
-            uid = int(body.get("user_id"))
-        except (ValueError, TypeError):
-            abort(400, description="Telegram ID должен быть числом")
-        if uid <= 0 or uid > 2**63 - 1:
-            abort(400, description="Недопустимый Telegram ID")
+        # Owner may enter the verified numeric Telegram ID or an existing
+        # Crafter user's Telegram username. Never use a display name: it is
+        # mutable and not unique. The account must have logged in previously.
+        supplied = body.get("user_id")
+        if isinstance(supplied, bool) or not isinstance(supplied, (str, int)):
+            abort(400, description="Укажите Telegram ID или @username")
+        identifier = str(supplied).strip()
+        if re.fullmatch(r"[1-9][0-9]{0,18}", identifier):
+            uid = int(identifier)
+            if uid > 2**63 - 1:
+                abort(400, description="Недопустимый Telegram ID")
+        elif re.fullmatch(r"@?[A-Za-z][A-Za-z0-9_]{4,31}", identifier):
+            username = identifier.lstrip("@")
+            matches = db().execute(
+                "SELECT id FROM users WHERE lower(username)=lower(?) LIMIT 2",
+                (username,)
+            ).fetchall()
+            if not matches:
+                abort(404, description="Пользователь с таким @username ещё не заходил в Crafter")
+            if len(matches) > 1:
+                abort(409, description="Найдены несколько аккаунтов. Введите числовой Telegram ID")
+            uid = int(matches[0]["id"])
+        else:
+            abort(400, description="Некорректный Telegram ID или @username")
         if uid == g.user["id"]:
             abort(403, description="Нельзя изменить права главного администратора")
         if not db().execute("SELECT 1 FROM users WHERE id=?", (uid,)).fetchone():
