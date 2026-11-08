@@ -19,6 +19,7 @@ def test_maintenance_is_admin_only_and_enforced_server_side(client):
         'enabled': True, 'confirm': 'ENABLE_MAINTENANCE',
         'message': 'Обновляем сервис'}).status_code == 200
 
+    assert client.get('/api/site/snow').status_code == 200
     public = client.get('/api/site/maintenance').json
     assert public['enabled'] is True and public['message'] == 'Обновляем сервис'
     assert client.get('/api/me', headers=member).status_code == 503
