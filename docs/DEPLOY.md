@@ -1,5 +1,11 @@
 # Deploying Crafter on your own server
 
+**Быстрый путь (Ubuntu VPS, от root):**
+```bash
+git clone https://github.com/Rasswetik/Crafter.git /tmp/crafter-setup && bash /tmp/crafter-setup/deploy/setup.sh
+```
+Скрипт ставит пакеты, PostgreSQL, приложение, nginx, HTTPS и спрашивает только домен, BOT_TOKEN, BOT_USERNAME и ваш Telegram ID. Ниже — те же шаги вручную.
+
 Ubuntu/Debian with systemd + nginx + PostgreSQL. Render still works (`gunicorn.conf.py` reads `PORT`).
 
 ## 1. Install
