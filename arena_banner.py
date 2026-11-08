@@ -280,6 +280,24 @@ def install_arena_banner(app, db, auth, audit):
         audit('Craft event banner updated')
         return {'banner':config}
 
+    @app.post('/api/admin/arena/banner/delete')
+    @auth(admin=True)
+    def delete_ice_banner():
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            db().execute('DELETE FROM settings WHERE key=?',(CONFIG_KEY,))
+        audit('Ice Arena event banner deleted')
+        return {'ok':True,'banner':None}
+
+    @app.post('/api/admin/craft/banner/delete')
+    @auth(admin=True)
+    def delete_craft_banner():
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            db().execute('DELETE FROM settings WHERE key=?',(CRAFT_KEY,))
+        audit('Craft event banner deleted')
+        return {'ok':True,'banner':None}
+
     @app.post('/api/admin/arena/banner/asset')
     @auth(admin=True)
     def upload_ice_asset():
