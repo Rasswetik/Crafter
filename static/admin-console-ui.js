@@ -307,7 +307,7 @@ async function adminSaveCraftSelections(){
 async function renderAdminModes(content=document.querySelector('#admin-content')){
     content.innerHTML=adminQueueHeader('Управление режимами','Включение и отключение существующих режимов на сервере.')+
         '<p class="admin-loading-panel">Загрузка…</p>';
-    const [info,buy]=await Promise.all([api('admin/modes'),api('admin/purchase-mode').catch(()=>null)]);
+    const [info,buy,auto]=await Promise.all([api('admin/modes'),api('admin/purchase-mode').catch(()=>null),api('admin/auto-nft').catch(()=>null)]);
     if(!content.isConnected)return;
     const list=[
         ['craft','Крафты','Режим сборки подарков'],
@@ -324,6 +324,7 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
             ['test','work'].map(m=>'<button type="button" class="'+(buy.mode===m?'is-active':'')+'" '+(buy.mode===m?'aria-pressed="true"':'aria-pressed="false"')+
                 ' onclick="adminSetPurchaseMode('+arg(m)+')">'+(m==='test'?'ТЕСТ':'РАБОТА')+'</button>').join('')+
             '</div></section>':'')+
+        (auto?'<section class="admin-glass-panel admin-purchase-mode"><div><h3>Автовывод NFT</h3>'+'<p>Подарок с Portals выводится на наш релейер, затем релейер передаёт его получателю. Подарок, уже лежащий на релейере, передаётся сразу. '+'Неясный результат никогда не повторяется — задача уходит на ручную проверку.</p>'+(auto.relayer_connected?'':'<p class="admin-mode-missing">Релейер не подключён — автовывод недоступен.</p>')+(auto.jobs?.length?'<p>Последние задачи: '+auto.jobs.slice(0,5).map(j=>esc(j.stage)).join(', ')+'</p>':'')+'</div>'+'<div class="admin-purchase-switch" role="group" aria-label="Автовывод NFT">'+[false,true].map(v=>'<button type="button" class="'+(auto.enabled===v?'is-active':'')+'" onclick="adminSetAutoNft('+v+')">'+(v?'ВКЛ':'ВЫКЛ')+'</button>').join('')+'</div></section>':'')+
         '<div class="admin-mode-list">'+list.map(([id,name,details])=>{
             const enabled=Boolean(info.modes?.[id]);
             return '<section class="admin-glass-panel admin-mode-card"><div>'+
@@ -338,6 +339,14 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
         '<button onclick="openAdminSection(\'staking\')">Стейкинг — APR →</button>'+
         '<button onclick="openAdminSection(\'events\')">Ивенты и награды →</button>'+
         '</div></div>';
+}
+async function adminSetAutoNft(enabled){
+    if(!confirm((enabled?'Включить':'Выключить')+' автоматический вывод NFT через релейер?'))return;
+    try{
+        await api('admin/auto-nft',{enabled,confirm:'SET_AUTO_NFT'});
+        toast('Автовывод NFT: '+(enabled?'включён':'выключен'));
+        await renderAdminModes();
+    }catch(error){toast(error.message);}
 }
 async function adminSetPurchaseMode(mode){
     if(!confirm('Переключить режим покупок на '+(mode==='work'?'РАБОТА (реальные покупки через Portals)':'ТЕСТ (без проверки Portals)')+'?'))return;

@@ -93,6 +93,8 @@ def install_upgrade(app, db, auth, record, ctx):
         name = ctx['canonical_name'](target['name'])
         for row in rows:
             gift = json.loads(row['payload'])
+            if ctx['work_mode']() and gift.get('origin') != 'telegram-deposit':
+                continue          # work mode: only gifts that really sit on our relayer are shown
             if ctx['canonical_name'](gift.get('name', '')) == name:
                 yield {**{k: gift.get(k) for k in ('name', 'number', 'model', 'image', 'backdrop', 'symbol',
                                                     'background', 'collection_id')},
@@ -126,6 +128,35 @@ def install_upgrade(app, db, auth, record, ctx):
         # Crafter market lots come first, then Portals; cheapest first inside each group.
         out.sort(key=lambda item: (item[0]['source'] != 'crafter', item[1], item[0]['id']))
         return out
+
+    @app.get('/api/upgrade/collections')
+    @auth()
+    def upgrade_collections():
+        """All catalogue collections; those with usable Crafter market lots for this stake come first."""
+        gift, value = stake_gift(request.args.get('stake_id', ''))
+        low, high = value * EDGE_BPS / (MAX_BPS + 1), value * EDGE_BPS / MIN_BPS
+        found = {}
+        if not gift.get('test_only'):
+            rows = db().execute("""SELECT l.price,i.payload FROM crafter_listings l
+                JOIN inventory i ON i.user_id=l.seller_id AND i.nft_id=l.gift_id AND i.status='listed'
+                WHERE l.seller_id!=?""", (g.user['id'],))
+            for row in rows:
+                lot = json.loads(row['payload'])
+                price = positive_price(row['price'])
+                if price is None or not low <= price <= high:
+                    continue
+                if ctx['work_mode']() and lot.get('origin') != 'telegram-deposit':
+                    continue
+                key = ctx['canonical_name'](lot.get('name', ''))
+                found[key] = found.get(key, 0) + 1
+        out = []
+        for index, c in enumerate(ctx['public_catalog']()):
+            out.append({'id': c['id'], 'name': c['name'], 'photo_url': c.get('photo_url', ''),
+                        'crafter': found.get(ctx['canonical_name'](c['name']), 0), '_i': index})
+        out.sort(key=lambda c: (-c['crafter'], c['_i']))
+        for c in out:
+            c.pop('_i')
+        return {'collections': out, 'stake_value': str(value)}
 
     @app.get('/api/upgrade/targets')
     @auth()

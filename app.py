@@ -786,6 +786,8 @@ def create_app(config=None):
         if isinstance(listing_id, str) and listing_id.startswith('crafter-'):
             lot = available_crafter_lot(listing_id, g.user['id'])
             gift = json.loads(lot['payload'])
+            if purchase_mode() == 'work' and gift.get('origin') != 'telegram-deposit':
+                abort(409, description='Этого подарка нет на релейере — выберите другой')
             target_id = str(gift.get('collection_id') or canonical_name(gift.get('name') or ''))
             if str(data.get('target_id')) != target_id:
                 abort(400, description='Выберите коллекцию результата')
@@ -1431,6 +1433,8 @@ def create_app(config=None):
     install_launch_readiness(app, db, auth, audit)
     from portals_partner import install_portals_partner
     install_portals_partner(app, db, auth, record, audit)
+    from auto_nft import install_auto_nft
+    install_auto_nft(app, db, auth, audit)
     if not app.config.get('TESTING') and os.getenv('CATALOG_REFRESH_ON_START','0')=='1':
         start_catalog_refresh()
     def ensure_upgrade_listings(target, low, high):
@@ -1459,6 +1463,7 @@ def create_app(config=None):
         ensure_listings=ensure_upgrade_listings, award_market_gift=award_market_gift,
         available_crafter_lot=available_crafter_lot, settle_crafter_lot=settle_crafter_lot,
         notify_sale=notify_crafter_sale, test_mode=lambda: purchase_mode() == 'test',
+        work_mode=lambda: purchase_mode() == 'work',
         can_buy=lambda gift, price: app.extensions['crafter_portals_can_buy'](gift, price),
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
     if not app.config.get('TESTING'):

@@ -138,6 +138,8 @@ def install_portals_partner(app, db, auth, record, audit):
             # After a paid POST, never resend: the outcome may be unknown.
             abort(503, description="Нет подтверждения от Portals. Операция требует проверки, не повторяйте оплату")
 
+    app.extensions['crafter_portals_partner'] = partner
+
     def policy():
         row=db().execute("SELECT enabled,verified_at FROM portals_partner_policy WHERE id=1").fetchone()
         return (bool(row["enabled"]), int(row["verified_at"])) if row else (False,0)
@@ -474,6 +476,10 @@ def install_portals_partner(app, db, auth, record, audit):
             return {"ok":True,"status":previous["status"],
                     "withdrawal_id":previous["portal_withdrawal_id"],"fee_gram":"0.4",
                     "mode":"portals"}
+        if app.extensions['crafter_auto_nft_enabled']():
+            # Automatic mode: Portals -> relayer -> user, driven by the auto NFT worker.
+            return app.extensions['crafter_nft_queue_manual'](uid,gift_id,rid,allow_partner=True,
+                                                              reason='auto: Portals → релейер → получатель')
         # A previous request may already have been routed to the manual queue.
         manual=db().execute("SELECT gift_id FROM gift_withdrawals WHERE id=? AND user_id=?",
                             ("gw-"+str(uid)+"-"+rid,uid)).fetchone()

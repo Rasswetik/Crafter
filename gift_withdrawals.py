@@ -162,18 +162,8 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             return {'ton': ton, 'gifts': []}
         return {'ton': ton, 'gifts': gifts}
 
-    @app.post('/api/admin/withdrawals/gift/<wid>/resolve')
-    @auth(admin=True)
-    def resolve_gift_withdrawal(wid):
-        data = request.get_json(silent=True)
-        if not isinstance(data, dict) or data.get('decision') not in ('confirmed', 'failed'):
-            abort(400)
-        note = str(data.get('note') or '').strip()
-        if len(note) > 500:
-            abort(400, description='Комментарий слишком длинный')
-        decision = data['decision']
-        if decision == 'confirmed' and len(note) < 8:
-            abort(400, description='Укажите ссылку на перевод NFT или идентификатор подтверждения (не менее 8 символов)')
+    def finalize_withdrawal(wid, decision, note):
+        """Shared by the admin resolve endpoint and the automatic relayer pipeline."""
         with db():
             db().execute('BEGIN IMMEDIATE')
             row = db().execute('SELECT * FROM gift_withdrawals WHERE id=?', (wid,)).fetchone()
@@ -201,5 +191,21 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                 record('gift_withdraw_failed', {'gift': gift, 'reason': note}, uid=owner)
             db().execute('UPDATE gift_withdrawals SET status=?,updated=?,note=? WHERE id=?',
                          (decision, int(time.time()), note, wid))
-            audit('NFT withdrawal ' + wid + ' manually marked ' + decision)
+            audit('NFT withdrawal ' + wid + ' marked ' + decision)
+
+    app.extensions['crafter_gift_withdrawal_finalize'] = finalize_withdrawal
+
+    @app.post('/api/admin/withdrawals/gift/<wid>/resolve')
+    @auth(admin=True)
+    def resolve_gift_withdrawal(wid):
+        data = request.get_json(silent=True)
+        if not isinstance(data, dict) or data.get('decision') not in ('confirmed', 'failed'):
+            abort(400)
+        note = str(data.get('note') or '').strip()
+        if len(note) > 500:
+            abort(400, description='Комментарий слишком длинный')
+        decision = data['decision']
+        if decision == 'confirmed' and len(note) < 8:
+            abort(400, description='Укажите ссылку на перевод NFT или идентификатор подтверждения (не менее 8 символов)')
+        finalize_withdrawal(wid, decision, note)
         return {'status': decision}

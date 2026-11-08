@@ -504,6 +504,15 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         audit('Telegram deposit session disconnected')
         return {'ok': True}
 
+    def relayer_credentials():
+        """(api_id, api_hash, session, account_id) of the connected relayer account."""
+        api_id, api_hash = credentials()
+        c = config()
+        if not c.get('session') or not c.get('account_id'):
+            raise ValueError('Relayer не подключён')
+        return api_id, api_hash, decrypt(c['session']), int(c['account_id'])
+    app.extensions['crafter_relayer_credentials'] = relayer_credentials
+
     def background():
         # Gunicorn may spawn multiple workers; the DB lease allows one active poll.
         while True:

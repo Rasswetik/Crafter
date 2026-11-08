@@ -167,9 +167,10 @@ async function openCollectionSheet() {
     if (ui.spinning || !ui.stake) return;
     const el = sheet('Выберите коллекцию', '<div class="upg-loading">Загрузка…</div>');
     try {
-        if (!ui.collections.length) ui.collections = (await api('craft/targets')).collections || [];
+        ui.collections = (await api(`upgrade/collections?stake_id=${encodeURIComponent(ui.stake.id)}`)).collections || [];
         const body = el.querySelector('.upg-sheet-body');
-        body.innerHTML = `${searchBar('Поиск коллекции')}<div class="upg-collections">${ui.collections.map((c, i) => `<button type="button" class="upg-collection" data-i="${i}" data-name="${h(String(c.name).toLowerCase())}">
+        body.innerHTML = `${searchBar('Поиск коллекции')}<div class="upg-collections">${ui.collections.map((c, i) => `<button type="button" class="upg-collection ${c.crafter ? 'has-crafter' : ''}" data-i="${i}" data-name="${h(String(c.name).toLowerCase())}">
+            ${c.crafter ? `<em class="upg-badge">${c.crafter}</em>` : ''}
             <img src="${h(c.photo_url || '')}" alt="" loading="lazy" draggable="false"><span>${h(c.name)}</span></button>`).join('')}</div>`;
         bindSearch(body, '.upg-collection', node => node.dataset.name);
         body.onclick = e => {

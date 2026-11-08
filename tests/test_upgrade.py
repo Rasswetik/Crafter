@@ -93,3 +93,10 @@ def test_crafter_market_lots_come_first(client, setup, monkeypatch):
         db.execute("INSERT INTO cache VALUES (?,?,?)", ('public:market:t', json.dumps({'gifts': [portals_lot]}), int(time.time())))
     gifts = targets(client).json['gifts']
     assert [g['source'] for g in gifts] == ['crafter', 'portals']
+
+
+def test_collections_list_puts_crafter_market_first(client, setup):
+    r = client.get('/api/upgrade/collections?stake_id=stake-1', headers=signed(43))
+    assert r.status_code == 200
+    first = r.json['collections'][0]
+    assert first['name'] == 'Snoop Dogg' and first['crafter'] == 1

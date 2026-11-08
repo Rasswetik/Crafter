@@ -101,3 +101,14 @@
 .upg-sort{flex:none;height:40px;padding:0 13px;border-radius:20px;font-size:12px;font-weight:700;color:#cfe3ff;white-space:nowrap;
   background:#1a1b1f;border:1px solid #303030}
 .upg-collection[hidden]{display:none}
+
+/* Collection tiles: readable names, Crafter-market badge */
+.upg-collection{position:relative;padding:10px 6px 9px}
+.upg-collection span{max-width:100%;white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+  text-align:center;font-size:13px;font-weight:700;line-height:1.2;letter-spacing:-.1px;color:#eef3fb;min-height:2.4em}
+.upg-collection img{width:82%}
+.upg-collection.has-crafter{border-color:rgba(22,137,255,.55);background:rgba(22,137,255,.1)}
+.upg-badge{position:absolute;top:6px;right:6px;min-width:20px;height:20px;padding:0 6px;border-radius:10px;display:grid;place-items:center;
+  font-style:normal;font-size:11px;font-weight:800;color:#fff;background:#1689ff;box-shadow:0 2px 8px rgba(22,137,255,.5)}
+.upg-card strong{font-size:14px;font-weight:700;white-space:normal;line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.upg-card small{font-size:12px}
