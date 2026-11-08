@@ -237,7 +237,7 @@ async function renderAdminCancellations(content=document.querySelector('#admin-c
               esc(x.gift?.name||'')+'</small></div><span>'+adminWhen(x.created)+'</span>'+
               (x.user_id>0?'<button onclick="openAdminUserPage('+Number(x.user_id)+')">ID '+Number(x.user_id)+'</button>':'')+
               '</div>').join(''):'<p class="admin-empty">Отмен за этот период не найдено.</p>')+
-           '</div>'+adminNotice('История предназначена для проверки. Для возврата средств используйте соответствующий раздел выводов.'));
+           '</div>'+adminNotice('История предназначена для проверки. Для возврата средств используйте соответствующий раздел выводов.');
     }catch(e){if(content.isConnected)content.innerHTML=adminNotice(
        'Не удалось открыть отмены: '+e.message);}
 }
