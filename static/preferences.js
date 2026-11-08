@@ -379,7 +379,15 @@ function crafterTranslateValue(raw) {
           [/^([0-9]+) лотов$/, n => n + ' listings'],
           [/^([0-9]+) шаров$/, n => n + ' balls'],
           [/^([0-9]+) подарков$/, n => n + ' gifts'],
-          [/^([0-9]+) ур\.$/, n => 'Level ' + n]
+          [/^([0-9]+) ур\.$/, n => 'Level ' + n],
+          [/^Вы получаете (.+) GRAM$/, n => 'You receive ' + n + ' GRAM'],
+          [/^Вы получите (.+) GRAM$/, n => 'You will receive ' + n + ' GRAM'],
+          [/^Общая цена: (.+) GRAM$/, n => 'Total price: ' + n + ' GRAM'],
+          [/^Цена в GRAM для (.+)$/, n => 'Price in GRAM for ' + n],
+          [/^Продать (\d+ .+)$/, n => 'Sell ' + n],
+          [/^Снять с продажи (\d+ .+)$/, n => 'Remove listing for ' + n],
+          [/^Получено: (.+) GRAM$/, n => 'Received: ' + n + ' GRAM'],
+          [/^Получено: (.+) шаров$/, n => 'Received: ' + n + ' balls']
         ] : [
           [/^Referral level (\d+)$/, n => 'Уровень рефералов ' + n],
           [/^Until level (\d+)$/, n => 'До уровня ' + n],
@@ -388,7 +396,15 @@ function crafterTranslateValue(raw) {
           [/^([0-9]+) listings$/, n => n + ' лотов'],
           [/^([0-9]+) balls$/, n => n + ' шаров'],
           [/^([0-9]+) gifts$/, n => n + ' подарков'],
-          [/^Level ([0-9]+)$/, n => n + ' ур.']
+          [/^Level ([0-9]+)$/, n => n + ' ур.'],
+          [/^You receive (.+) GRAM$/, n => 'Вы получаете ' + n + ' GRAM'],
+          [/^You will receive (.+) GRAM$/, n => 'Вы получите ' + n + ' GRAM'],
+          [/^Total price: (.+) GRAM$/, n => 'Общая цена: ' + n + ' GRAM'],
+          [/^Price in GRAM for (.+)$/, n => 'Цена в GRAM для ' + n],
+          [/^Sell (\d+ .+)$/, n => 'Продать ' + n],
+          [/^Remove listing for (\d+ .+)$/, n => 'Снять с продажи ' + n],
+          [/^Received: (.+) GRAM$/, n => 'Получено: ' + n + ' GRAM'],
+          [/^Received: (.+) balls$/, n => 'Получено: ' + n + ' шаров']
         ];
         for (const [regex, transform] of variable) {
             const match = clean.match(regex);
