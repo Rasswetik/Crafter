@@ -1,0 +1,53 @@
+/* Unified graphite liquid glass for announcement overlays.
+   The close control always remains inside the visible dialog. */
+.crafter-announcement{
+  isolation:isolate;
+  max-width:calc(100vw - 22px);
+  max-height:min(92dvh,780px);
+}
+.crafter-announcement-card{
+  position:relative;
+  border:1px solid #e7ebf345!important;
+  background:color-mix(in srgb,var(--announcement-bg,#242326) 83%,transparent)!important;
+  box-shadow:inset 0 1px #ffffff24,0 19px 50px #0009!important;
+  -webkit-backdrop-filter:blur(20px) saturate(.82);
+  backdrop-filter:blur(20px) saturate(.82);
+}
+.crafter-announcement-close{
+  position:absolute!important;
+  top:10px!important;
+  right:10px!important;
+  left:auto!important;
+  transform:none!important;
+  z-index:50!important;
+  display:grid!important;
+  place-items:center!important;
+  width:42px!important;
+  height:42px!important;
+  min-width:42px!important;
+  min-height:42px!important;
+  padding:0!important;
+  border-radius:50%!important;
+  border:1px solid #ffffff68!important;
+  background:linear-gradient(145deg,#ffffff3a,#ffffff10),#232529c9!important;
+  box-shadow:inset 0 1px #ffffff3a,0 5px 16px #0008!important;
+  color:#f6f7f9!important;
+  -webkit-backdrop-filter:blur(13px) saturate(.85);
+  backdrop-filter:blur(13px) saturate(.85);
+  cursor:pointer!important;
+  touch-action:manipulation;
+}
+.crafter-announcement-close:hover{
+  background:linear-gradient(140deg,#ffffff51,#ffffff1b),#35373bc9!important;
+}
+.crafter-announcement-close:focus-visible{outline:2px solid #f1f3f5!important;outline-offset:3px}
+.crafter-announcement-cross{display:block;width:20px;height:20px;pointer-events:none}
+.crafter-announcement-close:disabled{opacity:1!important;cursor:pointer!important}
+.crafter-announcement-close .crafter-announcement-ring,
+.crafter-announcement-close span{display:none!important}
+@media(max-height:540px){
+ .crafter-announcement-close{top:8px!important;right:8px!important}
+}
+@media(prefers-reduced-motion:reduce){
+ .crafter-announcement-close{transition:none!important}
+}
