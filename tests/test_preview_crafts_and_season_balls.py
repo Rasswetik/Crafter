@@ -22,13 +22,16 @@ def _season_setup(client, monkeypatch):
             'number':12345,'model':'Main','symbol':'Sparkle','backdrop':'Night',
             'price':'1.25','price_unit':'TON',
             'image':'https://example.org/lunar.webp'}
+    assert client.get('/api/me',headers=signed(43)).status_code==200
     with sqlite3.connect(client.application.config['DATABASE']) as connection:
+        # Preview purchases now check and debit the player's GRAM balance, like real ones.
+        connection.execute("UPDATE demo_accounts SET balance='50' WHERE user_id=43")
         connection.execute("INSERT INTO cache(key,payload,updated) VALUES(?,?,?)",
                            ('public:market:preview-craft',json.dumps({'gifts':[source]}),int(time.time())))
     return source
 
 
-def test_preview_purchase_awards_ton_balls_without_charging_gram(client,monkeypatch):
+def test_preview_purchase_awards_ton_balls_and_debits_gram(client,monkeypatch):
     source=_season_setup(client,monkeypatch)
     user=signed(43)
     assert client.get('/api/me',headers=user).status_code==200
@@ -38,7 +41,7 @@ def test_preview_purchase_awards_ton_balls_without_charging_gram(client,monkeypa
     gift=first.json['gifts'][0]
     assert gift['test_only'] and gift['catalog_only']
     assert gift['origin']=='market-test' and gift['source_price_unit']=='TON'
-    assert first.json['balance']=='0'
+    assert first.json['balance']=='48.75'          # 1.25 GRAM debited from the 50 GRAM balance
     assert client.get('/api/balance',headers=user).json['new_year']['balls']==12
     again=client.post('/api/market/test/buy',headers=user,json={
         'gift_ids':[source['id']],'request_id':'test-craft-purchase-1'})
@@ -72,7 +75,7 @@ def test_preview_craft_works_without_real_market_listing_and_awards_balls(client
     assert reward['image']=='https://example.org/astral.webp'
     inventory=client.get('/api/inventory',headers=user).json['gifts']
     assert [x['id'] for x in inventory]==[reward['id']]
-    assert client.get('/api/balance',headers=user).json['balance']=='0'
+    assert client.get('/api/balance',headers=user).json['balance']=='48.75'
     assert client.get('/api/balance',headers=user).json['new_year']['balls']==25
     assert client.post('/api/craft',headers=user,json=payload).json==result.json
     assert client.get('/api/balance',headers=user).json['new_year']['balls']==25
@@ -94,7 +97,7 @@ def test_preview_sale_credits_only_balls_and_cannot_touch_real_nft(client,monkey
     assert paid.json['test_mode'] and paid.json['price_unit']=='TON'
     assert not client.get('/api/inventory',headers=user).json['gifts']
     assert client.get('/api/balance',headers=user).json['new_year']['balls']==37
-    assert client.get('/api/balance',headers=user).json['balance']=='0'
+    assert client.get('/api/balance',headers=user).json['balance']=='48.75'
     assert client.post('/api/market/test/sell',headers=user,json=request).json==paid.json
     assert client.get('/api/balance',headers=user).json['new_year']['balls']==37
     # Authenticated player-owned, real gift is forbidden in the preview flow.

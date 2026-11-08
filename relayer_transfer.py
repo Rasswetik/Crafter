@@ -53,6 +53,14 @@ async def saved_gifts(client):
     raise ValueError('Too many gifts on the relayer account')
 
 
+async def held_slugs(api_id, api_hash, session):
+    """Lower-cased slugs of every collectible gift the relayer account currently holds."""
+    async def run(client):
+        return {str(e.gift.slug).lower() for e in await saved_gifts(client)
+                if getattr(e, 'gift', None) is not None and getattr(e.gift, 'slug', None) and not getattr(e, 'refunded', False)}
+    return await with_client(api_id, api_hash, session, run)
+
+
 async def find_on_relayer(api_id, api_hash, session, slug=None, title=None, number=None):
     """Return the Telegram slug of a matching gift held by the relayer, or None."""
     async def run(client):

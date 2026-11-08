@@ -35,9 +35,10 @@ async function renderThermosAdmin(content) {
         <div id="thermos-info" class="th-info" role="status"></div>
         <p class="th-note">Комиссии Thermos: покупка 0,1 TON (0,2 TON при выводе на релейер), вывод подарка 0,1 TON. Лимит API — 2 запроса в секунду.</p>
     </section>`;
+    if (th.token_configured) thermosAdmin('check', true);       // show the live Thermos balance right away
 }
 
-async function thermosAdmin(action) {
+async function thermosAdmin(action, quiet = false) {
     const box = document.querySelector('#thermos-info');
     try {
         if (action === 'token') {
@@ -46,14 +47,57 @@ async function thermosAdmin(action) {
             input.value = '';
             toast('Токен сохранён');
         } else if (action === 'check') {
-            box.textContent = 'Проверяем…';
+            if (box && !quiet) box.textContent = 'Проверяем…';
             const r = await api('admin/thermos/check', {});
+            if (!box) return;
             box.innerHTML = `Подключено. Баланс: <b>${esc(r.balance_ton)} TON</b><br>Адрес пополнения: <code>${esc(r.deposit_address)}</code><br>Memo: <code>${esc(r.deposit_memo)}</code>`;
             return;
         } else {
             if (!confirm(action === 'thermos' ? 'Включить Thermos как источник маркета?' : 'Вернуть Portals?')) return;
             await api('admin/thermos/backend', {backend: action, confirm: 'SET_MARKET_BACKEND'});
             toast('Источник маркета изменён');
+        }
+        await renderAdmin();
+    } catch (error) {
+        if (box) box.textContent = error.message;
+        if (!quiet) toast(error.message);
+    }
+}
+
+async function renderAdminDataReset(content) {
+    const info = await api('admin/data-reset');
+    if (!content.isConnected) return;
+    const real = !info.demo_mode;
+    content.innerHTML = `<section class="admin-glass-panel th-card">
+        <h3>Тип игр</h3>
+        <p>Сейчас: <b>${real ? 'настоящий баланс' : 'ДЕМО-баланс'}</b>. Режим покупок: <b>${info.purchase_mode === 'work' ? 'РАБОТА' : 'ТЕСТ'}</b>.</p>
+        ${real ? '' : '<div class="th-actions"><button type="button" onclick="adminDataReset(\'real\')">Перевести на настоящий баланс</button></div>'}
+    </section>
+    <section class="admin-glass-panel th-card">
+        <h3>Сброс данных игроков</h3>
+        <p>Аккаунтов: <b>${info.accounts}</b> · подарков в инвентарях: <b>${info.gifts_total}</b> · записей истории: <b>${info.history_rows}</b> · привязанных кошельков: <b>${info.wallets_kept}</b>.</p>
+        <p><b>Удаляется всё:</b> балансы GRAM, инвентари, история покупок и операций, лоты и офферы, стейкинг, реферальные начисления, промокоды, шары, ставки и раунды Arena.</p>
+        <p><b>Остаётся:</b> аккаунты, привязанные кошельки, баны и все настройки админки. Записи о блокчейн-пополнениях тоже остаются, чтобы старый перевод нельзя было зачесть второй раз.</p>
+        <p><b>Подарки на релейере</b> вернутся тем, кто их передал: ${info.relayer_checked
+            ? 'после сброса вернётся подарков: <b>' + (info.gifts_to_restore ?? 0) + '</b>'
+            : '<span class="th-dot is-no">релейер не удалось проверить</span> — подарки, уже зачисленные с релейера, останутся у игроков, остальное будет удалено'}.</p>
+        <div class="th-actions"><button type="button" class="is-danger" onclick="adminDataReset('reset')">Сбросить ВСЕ данные игроков</button></div>
+        <div id="reset-info" class="th-info" role="status"></div>
+    </section>`;
+}
+
+async function adminDataReset(kind) {
+    const box = document.querySelector('#reset-info');
+    try {
+        if (kind === 'real') {
+            if (!confirm('Перевести проект на настоящий баланс? Демо-режим будет выключен.')) return;
+            await api('admin/game-type/real', {confirm: 'SWITCH_TO_REAL'});
+            toast('Включён настоящий баланс');
+        } else {
+            if (!confirm('Сбросить ВСЕ данные игроков: балансы, инвентари, историю и стейкинг? Привязанные кошельки останутся. Действие необратимо.')) return;
+            if (prompt('Для подтверждения введите: СБРОС') !== 'СБРОС') return;
+            const r = await api('admin/data-reset', {confirm: 'RESET_ALL_PLAYER_DATA'});
+            toast('Данные сброшены. Возвращено подарков с релейера: ' + r.restored_gifts);
         }
         await renderAdmin();
     } catch (error) {

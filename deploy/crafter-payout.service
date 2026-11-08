@@ -1,0 +1,17 @@
+[Unit]
+Description=Crafter automatic TON payouts (single run)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=crafter
+WorkingDirectory=/opt/crafter
+# Web app settings (DATABASE_URL etc.) first, then the payout secrets. The secrets file is readable only by root/crafter
+# and is NOT part of the web service environment.
+EnvironmentFile=/opt/crafter/.env
+EnvironmentFile=/etc/crafter/payout.env
+ExecStart=/opt/crafter/.venv/bin/python auto_payout_worker.py
+# Exit code 2 = a payout needs human review; systemd shows the unit as failed so you notice.
+NoNewPrivileges=true
+PrivateTmp=true

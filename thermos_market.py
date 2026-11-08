@@ -225,6 +225,24 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         return 'unknown', 'Часть покупки выполнена — требуется ручная сверка'
     app.extensions['crafter_thermos_acquire'] = acquire
 
+    def work_blockers():
+        """Requirements for WORK mode when Thermos is the market. None -> not Thermos, use the Portals rules."""
+        if backend() != 'thermos':
+            return None
+        missing = []
+        if not api_token():
+            missing.append('Не сохранён токен Thermos (админка → «Термос»)')
+        else:
+            try:
+                if balance_ton() <= 0:
+                    missing.append('Баланс Thermos равен нулю — пополните его (адрес в разделе «Термос»)')
+            except HTTPException as error:
+                missing.append(str(error.description))
+        if relayer_id() is None:
+            missing.append('Не подключён Relayer: купленные подарки доставляются на него')
+        return missing
+    app.extensions['crafter_work_blockers'] = work_blockers
+
     # ---- admin -------------------------------------------------------------------------------------
     def overview():
         return {'backend': backend(), 'token_configured': bool(api_token()), 'encryption_ready': bool(cipher()),

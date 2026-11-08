@@ -7,7 +7,7 @@ import json
 import re
 import time
 import uuid
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal, InvalidOperation, ROUND_UP
 
 from flask import abort, g, request
 
@@ -68,6 +68,22 @@ def install_market_test(app, db, auth, record, demo_gifts):
                 if len(found)==len(ids):break
             if len(found)!=len(ids):
                 abort(409,description='Обновите маркет и повторите покупку')
+            # The player's GRAM balance is always checked and debited; only the market check is skipped.
+            ratio=Decimal(str(app.extensions['crafter_new_year_trade_conversion']()))
+            def gram_price(item):
+                unit=item.get('source_price_unit',item.get('price_unit','GRAM'))
+                try:value=Decimal(str(item.get('source_price',item.get('price','0'))))
+                except InvalidOperation:abort(409,description='Нет цены подарка')
+                return value*ratio if unit=='TON' else value
+            total=sum((gram_price(found[i]) for i in ids),Decimal(0)).quantize(Decimal('0.01'),rounding=ROUND_UP)
+            if total<=0:abort(409,description='Нет цены подарка')
+            account=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(uid,)).fetchone()
+            balance_now=Decimal(str(account[0])) if account else Decimal(0)
+            if total>balance_now:
+                abort(409,description='Недостаточно GRAM: нужно %s, на балансе %s'%(total,balance_now.quantize(Decimal('0.01'))))
+            from resale import cap_funded_balance
+            cap_funded_balance(db(),uid,balance_now-total)
+            db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',(str(balance_now-total),uid))
             rewards=[]
             for nft_id in ids:
                 original=found[nft_id]

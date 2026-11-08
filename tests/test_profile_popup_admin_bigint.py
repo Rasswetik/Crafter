@@ -100,4 +100,4 @@ def test_splash_is_full_bleed_and_updates_both_progress_indicators():
     assert "Date.now()+2500" not in loader
     assert "splash-device-layout.css" in template
     assert "announcements-glass-fix.css" in template
-    assert "english-seasonal-markets-20261108-v2" in template
+    assert "/static/preferences.js?v=" in template

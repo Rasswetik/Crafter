@@ -228,10 +228,17 @@ def install_portals_partner(app, db, auth, record, audit):
             missing.append("Ключ не проверен за последний час — нажмите «Проверить подключение»")
         return missing
 
+    def blockers():
+        """What stands between the project and WORK mode: Thermos checks when it is the market, else Portals."""
+        custom = app.extensions.get("crafter_work_blockers")
+        result = custom() if custom else None
+        return result if result is not None else work_blockers(status())
+
     def purchase_mode_info():
-        current = status()
+        missing = blockers()
         return {"mode": app.extensions["crafter_purchase_mode"](),
-                "can_work": not work_blockers(current), "missing": work_blockers(current)}
+                "backend": app.extensions["crafter_market_backend"](),
+                "can_work": not missing, "missing": missing}
 
     @app.get("/api/admin/purchase-mode")
     @auth(admin=True)
@@ -246,7 +253,7 @@ def install_portals_partner(app, db, auth, record, audit):
         if mode not in ("test", "work") or body.get("confirm") != "SET_PURCHASE_MODE":
             abort(400, description="Выберите режим ТЕСТ или РАБОТА и подтвердите")
         if mode == "work":
-            missing = work_blockers(status())
+            missing = blockers()
             if missing:
                 abort(409, description="Режим РАБОТА недоступен: " + "; ".join(missing))
         with db():
@@ -254,9 +261,10 @@ def install_portals_partner(app, db, auth, record, audit):
             db().execute("INSERT INTO settings(key,payload) VALUES('purchase_mode_v1',?) "
                          "ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
                          (json.dumps({"mode": mode}),))
-            row = policy()
-            db().execute("INSERT INTO portals_partner_policy VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled",
-                         (int(mode == "work"), row[1]))
+            if app.extensions["crafter_market_backend"]() == "portals":     # Portals live checkout flag only
+                row = policy()
+                db().execute("INSERT INTO portals_partner_policy VALUES(1,?,?) ON CONFLICT(id) DO UPDATE SET enabled=excluded.enabled",
+                             (int(mode == "work"), row[1]))
         audit("Purchase mode: " + mode.upper())
         return purchase_mode_info()
 

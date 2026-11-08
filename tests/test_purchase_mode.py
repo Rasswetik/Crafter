@@ -163,3 +163,20 @@ def test_test_mode_upgrade_accepts_ton_priced_lot_without_checks(client, monkeyp
     assert result.json['gift']['test_only'] is True          # a test stake yields a test reward
     gifts = client.get('/api/inventory', headers=signed(43)).json['gifts']
     assert [g['origin'] for g in gifts] == ['demo-craft']
+
+
+def test_test_mode_purchase_checks_and_debits_the_players_balance(client):
+    import time
+    client.get('/api/me', headers=signed(43))
+    gift = {'id': 'lot-1', 'name': 'Snoop Dogg', 'collection_id': 'snoop', 'number': 3, 'price': '5', 'price_unit': 'GRAM',
+            'model': 'x', 'image': 'https://x/y.png'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO cache VALUES (?,?,?)", ('public:market:t', json.dumps({'gifts': [gift]}), int(time.time())))
+    body = {'gift_ids': ['lot-1'], 'request_id': 'req-balance-1'}
+    r = client.post('/api/market/test/buy', headers=signed(43), json=body)
+    assert r.status_code == 409 and 'Недостаточно GRAM' in r.json['error']          # balance 0 -> real error
+    assert client.get('/api/inventory', headers=signed(43)).json['gifts'] == []
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("UPDATE demo_accounts SET balance='20' WHERE user_id=43")
+    ok = client.post('/api/market/test/buy', headers=signed(43), json={**body, 'request_id': 'req-balance-2'})
+    assert ok.status_code == 200 and ok.json['balance'].startswith('15')

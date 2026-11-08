@@ -1,4 +1,14 @@
 // Searchable catalog sheets inspired by the mobile Portals interface.
+/* GRAM price of a lot (TON lots are converted) and how much GRAM the player is short of. */
+function crafterGiftGram(gift) {
+    const price = Number(gift?.price);
+    if (!Number.isFinite(price)) return NaN;
+    return gift.price_unit === 'TON' ? price * Number(state.me?.new_year_gram_per_ton || 1) : price;
+}
+function crafterShortfall(gift) {
+    const need = crafterGiftGram(gift), have = Number(state.me?.balance || 0);
+    return Number.isFinite(need) && need > have + 1e-9 ? need - have : 0;
+}
 Object.assign(paths, {sortOrder:'M8 19V5m-4 4 4-4 4 4m4-4v14m-4-4 4 4 4-4'});
 filters=function(){return `<div class="search"><label class="search-box">${icon('search')}<input aria-label="Быстрый поиск" placeholder="Быстрый поиск" value="${esc(state.query)}" oninput="state.query=this.value;changedFilter()"></label><button class="circle" onclick="state.list=!state.list;filterGrid()" aria-label="Изменить вид">${icon('grid')}</button></div><div class="filter-strip"><button class="sort" onclick="state.sort=!state.sort;changedFilter()" aria-label="Сортировать">${icon('sortOrder')}</button>${[['collection','Коллекция'],['model','Модель'],['backdrop','Фон'],['symbol','Символ']].filter(([key])=>!state.collectionPage||key!=='collection').map(([k,n])=>`<button class="filter-chip ${state[k]?'has-value':''}" onclick="openCatalogSheet('${k}')">${n}${state[k]?`<span>${k==='collection'?selectedCollections().length:selectedTraits(state[k]).length}</span>`:''}${icon('chevron')}</button>`).join('')}</div>`};
 function selectedCollections(value = state.collection) {
@@ -478,8 +488,8 @@ function showGiftDetail(gift, source) {
                     <button type="button" class="secondary" onclick="openPersonalOffer()">
                         <span>Make Offer</span><small data-offer-button-fee>0.01 GRAM</small>
                     </button>
-                    <button type="button" id="buy-gift" class="primary" onclick="localBuyGift(${arg(gift.id)})">
-                        <span>Buy Gift</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
+                    <button type="button" id="buy-gift" class="primary ${crafterShortfall(gift) ? 'is-insufficient' : ''}" ${crafterShortfall(gift) ? 'disabled aria-disabled="true"' : ''} onclick="localBuyGift(${arg(gift.id)})">
+                        <span>${crafterShortfall(gift) ? 'Недостаточно средств' : 'Buy Gift'}</span><span class="buy-gift-price">${money(gift.price)} ${currencyHTML(gift)}</span>
                     </button>
                 </div>`}</div>` : ''}`);
     document.querySelector('#sheet').classList.add('purchase-sheet');
@@ -508,6 +518,14 @@ const localRequestIds=new Map();
 function paymentRequestId(key){if(localRequestIds.has(key))return localRequestIds.get(key);let rid;try{rid=sessionStorage.getItem(key)}catch{}if(!rid){if(globalThis.crypto?.randomUUID)rid=crypto.randomUUID();else if(globalThis.crypto?.getRandomValues)rid=Array.from(crypto.getRandomValues(new Uint8Array(16)),b=>b.toString(16).padStart(2,'0')).join('');else rid=Date.now().toString(36)+Math.random().toString(36).slice(2);try{sessionStorage.setItem(key,rid)}catch{}}localRequestIds.set(key,rid);return rid}
 function purchaseError(message){let el=document.querySelector('#purchase-error');if(!el){el=document.createElement('p');el.id='purchase-error';el.className='purchase-error';el.setAttribute('role','alert');document.querySelector('#sheet-body')?.appendChild(el)}el.textContent=message}
 async function localBuyGift(id) {
+    {
+        const wanted = (state.detailGift && state.detailGift.id === arguments[0]) ? state.detailGift : null;
+        const short = wanted ? crafterShortfall(wanted) : 0;
+        if (short > 0) {
+            purchaseError('Недостаточно GRAM: не хватает ' + money(short) + ' GRAM. Пополните баланс.');
+            return;
+        }
+    }
     if (state.buying) return;
     const gift = state.detailGift;
     if (!gift || gift.id !== id || gift.own_listing) return;

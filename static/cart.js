@@ -78,8 +78,9 @@ async function payCart(){
         state.cartError='Не удалось определить сумму покупки. Перезагрузите корзину.';
         renderCart();toast(state.cartError);return;
     }
-    if(!testing&&Number(state.me.balance)<amount){
-        state.cartError='Недостаточно средств: не хватает '+cartFunds(amount-Number(state.me.balance))+' GRAM';
+    const gramAmount=items.reduce((c,g)=>c+(typeof crafterGiftGram==='function'?crafterGiftGram(g):Number(g.price)),0);
+    if(Number(state.me.balance)<gramAmount-1e-9){
+        state.cartError='Недостаточно средств: не хватает '+cartFunds(gramAmount-Number(state.me.balance))+' GRAM';
         renderCart();toast(state.cartError);return;
     }
     const thermos=state.me.market_backend==='thermos';

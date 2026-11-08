@@ -307,7 +307,7 @@ async function adminSaveCraftSelections(){
 async function renderAdminModes(content=document.querySelector('#admin-content')){
     content.innerHTML=adminQueueHeader('Управление режимами','Включение и отключение существующих режимов на сервере.')+
         '<p class="admin-loading-panel">Загрузка…</p>';
-    const [info,buy,auto,gt,th]=await Promise.all([api('admin/modes'),api('admin/purchase-mode').catch(()=>null),api('admin/auto-nft').catch(()=>null),api('admin/game-type').catch(()=>null),Promise.resolve(null)]);
+    const [info,buy,auto,gt,th]=await Promise.all([api('admin/modes'),api('admin/purchase-mode').catch(()=>null),api('admin/auto-nft').catch(()=>null),Promise.resolve(null),Promise.resolve(null)]);
     if(!content.isConnected)return;
     const list=[
         ['craft','Крафты','Режим сборки подарков'],

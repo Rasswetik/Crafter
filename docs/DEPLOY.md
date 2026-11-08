@@ -40,3 +40,6 @@ BotFather → `/newapp` or the bot's Menu Button → URL `https://crafter.exampl
 
 ## 6. Backups
 Back up PostgreSQL (`pg_dump`) daily. For the SQLite fallback, see `scripts/restore_sqlite.py`.
+
+## 7. Автовывод TON
+См. `docs/AUTO_PAYOUT_TIMEWEB.md` (systemd timer вместо Render Cron).

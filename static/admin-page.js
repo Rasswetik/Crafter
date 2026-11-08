@@ -19,6 +19,7 @@ const adminSections = {
     craft_banner: {label:'Баннер крафтов',detail:'События, GIF, таймер',group:'manage',glyph:'grid',render:renderCraftBannerAdmin},
     ice_banner:   {label:'Баннер Ice Arena',detail:'Визуальный редактор',group:'manage',glyph:'grid',render:renderIceBannerAdmin},
     events:       {label:'Ивенты и рейтинги',detail:'Награды, лидеры, сроки',group:'manage',glyph:'grid',render:renderAdminEvents},
+    'data-reset': {label:'Сброс данных',detail:'Полный сброс игроков и тип баланса',group:'system',glyph:'rotate-ccw',render:renderAdminDataReset},
     portal:       {label:'Термос',detail:'Маркеты: токен, баланс, источник цен',group:'system',glyph:'market',render:renderAdminPortal},
     'telegram-bot':{label:'Telegram-бот',detail:'Уведомления и настройки',group:'system',glyph:'send',render:renderTelegramBotAdmin},
     announcements:{label:'Анонсы',detail:'Окна и сообщения',group:'system',glyph:'grid',render:renderAdminAnnouncements},

@@ -174,3 +174,24 @@ def test_upgrade_win_with_failed_purchase_returns_the_stake(wired, monkeypatch):
     assert result.json['success'] is False and result.json['refunded'] is True
     ids = [g['id'] for g in wired.get('/api/inventory', headers=signed(43)).json['gifts']]
     assert ids == ['stk-1']
+
+
+def test_work_mode_with_thermos_needs_no_portals_or_render_settings(wired, monkeypatch):
+    """With Thermos as the market, WORK mode depends only on the Thermos token/balance and the relayer."""
+    monkeypatch.setattr(thermos_market, 'urlopen', fake_api(balance_ton='5'))
+    with sqlite3.connect(wired.application.config['DATABASE']) as db:
+        db.execute("DELETE FROM settings WHERE key='purchase_mode_v1'")
+    info = wired.get('/api/admin/purchase-mode', headers=signed()).json
+    assert info['backend'] == 'thermos' and info['missing'] == [] and info['can_work'] is True
+    r = wired.post('/api/admin/purchase-mode', headers=signed(), json={'mode': 'work', 'confirm': 'SET_PURCHASE_MODE'})
+    assert r.status_code == 200 and r.json['mode'] == 'work'
+
+
+def test_work_mode_with_thermos_explains_what_is_missing(wired, monkeypatch):
+    monkeypatch.setattr(thermos_market, 'urlopen', fake_api(balance_ton='0'))
+    monkeypatch.setitem(wired.application.extensions, 'crafter_relayer_credentials',
+                        lambda: (_ for _ in ()).throw(ValueError('no relayer')))
+    r = wired.post('/api/admin/purchase-mode', headers=signed(), json={'mode': 'work', 'confirm': 'SET_PURCHASE_MODE'})
+    assert r.status_code == 409
+    text = r.json['error']
+    assert 'Thermos' in text and 'Relayer' in text and 'CRAFTER_PORTALS_LIVE_PURCHASES' not in text

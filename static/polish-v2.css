@@ -56,3 +56,7 @@
   #nav.games-nav .nav-main{gap:3px!important}
   #nav.games-nav .nav-main>button .stake-nav-icon svg{width:20px;height:20px}
 }
+
+/* Buy button when the player cannot afford the gift: grey and inert. */
+.primary.is-insufficient,.primary.is-insufficient:disabled{background:#2a2d33!important;color:#8a919c!important;box-shadow:none!important;
+  border:1px solid #363a42!important;cursor:not-allowed;filter:none!important}

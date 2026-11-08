@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Crafter TON payouts every 2 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=10s
+Persistent=true
+
+[Install]
+WantedBy=timers.target
