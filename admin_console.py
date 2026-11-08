@@ -205,7 +205,8 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings):
 
     def financial_report(user_id=None):
         period, start, end = window_range()
-        start_ts, end_ts = int(start.timestamp()), int(end.timestamp())
+        # Include transactions completed during the current second.
+        start_ts, end_ts = int(start.timestamp()), int(end.timestamp()) + 1
         totals = {
             "deposit_gram": Decimal("0"),
             "deposit_ton": Decimal("0"),
