@@ -103,6 +103,9 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
         # Status and authenticated admin check are always available for retry.
         if path in ("/api/site/maintenance", "/api/site/maintenance/access", "/api/site/modes", "/api/site/snow"):
             return None
+        # The Telegram bot webhook must keep answering during maintenance, otherwise Telegram queues /start updates (503).
+        if path.startswith("/api/telegram/webhook/"):
+            return None
         state = maintenance()
         if state["enabled"] and not valid_admin_request():
             response = jsonify({

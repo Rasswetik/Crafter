@@ -136,3 +136,14 @@ def test_liquid_glass_admin_and_maintenance_assets_exist():
     assert 'admin-finance' not in frontend or 'finance:' in frontend
     assert 'maintenance:' in frontend
     assert "openAdminUserPage" in (root/'static/admin-console-ui.js').read_text(encoding='utf-8')
+
+
+def test_bot_webhook_still_answers_during_maintenance(client):
+    admin = signed(42)
+    assert client.post('/api/admin/maintenance', headers=admin, json={
+        'enabled': True, 'confirm': 'ENABLE_MAINTENANCE', 'message': 'Работы'}).status_code == 200
+    # regular API calls are blocked ...
+    assert client.get('/api/me', headers=signed(43)).status_code == 503
+    # ... but the bot webhook is not: it answers on its own terms (403 for a wrong secret), never 503
+    r = client.post('/api/telegram/webhook/123', json={'update_id': 1})
+    assert r.status_code == 403
