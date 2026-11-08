@@ -52,7 +52,7 @@ def telegram_nft_metadata(slug):
                 self.cell=''
         def handle_data(self,data):
             if self.current:
-                self.cell+=data
+                self.cell+=' '+data
         def handle_endtag(self,tag):
             if tag==self.current and tag in ('th','td'):
                 self.cells.append((tag,self.cell.strip()))

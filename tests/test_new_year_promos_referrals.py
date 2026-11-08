@@ -135,7 +135,7 @@ def test_telegram_exact_nft_metadata_without_portals_listing(monkeypatch):
       <meta name="twitter:description" content="Model: Iron Rose&#10;Backdrop: Persimmon&#10;Symbol: Coonskin Cap">
       <meta property="og:image" content="https://cdn.telegram.org/gift/exact.png">
       </head><body><table><tr><th>Model</th><td>Iron Rose 3%</td></tr>
-      <tr><th>Backdrop</th><td>Persimmon 1.2%</td></tr>
+      <tr><th>Backdrop</th><td>Persimmon <span>1.2%</span></td></tr>
       <tr><th>Symbol</th><td>Coonskin Cap 0.4%</td></tr></table></body></html>'''
     class Response:
         def __enter__(self):return self
