@@ -119,7 +119,13 @@ def install_upgrade(app, db, auth, record, ctx):
         ctx['ensure_listings'](target, value * EDGE_BPS / (MAX_BPS + 1), value * EDGE_BPS / MIN_BPS)
         out = []
         for gift, price in ctx['market_candidates'](target):
-            if gift.get('model') and gift.get('image') and gift.get('price_unit', 'GRAM') == 'GRAM':
+            unit = gift.get('price_unit', 'GRAM')
+            if test and unit == 'TON':
+                # Test mode: nothing is verified or bought, so a TON-priced lot is simply valued in GRAM.
+                price = (price * Decimal(str(ctx['gram_per_ton']()))).quantize(Decimal('0.01'))
+            elif unit != 'GRAM':
+                continue
+            if gift.get('image') and (test or gift.get('model')):
                 out.append((view(gift, price, 'portals'), price))
         for lot in ([] if test else lots(target, uid)):
             price = positive_price(lot['price'])
@@ -240,8 +246,9 @@ def install_upgrade(app, db, auth, record, ctx):
             win = roll_wins(roll, q['chance_bps'])
             lot = listing = None
             if win and gift.get('test_only'):
+                # Test mode: no availability or price re-check, the quoted listing is simply awarded.
                 listing = next((gf for gf, p in ctx['market_candidates'](target)
-                                if gf['id'] == q['listing_id'] and p == price), None)
+                                if gf['id'] == q['listing_id']), None)
                 if listing is None:
                     abort(409, description='Целевой подарок уже недоступен. Повторите выбор.')
             elif win:

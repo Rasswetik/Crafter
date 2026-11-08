@@ -128,3 +128,38 @@ def test_upgrade_requires_buyable_portals_lot_in_work_mode(client, work_ready, m
     r = client.post('/api/upgrade/quote', headers=signed(43),
                     json={'stake_id': 'stk', 'collection_id': 'snoop', 'listing_id': LOT})
     assert r.status_code == 409          # not listed on Portals any more -> no upgrade
+
+
+def test_test_mode_upgrade_accepts_ton_priced_lot_without_checks(client, monkeypatch):
+    """TEST mode: no Portals verification at all; a test gift can be staked on a TON-priced market lot."""
+    import time
+    import portals_public
+
+    def offline(*_a, **_k):
+        raise AssertionError('Portals must not be contacted for verification in TEST mode')
+    monkeypatch.setattr('portals_partner.urlopen', offline)
+    monkeypatch.setattr('thermos.collections', lambda: [{'id': 'snoop', 'name': 'Snoop Dogg', 'floor_price': '1', 'photo_url': ''}])
+    monkeypatch.setattr(portals_public, 'listings', lambda *a, **k: (_ for _ in ()).throw(OSError('offline')))
+    monkeypatch.setattr('thermos.gifts', lambda *a, **k: (_ for _ in ()).throw(OSError('offline')))
+    monkeypatch.setattr('upgrade.secrets.randbelow', lambda _n: 0)
+    client.get('/api/me', headers=signed(43))
+    stake = {**DEMO_GIFTS[1], 'id': 'market-test-9', 'origin': 'market-test', 'test_only': True, 'catalog_only': True,
+             'price': '0', 'price_unit': 'GRAM', 'source_price': '2', 'source_price_unit': 'GRAM'}
+    lot = {'id': 'lot-ton', 'name': 'Snoop Dogg', 'collection_id': 'snoop', 'number': 55, 'model': '', 'image': 'https://x/y.png',
+           'price': '1', 'price_unit': 'TON'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')", (stake['id'], json.dumps(stake)))
+        db.execute("INSERT INTO settings VALUES ('tonconnect', ?)", (json.dumps({'gram_per_ton': '10'}),))
+        db.execute("INSERT INTO cache VALUES (?,?,?)", ('public:market:t', json.dumps({'gifts': [lot]}), int(time.time())))
+    found = client.get('/api/upgrade/targets?stake_id=market-test-9&collection_id=snoop', headers=signed(43))
+    assert found.status_code == 200
+    gift, = found.json['gifts']
+    assert gift['id'] == 'lot-ton' and gift['price_unit'] == 'GRAM'
+    quote = client.post('/api/upgrade/quote', headers=signed(43), json={
+        'stake_id': 'market-test-9', 'collection_id': 'snoop', 'listing_id': 'lot-ton'})
+    assert quote.status_code == 200
+    result = client.post('/api/upgrade', headers=signed(43), json={'quote_id': quote.json['quote_id'], 'request_id': 'rr-1'})
+    assert result.status_code == 200 and result.json['success'] is True
+    assert result.json['gift']['test_only'] is True          # a test stake yields a test reward
+    gifts = client.get('/api/inventory', headers=signed(43)).json['gifts']
+    assert [g['origin'] for g in gifts] == ['demo-craft']
