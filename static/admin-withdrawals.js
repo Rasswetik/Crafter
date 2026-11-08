@@ -117,10 +117,14 @@ async function sendAdminTonWithdrawal(id){
     if(!confirm('Подготовить перевод TON? Подписание потребуется в TON Connect.'))return;
     await processWithdrawal(id);
     if(state.adminSection==='withdrawals')await renderAdminWithdrawals();
+    else if(state.adminSection==='nft_withdraw')await renderAdminNFTQueue();
+    else if(state.adminSection==='ton_withdraw')await renderAdminTONQueue();
 }
 async function checkAdminTonWithdrawal(id){
     await verifyWithdrawal(id);
     if(state.adminSection==='withdrawals')await renderAdminWithdrawals();
+    else if(state.adminSection==='nft_withdraw')await renderAdminNFTQueue();
+    else if(state.adminSection==='ton_withdraw')await renderAdminTONQueue();
 }
 async function resolveAdminGiftWithdrawal(id,decision){
     const confirmed=decision==='confirmed';
@@ -132,6 +136,7 @@ async function resolveAdminGiftWithdrawal(id,decision){
     if(!confirm(confirmed?'Этот конкретный NFT уже передан получателю?':'Вернуть NFT в инвентарь?'))return;
     try{await api('admin/withdrawals/gift/'+encodeURIComponent(id)+'/resolve',{decision,note:note.trim()});
         toast(confirmed?'Вывод NFT подтверждён':'Подарок возвращён');
-        await renderAdminWithdrawals();
+        if(state.adminSection==='nft_withdraw')await renderAdminNFTQueue();
+        else await renderAdminWithdrawals();
     }catch(e){toast(e.message);}
 }
