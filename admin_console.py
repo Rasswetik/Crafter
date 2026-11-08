@@ -16,7 +16,7 @@ MAINTENANCE_KEY = "site_maintenance_v2"
 BERLIN = ZoneInfo("Europe/Berlin")
 
 
-def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings):
+def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, admin_access):
     def maintenance():
         row = db().execute(
             "SELECT payload FROM settings WHERE key=?", (MAINTENANCE_KEY,)
@@ -36,7 +36,7 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings):
     def valid_admin_request():
         raw = request.headers.get("X-Telegram-Init-Data", "")
         if not raw:
-            return bool(app.config["DEMO_MODE"] and 1 in app.config["ADMIN_IDS"])
+            return bool(app.config["DEMO_MODE"] and admin_access(1)["is_admin"])
         token = app.config["BOT_TOKEN"]
         user = None
         if token:
@@ -51,7 +51,7 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings):
                     user = verify_telegram(raw, alternative)
             except (ValueError, KeyError, TypeError):
                 pass
-        return bool(user and user.get("id") in app.config["ADMIN_IDS"])
+        return bool(user and admin_access(user.get("id"))["is_admin"])
 
     MODE_DEFAULTS = {'craft': True, 'arena': True, 'staking': True}
 
