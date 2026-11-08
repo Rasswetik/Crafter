@@ -31,8 +31,10 @@
       if(!response.ok)throw Error('Не удалось проверить состояние');
       const state=await response.json();
       if(!state.enabled) {
-        if(label)label.textContent='Сервис снова доступен';
-        location.reload();
+        if(root()?.classList.contains('is-active')) {
+          if(label)label.textContent='Сервис снова доступен';
+          location.reload();
+        } else hide();
         return;
       }
       const header={'X-Telegram-Init-Data':typeof telegramInitData==='function' ?
