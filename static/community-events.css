@@ -229,3 +229,16 @@
 .adm-pick-card img{width:84px;height:84px;object-fit:contain}.adm-pick-card b{font-size:13px}
 .pk-pick{display:flex;align-items:center;gap:8px;min-width:0;height:44px;padding:0 10px;border-radius:12px;font-size:14px;color:#fff;cursor:pointer;background:#14171d;border:1px solid #2c3037;text-align:left}
 .pk-pick img{width:30px;height:30px;object-fit:contain}.pk-pick span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* Desktop: two tall cards side by side, bigger and better set titles */
+.nyh-copy strong{font-family:"SF Pro Display","Segoe UI Variable Display","Segoe UI",system-ui,-apple-system,sans-serif;line-height:1.08}
+@media(min-width:620px){.nyh-card{height:230px}.nyh-copy strong{font-size:32px}}
+@media(min-width:900px){
+  .ny-hubpage{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;align-items:stretch}
+  .nyh-card{height:clamp(280px,26vw,360px);border-radius:34px}
+  .nyh-copy{max-width:50%;padding:0 34px}
+  .nyh-copy strong{font-size:clamp(30px,2.5vw,42px);letter-spacing:-.8px}
+  .nyh-community .nyh-mini{max-width:260px;margin-top:10px}
+  .nyh-mini em{font-size:14px}.nyh-mini-bar{height:11px}
+}
+@media(min-width:900px){.nyh-market .nyh-copy{max-width:40%}}
