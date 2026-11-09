@@ -105,12 +105,12 @@ function animateSpin(rollPercent) {
     }
     pointer.classList.add('is-spinning');
     const from = ui.angle;
+    // One continuous slide: fast start, long smooth deceleration that stops exactly on the target.
+    // The easing curve never leaves 0..1, so the pointer cannot overshoot or swing back.
     const anim = pointer.animate([
-        {transform: `rotate(${from}deg)`, offset: 0, easing: 'cubic-bezier(.35,.0,.2,1)'},
-        {transform: `rotate(${target + 7}deg)`, offset: .86, easing: 'ease-in-out'},
-        {transform: `rotate(${target - 3}deg)`, offset: .93, easing: 'ease-in-out'},
-        {transform: `rotate(${target}deg)`, offset: 1},
-    ], {duration: 6200, fill: 'forwards'});
+        {transform: `rotate(${from}deg)`},
+        {transform: `rotate(${target}deg)`},
+    ], {duration: 6500, easing: 'cubic-bezier(.08,.62,.12,1)', fill: 'forwards'});
     return anim.finished.then(() => {
         ui.angle = target % 360;
         anim.cancel(); pointer.classList.remove('is-spinning'); placePointer(ui.angle);
@@ -126,7 +126,10 @@ function searchBar(placeholder, withSort) {
 function bindSearch(body, itemSelector, textOf) {
     body.querySelector('.upg-search input').oninput = e => {
         const q = e.target.value.trim().toLowerCase();
-        body.querySelectorAll(itemSelector).forEach(n => { n.hidden = Boolean(q) && !textOf(n).includes(q); });
+        let shown = 0;
+        body.querySelectorAll(itemSelector).forEach(n => { n.hidden = Boolean(q) && !textOf(n).includes(q); if (!n.hidden) shown++; });
+        const none = body.querySelector('.upg-none');
+        if (none) none.hidden = shown > 0;          // empty state instead of a blank sheet
     };
 }
 function sheet(title, content, onClose) {
@@ -170,7 +173,8 @@ async function openCollectionSheet() {
     try {
         ui.collections = (await api(`upgrade/collections?stake_id=${encodeURIComponent(ui.stake.id)}`)).collections || [];
         const body = el.querySelector('.upg-sheet-body');
-        body.innerHTML = `${searchBar('Поиск коллекции')}<div class="upg-collections">${ui.collections.map((c, i) => `<button type="button" class="upg-collection ${c.crafter ? 'has-crafter' : ''}" data-i="${i}" data-name="${h(String(c.name).toLowerCase())}">
+        if (!ui.collections.length) { body.innerHTML = '<p class="upg-empty">Нет доступных коллекций</p>'; return; }
+        body.innerHTML = `${searchBar('Поиск коллекции')}<p class="upg-empty upg-none" hidden>Ничего не найдено</p><div class="upg-collections">${ui.collections.map((c, i) => `<button type="button" class="upg-collection ${c.crafter ? 'has-crafter' : ''}" data-i="${i}" data-name="${h(String(c.name).toLowerCase())}">
             ${c.crafter ? `<em class="upg-badge">${c.crafter}</em>` : ''}
             <img src="${h(c.photo_url || '')}" alt="" loading="lazy" draggable="false"><span>${h(c.name)}</span></button>`).join('')}</div>`;
         bindSearch(body, '.upg-collection', node => node.dataset.name);

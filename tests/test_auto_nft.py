@@ -253,3 +253,20 @@ def test_admin_can_credit_a_gift_held_in_thermos(client, monkeypatch):
     nope = client.post('/api/admin/telegram-deposits/credit-link', headers=signed(),
                        json={'user_id': '43', 'url': 'https://t.me/nft/Other-5'})
     assert nope.status_code == 404
+
+
+def test_recover_returns_missed_relayer_gifts_to_their_senders(client, monkeypatch):
+    from telethon.tl import types
+    mine, stranger, anon = _entry('Snoop-1', 'Snoop Dogg', 1), _entry('Snoop-2', 'Snoop Dogg', 2), _entry('Snoop-3', 'Snoop Dogg', 3)
+    mine.from_id = types.PeerUser(user_id=43)          # sent by a registered player
+    stranger.from_id = types.PeerUser(user_id=999)     # sender never opened the app
+    _credit_setup(client, monkeypatch, [mine, stranger, anon])
+    assert client.post('/api/admin/telegram-deposits/recover', headers=signed(43), json={}).status_code == 403
+    r = client.post('/api/admin/telegram-deposits/recover', headers=signed(), json={})
+    assert r.status_code == 200
+    assert [(x['user_id'], x['number']) for x in r.json['credited']] == [(43, 1)]
+    assert r.json['skipped'] == {'no_sender': 1, 'not_registered': 1, 'already': 0}
+    gifts = client.get('/api/inventory', headers=signed(43)).json['gifts']
+    assert [g['number'] for g in gifts] == [1]
+    again = client.post('/api/admin/telegram-deposits/recover', headers=signed(), json={}).json
+    assert again['credited'] == [] and again['skipped']['already'] == 1          # never credited twice

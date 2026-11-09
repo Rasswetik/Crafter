@@ -549,6 +549,57 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         audit('Telegram relayer session imported')
         return {'ok': True, 'step': 'connected', **status()}
 
+    @app.post('/api/admin/telegram-deposits/recover')
+    @auth(admin=True)
+    def recover_missed():
+        """Credit gifts that sit on the relayer but were never credited (sent before this database existed, or recorded
+        as the initial baseline): each goes back to the Telegram user who sent it, if that user has opened the app."""
+        try:
+            api_id, api_hash = credentials()
+            c = config()
+            if not c.get('session'):
+                abort(409, description='Сначала подключите аккаунт Relayer')
+            _account, _name, records = asyncio.run(fetch_received(api_id, api_hash, decrypt(c['session'])))
+        except ValueError as error:
+            abort(409, description=str(error))
+        except Exception as error:
+            if getattr(error, 'code', None):
+                raise
+            abort(503, description='Не удалось проверить релейер. Повторите позже.')
+        credited, skipped, now = [], {'no_sender': 0, 'not_registered': 0, 'already': 0}, int(time.time())
+        for entry in records:
+            if getattr(entry, 'refunded', False):
+                continue
+            gift = gift_payload(entry)
+            if gift is None:
+                continue
+            sender = sender_user_id(entry)
+            if sender is None:
+                skipped['no_sender'] += 1
+                continue
+            with db():
+                db().execute('BEGIN IMMEDIATE')
+                receipt = db().execute('SELECT status FROM telegram_gift_receipts WHERE slug=?',
+                                       (gift['telegram_slug'],)).fetchone()
+                if (db().execute('SELECT 1 FROM inventory WHERE nft_id=? LIMIT 1', (gift['id'],)).fetchone()
+                        or (receipt and receipt['status'] == 'credited')):
+                    skipped['already'] += 1
+                    continue
+                if not db().execute('SELECT 1 FROM users WHERE id=?', (sender,)).fetchone():
+                    skipped['not_registered'] += 1
+                    continue
+                db().execute("""INSERT INTO telegram_gift_receipts(slug,sender_id,recipient_id,status,payload,received,processed)
+                    VALUES(?,?,?,?,?,?,?) ON CONFLICT(slug) DO UPDATE SET status='credited',recipient_id=excluded.recipient_id,
+                    payload=excluded.payload,processed=excluded.processed""",
+                             (gift['telegram_slug'], sender, sender, 'credited', json.dumps(gift), now, now))
+                db().execute('INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)',
+                             (sender, gift['id'], json.dumps(gift), 'unlisted'))
+                record('gift_received', dict(gifts=[gift], sender={'name': 'Telegram deposit', 'username': ''}, telegram=True),
+                       uid=sender)
+            credited.append({'user_id': sender, 'name': gift['name'], 'number': gift['number']})
+        audit('Missed relayer gifts recovered: %d' % len(credited))
+        return {'ok': True, 'credited': credited, 'skipped': skipped}
+
     @app.post('/api/admin/telegram-deposits/credit-link')
     @auth(admin=True)
     def credit_by_link():

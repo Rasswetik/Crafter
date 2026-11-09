@@ -152,6 +152,8 @@ async function renderTelegramDeposits(content = document.querySelector('#admin-c
             <label class="form-label">Telegram ID игрока<input id="credit-user" class="field" inputmode="numeric" autocomplete="off" placeholder="например 5257227756"></label>
             <label class="form-label">Ссылка на NFT<input id="credit-url" class="field" autocomplete="off" spellcheck="false" placeholder="https://t.me/nft/Название-123"></label>
             <button type="button" class="primary" onclick="relayerCreditLink()">Зачислить игроку</button>
+            <button type="button" class="secondary" onclick="relayerRecover()">Найти и зачислить пропущенные подарки</button>
+            <p class="relayer-config-description">Кнопка выше просматривает все подарки на релейере, которые ещё никому не зачислены (например, переданные до обновления), и возвращает их тем, кто их отправил. Отправитель должен хотя бы раз открыть приложение.</p>
             <p id="credit-feedback" class="relayer-feedback" role="status"></p>
         </section>
 
@@ -197,6 +199,22 @@ async function telegramDepositAction(action) {
     }
 }
 
+async function relayerRecover() {
+    const out = document.querySelector('#credit-feedback');
+    if (out) out.textContent = 'Проверяем релейер…';
+    try {
+        const r = await api('admin/telegram-deposits/recover', {});
+        const list = r.credited.map(x => x.name + ' #' + x.number + ' → ' + x.user_id).join('; ');
+        const text = r.credited.length ? 'Зачислено: ' + r.credited.length + ' (' + list + ')'
+            : 'Новых подарков для зачисления нет. Пропущено: без отправителя ' + r.skipped.no_sender +
+              ', отправитель не открывал приложение ' + r.skipped.not_registered + ', уже зачислены ' + r.skipped.already;
+        if (out) out.textContent = text;
+        toast(text);
+    } catch (error) {
+        if (out) out.textContent = error.message;
+        toast(error.message);
+    }
+}
 async function relayerCreditLink() {
     const out = document.querySelector('#credit-feedback');
     if (out) out.textContent = 'Проверяем подарок…';
