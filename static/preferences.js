@@ -384,7 +384,7 @@ crafterTranslationPairs.push(
     ["подарков","gifts"]
 );
 crafterTranslationPairs.push(
-    ['Нет доступных коллекций','No collections available'], ['Подарки','Gifts'],
+    ['Нет доступных коллекций','No collections available'], ['Событие','Event'], ['Подарки','Gifts'],
     ['Реферальная система','Referral system'], ['До 10% от комиссии Crafter за игры и сделки приглашённых друзей.',"Up to 10% of Crafter's fees from your friends' games and trades."],
     ['Цена ↑','Price ↑'], ['Цена ↓','Price ↓'], ['Сначала дешёвые','Cheapest first'], ['Сначала дорогие','Most expensive first'],
     ['Вы вошли на сайте','Signed in on the website'], ['Выйти из аккаунта?','Sign out?'], ['Выйти','Sign out'], ['Остаться','Stay'],

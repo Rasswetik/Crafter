@@ -1,0 +1,77 @@
+/* Event page decoration. Layered on top of new-year.css; decorative layers never take taps. */
+@property --nyp-angle{syntax:'<angle>';initial-value:0deg;inherits:false}
+.new-year-page{position:relative}
+.new-year-page .nyp-aurora,.new-year-page .nyp-stars,.new-year-page .nyp-snow,.new-year-page .nyp-icicles,.new-year-page .nyp-crystal,.new-year-page .nyp-bauble{pointer-events:none}
+
+/* ---- Hero ---- */
+.new-year-page .ny-hero{position:relative;isolation:isolate;min-height:210px;padding:62px 24px 26px;border:1.5px solid transparent;border-radius:30px;
+  background:linear-gradient(#0d1530,#0b1226) padding-box,conic-gradient(from var(--nyp-angle),#6cc3ff,#ffd36b,#ff7ab8,#9b7bff,#6cc3ff) border-box;
+  box-shadow:0 18px 50px rgba(10,20,50,.55),inset 0 1px 0 rgba(255,255,255,.12);animation:nyp-border 9s linear infinite}
+@keyframes nyp-border{to{--nyp-angle:360deg}}
+.new-year-page .ny-hero::after{content:none}
+.nyp-aurora{position:absolute;inset:-30%;z-index:-3;filter:blur(34px);opacity:.9;
+  background:radial-gradient(40% 36% at 18% 22%,rgba(70,170,255,.55),transparent 70%),radial-gradient(36% 40% at 82% 28%,rgba(170,90,255,.45),transparent 70%),
+             radial-gradient(44% 34% at 56% 92%,rgba(255,190,90,.34),transparent 70%);animation:nyp-aurora 14s ease-in-out infinite alternate}
+@keyframes nyp-aurora{from{transform:translate3d(-4%,-2%,0) rotate(-3deg)}to{transform:translate3d(5%,3%,0) rotate(4deg)}}
+.nyp-stars{position:absolute;inset:0;z-index:-2;opacity:.9;animation:nyp-twinkle 3.2s ease-in-out infinite alternate;
+  background:radial-gradient(circle at 12% 30%,#fff 0 1px,transparent 2px),radial-gradient(circle at 28% 72%,#fff 0 1.3px,transparent 2.3px),radial-gradient(circle at 47% 22%,#fff 0 1px,transparent 2px),
+             radial-gradient(circle at 64% 64%,#fff 0 1.4px,transparent 2.4px),radial-gradient(circle at 78% 18%,#ffe9a8 0 1.5px,transparent 2.6px),radial-gradient(circle at 91% 70%,#fff 0 1px,transparent 2px),
+             radial-gradient(circle at 36% 44%,#cfe8ff 0 1px,transparent 2px),radial-gradient(circle at 8% 84%,#ffe9a8 0 1.2px,transparent 2.2px)}
+@keyframes nyp-twinkle{from{opacity:.45}to{opacity:1}}
+.nyp-crystal{position:absolute;right:-14px;top:30px;width:112px;height:112px;z-index:-1;opacity:.55;filter:drop-shadow(0 0 10px rgba(140,205,255,.6));animation:nyp-spin 70s linear infinite}
+@keyframes nyp-spin{to{transform:rotate(360deg)}}
+.new-year-page .ny-hero small{display:inline-flex;align-items:center;gap:8px;color:#ffe2a0;letter-spacing:.18em}
+.new-year-page .ny-hero small::before{content:"";width:22px;height:1px;background:linear-gradient(90deg,transparent,#ffd36b)}
+.new-year-page .ny-hero h1{background:linear-gradient(100deg,#fff 0%,#ffe9a8 28%,#fff 48%,#ffd36b 68%,#fff 100%);background-size:260% 100%;-webkit-background-clip:text;background-clip:text;
+  color:transparent;-webkit-text-fill-color:transparent;animation:nyp-shine 7s linear infinite;text-shadow:none;filter:drop-shadow(0 2px 10px rgba(255,211,107,.28))}
+@keyframes nyp-shine{to{background-position:-260% 0}}
+.new-year-page .ny-hero p{color:#c7d6e4;max-width:300px}
+/* icicles along the top edge */
+.nyp-icicles{position:absolute;left:0;right:0;top:0;height:30px;z-index:1;border-radius:30px 30px 0 0;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 140 30'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffffff' stop-opacity='.95'/%3E%3Cstop offset='1' stop-color='%239fd6ff' stop-opacity='.55'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M0 0h140v3c-2 0-3 1-4 3l-3 12-3-12c-1-2-2-3-4-3-2 0-3 1-4 4l-4 22-4-22c-1-3-2-4-4-4-3 0-4 2-5 6l-3 14-3-14c-1-4-2-6-5-6-2 0-3 1-4 3l-4 17-4-17c-1-2-2-3-4-3-3 0-4 2-5 5l-3 10-3-10c-1-3-2-5-5-5-2 0-3 1-4 3l-4 20-4-20c-1-2-2-3-4-3-2 0-3 1-4 4l-3 9-3-9c-1-3-2-4-4-4-3 0-3 0-4 2Z' fill='url(%23g)'/%3E%3C/svg%3E") repeat-x left top/140px 30px;
+  filter:drop-shadow(0 2px 4px rgba(120,190,255,.35))}
+/* baubles that swing from the icicle edge */
+.nyp-bauble{position:absolute;left:var(--x);top:0;width:0;height:0;z-index:2;transform-origin:0 0;animation:nyp-swing 3.6s ease-in-out var(--delay) infinite}
+.nyp-bauble u{position:absolute;left:0;top:0;width:1.5px;height:var(--len);background:linear-gradient(#e7d28a,#a98a2e);transform:translateX(-.75px)}
+.nyp-bauble b{position:absolute;left:-10px;top:var(--len);width:20px;height:20px;border-radius:50%;
+  background:radial-gradient(circle at 34% 28%,#fff 0 9%,transparent 22%),radial-gradient(circle at 50% 50%,var(--a),var(--b) 78%);box-shadow:0 4px 10px rgba(0,0,0,.4),0 0 12px color-mix(in srgb,var(--a) 55%,transparent)}
+.nyp-bauble b::before{content:"";position:absolute;left:6px;top:-4px;width:8px;height:5px;border-radius:2px;background:linear-gradient(#f4dd8e,#b8912c)}
+@keyframes nyp-swing{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+/* snow inside the hero and the empty card */
+.nyp-snow{position:absolute;inset:0;overflow:hidden;z-index:0;border-radius:inherit}
+.nyp-flake{position:absolute;left:var(--x);top:-8px;width:var(--s);height:var(--s);border-radius:50%;background:radial-gradient(circle,#fff,rgba(220,240,255,.2));
+  box-shadow:0 0 6px rgba(200,230,255,.7);opacity:0;animation:nyp-fall var(--t) linear var(--d) infinite}
+@keyframes nyp-fall{0%{transform:translate3d(0,-8px,0);opacity:0}10%{opacity:.95}90%{opacity:.8}100%{transform:translate3d(var(--w),240px,0);opacity:0}}
+
+/* ---- Section title ---- */
+.new-year-page .ny-section-title h2{display:flex;align-items:center;gap:9px}
+.new-year-page .ny-section-title h2::before{content:"✦";font-size:15px;color:#ffd36b;text-shadow:0 0 10px rgba(255,211,107,.8);animation:nyp-twinkle 2.2s ease-in-out infinite alternate}
+.new-year-page .ny-section-title span{padding:5px 11px;border-radius:999px;color:#ffe2a0;background:rgba(255,211,107,.1);border:1px solid rgba(255,211,107,.28)}
+
+/* ---- Lots ---- */
+.new-year-page .ny-lot{position:relative;border:1px solid transparent;background:linear-gradient(150deg,#1d2338,#171c2c) padding-box,linear-gradient(135deg,rgba(108,195,255,.7),rgba(255,211,107,.55),rgba(255,122,184,.45)) border-box;
+  box-shadow:0 8px 22px rgba(5,10,30,.45);transition:transform .25s cubic-bezier(.3,1.4,.5,1),box-shadow .25s}
+.new-year-page .ny-lot:hover{transform:translateY(-4px);box-shadow:0 14px 34px rgba(60,140,255,.32),0 0 0 1px rgba(255,255,255,.08)}
+.new-year-page .ny-lot-art::after{content:"";position:absolute;inset:0;pointer-events:none;animation:nyp-twinkle 2.6s ease-in-out infinite alternate;
+  background:radial-gradient(circle at 18% 16%,#fff 0 1.4px,transparent 2.4px),radial-gradient(circle at 84% 28%,#ffe9a8 0 1.3px,transparent 2.3px),radial-gradient(circle at 72% 84%,#fff 0 1.5px,transparent 2.5px)}
+.new-year-page .ny-lot-price{position:relative;overflow:hidden;background:linear-gradient(135deg,#1c6fd0,#3d9dff 45%,#1c6fd0);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 6px 14px rgba(28,111,208,.4)}
+.new-year-page .ny-lot-price::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.38) 50%,transparent 65%);transform:translateX(-120%);animation:nyp-sweep 4.2s ease-in-out infinite}
+@keyframes nyp-sweep{0%,55%{transform:translateX(-120%)}100%{transform:translateX(120%)}}
+
+/* ---- Empty state ---- */
+.new-year-page .ny-empty{position:relative;overflow:hidden;border:1px solid rgba(108,195,255,.28);background:radial-gradient(70% 90% at 50% 0,rgba(90,140,255,.2),transparent 70%),#121a2e;color:#b9c8d8}
+.new-year-page .ny-empty>*{position:relative;z-index:1}
+.new-year-page .ny-empty img{opacity:1;height:64px;width:64px;filter:drop-shadow(0 0 14px rgba(255,100,110,.55));animation:nyp-float 3.4s ease-in-out infinite}
+@keyframes nyp-float{0%,100%{transform:translateY(0) rotate(-4deg)}50%{transform:translateY(-8px) rotate(4deg)}}
+.new-year-page .ny-empty h3{background:linear-gradient(100deg,#fff,#ffe2a0,#fff);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent}
+.new-year-page .ny-empty .nyp-snow{z-index:0}
+
+/* ---- Wallet chips on this page ---- */
+.ny-balance{background:linear-gradient(150deg,rgba(255,211,107,.14),rgba(255,255,255,.03)),#1a2030;border-color:rgba(255,211,107,.3)}
+
+@media(max-width:380px){.nyp-crystal{width:96px;height:96px;right:-16px}.new-year-page .ny-hero{padding:58px 18px 22px}}
+@media(prefers-reduced-motion:reduce){
+  .new-year-page .ny-hero,.nyp-aurora,.nyp-stars,.nyp-crystal,.nyp-bauble,.nyp-flake,.new-year-page .ny-hero h1,.new-year-page .ny-section-title h2::before,
+  .new-year-page .ny-lot-art::after,.new-year-page .ny-lot-price::after,.new-year-page .ny-empty img{animation:none}
+  .nyp-flake{display:none}
+}
