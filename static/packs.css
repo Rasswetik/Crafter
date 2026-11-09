@@ -147,3 +147,9 @@
 .pk-ch{position:absolute;top:8px;right:8px;padding:2px 7px;border-radius:999px;font-style:normal;font-size:11px;font-weight:800;color:#1a1204;background:linear-gradient(135deg,#ffe9a8,#ffc14d);display:none}
 .pk-info.show-chances .pk-ch{display:block}
 .pk-info .pk-h{text-transform:none;letter-spacing:0;font-size:18px;color:#fff}
+
+/* "What is inside?" window and its button */
+.pk-inside-btn{width:100%;margin:10px 0}
+.pk-inside .adm-pick-win{width:min(560px,100%)}
+.pk-inside-body{display:block}
+.pk-inside .adm-pick-head b{display:flex;align-items:center;gap:8px}

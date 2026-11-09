@@ -85,12 +85,12 @@ function cardArt(data) {
         return '<rect x="' + (X - 4) + '" y="' + (p.ty - 1.4).toFixed(1) + '" width="' + (W + 8) + '" height="2.8" rx="1.4" fill="' + (on ? '#ffe9a8' : '#c8d9f2') + '" opacity=".85"/>' +
             '<image href="' + e(img(p.m)) + '" x="' + (X + W + 12) + '" y="' + (p.cy - 15).toFixed(1) + '" width="30" height="30" opacity="' + (on ? 1 : .5) + '" preserveAspectRatio="xMidYMid meet"/>';
     }).join('');
-    return '<svg class="nyh-art nyh-art-cm" viewBox="0 0 400 170" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">' +
+    return '<svg class="nyh-art nyh-art-cm" viewBox="0 0 400 170" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">' +
         '<defs><linearGradient id="cc-sky" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0c1a3e"/><stop offset="1" stop-color="#25266b"/></linearGradient>' +
         '<linearGradient id="cc-fill" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#1366d6"/><stop offset=".6" stop-color="#3ea8ff"/><stop offset="1" stop-color="#bfe8ff"/></linearGradient>' +
         '<pattern id="cc-str" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="12" fill="#fff" opacity=".18"/></pattern>' +
         '<linearGradient id="cc-glass" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset=".35" stop-color="#fff" stop-opacity=".04"/><stop offset=".85" stop-color="#fff" stop-opacity=".02"/><stop offset="1" stop-color="#fff" stop-opacity=".16"/></linearGradient></defs>' +
-        '<rect width="400" height="170" fill="url(#cc-sky)"/>' + stars +
+        stars +
         '<rect x="' + X + '" y="' + Y + '" width="' + W + '" height="' + H + '" rx="20" fill="#0f1830" stroke="rgba(190,225,255,.6)" stroke-width="1.6"/>' +
         '<rect x="' + (X + 4) + '" y="' + (Y + H - 4 - fillH).toFixed(1) + '" width="' + (W - 8) + '" height="' + fillH.toFixed(1) + '" rx="16" fill="url(#cc-fill)"/>' +
         '<rect x="' + (X + 4) + '" y="' + (Y + H - 4 - fillH).toFixed(1) + '" width="' + (W - 8) + '" height="' + fillH.toFixed(1) + '" rx="16" fill="url(#cc-str)"/>' +
@@ -272,7 +272,7 @@ async function admin(content) {
         '<label>Когда открывается<input name="threshold" type="number" min="1" step="1" required placeholder="например 1000"><small class="sub">Сколько должно быть собрано</small></label>' +
         '<label>Тираж<input name="supply" type="number" min="1" step="1" required value="100"><small class="sub">Сколько игроков получат</small></label>' +
         '<label id="cm-amount-label">Размер награды<input name="reward_amount" inputmode="decimal" value="1"></label>' +
-        '<label id="cm-pack-label" hidden>Какой пак<select name="reward_pack">' + packs.map(p => '<option value="' + e(p.id) + '">' + e(p.title) + '</option>').join('') + '</select></label>' +
+        '<div id="cm-pack-label" class="full" hidden><span class="adm-lbl">Какой пак</span>' + (window.crafterPacks ? window.crafterPacks.packTiles(packs, packs[0]?.id) : '') + '<input type="hidden" name="reward_pack" value="' + e(packs[0]?.id || '') + '"></div>' +
         '<label>Цена в шарах<input name="price_balls" type="number" min="0" step="1" value="0"><small class="sub">0 — бесплатно</small></label>' +
         '<label class="full">Картинка (необязательно)<input name="image_url" placeholder="Для пака берётся его картинка"></label>' +
         '<label class="full">Название (необязательно)<input name="title" maxlength="80" placeholder="Создастся автоматически"></label></div>' +
@@ -295,6 +295,10 @@ async function admin(content) {
         const amt = form.querySelector('[name=reward_amount]');
         amt.value = kind === 'BALL' ? '100' : '1';
         form.querySelector('#cm-amount-label').firstChild.textContent = kind === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM';
+    }));
+    form?.querySelectorAll('[data-adm-pack]').forEach(b => b.addEventListener('click', () => {
+        form.elements.reward_pack.value = b.dataset.admPack;
+        form.querySelectorAll('[data-adm-pack]').forEach(x => x.classList.toggle('is-on', x === b));
     }));
     form?.addEventListener('submit', ev2 => {
         ev2.preventDefault();

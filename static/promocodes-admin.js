@@ -6,7 +6,7 @@ async function renderAdminPromocodes(content=document.querySelector('#admin-cont
     let packs=[];try{packs=(await api('admin/new-year/packs')).packs||[];}catch(_){}
     const list=data.codes.length?data.codes.map(row=>
         '<div class="ny-admin-row"><div><b>'+esc(row.code)+'</b><small>'+
-        esc(String(row.reward))+' '+unit(row.currency)+' · '+row.used+' / '+row.uses_limit+
+        (row.currency==='PACK'?esc(((packs.find(p=>p.id===String(row.reward).split(':')[0])||{}).title)||'Пак')+' ×'+esc(String(row.reward).split(':')[1]||'1'):esc(String(row.reward))+' '+unit(row.currency))+' · '+row.used+' / '+row.uses_limit+
         ' активаций</small></div><button type="button" data-promo-code="'+esc(row.code)+
         '" data-next="'+(row.active?'0':'1')+'">'+(row.active?'Выключить':'Включить')+
         '</button></div>').join(''):'<p class="sub">Промокодов пока нет.</p>';
@@ -18,17 +18,20 @@ async function renderAdminPromocodes(content=document.querySelector('#admin-cont
       '<label class="full">Тип награды<select name="currency" id="crafter-promo-currency" class="field">'+
       '<option value="GRAM">TON / GRAM — основной баланс</option>'+
       '<option value="BALL">Новогодние шары</option>'+(packs.length?'<option value="PACK">Карточный пак</option>':'')+'</select></label>'+
-      '<label id="crafter-promo-pack-label" hidden>Пак<select name="reward_pack" class="field">'+packs.map(p=>'<option value="'+esc(p.id)+'">'+esc(p.title)+'</option>').join('')+'</select></label>'+
+      '<div id="crafter-promo-pack-label" class="full" hidden><span class="adm-lbl">Какой пак</span>'+(window.crafterPacks?window.crafterPacks.packTiles(packs,packs[0]?.id):'')+'<input type="hidden" name="reward_pack" value="'+esc(packs[0]?.id||'')+'"></div>'+
+      '<label id="crafter-promo-count-label" hidden>Сколько паков за одну активацию<input name="pack_count" type="number" min="1" max="20" step="1" value="1"></label>'+
       '<label id="crafter-promo-amount-label">Сумма награды<input name="reward" id="crafter-promo-amount" type="number" min="0.000001" max="100000" step="0.000001" required placeholder="0.1"></label>'+
       '<label>Число активаций<input name="limit" type="number" min="1" max="1000000" step="1" required placeholder="100"></label>'+
       '<button type="submit" class="primary full">Создать промокод</button></form>'+
       '<div id="crafter-promo-created" class="promo-result" role="status" hidden></div></section>'+
       '<section class="ny-admin-section"><h3>Промокоды</h3><div class="ny-admin-list">'+list+'</div></section>';
     const form=content.querySelector('#crafter-promo-admin-form');
+    form.querySelectorAll('[data-adm-pack]').forEach(b=>b.addEventListener('click',()=>{form.elements.reward_pack.value=b.dataset.admPack;form.querySelectorAll('[data-adm-pack]').forEach(x=>x.classList.toggle('is-on',x===b));}));
     const type=form.elements.currency,amount=form.elements.reward;
     type.addEventListener('change',()=>{
         const isPack=type.value==='PACK';
         form.querySelector('#crafter-promo-pack-label').hidden=!isPack;
+        form.querySelector('#crafter-promo-count-label').hidden=!isPack;
         form.querySelector('#crafter-promo-amount-label').hidden=isPack;
         amount.required=!isPack;
         const ball=type.value==='BALL';

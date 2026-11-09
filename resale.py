@@ -157,7 +157,7 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
             item = available_collections.get(key)
             if not item or price < Decimal(item['price']):
                 available_collections[key] = {'value': str(gift.get('collection_id') or gift.get('name','')),
-                    'name': gift.get('name',''), 'image': '', 'price': str(price)}
+                    'name': gift.get('name',''), 'image': gift.get('image','') if gift.get('pack_item') else '', 'price': str(price)}
             if collections and not collections.intersection(canonical_name(gift.get(k, '')) for k in ('collection_id', 'name')):
                 continue
             collection_floor = min(price, collection_floor) if collection_floor is not None else price

@@ -181,3 +181,51 @@
 .nyh-copy{max-width:54%}
 .nyh-community .nyh-mini{max-width:200px}
 @media(max-width:380px){.nyh-copy strong{font-size:20px}}
+
+/* Hub cards: full width again, fixed height, plain white titles */
+.ny-hubpage{max-width:none!important}
+.nyh-card{aspect-ratio:auto!important;height:176px;min-height:176px!important}
+.nyh-community{background:linear-gradient(135deg,#0c1a3e,#25266b) padding-box,conic-gradient(from var(--nyp-angle,0deg),#6cc3ff,#ffd36b,#ff7ab8,#9b7bff,#6cc3ff) border-box}
+.nyh-copy strong{background:none!important;-webkit-background-clip:border-box!important;background-clip:border-box!important;color:#fff!important;-webkit-text-fill-color:#fff!important;filter:none!important;
+  font-size:28px;font-weight:800;letter-spacing:-.4px;text-shadow:0 2px 14px rgba(0,0,0,.55)}
+@media(max-width:560px){.nyh-copy strong{font-size:22px}}
+
+/* ---- Admin forms: clear steps, picture tiles, no drop-downs for gifts and packs ---- */
+.ny-admin-section [hidden],.ny-admin-fields [hidden],#crafter-promo-admin-form [hidden]{display:none!important}
+.adm-step{margin:18px 0 6px}
+.adm-step h4,.adm-lbl{display:block;margin:0 0 10px;font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#aebbd0}
+.adm-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.adm-tiles.small{grid-template-columns:repeat(3,minmax(0,1fr))}
+.adm-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:14px 10px;border-radius:16px;text-align:center;color:#e6eefb;cursor:pointer;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.1);transition:border-color .2s,background .2s,transform .2s}
+.adm-tile:hover{background:rgba(255,255,255,.08)}
+.adm-tile.is-on{border-color:#2b7be0;background:rgba(43,123,224,.16);box-shadow:0 0 0 3px rgba(43,123,224,.18)}
+.adm-tile img{width:44px;height:44px;object-fit:contain}
+.adm-tile b{font-size:14px}.adm-tile small{font-size:11.5px;color:#8fa0ba;line-height:1.3}
+.adm-packs{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.adm-pack{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px;border-radius:16px;color:#e6eefb;cursor:pointer;background:rgba(255,255,255,.04);border:1.5px solid rgba(255,255,255,.1)}
+.adm-pack img{width:70px;height:88px;object-fit:contain}.adm-pack b{font-size:13px}
+.adm-pack.is-on{border-color:#2b7be0;background:rgba(43,123,224,.16);box-shadow:0 0 0 3px rgba(43,123,224,.18)}
+.adm-field{display:flex;flex-direction:column;gap:6px;min-width:0}
+.adm-field label{font-size:13px;color:#aebbd0}
+.adm-field input{width:100%;box-sizing:border-box;height:46px;padding:0 14px;border-radius:14px;font-size:15px;color:#fff;background:#14171d;border:1px solid #2c3037}
+.adm-field input:focus{outline:2px solid #2b7be0;outline-offset:1px}
+.adm-chips{display:flex;gap:6px;flex-wrap:wrap}
+.adm-chips button{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:600;color:#cfe0f5;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);cursor:pointer}
+.adm-row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+@media(max-width:700px){.adm-row3{grid-template-columns:1fr}.adm-row3 .adm-field{grid-column:auto!important}}
+.adm-more{margin:14px 0 4px}.adm-more summary{cursor:pointer;font-size:13px;font-weight:700;color:#aebbd0;margin-bottom:10px}
+.adm-preview{max-width:230px}.adm-preview .ny-grid{grid-template-columns:1fr}
+#crafter-promo-admin-form .adm-packs{margin-bottom:8px}
+
+/* gift picker window and prize rows */
+.adm-pick{position:fixed;inset:0;z-index:2147483100;display:grid;place-items:center;padding:16px;background:rgba(5,8,20,.72);backdrop-filter:blur(6px)}
+.adm-pick-win{width:min(720px,100%);max-height:88vh;display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:24px;background:#16191f;border:1px solid #2c3037;box-shadow:0 24px 70px rgba(0,0,0,.6)}
+.adm-pick-head{display:flex;align-items:center;justify-content:space-between;font-size:18px;color:#fff}
+.adm-pick-x{width:36px;height:36px;border-radius:50%;font-size:22px;line-height:1;color:#cfe0f5;background:rgba(255,255,255,.08);border:0;cursor:pointer}
+.adm-pick-search{height:44px;padding:0 14px;border-radius:14px;font-size:15px;color:#fff;background:#0f1216;border:1px solid #2c3037}
+.adm-pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;overflow:auto;padding:2px}
+.adm-pick-card{display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px;border-radius:16px;color:#fff;cursor:pointer;background:radial-gradient(60% 55% at 50% 35%,rgba(120,150,200,.25),transparent 72%),#12151b;border:1px solid rgba(255,255,255,.1);transition:transform .2s,border-color .2s}
+.adm-pick-card:hover{transform:translateY(-2px);border-color:#2b7be0}
+.adm-pick-card img{width:84px;height:84px;object-fit:contain}.adm-pick-card b{font-size:13px}
+.pk-pick{display:flex;align-items:center;gap:8px;min-width:0;height:44px;padding:0 10px;border-radius:12px;font-size:14px;color:#fff;cursor:pointer;background:#14171d;border:1px solid #2c3037;text-align:left}
+.pk-pick img{width:30px;height:30px;object-fit:contain}.pk-pick span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

@@ -22,6 +22,11 @@ DEFAULT_PACK = 'newyear'
 DEFAULT_IMAGE = '/static/assets/packs/default-pack.webp'
 NEW_YEAR_IMAGE = '/static/assets/packs/new-year-pack.webp'
 COLLECTION = ('packs', 'Pack')
+# NFT-style backdrops: (name, centre colour, edge colour)
+BACKDROPS = (('Moonstone', 0x8FC1D4, 0x3C7C93), ('Persimmon', 0xF08A4B, 0xB9501F), ('Emerald', 0x3FBF8A, 0x14684A), ('Raspberry', 0xE0557F, 0x8E1F46),
+             ('Sapphire', 0x4F86E8, 0x1E3E8F), ('Amber', 0xF2B94B, 0xAE7416), ('Lavender', 0xB79CF0, 0x6A4BB5), ('Burgundy', 0xA13A4C, 0x4B1520),
+             ('Pacific Cyan', 0x3BC4D9, 0x14788C), ('Midnight Blue', 0x4A5AA8, 0x161C45), ('Coral', 0xF27B6B, 0xAA3A33), ('Mint Green', 0x7AD9A8, 0x2F8B63),
+             ('Fuchsia', 0xD960C7, 0x7E1F75), ('Silver Blue', 0x9FB6CF, 0x4F6580), ('Tomato', 0xE8503E, 0x8F1C14), ('Cobalt Blue', 0x3F6BD6, 0x172E80))
 _LIMIT = 10**9
 _rng = secrets.SystemRandom()
 
@@ -156,8 +161,10 @@ def install_packs(app, db, auth, record, audit):
         db().execute("INSERT INTO user_packs(id,user_id,pack_id,source,request_id,created) VALUES(?,?,?,?,?,?)",
                      (upid, uid, pack_id, source, request_id, int(time.time())))
         serial = int(db().execute("SELECT COUNT(*) AS n FROM user_packs WHERE pack_id=?", (pack_id,)).fetchone()['n'])
+        bd = _rng.choice(BACKDROPS)
         gift = {'id': 'packitem-' + upid, 'name': COLLECTION[1], 'number': serial, 'model': pack['title'],
-                'symbol': '', 'backdrop': '', 'image': pack['image_url'], 'price': '0', 'price_unit': 'GRAM',
+                'symbol': '', 'image': pack['image_url'], 'price': '0', 'price_unit': 'GRAM',
+                'backdrop': bd[0], 'background': {'center_color': bd[1], 'edge_color': bd[2]},
                 'collection_id': COLLECTION[0], 'collection_name': COLLECTION[1], 'origin': 'pack', 'pack_item': True,
                 'pack_id': pack_id, 'user_pack_id': upid}
         db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)",
@@ -337,7 +344,11 @@ def install_packs(app, db, auth, record, audit):
     @auth(admin=True)
     def admin_packs():
         rows = db().execute("SELECT * FROM packs ORDER BY created").fetchall()
-        return {'packs': [admin_pack(p) for p in rows], 'collections': seasonal_collections()}
+        cols = []
+        for c in seasonal_collections():
+            v = live_value({'kind': 'NFT', 'name': c['name'], 'collection_id': c['id'], 'value': c['value']})
+            cols.append({**c, 'value': plain(v)})
+        return {'packs': [admin_pack(p) for p in rows], 'collections': cols}
 
     @app.post('/api/admin/new-year/packs')
     @auth(admin=True)

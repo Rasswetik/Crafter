@@ -32,7 +32,7 @@ async function submitPromo(form){
             feedback(form,true,'Пак получен — открываем!');
             form.reset();
             if(typeof closeSheet==='function')closeSheet();
-            if(window.crafterPacks)window.crafterPacks.granted(result.pack_id);
+            if(window.crafterPacks)window.crafterPacks.granted(result.pack_id,null,(result.pack_ids||[]).length);
             return;
         }
         const balls=result.currency==='BALL';

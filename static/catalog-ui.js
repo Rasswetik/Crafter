@@ -107,6 +107,13 @@ function catalogTraitPNG(kind, collectionName, name) {
 }
 function catalogArtworkURLs(row) {
     const kind=state.sheetKind;
+    // Card packs have their own picture for the collection and the model rows.
+    if(kind==='collection'||kind==='model'){
+        const pack=[...(state.inventory||[]),...(state.gifts||[])].find(g=>g.pack_item&&(kind==='collection'?
+            (String(row.value)===String(g.collection_id)||String(row.name).toLowerCase()===String(g.name).toLowerCase()):
+            String(g.model||'').toLowerCase()===String(row.name||'').toLowerCase()));
+        if(pack&&pack.image)return [imageURL(pack.image)];
+    }
     const collection=catalogCollectionForArtwork(row);
     const name=row.collection_name||collection?.name||
         ((kind==='collection'||kind==='target')?row.name:'');
@@ -439,8 +446,8 @@ function showGiftDetail(gift, source) {
                     ${crafterTelegramPlaneSVG()}
                 </button>` : ''}
                 <button type="button" class="gift-detail-tool gift-eye-tool"
-                    onclick="openGiftTelegramView()" aria-label="Посмотреть NFT в Telegram"
-                    title="Посмотреть в Telegram" ${telegramGiftLink(gift) ? '' : 'disabled'}>
+                    onclick="${gift.pack_item ? 'openPackContents(' + arg(gift.id) + ')' : 'openGiftTelegramView()'}" aria-label="${gift.pack_item ? 'Что внутри' : 'Посмотреть NFT в Telegram'}"
+                    title="${gift.pack_item ? 'Что внутри' : 'Посмотреть в Telegram'}" ${gift.pack_item || telegramGiftLink(gift) ? '' : 'disabled'}>
                     ${crafterGiftEyeSVG()}
                 </button>
                 <button type="button" class="gift-detail-tool gift-share-tool"
@@ -497,12 +504,6 @@ function showGiftDetail(gift, source) {
     const panel = document.querySelector('#sheet-body .product-properties');
     const art = document.querySelector('#sheet-body .portal-product');
     const feeLabel = document.querySelector('#sheet-body [data-offer-button-fee]');
-    if (gift.pack_item && panel && window.crafterPacks) {
-        const host = document.createElement('div');
-        host.id = 'pk-contents';
-        document.querySelector('#sheet-body').appendChild(host);
-        window.crafterPacks.contentsHtml(gift.pack_id).then(html => { if (host.isConnected) host.innerHTML = html || ''; });
-    }
     if (feeLabel) api('offers').then(data => {
         if (feeLabel.isConnected && state.detailGift === gift) {
             feeLabel.textContent = money(data.fee_gram) + ' GRAM';
@@ -511,7 +512,7 @@ function showGiftDetail(gift, source) {
     requestAnimationFrame(() => {
         setTimeout(() => {
             if (!panel?.isConnected || !art?.isConnected || state.detailGift !== gift) return;
-            if (gift.pack_item) return;
+            if (gift.pack_item) { art.style.background = giftBackdrop(gift); return; }
             loadGiftAttributePrices(panel, gift, attributes);
             mountGiftAnimation(art, gift, null, own); // Auto-play TGS for owned gift details.
         }, 40);

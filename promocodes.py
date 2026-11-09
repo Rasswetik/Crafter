@@ -9,7 +9,15 @@ from decimal import Decimal, InvalidOperation
 
 from flask import abort, g, request
 
-ALPHABET='0123456789'
+LETTERS='ABCDEFGHJKLMNPQRSTUVWXYZ'
+DIGITS='23456789'
+
+def random_code():
+    """8 characters: letters dominate (6), plus 2 digits, in random order."""
+    rng=secrets.SystemRandom()
+    chars=[secrets.choice(LETTERS) for _ in range(6)]+[secrets.choice(DIGITS) for _ in range(2)]
+    rng.shuffle(chars)
+    return ''.join(chars)
 AMOUNT_PRECISION=Decimal('0.000001')
 
 def to_amount(value):
@@ -70,6 +78,10 @@ def install_promocodes(app, db, auth, record, audit):
             reward=str(body.get('reward') or '')
             if not app.extensions['crafter_pack_exists'](reward):
                 abort(400,description='Выберите существующий пак')
+            try:count=int(body.get('pack_count') or 1)
+            except (TypeError,ValueError):abort(400,description='Количество паков — целое число')
+            if not 1<=count<=20:abort(400,description='Паков за одну активацию: от 1 до 20')
+            reward=reward+':'+str(count)
         elif currency=='GRAM':
             reward=str(to_amount(body.get('reward')))
         else:
@@ -86,7 +98,7 @@ def install_promocodes(app, db, auth, record, audit):
                     abort(409,description='Промокод уже существует')
             else:
                 for _ in range(20):
-                    generated=''.join(secrets.choice(ALPHABET) for _ in range(8))
+                    generated=random_code()
                     if not db().execute("SELECT 1 FROM promo_codes WHERE code=?",(generated,)).fetchone():
                         code=generated;break
                 if not code:abort(503,description='Не удалось создать уникальный код')
@@ -137,11 +149,13 @@ def install_promocodes(app, db, auth, record, audit):
                 abort(409,description='Активации закончились')
             currency=row['currency'] or 'GRAM'
             if currency=='PACK':
-                upid=app.extensions['crafter_grant_pack'](uid,row['reward'],'promo:'+code)
+                pack_id,_,amount=str(row['reward']).partition(':')
+                count=int(amount) if amount.isdigit() else 1
+                ids=[app.extensions['crafter_grant_pack'](uid,pack_id,'promo:'+code) for _ in range(count)]
                 db().execute("INSERT INTO promo_claims(code,user_id,claimed_at,reward) VALUES(?,?,?,?)",
                              (code,uid,int(time.time()),row['reward']))
-                record('promo_redeem',{'code':code,'reward':row['reward'],'currency':'PACK'},uid=uid)
-                return {'ok':True,'reward':row['reward'],'currency':'PACK','pack_id':upid,'balance':None,'new_year_balance':None}
+                record('promo_redeem',{'code':code,'reward':row['reward'],'currency':'PACK','packs':count},uid=uid)
+                return {'ok':True,'reward':row['reward'],'currency':'PACK','pack_id':ids[0],'pack_ids':ids,'balance':None,'new_year_balance':None}
             account=db().execute("SELECT balance FROM demo_accounts WHERE user_id=?",(uid,)).fetchone()
             before=Decimal(str(account['balance'])) if account else Decimal('0')
             after=before

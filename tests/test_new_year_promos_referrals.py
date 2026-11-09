@@ -92,7 +92,7 @@ def test_promo_numeric_auto_generated_usage_limit_and_balances(client):
         'code':'','reward':'0.1','limit':'2'})
     assert made.status_code==200,made.json
     code=made.json['code']
-    assert len(code)==8 and code.isdigit()
+    assert len(code)==8 and code.isalnum() and sum(c.isalpha() for c in code)==6
     for uid in (43,44):
         redemption=client.post('/api/promocodes/redeem',headers=signed(uid),
                                json={'code':code})

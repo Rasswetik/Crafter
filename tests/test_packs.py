@@ -49,6 +49,7 @@ def test_buy_open_and_sell(client):
     inv = client.get('/api/inventory', headers=player).json['gifts']
     item = next(x for x in inv if x['id'] == 'packitem-' + upid)
     assert item['name'] == 'Pack' and item['model'] == 'New Year' and item['pack_item'] and item['status'] == 'unlisted'
+    assert item['backdrop'] and item['background']['center_color'] and item['number'] >= 1
     assert client.get('/api/packs', headers=player).json['mine'][0]['id'] == upid
     before = balance(client, player)
     opened = client.post('/api/packs/open', headers=player, json={'user_pack_id': upid})
@@ -100,11 +101,11 @@ def test_community_pack_reward_promo_and_redeemed_flag(client):
     by_id = {m['id']: m for m in client.get('/api/community', headers=player).json['milestones']}
     assert by_id[gram.json['id']]['redeemed'] is True            # activated code leaves the market
 
-    code = client.post('/api/admin/promocodes', headers=admin, json={'currency': 'PACK', 'reward': pack['id'], 'limit': 1})
+    code = client.post('/api/admin/promocodes', headers=admin, json={'currency': 'PACK', 'reward': pack['id'], 'pack_count': 2, 'limit': 1})
     assert code.status_code == 200
     r = client.post('/api/promocodes/redeem', headers=player, json={'code': code.json['code']})
-    assert r.status_code == 200 and r.json['pack_id']
-    assert len(client.get('/api/packs', headers=player).json['mine']) == 1
+    assert r.status_code == 200 and r.json['pack_id'] and len(r.json['pack_ids']) == 2
+    assert len(client.get('/api/packs', headers=player).json['mine']) == 2
 
 
 def test_milestone_title_is_generated_when_empty(client):

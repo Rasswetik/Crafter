@@ -59,6 +59,13 @@ async function sheetFor(it, refresh) {
 }
 
 /* ---------- administrator ---------- */
+const KIND_TILES = [
+    ['GRAM', 'GRAM на баланс', 'Игрок сразу получает GRAM', '/static/assets/gram.svg'],
+    ['BALL', 'Новогодние шары', 'Игрок получает шары', '/static/assets/new-year-ornament.svg'],
+    ['PACK', 'Карточный пак', 'Пак попадает в инвентарь', '/static/assets/packs/new-year-pack.webp'],
+    ['PROMO', 'Промокод', 'Уникальный код для покупателя', '/static/assets/community-reward.svg'],
+];
+const PROMO_TILES = [['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg'], ['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp']];
 async function admin(content) {
     let r, packs = [];
     try { r = await api('admin/new-year/shop'); } catch (_) { return; }
@@ -67,48 +74,60 @@ async function admin(content) {
     const sec = document.createElement('section');
     sec.className = 'ny-admin-section si-admin';
     sec.dataset.pane = 'shop';
-    const rows = r.items.map(it => '<div class="ny-admin-row"><div class="cm-admin-pic"><img src="' + e(art(it)) + '" alt=""></div><div><b>' + e(it.title) + '</b><small>' + e(LABEL[it.kind]) + ' · ' +
+    content.appendChild(sec);
+    const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', stock: '', per: '', image: '', title: ''};
+    const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
+    const tile = (on, attr, img, title, hint) => '<button type="button" class="adm-tile' + (on ? ' is-on' : '') + '" ' + attr + '><img src="' + e(img) + '" alt=""><b>' + title + '</b>' + (hint ? '<small>' + hint + '</small>' : '') + '</button>';
+    const preview = () => {
+        const it = {kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, title: f.title || autoTitle(), image_url: f.image,
+            pack: packs.find(p => p.id === f.pack) ? {image: packs.find(p => p.id === f.pack).image} : null, price_balls: Number(f.price) || 0, left: f.stock ? Number(f.stock) : null};
+        return tiles([it])[0] || '';
+    };
+    const autoTitle = () => {
+        const w = eff() === 'PACK' ? 'Pack ' + (packs.find(p => p.id === f.pack)?.title || '') : eff() === 'BALL' ? num(f.amount) + ' шаров' : num(f.amount) + ' GRAM';
+        return f.kind === 'PROMO' ? 'Промокод: ' + w : w;
+    };
+    const list = () => r.items.map(it => '<div class="ny-admin-row"><div class="cm-admin-pic"><img src="' + e(art(it)) + '" alt=""></div><div><b>' + e(it.title) + '</b><small>' + e(LABEL[it.kind]) + ' · ' +
         (it.price_balls ? num(it.price_balls) + ' шаров' : 'бесплатно') + ' · продано ' + it.sold + (it.stock !== null ? '/' + it.stock : '') + (it.status === 'hidden' ? ' · скрыт' : '') + '</small></div>' +
         '<span><button type="button" data-si-st="' + e(it.id) + '" data-next="' + (it.status === 'active' ? 'hidden' : 'active') + '">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button> <button type="button" data-si-del="' + e(it.id) + '">Удалить</button></span></div>').join('');
-    sec.innerHTML = '<h3>Новый товар</h3><p class="sub">Товары за новогодние шары. Появляются в новогоднем маркете рядом с подарками.</p>' +
-        '<form id="si-form"><div class="cm-seg">' + KIND_NAME.filter(k => !(k[0] === 'PACK' && !packs.length)).map((k, i) => '<button type="button" data-kind="' + k[0] + '" class="' + (i === 0 ? 'is-on' : '') + '">' + k[1] + '</button>').join('') + '</div>' +
-        '<div class="ny-admin-fields">' +
-        '<label id="si-promo-label" class="full" hidden>Что даёт промокод<select name="promo_kind"><option value="GRAM">GRAM</option><option value="BALL">Шары</option>' + (packs.length ? '<option value="PACK">Карточный пак</option>' : '') + '</select></label>' +
-        '<label id="si-amount-label">Сколько GRAM<input name="amount" inputmode="decimal" value="1"></label>' +
-        '<label id="si-pack-label" hidden>Какой пак<select name="amount_pack">' + packs.map(p => '<option value="' + e(p.id) + '">' + e(p.title) + '</option>').join('') + '</select></label>' +
-        '<label>Цена в шарах<input name="price_balls" type="number" min="0" step="1" value="0"><small class="sub">0 — бесплатно</small></label>' +
-        '<label>Количество в наличии<input name="stock" type="number" min="1" step="1" placeholder="без ограничений"></label>' +
-        '<label>Лимит на игрока<input name="per_user" type="number" min="1" step="1" placeholder="без ограничений"></label>' +
-        '<label class="full">Картинка (необязательно)<input name="image_url" placeholder="https://…/image.png"></label>' +
-        '<label class="full">Название (необязательно)<input name="title" maxlength="80" placeholder="Создастся автоматически"></label></div>' +
-        '<button class="primary" type="submit">Добавить товар</button></form>' +
-        '<h3 style="margin-top:22px">Товары</h3><div class="ny-admin-list">' + (rows || '<p class="sub">Товаров пока нет.</p>') + '</div>';
-    content.appendChild(sec);
-    const form = sec.querySelector('#si-form');
-    let kind = 'GRAM';
-    const sync = () => {
-        const promo = form.elements.promo_kind.value, eff = kind === 'PROMO' ? promo : kind;
-        form.querySelector('#si-promo-label').hidden = kind !== 'PROMO';
-        form.querySelector('#si-pack-label').hidden = eff !== 'PACK';
-        form.querySelector('#si-amount-label').hidden = eff === 'PACK';
-        form.querySelector('#si-amount-label').firstChild.textContent = eff === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM';
-        form.elements.amount.value = eff === 'BALL' ? '100' : '1';
+    const draw = () => {
+        const kinds = KIND_TILES.filter(k => !(k[0] === 'PACK' && !packs.length));
+        const step2 = f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + PROMO_TILES.filter(k => !(k[0] === 'PACK' && !packs.length)).map(k => tile(f.promo === k[0], 'data-promo="' + k[0] + '"', k[2], k[1])).join('') + '</div></div>' : '';
+        const what = eff() === 'PACK'
+            ? '<div class="adm-step"><h4>Какой пак</h4>' + window.crafterPacks.packTiles(packs, f.pack) + '</div>'
+            : '<div class="adm-step"><h4>' + (eff() === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM') + '</h4><div class="adm-field"><input data-f="amount" inputmode="decimal" value="' + e(f.amount) + '">' +
+              '<div class="adm-chips">' + (eff() === 'BALL' ? ['50', '100', '500', '1000'] : ['0.5', '1', '2', '5', '10']).map(v => '<button type="button" data-chip="amount" data-v="' + v + '">' + v + '</button>').join('') + '</div></div></div>';
+        sec.innerHTML = '<h3>Новый товар</h3><p class="sub">Товар за новогодние шары. Появится в новогоднем маркете рядом с подарками.</p>' +
+            '<div class="adm-step"><h4>Что продаём</h4><div class="adm-tiles">' + kinds.map(k => tile(f.kind === k[0], 'data-kind="' + k[0] + '"', k[3], k[1], k[2])).join('') + '</div></div>' +
+            step2 + what +
+            '<div class="adm-step"><h4>Условия</h4><div class="adm-row3">' +
+            '<div class="adm-field"><label>Цена в шарах</label><input data-f="price" type="number" min="0" step="1" value="' + e(f.price) + '"><div class="adm-chips"><button type="button" data-chip="price" data-v="0">Бесплатно</button><button type="button" data-chip="price" data-v="50">50</button><button type="button" data-chip="price" data-v="100">100</button></div></div>' +
+            '<div class="adm-field"><label>Сколько всего</label><input data-f="stock" type="number" min="1" step="1" value="' + e(f.stock) + '" placeholder="Без ограничений"></div>' +
+            '<div class="adm-field"><label>Лимит на игрока</label><input data-f="per" type="number" min="1" step="1" value="' + e(f.per) + '" placeholder="Без ограничений"></div></div></div>' +
+            '<details class="adm-more"' + (f.image || f.title ? ' open' : '') + '><summary>Название и картинка</summary><div class="adm-row3">' +
+            '<div class="adm-field"><label>Название</label><input data-f="title" maxlength="80" value="' + e(f.title) + '" placeholder="' + e(autoTitle()) + '"></div>' +
+            '<div class="adm-field" style="grid-column:span 2"><label>Картинка (ссылка)</label><input data-f="image" value="' + e(f.image) + '" placeholder="По умолчанию подставится сама"></div></div></details>' +
+            '<div class="adm-step"><h4>Как будет выглядеть</h4><div class="adm-preview"><div class="ny-grid">' + preview() + '</div></div></div>' +
+            '<button class="primary" type="button" id="si-add">Добавить товар</button>' +
+            '<h3 style="margin-top:26px">Товары</h3><div class="ny-admin-list">' + (list() || '<p class="sub">Товаров пока нет.</p>') + '</div>';
+        bind();
     };
-    form.querySelectorAll('.cm-seg [data-kind]').forEach(b => b.addEventListener('click', () => {
-        kind = b.dataset.kind; form.querySelectorAll('.cm-seg [data-kind]').forEach(x => x.classList.toggle('is-on', x === b)); sync();
-    }));
-    form.elements.promo_kind.addEventListener('change', sync);
+    const pull = () => sec.querySelectorAll('[data-f]').forEach(i => { f[i.dataset.f] = i.value; });
     const run = async (fn, ok) => { try { await fn(); toast(ok); content.innerHTML = ''; window.renderAdminNewYear?.(content); } catch (err) { toast(err.message); } };
-    form.addEventListener('submit', ev => {
-        ev.preventDefault();
-        const body = Object.fromEntries(new FormData(form));
-        body.kind = kind;
-        const eff = kind === 'PROMO' ? body.promo_kind : kind;
-        if (eff === 'PACK') body.amount = body.amount_pack;
-        run(() => api('admin/new-year/shop', body), 'Товар добавлен');
-    });
-    sec.querySelectorAll('[data-si-st]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siSt + '/status', {status: b.dataset.next}), 'Готово')));
-    sec.querySelectorAll('[data-si-del]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siDel + '/delete', {}), 'Товар удалён')));
+    const bind = () => {
+        sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'BALL' ? '100' : '1'; draw(); }));
+        sec.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'BALL' ? '100' : '1'; draw(); }));
+        sec.querySelectorAll('[data-adm-pack]').forEach(b => b.addEventListener('click', () => { pull(); f.pack = b.dataset.admPack; draw(); }));
+        sec.querySelectorAll('[data-chip]').forEach(b => b.addEventListener('click', () => { pull(); f[b.dataset.chip] = b.dataset.v; draw(); }));
+        sec.querySelectorAll('[data-f]').forEach(i => i.addEventListener('change', () => { pull(); draw(); }));
+        sec.querySelector('#si-add').addEventListener('click', () => {
+            pull();
+            run(() => api('admin/new-year/shop', {kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, stock: f.stock, per_user: f.per, image_url: f.image, title: f.title}), 'Товар добавлен');
+        });
+        sec.querySelectorAll('[data-si-st]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siSt + '/status', {status: b.dataset.next}), 'Готово')));
+        sec.querySelectorAll('[data-si-del]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siDel + '/delete', {}), 'Товар удалён')));
+    };
+    draw();
 }
 
 window.crafterShopItems = {tiles, bind, admin};

@@ -15,19 +15,35 @@ let playing = false;
 const pct = v => (Number(v) >= 10 ? Number(v).toFixed(1) : Number(v).toFixed(2)).replace(/\.?0+$/, '') + '%';
 const CUBE = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7Z" fill="none" stroke="#4fd37a" stroke-width="2" stroke-linejoin="round"/><path d="M3.5 7 12 11.8 20.5 7M12 11.8v9.7" fill="none" stroke="#4fd37a" stroke-width="2" stroke-linejoin="round"/></svg>';
 const gem = n => '<span class="pk-amt">' + GEM + '<b>' + num(n) + '</b></span>';
-async function contentsHtml(pid) {
-    try {
-        const c = await api('packs/' + encodeURIComponent(pid) + '/contents');
-        const nft = c.prizes.filter(p => p.kind === 'NFT'), gram = c.prizes.filter(p => p.kind === 'GRAM');
-        const tier = ch => ch < 3 ? 't3' : ch < 10 ? 't2' : 't1';
-        const card = p => p.kind === 'NFT'
-            ? '<div class="pk-pc ' + tier(p.chance) + '"><i class="pk-ch">' + pct(p.chance) + '</i><img src="' + e(p.image) + '" alt=""><b>' + e(p.name) + '</b>' + gem(p.value) + '</div>'
-            : '<div class="pk-pc is-bal ' + tier(p.chance) + '"><i class="pk-ch">' + pct(p.chance) + '</i><span class="pk-bal">' + GEM + '</span><b>Баланс GRAM</b>' + gem(p.amount) + '</div>';
-        return '<div class="pk-info show-chances"><h4 class="pk-h">' + CUBE + 'Что внутри?</h4>' +
-            '<p class="pk-range">Может выпасть на сумму от ' + gem(c.min) + ' до ' + gem(c.max) + '</p>' +
-                        '<h5 class="pk-sub">Призы, которые могут выпасть</h5><div class="pk-prizes2">' + nft.concat(gram).map(card).join('') + '</div></div>';
-    } catch (_) { return ''; }
+async function contentsGrid(pid) {
+    const c = await api('packs/' + encodeURIComponent(pid) + '/contents');
+    const tier = ch => ch < 3 ? 't3' : ch < 10 ? 't2' : 't1';
+    return '<div class="pk-info show-chances"><div class="pk-prizes2">' + c.prizes.map(p => p.kind === 'NFT'
+        ? '<div class="pk-pc ' + tier(p.chance) + '"><i class="pk-ch">' + pct(p.chance) + '</i><img src="' + e(p.image) + '" alt=""><b>' + e(p.name) + '</b>' + gem(p.value) + '</div>'
+        : '<div class="pk-pc is-bal ' + tier(p.chance) + '"><i class="pk-ch">' + pct(p.chance) + '</i><span class="pk-bal">' + GEM + '</span><b>Баланс GRAM</b>' + gem(p.amount) + '</div>').join('') + '</div></div>';
 }
+/* Where a pack's contents are needed, a "What is inside?" button opens this window. */
+async function contentsHtml(pid) {
+    return '<button type="button" class="secondary pk-inside-btn" data-pk-inside="' + e(pid) + '">Что внутри?</button>';
+}
+async function openInside(pid) {
+    let html = '';
+    try { html = await contentsGrid(pid); } catch (err) { toast(err.message); return; }
+    const box = document.createElement('div');
+    box.className = 'adm-pick pk-inside';
+    box.innerHTML = '<div class="adm-pick-win" role="dialog" aria-label="Что внутри"><div class="adm-pick-head"><b>' + CUBE + ' Что внутри?</b><button type="button" class="adm-pick-x" aria-label="Закрыть">×</button></div>' +
+        '<div class="adm-pick-grid pk-inside-body">' + html + '</div></div>';
+    (document.querySelector('dialog[open]') || document.body).appendChild(box);   // a modal sheet sits in the top layer, so open inside it
+    box.addEventListener('click', ev => { ev.stopPropagation(); if (ev.target === box || ev.target.closest('.adm-pick-x')) box.remove(); });
+}
+window.openPackContents = function (id) {
+    const g = (state?.inventory || []).find(x => x.id === id);
+    if (g) openInside(g.pack_id);
+};
+document.addEventListener('click', ev => {
+    const b = ev.target.closest('[data-pk-inside]');
+    if (b) { ev.preventDefault(); openInside(b.dataset.pkInside); }
+});
 function bindContents(root) {
     const btn = root?.querySelector('.pk-toggle');
     btn?.addEventListener('click', () => {
@@ -69,10 +85,10 @@ function buySheet(p, refresh) {
 async function packInfo(upid) {
     try { return ((await api('packs')).mine || []).find(m => m.id === upid)?.pack || null; } catch (_) { return null; }
 }
-async function granted(upid, refresh) {
+async function granted(upid, refresh, count) {
     const pack = await packInfo(upid);
-    sheet('Пак получен', (pack ? '<div class="pk-sheet-head"><img src="' + e(pack.image) + '" alt=""></div>' : '') +
-        '<p class="cm-sheet-note" style="text-align:center">Пак добавлен в ваш инвентарь («Мои подарки»). Его можно открыть, продать на маркете или оставить.</p>' +
+    sheet(count > 1 ? 'Паки получены' : 'Пак получен', (pack ? '<div class="pk-sheet-head"><img src="' + e(pack.image) + '" alt=""></div>' : '') +
+        '<p class="cm-sheet-note" style="text-align:center">' + (count > 1 ? 'Паков получено: ' + count + '. Они' : 'Пак') + ' добавлен' + (count > 1 ? 'ы' : '') + ' в ваш инвентарь («Мои подарки»). Его можно открыть, продать на маркете или оставить.</p>' +
         '<button type="button" class="ny-action" id="pk-now">Открыть сейчас</button><button type="button" class="secondary" id="pk-later" style="width:100%;margin-top:8px">Позже</button>');
     const body = document.querySelector('#sheet-body');
     body.querySelector('#pk-later').addEventListener('click', () => { closeSheet(); refresh?.(); });
@@ -189,6 +205,35 @@ async function open(upid, refresh) {
     refreshActions();
 }
 
+/* ---------- administrator helpers ---------- */
+/* A full window to choose a gift, like the market picker: search plus a grid of cards. */
+function pickGift(collections, onPick) {
+    const box = document.createElement('div');
+    box.className = 'adm-pick';
+    box.innerHTML = '<div class="adm-pick-win" role="dialog" aria-label="Выбор подарка"><div class="adm-pick-head"><b>Выберите подарок</b><button type="button" class="adm-pick-x" aria-label="Закрыть">×</button></div>' +
+        '<input class="adm-pick-search" type="search" placeholder="Поиск по названию" autocomplete="off"><div class="adm-pick-grid"></div></div>';
+    document.body.appendChild(box);
+    const grid = box.querySelector('.adm-pick-grid'), search = box.querySelector('.adm-pick-search');
+    const draw = () => {
+        const q = search.value.trim().toLowerCase();
+        const list = collections.filter(c => !q || c.name.toLowerCase().includes(q));
+        grid.innerHTML = list.map(c => '<button type="button" class="adm-pick-card" data-id="' + e(c.id) + '"><img src="' + e(c.image) + '" alt=""><b>' + e(c.name) + '</b><span class="pk-amt">' + GEM + '<b>' + num(c.value) + '</b></span></button>').join('') ||
+            '<p class="sub">Ничего не найдено</p>';
+    };
+    const close = () => box.remove();
+    box.addEventListener('click', ev => {
+        if (ev.target === box || ev.target.closest('.adm-pick-x')) return close();
+        const card = ev.target.closest('.adm-pick-card');
+        if (card) { const c = collections.find(x => x.id === card.dataset.id); close(); onPick(c); }
+    });
+    search.addEventListener('input', draw);
+    draw(); search.focus();
+}
+/* Pack choice as picture tiles (no drop-down). Returns html; the caller binds clicks on [data-adm-pack]. */
+function packTiles(packs, selected) {
+    return '<div class="adm-packs">' + packs.map(p => '<button type="button" class="adm-pack' + (p.id === selected ? ' is-on' : '') + '" data-adm-pack="' + e(p.id) + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.title) + '</b></button>').join('') + '</div>';
+}
+
 /* ---------- administrator ---------- */
 async function admin(content) {
     let r;
@@ -220,7 +265,7 @@ async function admin(content) {
                 '<h4>Призы</h4><div class="pk-prizes">' + prizes.map((x, i) =>
                     '<div class="pk-prize" data-i="' + i + '"><select data-f="kind"><option value="GRAM"' + (x.kind === 'GRAM' ? ' selected' : '') + '>GRAM</option><option value="NFT"' + (x.kind === 'NFT' ? ' selected' : '') + '>Подарок</option></select>' +
                     (x.kind === 'GRAM' ? '<input data-f="amount" inputmode="decimal" placeholder="Сумма" value="' + e(x.amount) + '">' :
-                        '<select data-f="collection_id">' + cols.map(c => '<option value="' + e(c.id) + '"' + (c.id === x.collection_id ? ' selected' : '') + '>' + e(c.name) + '</option>').join('') + '</select>' +
+                        '<input type="hidden" data-f="collection_id" value="' + e(x.collection_id) + '"><button type="button" class="pk-pick" data-pick-i="' + i + '">' + (() => { const c = cols.find(k => k.id === x.collection_id); return c ? '<img src="' + e(c.image) + '" alt=""><span>' + e(c.name) + '</span>' : '<span>Выбрать подарок</span>'; })() + '</button>' +
                         '<input data-f="value" inputmode="decimal" placeholder="Цена продажи" value="' + e(x.value) + '">') +
                     '<input data-f="weight" type="number" min="0" step="any" value="' + e(x.weight) + '" title="Шанс"><span class="pk-pct">' + (((Number(x.weight) || 0) / total) * 100).toFixed(1) + '%</span>' +
                     '<button type="button" data-rm="' + i + '" aria-label="Убрать">×</button></div>').join('') + '</div>' +
@@ -239,14 +284,15 @@ async function admin(content) {
             editor.querySelectorAll('.pk-prize [data-f="kind"]').forEach(s => s.addEventListener('change', () => {
                 pull(); const x = prizes[Number(s.closest('.pk-prize').dataset.i)];
                 if (x.kind === 'NFT') { x.collection_id = cols[0]?.id; x.value = cols[0]?.value; } draw();
+                if (x.kind === 'NFT') editor.querySelector('[data-pick-i="' + s.closest('.pk-prize').dataset.i + '"]')?.click();
             }));
-            editor.querySelectorAll('[data-f="collection_id"]').forEach(s => s.addEventListener('change', () => {
-                pull(); const x = prizes[Number(s.closest('.pk-prize').dataset.i)]; x.value = cols.find(c => c.id === x.collection_id)?.value || ''; draw();
-            }));
+            editor.querySelectorAll('[data-pick-i]').forEach(b => b.addEventListener('click', () => pickGift(cols, c => {
+                pull(); const x = prizes[Number(b.dataset.pickI)]; x.collection_id = c.id; x.value = c.value; draw();
+            })));
             editor.querySelectorAll('[data-f="weight"]').forEach(inp => inp.addEventListener('input', () => { pull(); const total = prizes.reduce((s, x) => s + (Number(x.weight) || 0), 0) || 1; editor.querySelectorAll('.pk-prize').forEach((row, i) => { row.querySelector('.pk-pct').textContent = (((Number(prizes[i].weight) || 0) / total) * 100).toFixed(1) + '%'; }); }));
             editor.querySelectorAll('[data-rm]').forEach(b => b.addEventListener('click', () => { pull(); prizes.splice(Number(b.dataset.rm), 1); draw(); }));
             editor.querySelector('#pk-add-gram').addEventListener('click', () => { pull(); prizes.push({kind: 'GRAM', amount: '1', weight: 10}); draw(); });
-            editor.querySelector('#pk-add-nft').addEventListener('click', () => { pull(); prizes.push({kind: 'NFT', collection_id: cols[0]?.id, value: cols[0]?.value, weight: 5}); draw(); });
+            editor.querySelector('#pk-add-nft').addEventListener('click', () => pickGift(cols, c => { pull(); prizes.push({kind: 'NFT', collection_id: c.id, value: c.value, weight: 5}); draw(); }));
             form.addEventListener('submit', async ev => {
                 ev.preventDefault(); pull();
                 const f = new FormData(form);
@@ -270,5 +316,5 @@ async function admin(content) {
     window.crafterPackList = r.packs;
 }
 
-window.crafterPacks = {tiles, bind, open, admin, contentsHtml, bindContents, granted};
+window.crafterPacks = {tiles, bind, open, admin, contentsHtml, bindContents, granted, pickGift, packTiles};
 })();
