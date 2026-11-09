@@ -187,7 +187,14 @@ def install_upgrade(app, db, auth, record, ctx):
                 found[key] = found.get(key, 0) + 1
         out = []
         for index, c in enumerate(ctx['public_catalog']()):
+            floor = positive_price(c.get('floor_price'))
+            if floor is not None and c.get('price_unit', 'GRAM') == 'TON':
+                try:
+                    floor = floor * Decimal(str(ctx['gram_per_ton']()))
+                except Exception:
+                    floor = None
             out.append({'id': c['id'], 'name': c['name'], 'photo_url': c.get('photo_url', ''),
+                        'floor': str(floor.quantize(Decimal('0.01'))) if floor else '',
                         'crafter': found.get(ctx['canonical_name'](c['name']), 0), '_i': index})
         out.sort(key=lambda c: (-c['crafter'], c['_i']))
         for c in out:

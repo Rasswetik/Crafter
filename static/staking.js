@@ -35,7 +35,7 @@ nav = function() {
     const destinations = inGames ? [
         ['games','games','Hub'], ['upgrade','upgrade','Апгрейд'], ...(window.crafterOfflinePreview ? [] : [['arena','arena','Arena']])
     ] : [
-        ['market','market','Маркет'],['gifts','gift','Мои подарки'],
+        ['market','market','Маркет'],['gifts','gift','Подарки'],
         ['staking','staking','Стейкинг']
     ];
     const visibleDestinations = destinations.filter(([page]) =>

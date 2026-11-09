@@ -15,15 +15,24 @@
     left:var(--snow-x);
     top:-30px;
     display:block;
+    width:var(--snow-size);
+    height:var(--snow-size);
     font-size:var(--snow-size);
     line-height:1;
+    border-radius:50%;
+    background:radial-gradient(circle at 36% 34%,#fff 0,rgba(244,250,255,.92) 45%,rgba(214,236,255,0) 100%);
+    box-shadow:0 0 calc(var(--snow-size)*1.1) rgba(190,228,255,.42);
     color:#f2fbff;
     opacity:0;
-    text-shadow:0 0 5px rgba(190,228,255,.5);
-    animation:crafter-snowfall-fall var(--snow-duration) linear var(--snow-delay) infinite;
-    will-change:transform,opacity;
+    animation:crafter-snowfall-fall var(--snow-duration) linear var(--snow-delay) infinite,
+              crafter-snowfall-sway var(--snow-sway-time,3s) ease-in-out var(--snow-delay) infinite alternate;
+    will-change:transform,opacity,translate;
     user-select:none;
 }
+.crafter-snowflake.snow-d0{filter:blur(.4px)}
+.crafter-snowflake.snow-d2{filter:blur(.7px)}
+.crafter-snowflake:not(:empty){background:none;box-shadow:none;text-shadow:0 0 6px rgba(190,228,255,.6);width:auto;height:auto}
+@keyframes crafter-snowfall-sway{from{translate:calc(var(--snow-sway,10px)*-1) 0}to{translate:var(--snow-sway,10px) 0}}
 @keyframes crafter-snowfall-fall{
     0%{transform:translate3d(0,-30px,0);opacity:0}
     7%{opacity:var(--snow-opacity)}

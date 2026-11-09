@@ -87,8 +87,8 @@
   background:#1a1b1f;border:1px solid #303030}
 .upg-search:focus-within{border-color:#1689ff;color:#6db6ff}
 .upg-search input{flex:1;min-width:0;height:100%;background:none;border:0;outline:0;color:#f2f5fa;font-size:14px}
-.upg-sort{flex:none;height:40px;padding:0 13px;border-radius:20px;font-size:12px;font-weight:700;color:#cfe3ff;white-space:nowrap;
-  background:#1a1b1f;border:1px solid #303030}
+.upg-sort{flex:none;min-width:78px;height:40px;padding:0 14px;border-radius:20px;font-size:13px;font-weight:700;color:#d6e6ff;white-space:nowrap;background:#1a1b1f;border:1px solid #303030;cursor:pointer;transition:background .2s,border-color .2s}
+.upg-sort:hover{border-color:#3d424b;background:#202228}.upg-sort:active{transform:scale(.97)}
 .upg-collection[hidden]{display:none}
 
 /* Collection tiles: readable names, Crafter-market badge */

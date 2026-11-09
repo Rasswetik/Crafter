@@ -84,3 +84,29 @@ def test_banned_user_cannot_use_a_web_session(client):
 def test_start_requires_a_configured_bot(client):
     client.application.config['BOT_USERNAME'] = ''
     assert client.post('/api/web-login/start').status_code == 503
+
+
+def _session_for(client, uid):
+    client.get('/api/me', headers=signed(uid))
+    s = start(client)
+    client.post('/api/web-login/confirm', headers=signed(uid), json={'token': s['token']})
+    return client.post('/api/web-login/claim', json={'token': s['token'], 'secret': s['secret']}).json['session']
+
+
+def test_maintenance_sign_in_works_and_only_admins_pass(client):
+    admin_session = _session_for(client, 42)               # 42 is the administrator in the test app
+    member_session = _session_for(client, 43)
+    assert client.post('/api/admin/maintenance', headers=signed(42), json={
+        'enabled': True, 'confirm': 'ENABLE_MAINTENANCE', 'message': 'Работы'}).status_code == 200
+    # signing in is still possible during maintenance for everybody
+    fresh = start(client)
+    assert fresh['token']
+    assert client.post('/api/web-login/claim', json={'token': fresh['token'], 'secret': fresh['secret']}).json == {'status': 'pending'}
+    # a signed-in administrator passes the maintenance gate, a regular member does not
+    assert client.get('/api/me', headers={'X-Crafter-Web-Session': admin_session}).status_code == 200
+    blocked = client.get('/api/me', headers={'X-Crafter-Web-Session': member_session})
+    assert blocked.status_code == 503 and blocked.json['maintenance']
+    assert client.get('/api/me').status_code == 503                      # anonymous visitor: sign-in screen
+    access = client.get('/api/site/maintenance/access', headers={'X-Crafter-Web-Session': admin_session})
+    assert access.status_code == 200 and access.json['is_admin'] is True
+    assert client.post('/api/web-login/logout', headers={'X-Crafter-Web-Session': admin_session}).status_code == 200

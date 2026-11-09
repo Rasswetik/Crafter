@@ -121,7 +121,7 @@ function animateSpin(rollPercent) {
 function searchBar(placeholder, withSort) {
     return `<div class="upg-tools"><label class="upg-search"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <input type="search" placeholder="${h(placeholder)}" autocomplete="off"></label>
-        ${withSort ? '<button type="button" class="upg-sort" data-dir="asc">Сначала дешёвые ↑</button>' : ''}</div>`;
+        ${withSort ? '<button type="button" class="upg-sort" data-dir="asc" title="Сначала дешёвые" aria-label="Сначала дешёвые">Цена ↑</button>' : ''}</div>`;
 }
 function bindSearch(body, itemSelector, textOf) {
     body.querySelector('.upg-search input').oninput = e => {
@@ -174,10 +174,27 @@ async function openCollectionSheet() {
         ui.collections = (await api(`upgrade/collections?stake_id=${encodeURIComponent(ui.stake.id)}`)).collections || [];
         const body = el.querySelector('.upg-sheet-body');
         if (!ui.collections.length) { body.innerHTML = '<p class="upg-empty">Нет доступных коллекций</p>'; return; }
-        body.innerHTML = `${searchBar('Поиск коллекции')}<p class="upg-empty upg-none" hidden>Ничего не найдено</p><div class="upg-collections">${ui.collections.map((c, i) => `<button type="button" class="upg-collection ${c.crafter ? 'has-crafter' : ''}" data-i="${i}" data-name="${h(String(c.name).toLowerCase())}">
+        body.innerHTML = `${searchBar('Поиск коллекции', true)}<p class="upg-empty upg-none" hidden>Ничего не найдено</p><div class="upg-collections">${ui.collections.map((c, i) => `<button type="button" class="upg-collection ${c.crafter ? 'has-crafter' : ''}" data-i="${i}" data-price="${h(c.floor || '')}" data-name="${h(String(c.name).toLowerCase())}">
             ${c.crafter ? `<em class="upg-badge">${c.crafter}</em>` : ''}
             <img src="${h(c.photo_url || '')}" alt="" loading="lazy" draggable="false"><span>${h(c.name)}</span></button>`).join('')}</div>`;
         bindSearch(body, '.upg-collection', node => node.dataset.name);
+        // Cheapest first by default; the button flips the order. Collections without a price go last either way.
+        const arrange = () => {
+            const dir = body.querySelector('.upg-sort')?.dataset.dir === 'desc' ? -1 : 1;
+            const grid = body.querySelector('.upg-collections');
+            [...grid.children].sort((a, b) => {
+                const pa = Number(a.dataset.price) || 0, pb = Number(b.dataset.price) || 0;
+                if ((pa > 0) !== (pb > 0)) return pa > 0 ? -1 : 1;
+                return dir * (pa - pb) || a.dataset.name.localeCompare(b.dataset.name);
+            }).forEach(node => grid.append(node));
+        };
+        arrange();
+        body.querySelector('.upg-sort').onclick = e => {
+            const s = e.currentTarget; s.dataset.dir = s.dataset.dir === 'desc' ? 'asc' : 'desc';
+            s.textContent = s.dataset.dir === 'desc' ? 'Цена ↓' : 'Цена ↑';
+            s.title = s.ariaLabel = s.dataset.dir === 'desc' ? 'Сначала дорогие' : 'Сначала дешёвые';
+            arrange();
+        };
         body.onclick = e => {
             const b = e.target.closest('.upg-collection'); if (!b) return;
             openOffers(ui.collections[Number(b.dataset.i)]);
@@ -207,7 +224,8 @@ async function openOffers(collection) {
         body.querySelector('.upg-search input').oninput = draw;
         body.querySelector('.upg-sort').onclick = e => {
             const s = e.currentTarget; s.dataset.dir = s.dataset.dir === 'desc' ? 'asc' : 'desc';
-            s.textContent = s.dataset.dir === 'desc' ? 'Сначала дорогие ↓' : 'Сначала дешёвые ↑'; draw();
+            s.textContent = s.dataset.dir === 'desc' ? 'Цена ↓' : 'Цена ↑';
+            s.title = s.ariaLabel = s.dataset.dir === 'desc' ? 'Сначала дорогие' : 'Сначала дешёвые'; draw();
         };
         body.onclick = async e => {
             const b = e.target.closest('.upg-card'); if (!b) return;

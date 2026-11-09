@@ -59,6 +59,10 @@
       }
       const header={'X-Telegram-Init-Data':typeof telegramInitData==='function' ?
         telegramInitData() : (window.Telegram?.WebApp?.initData || '')};
+      if(!header['X-Telegram-Init-Data']){
+        const site=typeof crafterWebSession==='function'?crafterWebSession():'';
+        if(site)header['X-Crafter-Web-Session']=site;     // website visitors: signed-in administrators pass
+      }
       const auth=await fetch('/api/site/maintenance/access',{headers:header,cache:'no-store'});
       const detail=auth.ok?await auth.json():null;
       if(detail?.is_admin) {

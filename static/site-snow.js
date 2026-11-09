@@ -45,13 +45,19 @@
             particle.className='crafter-snowflake';
             const n=(i*73+17)%101;
             const length=Math.round((10+(i*37)%18)*speed*10)/10;
-            particle.textContent=(i%7===0?'❅':'•');
+            // Three depths: far flakes are small, dim and slow; near flakes are larger, soft and faster.
+            const depth=i%3;
+            particle.classList.add('snow-d'+depth);
+            if(i%11===0)particle.textContent='❅';
+            const size=([2.6,4.4,7.2][depth]+((i*23)%5)*.35)*multiplier;
             particle.style.setProperty('--snow-x',((i*59+11)%100)+'%');
-            particle.style.setProperty('--snow-drift',((i*41)%180-90)+'px');
-            particle.style.setProperty('--snow-size',Math.round((3+(i*23)%8)*multiplier)+'px');
+            particle.style.setProperty('--snow-drift',((i*41)%140-70)+'px');
+            particle.style.setProperty('--snow-size',size.toFixed(1)+'px');
             particle.style.setProperty('--snow-delay',(-((i*11)%25))+'s');
-            particle.style.setProperty('--snow-duration',length+'s');
-            particle.style.setProperty('--snow-opacity',(0.3+n/210).toFixed(2));
+            particle.style.setProperty('--snow-duration',(length*([1.35,1,.78][depth])).toFixed(1)+'s');
+            particle.style.setProperty('--snow-opacity',([0.38,0.6,0.85][depth]).toFixed(2));
+            particle.style.setProperty('--snow-sway',([6,11,17][depth]+(i*7)%6)+'px');
+            particle.style.setProperty('--snow-sway-time',(2.4+((i*13)%9)*.35).toFixed(1)+'s');
             fragment.append(particle);
         }
         root.append(fragment);

@@ -5,10 +5,8 @@
 @keyframes pv-bar{from{background-position:0 0}to{background-position:60px 0}}
 
 /* Menus: bottom navigation + desktop sidebar */
-#nav button,#nav .games-entry{transition:transform .22s cubic-bezier(.3,1.6,.5,1),background .2s,color .2s}
+#nav button,#nav .games-entry{transition:background .2s,color .2s}
 #nav button:active{transform:scale(.92)}
-#nav button.active svg,#nav button.active .stake-nav-icon{animation:pv-bounce .45s cubic-bezier(.3,1.6,.5,1)}
-@keyframes pv-bounce{0%{transform:scale(.8)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
 .desktop-sidebar-link{transition:transform .2s cubic-bezier(.3,1.4,.5,1),background .2s,color .2s}
 .desktop-sidebar-link:hover{transform:translateX(3px)}
 .desktop-sidebar-link:hover .desktop-sidebar-link-icon{transform:scale(1.12)}
@@ -40,7 +38,7 @@
 .arena-winter .arena-private-room-card:hover,.arena-winter .arena-private-item:hover{transform:translateY(-3px);box-shadow:0 12px 30px rgba(0,0,0,.35)}
 @media(prefers-reduced-motion:reduce){
   .crafter-games,.upg,.arena-winter .arena-page,.splash-progress-fill,.arena-winter .arena-board::after,
-  .arena-winter .arena-actions button,#nav button.active svg,#nav button.active .stake-nav-icon{animation:none!important}
+  .arena-winter .arena-actions button{animation:none!important}
   .desktop-sidebar-link:hover,.crafter-game-tile:hover{transform:none}}
 
 /* Phones, Games section: three game tabs + Market + Profile need real room (buttons were glued together). */
@@ -61,16 +59,13 @@
 .primary.is-insufficient,.primary.is-insufficient:disabled{background:#2a2d33!important;color:#8a919c!important;box-shadow:none!important;
   border:1px solid #363a42!important;cursor:not-allowed;filter:none!important}
 
-/* Phones + New Year: the bar gets an extra tab, so 4-5 labels cannot fit. Icons only; the active tab shows its name. */
+
+/* Bottom bar on phones: identical size and position in every mode (market, games), so it never jumps when you
+   move between pages; labels always on one line, sized to the room each tab really has. */
 @media(max-width:700px){
-  #app #nav:has(.ny-nav-tab){gap:6px!important}
-  #app #nav:has(.ny-nav-tab) .nav-main{flex:1 1 auto!important;max-width:none!important;min-width:0;gap:2px!important;padding:3px!important;justify-content:space-between}
-  #app #nav:has(.ny-nav-tab) .nav-main>button{position:relative;flex:0 0 auto!important;width:44px!important;min-width:0!important;height:54px!important;
-    padding:0!important;margin:0!important;border-radius:22px!important;display:flex!important;flex-direction:row!important;align-items:center;justify-content:center;gap:6px!important;
-    transition:width .28s cubic-bezier(.3,1.2,.5,1),background .2s}
-  #app #nav:has(.ny-nav-tab) .nav-main>button .nav-label{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;padding:0!important}
-  #app #nav:has(.ny-nav-tab) .nav-main>button.active{flex:1 1 auto!important;width:auto!important;padding:0 8px!important;gap:4px!important}
-  #app #nav:has(.ny-nav-tab) .nav-main>button.active .nav-label{position:static!important;width:auto;height:auto;overflow:visible;clip:auto;
-    font-size:12px!important;font-weight:700;line-height:1.1;white-space:nowrap!important;overflow-wrap:normal!important;word-break:keep-all!important;max-width:none!important}
-  #app #nav:has(.ny-nav-tab) .nav-main>button .stake-nav-icon,#app #nav:has(.ny-nav-tab) .nav-main>button .ny-nav-icon{flex:none}
+  #app #nav{width:calc(100% - 14px)!important;max-width:none!important;height:72px!important;box-sizing:border-box!important;
+    bottom:calc(16px + env(safe-area-inset-bottom))!important;align-items:center}
+  #app #nav .nav-main>button .nav-label{white-space:nowrap!important;overflow:visible!important;font-size:clamp(8.5px,2.45vw,10px)!important;
+    line-height:1.1!important;letter-spacing:-.1px;max-width:none!important;padding:0!important}
+  #app #nav .nav-main>button{padding-left:1px!important;padding-right:1px!important}
 }

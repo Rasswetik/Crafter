@@ -109,3 +109,9 @@ def test_deposited_relayer_gift_is_valued_at_collection_floor(client, setup):
         db.execute("INSERT INTO inventory VALUES (43, ?, ?, 'unlisted')", (gift['id'], json.dumps(gift)))
     stakes = {g['id']: g for g in client.get('/api/upgrade/stakes', headers=signed(43)).json['gifts']}
     assert 'telegram-dep-1' in stakes and Decimal(stakes['telegram-dep-1']['upgrade_value']) > 0
+
+
+def test_collections_carry_a_floor_price_in_gram_for_the_price_filter(client, setup):
+    r = client.get('/api/upgrade/collections?stake_id=stake-1', headers=signed(43))
+    snoop = next(c for c in r.json['collections'] if c['name'] == 'Snoop Dogg')
+    assert Decimal(snoop['floor']) > 0

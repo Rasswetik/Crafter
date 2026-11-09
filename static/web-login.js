@@ -95,16 +95,44 @@ async function startLogin() {
     }
 }
 
-function logoutButton() {
-    if (document.querySelector('#cwl-logout')) return;
-    const b = document.createElement('button');
-    b.id = 'cwl-logout'; b.type = 'button'; b.textContent = 'Выйти из аккаунта';
-    b.onclick = async () => {
-        try { await fetch('/api/web-login/logout', {method: 'POST', headers: {'X-Crafter-Web-Session': crafterWebSession()}}); } catch (_) {}
-        try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
-        location.reload();
+/* Profile: "Sign out", shown on the website only (never inside the Telegram Mini App). */
+const exitIcon = '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>';
+async function signOut() {
+    try { await fetch('/api/web-login/logout', {method: 'POST', headers: {'X-Crafter-Web-Session': crafterWebSession()}}); } catch (_) {}
+    try { localStorage.removeItem(SESSION_KEY); } catch (_) {}
+    location.replace('/');
+}
+function profileLogout() {
+    if (inTelegram()) return;
+    const main = document.querySelector('#main');
+    if (!main || main.querySelector('.cwl-profile-logout')) return;
+    const user = state?.me?.user || {};
+    const handle = user.username ? '@' + user.username : (user.first_name || user.name || '');
+    const section = document.createElement('section');
+    section.className = 'cwl-profile-logout';
+    section.setAttribute('aria-label', 'Аккаунт на сайте');
+    const idle = () => {
+        section.innerHTML = `<div class="cwl-pl-info"><small>Вы вошли на сайте</small><b>${esc2(handle)}</b></div>
+            <button type="button" class="cwl-pl-button" id="cwl-pl-ask">${exitIcon}<span>Выйти из аккаунта</span></button>`;
+        section.querySelector('#cwl-pl-ask').onclick = ask;
     };
-    document.body.append(b);
+    const ask = () => {
+        section.innerHTML = `<div class="cwl-pl-info"><b>Выйти из аккаунта?</b><small>Чтобы вернуться, понадобится снова войти через Telegram.</small></div>
+            <div class="cwl-pl-actions"><button type="button" class="cwl-pl-stay" id="cwl-pl-stay">Остаться</button>
+            <button type="button" class="cwl-pl-out" id="cwl-pl-out">Выйти</button></div>`;
+        section.querySelector('#cwl-pl-stay').onclick = idle;
+        section.querySelector('#cwl-pl-out').onclick = signOut;
+    };
+    idle();
+    main.append(section);
+}
+if (typeof renderProfile === 'function') {
+    const baseProfile = renderProfile;
+    renderProfile = function () {
+        const result = baseProfile.apply(this, arguments);
+        try { profileLogout(); } catch (_) { /* the profile still works without the button */ }
+        return result;
+    };
 }
 
 /* ---------- the Mini App side ---------- */
@@ -152,15 +180,19 @@ boot = async function () {
     if (!inTelegram()) {
         await claimFromReturnLink();
         const headers = crafterWebSession() ? {'X-Crafter-Web-Session': crafterWebSession()} : {};
-        let status = 200;
-        try { status = (await fetch('/api/me', {headers})).status; } catch (_) { /* offline: let the normal error show */ }
-        if (status === 401) {
+        let status = 200, maintenance = false;
+        try {
+            const answer = await fetch('/api/me', {headers});
+            status = answer.status;
+            if (status === 503) maintenance = Boolean((await answer.json().catch(() => ({}))).maintenance);
+        } catch (_) { /* offline: let the normal error show */ }
+        // During maintenance a visitor without a session signs in first: administrators are let through afterwards.
+        if (status === 401 || (maintenance && !crafterWebSession())) {
             const pending = readPending();
             if (pending && Date.now() < pending.until) { waitingScreen(pending.link, pending.appLink); poll(pending); }
             else loginScreen();
             return;
         }
-        if (crafterWebSession()) logoutButton();
     }
     await originalBoot();
     if (inTelegram()) offerConfirmation();

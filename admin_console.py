@@ -36,6 +36,11 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
     def valid_admin_request():
         raw = request.headers.get("X-Telegram-Init-Data", "")
         if not raw:
+            web = request.headers.get("X-Crafter-Web-Session", "")
+            if web:                                   # a signed-in website session of an administrator passes too
+                finder = app.extensions.get("crafter_web_session_user")
+                site_user = finder(web) if finder else None
+                return bool(site_user and admin_access(site_user["id"])["is_admin"])
             return bool(app.config["DEMO_MODE"] and admin_access(1)["is_admin"])
         token = app.config["BOT_TOKEN"]
         user = None
@@ -105,6 +110,9 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
             return None
         # The Telegram bot webhook must keep answering during maintenance, otherwise Telegram queues /start updates (503).
         if path.startswith("/api/telegram/webhook/"):
+            return None
+        # Signing in must work during maintenance: an administrator logs in first and is then let through.
+        if path.startswith("/api/web-login/"):
             return None
         state = maintenance()
         if state["enabled"] and not valid_admin_request():

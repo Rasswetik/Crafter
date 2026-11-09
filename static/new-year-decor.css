@@ -1,0 +1,26 @@
+/* Winter garland: drawn at the real width of the app, so bulbs keep their shape on every screen. */
+#app > .site-winter-garland{display:none!important}
+#app > header::before{display:none!important}
+#winter-garland{position:absolute;left:0;top:-2px;width:100%;height:56px;overflow:hidden;pointer-events:none!important;user-select:none;z-index:0}
+#winter-garland svg{display:block;max-width:none}
+/* The header content stays above the garland */
+#app > header{position:relative;z-index:1}
+
+/* Colour cycling: each set of bulbs drifts through the spectrum at its own pace, so the string shimmers in many colours */
+.wg-set{animation:wg-hue 11s linear infinite}
+.wg-set.s1{animation-duration:15s;animation-direction:reverse}
+.wg-set.s2{animation-duration:19s}
+@keyframes wg-hue{from{filter:hue-rotate(0deg) saturate(1.15)}to{filter:hue-rotate(360deg) saturate(1.15)}}
+/* Sparkle: a bright star flashes on each bulb in turn */
+.wg-spark{opacity:0;transform-box:fill-box;transform-origin:center;transform:scale(.2);animation:wg-spark 3.4s ease-in-out infinite;animation-delay:calc(var(--i)*-.43s)}
+@keyframes wg-spark{0%,64%,100%{opacity:0;transform:scale(.2) rotate(0)}74%{opacity:1;transform:scale(1.05) rotate(45deg)}86%{opacity:0;transform:scale(.5) rotate(90deg)}}
+/* Twinkle: three groups of bulbs breathe one after another */
+.wg-glow{opacity:.55;transform-box:fill-box;transform-origin:center}
+.wg-bulb>path:first-of-type{opacity:.92}
+.wg-bulb{animation:wg-bulb 2.7s ease-in-out infinite}
+.wg-bulb.g1{animation-delay:-.9s}.wg-bulb.g2{animation-delay:-1.8s}
+.wg-bulb .wg-glow{animation:wg-glow 2.7s ease-in-out infinite}
+.wg-bulb.g1 .wg-glow{animation-delay:-.9s}.wg-bulb.g2 .wg-glow{animation-delay:-1.8s}
+@keyframes wg-bulb{0%,100%{opacity:.78}50%{opacity:1}}
+@keyframes wg-glow{0%,100%{opacity:.3;transform:scale(.85)}50%{opacity:1;transform:scale(1.18)}}
+@media(prefers-reduced-motion:reduce){.wg-bulb,.wg-bulb .wg-glow,.wg-set,.wg-spark{animation:none}.wg-glow{opacity:.4}}

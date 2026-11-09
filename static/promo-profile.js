@@ -87,6 +87,22 @@ async function withdrawReferral(){
     finally{lastReferralWithdrawal=null;if(button?.isConnected)button.disabled=false;}
 }
 window.crafterWithdrawReferral=withdrawReferral;
+function referralButtonMarkup(){
+    const me=state.me||{};
+    const rates=[5,6,7,8,10];
+    const level=Math.max(1,Math.min(5,Number(me.referral_level)||1));
+    return '<button type="button" class="rf-open" id="crafter-referral-open" aria-label="Реферальная система">'+
+        '<span class="rf-open-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M17 5.5a3 3 0 0 1 0 5.8M18.5 14.4c1.6.7 2.8 2.3 2.8 4.1"/></svg></span>'+
+        '<span class="rf-open-text"><b>Реферальная система</b><small>'+level+' ур. · '+rates[level-1]+'% · '+liveAmount(me.referral_balance)+' GRAM</small></span>'+
+        '<span class="rf-open-chevron" aria-hidden="true">›</span></button>';
+}
+function openReferralSheet(){
+    sheet('Реферальная система',referralMarkup());
+    const box=document.querySelector('#sheet');
+    box?.querySelector('#crafter-referral-copy')?.addEventListener('click',copyReferral);
+    box?.querySelector('#crafter-referral-share')?.addEventListener('click',shareReferral);
+    box?.querySelector('#crafter-referral-withdraw')?.addEventListener('click',withdrawReferral);
+}
 function referralMarkup(){
     const me=state.me||{};
     const rates=[5,6,7,8,10];
@@ -95,8 +111,8 @@ function referralMarkup(){
     const have=Number(me.referrals||0),left=Math.max(0,Number(me.referral_until_next)||0);
     const pct=level>=5?100:Math.round(100*have/Math.max(1,have+left));
     return '<section class="rf-card" id="crafter-referral-panel" aria-label="Реферальная система">'+
-        '<div class="rf-top"><div class="rf-title"><small>CRAFTER · РЕФЕРАЛЫ</small><h2>Приглашайте друзей</h2>'+
-        '<p>До 10% от комиссии Crafter за игры и сделки приглашённых.</p></div>'+
+        '<div class="rf-top"><div class="rf-title"><small>CRAFTER · РЕФЕРАЛЫ</small>'+
+        '<p>До 10% от комиссии Crafter за игры и сделки приглашённых друзей.</p></div>'+
         '<div class="rf-badge" style="--rf-pct:'+pct+'"><span><b>'+level+'</b><small>уровень</small></span></div></div>'+
         '<div class="rf-balance"><div><small>Реферальный баланс</small>'+
         '<strong id="crafter-referral-balance">'+liveAmount(me.referral_balance)+' GRAM</strong></div>'+
@@ -121,16 +137,10 @@ function enhanceProfile(){
     root.querySelector('.portal-referrals')?.remove();
     root.querySelector('.profile-invite')?.remove();
     root.querySelector('.crafter-referral-glass')?.remove();root.querySelector('.rf-card')?.remove();
+    root.querySelector('.rf-open')?.remove();
     const profile=root.querySelector('.portal-profile');
-    profile?.insertAdjacentHTML('afterend',referralMarkup());
-    const referrals=root.querySelector('#crafter-referral-panel');
-    referrals?.addEventListener('toggle',()=>{
-        const key='crafter-referral-open:'+String(state.me?.user?.id||'default');
-        try{sessionStorage.setItem(key,referrals.open?'1':'0');}catch(_){}
-    });
-    root.querySelector('#crafter-referral-copy')?.addEventListener('click',copyReferral);
-    root.querySelector('#crafter-referral-share')?.addEventListener('click',shareReferral);
-    root.querySelector('#crafter-referral-withdraw')?.addEventListener('click',withdrawReferral);
+    profile?.insertAdjacentHTML('afterend',referralButtonMarkup());
+    root.querySelector('#crafter-referral-open')?.addEventListener('click',openReferralSheet);
     const gear=identity.querySelector('.crafter-open-settings,.profile-settings-button');
     const promo=document.createElement('button');
     promo.className='crafter-profile-promo';
