@@ -33,7 +33,7 @@ function slot(kind) {
     const isStake = kind === 'stake', item = isStake ? ui.stake : ui.target;
     const disabled = !isStake && !ui.stake;
     const body = item
-        ? `<img class="upg-thumb" ${centerPicture(item)} alt="" draggable="false"><span class="upg-slot-text"><strong>${h(item.name)}</strong><small>#${h(item.number || '')} · ${fmt(item.price)} GRAM</small></span>`
+        ? `<img class="upg-thumb" ${centerPicture(item)} alt="" draggable="false"><span class="upg-slot-text"><strong>${h(item.name)}</strong><small>${item.gram ? 'Ставка' : '#' + h(item.number || '')} · ${fmt(item.price)} GRAM</small></span>`
         : `${plusIcon}<strong>${isStake ? 'Выбрать ставку' : 'Выбрать цель'}</strong>`;
     return `<button type="button" class="upg-slot ${item ? 'is-filled' : ''}" data-slot="${kind}" ${disabled || ui.spinning ? 'disabled' : ''}>${body}</button>`;
 }
@@ -150,12 +150,45 @@ async function openStakeSheet() {
     if (ui.spinning) return;
     const el = sheet('Выберите ставку', '<div class="upg-loading">Загрузка…</div>');
     try {
-        ui.gifts = (await api('upgrade/stakes')).gifts;
+        const info = await api('upgrade/stakes');
+        ui.gifts = info.gifts;
+        const balance = Number(info.balance || 0), min = Number(info.gram_min || 0.5);
         const body = el.querySelector('.upg-sheet-body');
-        if (!ui.gifts.length) { body.innerHTML = '<p class="upg-empty">Нет подарков, подходящих для апгрейда.</p>'; return; }
-        body.innerHTML = `<div class="upg-grid">${ui.gifts.map((g, i) => `<button type="button" class="upg-card" data-i="${i}">
-            ${giftArt(g)}<strong>${h(g.name)}</strong><small>#${h(g.number || '')} · ${fmt(g.upgrade_value)} GRAM</small></button>`).join('')}</div>`;
-        body.onclick = e => {
+        const giftsHTML = ui.gifts.length ? `<div class="upg-grid">${ui.gifts.map((g, i) => `<button type="button" class="upg-card" data-i="${i}">
+            ${giftArt(g)}<strong>${h(g.name)}</strong><small>#${h(g.number || '')} · ${fmt(g.upgrade_value)} GRAM</small></button>`).join('')}</div>` :
+            '<p class="upg-empty">Нет подарков, подходящих для апгрейда.</p>';
+        const max = Math.floor(balance * 100) / 100;
+        const presets = [1, 5, 10, 25, 50].filter(v => v >= min && v <= max);
+        const gramHTML = `<div class="upg-gram">
+            <div class="upg-gram-balance"><img src="/static/assets/gram.svg" alt=""><span>Ваш баланс</span><b>${fmt(balance)} GRAM</b></div>
+            <label class="upg-gram-field"><span>Сумма ставки</span><input id="upg-gram-amount" inputmode="decimal" autocomplete="off" placeholder="${min}" value="${max >= min ? Math.min(max, Math.max(min, 5)) : ''}"></label>
+            <div class="upg-gram-chips">${presets.map(v => `<button type="button" data-v="${v}">${v}</button>`).join('')}${max >= min ? `<button type="button" data-v="${max}">Всё</button>` : ''}</div>
+            ${max >= min ? `<input id="upg-gram-range" class="upg-gram-range" type="range" min="${min}" max="${max}" step="0.01" value="${Math.min(max, 5)}">` : ''}
+            <p class="upg-gram-note" id="upg-gram-note">${max >= min ? 'Минимум ' + min + ' GRAM. Чем больше ставка, тем выше шанс на выбранный подарок.' : 'Недостаточно GRAM: нужно минимум ' + min + '.'}</p>
+            <button type="button" class="upg-gram-go" id="upg-gram-go" ${max >= min ? '' : 'disabled'}>Поставить GRAM</button></div>`;
+        body.innerHTML = `<div class="upg-seg"><button type="button" class="is-on" data-tab="gifts">Подарки</button><button type="button" data-tab="gram">GRAM</button></div>
+            <div id="upg-tab-gifts">${giftsHTML}</div><div id="upg-tab-gram" hidden>${gramHTML}</div>`;
+        body.querySelectorAll('.upg-seg button').forEach(b => b.addEventListener('click', () => {
+            body.querySelectorAll('.upg-seg button').forEach(x => x.classList.toggle('is-on', x === b));
+            body.querySelector('#upg-tab-gifts').hidden = b.dataset.tab !== 'gifts';
+            body.querySelector('#upg-tab-gram').hidden = b.dataset.tab !== 'gram';
+        }));
+        const input = body.querySelector('#upg-gram-amount'), range = body.querySelector('#upg-gram-range'), note = body.querySelector('#upg-gram-note');
+        const clamp = v => Math.min(max, Math.max(min, Math.round(v * 100) / 100));
+        const valid = () => { const v = Number(String(input.value).replace(',', '.')); return Number.isFinite(v) && v >= min && v <= max ? Math.round(v * 100) / 100 : null; };
+        const sync = () => { const v = valid(); body.querySelector('#upg-gram-go').disabled = v === null; note.classList.toggle('is-err', v === null && input.value !== ''); if (v !== null && range) range.value = v; };
+        input?.addEventListener('input', sync);
+        range?.addEventListener('input', () => { input.value = range.value; sync(); });
+        body.querySelectorAll('.upg-gram-chips button').forEach(b => b.addEventListener('click', () => { input.value = clamp(Number(b.dataset.v)); sync(); }));
+        body.querySelector('#upg-gram-go')?.addEventListener('click', () => {
+            const v = valid(); if (v === null) return;
+            const id = 'gram:' + v.toFixed(2);
+            ui.stake = {id, name: 'GRAM', number: '', model: '', image: '/static/assets/gram.svg', gram: true, upgrade_value: v.toFixed(2), price: v.toFixed(2)};
+            ui.target = ui.quote = null; ui.collection = null;
+            closeSheet(); render(); setChance(0, false); pulseWheel();
+        });
+        sync();
+        body.querySelector('#upg-tab-gifts').onclick = e => {
             const b = e.target.closest('.upg-card'); if (!b) return;
             const picked = ui.gifts[Number(b.dataset.i)];
             ui.stake = {...picked, price: picked.upgrade_value}; ui.target = ui.quote = null; ui.collection = null;

@@ -9,9 +9,11 @@ import json
 import secrets
 import time
 import uuid
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from flask import abort, g, request
+
+from resale import cap_funded_balance
 
 STAKE_ORIGINS = ('admin-grant', 'application-craft', 'local-purchase', 'portals-partner', 'telegram-deposit', 'thermos')
 TEST_ORIGINS = ('market-test', 'demo-craft')
@@ -19,6 +21,7 @@ MIN_BPS, MAX_BPS = 100, 9499      # 1% .. 94.99%; the 5% house edge is built int
 EDGE_BPS = 9500
 QUOTE_TTL = 120
 TARGET_LIMIT = 60
+GRAM_MIN, GRAM_MAX = Decimal('0.5'), Decimal('100000')
 
 
 def chance_bps(stake, target):
@@ -90,7 +93,31 @@ def install_upgrade(app, db, auth, record, ctx):
             g._upgrade_floors = floors
         return floors.get(ctx['canonical_name'](gift.get('name', '')))
 
+    def balance_of(uid):
+        row = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (uid,)).fetchone()
+        return Decimal(str(row[0])) if row else Decimal('0')
+
+    def gram_stake(stake_id):
+        """A stake paid in GRAM from the balance: id is ``gram:<amount>``. Returns (virtual gift, amount) or None."""
+        if not isinstance(stake_id, str) or not stake_id.startswith('gram:'):
+            return None
+        try:
+            amount = Decimal(stake_id[5:]).quantize(Decimal('0.01'))
+        except (InvalidOperation, ValueError):
+            abort(400, description='Неверная сумма ставки')
+        if not amount.is_finite() or not GRAM_MIN <= amount <= GRAM_MAX:
+            abort(400, description='Ставка в GRAM: от 0.5')
+        if balance_of(g.user['id']) < amount:
+            abort(409, description='Недостаточно GRAM на балансе')
+        gift = {'id': 'gram:' + format(amount, 'f'), 'name': 'GRAM', 'number': '', 'model': '', 'status': 'unlisted',
+                'image': '/static/assets/gram.svg', 'gram_stake': True, 'gram_amount': format(amount, 'f'),
+                'test_only': bool(ctx['test_mode']())}
+        return gift, amount
+
     def stake_gift(gift_id):
+        virtual = gram_stake(gift_id)
+        if virtual:
+            return virtual
         gift = next((x for x in owned() if x['id'] == gift_id), None)
         value = stake_value(gift) if gift else None
         if value is None:
@@ -105,7 +132,7 @@ def install_upgrade(app, db, auth, record, ctx):
             value = stake_value(gift)
             if value is not None:
                 out.append({**gift, 'upgrade_value': str(value.quantize(Decimal('0.01')))})
-        return {'gifts': out}
+        return {'gifts': out, 'balance': str(balance_of(g.user['id'])), 'gram_min': str(GRAM_MIN)}
 
     def lots(target, uid):
         rows = db().execute("""SELECT l.id,l.price,l.seller_id,i.payload FROM crafter_listings l
@@ -257,7 +284,7 @@ def install_upgrade(app, db, auth, record, ctx):
         pre = db().execute('SELECT payload FROM upgrade_quotes WHERE id=? AND user_id=?', (qid, uid)).fetchone()
         if pre:
             pq = json.loads(pre['payload'])
-            pg = next((x for x in owned() if x['id'] == pq['stake_id']), None)
+            pg = (gram_stake(pq['stake_id']) or (None,))[0] or next((x for x in owned() if x['id'] == pq['stake_id']), None)
             if pq['source'] == 'portals' and pg and not pg.get('test_only'):
                 cand = next((gf for gf, p in ctx['market_candidates'](collection(pq['collection_id']))
                              if gf['id'] == pq['listing_id']), None)
@@ -302,7 +329,14 @@ def install_upgrade(app, db, auth, record, ctx):
                     if ctx['thermos_backend']() and ctx['work_mode']():
                         deferred = listing            # really bought on Thermos after the transaction
             stake_payload = {k: v for k, v in gift.items() if k not in ('status', 'listing_price')}
-            db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?', (uid, gift['id']))
+            if gift.get('gram_stake'):
+                left = balance_of(uid) - value
+                if left < 0:
+                    abort(409, description='Недостаточно GRAM на балансе')
+                cap_funded_balance(db(), uid, left)
+                db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?', (str(left), uid))
+            else:
+                db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?', (uid, gift['id']))
             if win and gift.get('test_only'):
                 reward = {**listing, 'id': 'demo-craft-' + uuid.uuid4().hex, 'collection_id': target['id'],
                           'source_id': listing['id'], 'origin': 'demo-craft', 'test_only': True, 'catalog_only': True,
@@ -343,8 +377,12 @@ def install_upgrade(app, db, auth, record, ctx):
                 db().execute('INSERT INTO inventory VALUES(?,?,?,?)', (uid, gift['id'], json.dumps(gift), 'unlisted'))
                 result = {**result, 'gift': gift, 'pending': False}
             elif outcome == 'failed':
-                db().execute('INSERT INTO inventory VALUES(?,?,?,?) ON CONFLICT DO NOTHING',
-                             (uid, stake_payload['id'], json.dumps(stake_payload), 'unlisted'))
+                if stake_payload.get('gram_stake'):
+                    db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',
+                                 (str(balance_of(uid) + Decimal(stake_payload['gram_amount'])), uid))
+                else:
+                    db().execute('INSERT INTO inventory VALUES(?,?,?,?) ON CONFLICT DO NOTHING',
+                                 (uid, stake_payload['id'], json.dumps(stake_payload), 'unlisted'))
                 result = {**result, 'success': False, 'gift': None, 'pending': False, 'refunded': True,
                           'note': 'Подарок не удалось выкупить — ставка возвращена'}
             else:

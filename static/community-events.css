@@ -158,7 +158,7 @@
 .ny-tabs button{flex:1;min-width:110px;padding:10px 12px;border-radius:12px;font-size:14px;font-weight:600;color:#aebbd0;background:none;border:0;cursor:pointer;transition:background .2s,color .2s}
 .ny-tabs button.is-on{color:#fff;background:#2b7be0;box-shadow:0 6px 16px rgba(43,123,224,.35)}
 [data-ny-tab] > [data-pane]{display:none!important}
-[data-ny-tab="main"] > [data-pane="main"],[data-ny-tab="events"] > [data-pane="events"],[data-ny-tab="packs"] > [data-pane="packs"],[data-ny-tab="shop"] > [data-pane="shop"]{display:block!important}
+[data-ny-tab="main"] > [data-pane="main"],[data-ny-tab="events"] > [data-pane="events"],[data-ny-tab="packs"] > [data-pane="packs"],[data-ny-tab="shop"] > [data-pane="shop"],[data-ny-tab="advent"] > [data-pane="advent"]{display:block!important}
 .cm-seg{display:flex;gap:6px;margin:0 0 14px;padding:4px;border-radius:14px;background:rgba(255,255,255,.05)}
 .cm-seg button{flex:1;padding:10px 8px;border-radius:10px;font-size:13px;font-weight:600;color:#aebbd0;background:none;border:0;cursor:pointer}
 .cm-seg button.is-on{color:#fff;background:#2b7be0}

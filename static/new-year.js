@@ -90,15 +90,16 @@ async function showNewYear(next){
     if(!main)return;
     main.innerHTML='<div class="new-year-page"><div class="ny-hero"><small>CRAFTER · WINTER EVENT</small><h1>Событие</h1><p>Загружаем праздничные разделы...</p></div></div>';
     try{
-        const [data,shared,packState,shopState]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null)]);
+        const [data,shared,packState,shopState,advState]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null)]);
         if(state.page!=='new-year'||!main.isConnected)return;
         if(!data.enabled&&!state.me?.is_admin){
             state.me.new_year_enabled=false;await go('market');return;
         }
-        lastData=data;lastData.community=shared;lastData.packs=packState;updateHeaderWallet(data.balance);
+        lastData=data;lastData.community=shared;lastData.packs=packState;lastData.advent=advState;updateHeaderWallet(data.balance);
         if(view==='community'&&community()&&shared?.event){community().page(main,shared,{back:()=>showNewYear('hub'),market:()=>showNewYear('market')});return;}
+        if(view==='advent'&&window.crafterAdvent&&advState?.enabled){window.crafterAdvent.page(main,advState,{back:()=>showNewYear('hub'),reload:()=>showNewYear('advent')});return;}
         if(view==='market')return drawMarket(main,data,shared,packState,shopState);
-        view='hub';drawHub(main,data,shared);
+        view='hub';drawHub(main,data,shared,advState);
         community()?.checkCeremony?.(shared,{market:()=>showNewYear('market')});
     }catch(error){
         if(state.page==='new-year')main.innerHTML='<div class="new-year-page ny-empty">'+
@@ -106,14 +107,16 @@ async function showNewYear(next){
             '<button class="secondary" type="button" onclick="go(\'new-year\')">Повторить</button></div>';
     }
 }
-function drawHub(main,data,shared){
+function drawHub(main,data,shared,advState){
     const art=community()?.marketArt?.()||'';
     main.innerHTML='<div class="new-year-page ny-hubpage">'+
         '<button type="button" class="nyh-card nyh-market" data-nyh="market" aria-label="Новогодний маркет">'+art+
         '<span class="nyh-copy"><strong>Новогодний маркет</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>'+
-        (community()&&shared?.event?community().card(shared):'')+'</div>';
+        (community()&&shared?.event?community().card(shared):'')+
+        (window.crafterAdvent&&advState?.enabled?window.crafterAdvent.card(advState):'')+'</div>';
     main.querySelector('[data-nyh="market"]')?.addEventListener('click',()=>showNewYear('market'));
     main.querySelector('[data-nyh="community"]')?.addEventListener('click',()=>showNewYear('community'));
+    main.querySelector('[data-nyh="advent"]')?.addEventListener('click',()=>showNewYear('advent'));
 }
 const SEASON_GIFTS=['candycane','cookieheart','gingercookie','holidaydrink','jinglebells','partysparkler','santahat','sleighbell','snowglobe','snowmittens','spicedwine','winterwreath','xmasstocking'];
 function marketHero(){
@@ -312,7 +315,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     content.querySelectorAll(':scope > .ny-admin-section').forEach(x=>{x.dataset.pane='main';});
     const tabs=document.createElement('div');
     tabs.className='ny-tabs';
-    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин']];
+    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин'],['advent','Адвент']];
     const setTab=name=>{window.crafterNyTab=name;content.dataset.nyTab=name;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('is-on',b.dataset.tab===name));};
     tabs.innerHTML=names.map(([id,label])=>'<button type="button" data-tab="'+id+'">'+label+'</button>').join('');
     tabs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
@@ -320,6 +323,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     window.crafterCommunity?.admin?.(content);
     window.crafterPacks?.admin?.(content);
     window.crafterShopItems?.admin?.(content);
+    window.crafterAdvent?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{
         button.addEventListener('click',async()=>{
             const lot=result.lots.find(l=>l.id===button.dataset.nyAdminLot);

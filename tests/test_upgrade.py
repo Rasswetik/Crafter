@@ -115,3 +115,44 @@ def test_collections_carry_a_floor_price_in_gram_for_the_price_filter(client, se
     r = client.get('/api/upgrade/collections?stake_id=stake-1', headers=signed(43))
     snoop = next(c for c in r.json['collections'] if c['name'] == 'Snoop Dogg')
     assert Decimal(snoop['floor']) > 0
+
+
+def set_balance(client, uid, amount):
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance", (uid, str(amount)))
+
+
+def money_of(client, uid):
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        return Decimal(db.execute('SELECT balance FROM demo_accounts WHERE user_id=?', (uid,)).fetchone()[0])
+
+
+def test_gram_stake_wins_and_loses_from_balance(client, setup, monkeypatch):
+    # work mode: a GRAM stake plays for real lots; the listed gift must sit on the relayer
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO settings VALUES ('purchase_mode_v1', ?)", (json.dumps({'mode': 'work'}),))
+        for nft_id, payload in db.execute("SELECT nft_id,payload FROM inventory WHERE user_id=42").fetchall():
+            gift = json.loads(payload)
+            gift['origin'] = 'telegram-deposit'
+            db.execute("UPDATE inventory SET payload=? WHERE user_id=42 AND nft_id=?", (json.dumps(gift), nft_id))
+    set_balance(client, 43, '20')
+    stakes = client.get('/api/upgrade/stakes', headers=signed(43)).json
+    assert stakes['balance'] == '20' and stakes['gram_min'] == '0.5'
+    get_targets = lambda sid: client.get('/api/upgrade/targets?stake_id=%s&collection_id=snoop' % sid, headers=signed(43))
+    assert get_targets('gram:0.1').status_code == 400                 # below the minimum
+    assert get_targets('gram:500').status_code == 409                 # more than the balance
+    gift, = get_targets('gram:3').json['gifts']
+    assert gift['chance'] == 28.5                                     # same formula as a 3 GRAM gift
+    quote = lambda: client.post('/api/upgrade/quote', headers=signed(43), json={'stake_id': 'gram:3', 'collection_id': 'snoop', 'listing_id': gift['id']}).json
+
+    monkeypatch.setattr('upgrade.secrets.randbelow', lambda _: 9999)
+    lost = client.post('/api/upgrade', headers=signed(43), json={'quote_id': quote()['quote_id'], 'request_id': 'g-1'})
+    assert lost.json['success'] is False and money_of(client, 43) == Decimal('17')
+    assert 'stake-1' in [g['id'] for g in client.get('/api/inventory', headers=signed(43)).json['gifts']]      # the gift stake is untouched
+
+    monkeypatch.setattr('upgrade.secrets.randbelow', lambda _: 0)
+    q = quote()
+    won = client.post('/api/upgrade', headers=signed(43), json={'quote_id': q['quote_id'], 'request_id': 'g-2'})
+    assert won.json['success'] is True and money_of(client, 43) == Decimal('14') and won.json['gift']
+    assert client.post('/api/upgrade', headers=signed(43), json={'quote_id': q['quote_id'], 'request_id': 'g-2'}).json == won.json
+    assert money_of(client, 43) == Decimal('14')                       # repeat does not charge again
