@@ -1,0 +1,361 @@
+"""Card packs: a pack holds 1-5 face-down cards, each card is a GRAM balance prize or a seasonal gift.
+
+Packs are configured by administrators (card-count chances and prize chances), can be given as
+community rewards, promo-code rewards or sold for New Year balls, and are opened with one request.
+Gift prizes are catalog items: they can be sold back instantly for their value but never withdrawn.
+"""
+import gzip
+import json
+import re
+import secrets
+import time
+import uuid
+from decimal import Decimal, InvalidOperation
+from pathlib import Path
+
+from flask import abort, g, request
+
+ROOT = Path(__file__).resolve().parent
+SEASONAL = ('candycane', 'cookieheart', 'gingercookie', 'holidaydrink', 'jinglebells', 'partysparkler',
+            'santahat', 'sleighbell', 'snowglobe', 'snowmittens', 'spicedwine', 'winterwreath', 'xmasstocking')
+DEFAULT_PACK = 'newyear'
+DEFAULT_IMAGE = '/static/assets/packs/new-year-pack.webp'
+_LIMIT = 10**9
+_rng = secrets.SystemRandom()
+
+
+def singular(name):
+    if name.endswith(('Bells', 'Mittens')):
+        return name
+    if name.endswith('ies'):
+        return name[:-3] + 'y'
+    return name[:-1] if name.endswith('s') else name
+
+
+def seasonal_collections():
+    path = ROOT / 'data/catalog_seed.json.gz'
+    if not path.exists():
+        return []
+    try:
+        rows = json.loads(gzip.decompress(path.read_bytes())).get('collections', [])
+    except (OSError, ValueError):
+        return []
+    found = {r.get('id'): r for r in rows if r.get('id') in SEASONAL}
+    out = []
+    for cid in SEASONAL:
+        r = found.get(cid)
+        if not r:
+            continue
+        try:
+            value = Decimal(str(r.get('floor_price') or '0'))
+        except InvalidOperation:
+            value = Decimal('0')
+        out.append({'id': cid, 'name': singular(r.get('name') or cid), 'image': r.get('photo_url') or '',
+                    'value': plain(value)})
+    return out
+
+
+def plain(d):
+    return format(d.normalize(), 'f') if d else '0'
+
+
+def money(value, name='сумма'):
+    try:
+        amount = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        abort(400, description='Неверная ' + name)
+    if not amount.is_finite() or not Decimal('0.01') <= amount <= Decimal('100000') or amount != amount.quantize(Decimal('0.000001')):
+        abort(400, description='Сумма: от 0.01 до 100000, до 6 знаков')
+    return amount
+
+
+def install_packs(app, db, auth, record, audit):
+    with app.app_context(), db():
+        db().executescript("""
+        CREATE TABLE IF NOT EXISTS packs(
+            id TEXT PRIMARY KEY, title TEXT NOT NULL, image_url TEXT NOT NULL,
+            card_weights TEXT NOT NULL, for_sale BIGINT NOT NULL DEFAULT 0,
+            price_balls BIGINT NOT NULL DEFAULT 0, enabled BIGINT NOT NULL DEFAULT 1, created BIGINT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS pack_prizes(
+            id TEXT PRIMARY KEY, pack_id TEXT NOT NULL, kind TEXT NOT NULL, amount TEXT NOT NULL DEFAULT '',
+            collection_id TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '', image TEXT NOT NULL DEFAULT '',
+            value TEXT NOT NULL DEFAULT '0', weight DOUBLE PRECISION NOT NULL, position BIGINT NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS user_packs(
+            id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, pack_id TEXT NOT NULL, source TEXT NOT NULL,
+            request_id TEXT, created BIGINT NOT NULL, opened_at BIGINT, result TEXT
+        );
+        """)
+        if not db().execute("SELECT 1 FROM packs WHERE id=?", (DEFAULT_PACK,)).fetchone() \
+                and not db().execute("SELECT 1 FROM packs LIMIT 1").fetchone():
+            now = int(time.time())
+            db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
+                         (DEFAULT_PACK, 'Новогодний пак', DEFAULT_IMAGE,
+                          json.dumps({'1': 30, '2': 30, '3': 20, '4': 12, '5': 8}), 0, 0, 1, now))
+            rows = [('GRAM', a, '', 'GRAM', '', a, w) for a, w in
+                    (('0.2', 300), ('0.5', 200), ('1', 120), ('2', 60), ('2.5', 40), ('3', 30), ('5', 10))]
+            for c in seasonal_collections():
+                try:
+                    v = Decimal(c['value'])
+                except InvalidOperation:
+                    continue
+                if v > 0:
+                    rows.append(('NFT', '', c['id'], c['name'], c['image'], c['value'], round(75 / float(v), 2)))
+            for pos, (kind, amount, cid, name, image, value, weight) in enumerate(rows):
+                db().execute("INSERT INTO pack_prizes(id,pack_id,kind,amount,collection_id,name,image,value,weight,position) "
+                             "VALUES(?,?,?,?,?,?,?,?,?,?)",
+                             (uuid.uuid4().hex, DEFAULT_PACK, kind, str(amount), cid, name, image, str(value), float(weight), pos))
+
+    def pack_row(pid):
+        return db().execute("SELECT * FROM packs WHERE id=?", (pid,)).fetchone()
+
+    def prizes_of(pid):
+        return db().execute("SELECT * FROM pack_prizes WHERE pack_id=? ORDER BY position", (pid,)).fetchall()
+
+    def short(p):
+        return {'id': p['id'], 'title': p['title'], 'image': p['image_url']}
+
+    def grant(uid, pack_id, source, request_id=None):
+        """Give one unopened pack to a player. Must run inside a transaction."""
+        pack = pack_row(pack_id)
+        if not pack:
+            abort(409, description='Пак не найден')
+        if request_id:
+            have = db().execute("SELECT id FROM user_packs WHERE user_id=? AND request_id=?", (uid, request_id)).fetchone()
+            if have:
+                return have['id']
+        upid = uuid.uuid4().hex
+        db().execute("INSERT INTO user_packs(id,user_id,pack_id,source,request_id,created) VALUES(?,?,?,?,?,?)",
+                     (upid, uid, pack_id, source, request_id, int(time.time())))
+        return upid
+
+    app.extensions['crafter_grant_pack'] = grant
+    app.extensions['crafter_pack_exists'] = lambda pid: bool(pack_row(pid))
+    app.extensions['crafter_pack_short'] = lambda pid: (short(pack_row(pid)) if pack_row(pid) else None)
+
+    def credit(uid, amount):
+        account = db().execute("SELECT balance FROM demo_accounts WHERE user_id=?", (uid,)).fetchone()
+        before = Decimal(str(account['balance'])) if account else Decimal('0')
+        after = before + amount
+        db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance",
+                     (uid, str(after)))
+        return after
+
+    def pick(weights):
+        total = sum(w for _, w in weights)
+        point = _rng.uniform(0, total)
+        run = 0.0
+        for item, w in weights:
+            run += w
+            if point <= run:
+                return item
+        return weights[-1][0]
+
+    @app.get('/api/packs')
+    @auth()
+    def packs_state():
+        uid = g.user['id']
+        mine = db().execute(
+            "SELECT u.id,u.source,p.id AS pid,p.title,p.image_url FROM user_packs u JOIN packs p ON p.id=u.pack_id "
+            "WHERE u.user_id=? AND u.opened_at IS NULL ORDER BY u.created", (uid,)).fetchall()
+        shop = db().execute("SELECT * FROM packs WHERE for_sale=1 AND enabled=1 ORDER BY created").fetchall()
+        return {'mine': [{'id': r['id'], 'source': r['source'], 'pack': {'id': r['pid'], 'title': r['title'], 'image': r['image_url']}} for r in mine],
+                'shop': [{**short(p), 'price_balls': int(p['price_balls'])} for p in shop]}
+
+    @app.post('/api/packs/buy')
+    @auth()
+    def packs_buy():
+        body = request.get_json(silent=True) or {}
+        pid, rid = body.get('pack_id'), body.get('request_id')
+        if not isinstance(pid, str) or not isinstance(rid, str) or not re.fullmatch(r'[A-Za-z0-9_-]{8,100}', rid):
+            abort(400, description='Неверный запрос')
+        uid = g.user['id']
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            pack = pack_row(pid)
+            if not pack or not pack['enabled'] or not pack['for_sale']:
+                abort(409, description='Пак сейчас не продаётся')
+            done = db().execute("SELECT id FROM user_packs WHERE user_id=? AND request_id=?", (uid, 'buy:' + rid)).fetchone()
+            row = db().execute("SELECT balls FROM new_year_wallets WHERE user_id=?", (uid,)).fetchone()
+            balls = int(row['balls']) if row else 0
+            if done:
+                return {'ok': True, 'user_pack_id': done['id'], 'balance': {'balls': balls}}
+            price = int(pack['price_balls'])
+            if balls < price:
+                abort(409, description='Недостаточно новогодних шаров')
+            if price:
+                db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
+                db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (balls - price, uid))
+            upid = grant(uid, pid, 'shop', 'buy:' + rid)
+            record('pack_buy', {'pack': pid, 'price_balls': price}, uid=uid)
+        return {'ok': True, 'user_pack_id': upid, 'balance': {'balls': balls - price}}
+
+    @app.post('/api/packs/open')
+    @auth()
+    def packs_open():
+        body = request.get_json(silent=True) or {}
+        upid = body.get('user_pack_id')
+        if not isinstance(upid, str) or not re.fullmatch(r'[a-f0-9]{32}', upid):
+            abort(400, description='Неверный пак')
+        uid = g.user['id']
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            row = db().execute("SELECT * FROM user_packs WHERE id=? AND user_id=?", (upid, uid)).fetchone()
+            if not row:
+                abort(404, description='Пак не найден')
+            if row['opened_at']:
+                return {**json.loads(row['result']), 'repeat': True}
+            pack = pack_row(row['pack_id'])
+            prizes = prizes_of(row['pack_id'])
+            if not pack or not prizes:
+                abort(409, description='Пак ещё не настроен')
+            counts = [(int(k), float(v)) for k, v in json.loads(pack['card_weights']).items() if float(v) > 0 and 1 <= int(k) <= 5]
+            if not counts:
+                abort(409, description='В паке не заданы шансы количества карточек')
+            n = pick(counts)
+            cards, total = [], Decimal('0')
+            for _ in range(n):
+                prize = pick([(p, float(p['weight'])) for p in prizes if float(p['weight']) > 0])
+                if prize['kind'] == 'GRAM':
+                    amount = Decimal(prize['amount'])
+                    total += amount
+                    cards.append({'kind': 'GRAM', 'amount': plain(amount), 'title': '+' + plain(amount) + ' GRAM'})
+                else:
+                    gift = {'id': 'pack-' + uuid.uuid4().hex, 'name': prize['name'], 'number': _rng.randint(1000, 99999),
+                            'model': '', 'symbol': '', 'backdrop': '', 'image': prize['image'], 'price': prize['value'],
+                            'price_unit': 'GRAM', 'floor_price': prize['value'], 'floor_unit': 'GRAM',
+                            'collection_id': prize['collection_id'], 'origin': 'pack', 'catalog_only': True,
+                            'test_only': True, 'pack_prize': True}
+                    db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)",
+                                 (uid, gift['id'], json.dumps(gift, ensure_ascii=False), 'unlisted'))
+                    cards.append({'kind': 'NFT', 'nft_id': gift['id'], 'title': prize['name'], 'image': prize['image'], 'value': prize['value']})
+            after = credit(uid, total) if total else credit(uid, Decimal('0'))
+            result = {'ok': True, 'pack': short(pack), 'cards': cards, 'balance': str(after), 'credited': plain(total) if total else '0'}
+            db().execute("UPDATE user_packs SET opened_at=?,result=? WHERE id=?", (int(time.time()), json.dumps(result, ensure_ascii=False), upid))
+            record('pack_open', {'pack': pack['id'], 'cards': cards, 'credited': result['credited']}, uid=uid)
+        return result
+
+    @app.post('/api/packs/sell')
+    @auth()
+    def packs_sell():
+        body = request.get_json(silent=True) or {}
+        ids = body.get('nft_ids')
+        if not isinstance(ids, list) or not ids or len(ids) > 5 or any(not isinstance(x, str) for x in ids) or len(set(ids)) != len(ids):
+            abort(400, description='Неверный запрос')
+        uid = g.user['id']
+        total = Decimal('0')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            for nft in ids:
+                row = db().execute("SELECT payload,status FROM inventory WHERE user_id=? AND nft_id=?", (uid, nft)).fetchone()
+                if not row:
+                    abort(409, description='Подарок уже продан или недоступен')
+                gift = json.loads(row['payload'])
+                if not gift.get('pack_prize') or row['status'] != 'unlisted':
+                    abort(409, description='Этот подарок нельзя продать здесь')
+                total += Decimal(str(gift.get('price') or '0'))
+                db().execute("DELETE FROM inventory WHERE user_id=? AND nft_id=?", (uid, nft))
+            after = credit(uid, total)
+            record('pack_sell', {'nft_ids': ids, 'amount': str(total)}, uid=uid)
+        return {'ok': True, 'amount': plain(total), 'balance': str(after)}
+
+    # ---- administration (permission section: new-year) ----
+    def admin_pack(p):
+        return {**short(p), 'card_weights': json.loads(p['card_weights']), 'for_sale': bool(p['for_sale']),
+                'price_balls': int(p['price_balls']), 'enabled': bool(p['enabled']),
+                'prizes': [{'kind': r['kind'], 'amount': r['amount'], 'collection_id': r['collection_id'], 'name': r['name'],
+                            'image': r['image'], 'value': r['value'], 'weight': r['weight']} for r in prizes_of(p['id'])]}
+
+    @app.get('/api/admin/new-year/packs')
+    @auth(admin=True)
+    def admin_packs():
+        rows = db().execute("SELECT * FROM packs ORDER BY created").fetchall()
+        return {'packs': [admin_pack(p) for p in rows], 'collections': seasonal_collections()}
+
+    @app.post('/api/admin/new-year/packs')
+    @auth(admin=True)
+    def admin_pack_save():
+        body = request.get_json(silent=True) or {}
+        title = str(body.get('title') or '').strip()
+        if not 1 <= len(title) <= 80:
+            abort(400, description='Название пака: 1–80 символов')
+        image = str(body.get('image_url') or DEFAULT_IMAGE).strip()
+        if not (image.startswith('https://') or re.fullmatch(r'/static/[A-Za-z0-9_./-]+', image)):
+            abort(400, description='Картинка: ссылка https:// или файл из /static/')
+        raw = body.get('card_weights')
+        weights = {}
+        for k in '12345':
+            try:
+                v = float((raw or {}).get(k, 0) or 0)
+            except (TypeError, ValueError):
+                abort(400, description='Шансы количества карточек — числа')
+            if v < 0 or v > _LIMIT:
+                abort(400, description='Неверный шанс количества карточек')
+            weights[k] = v
+        if sum(weights.values()) <= 0:
+            abort(400, description='Задайте хотя бы один шанс количества карточек')
+        try:
+            price = int(body.get('price_balls') or 0)
+        except (TypeError, ValueError):
+            abort(400, description='Цена — целое число шаров')
+        if not 0 <= price <= _LIMIT:
+            abort(400, description='Цена: от 0 до 1 000 000 000')
+        raw_prizes = body.get('prizes')
+        if not isinstance(raw_prizes, list) or not 1 <= len(raw_prizes) <= 80:
+            abort(400, description='В паке должно быть от 1 до 80 призов')
+        catalog = {c['id']: c for c in seasonal_collections()}
+        rows = []
+        for item in raw_prizes:
+            if not isinstance(item, dict):
+                abort(400, description='Неверный приз')
+            try:
+                weight = float(item.get('weight'))
+            except (TypeError, ValueError):
+                abort(400, description='Шанс приза — число')
+            if not 0 < weight <= _LIMIT:
+                abort(400, description='Шанс приза: больше 0')
+            if item.get('kind') == 'GRAM':
+                amount = money(item.get('amount'))
+                rows.append(('GRAM', plain(amount), '', 'GRAM', '', plain(amount), weight))
+            elif item.get('kind') == 'NFT':
+                c = catalog.get(item.get('collection_id'))
+                if not c:
+                    abort(400, description='Неизвестный подарок')
+                value = money(item.get('value') or c['value'], 'цена продажи') if (item.get('value') or c['value']) not in ('0', 0, '') else None
+                if value is None:
+                    abort(400, description='У подарка нет цены — укажите цену продажи')
+                rows.append(('NFT', '', c['id'], c['name'], c['image'], plain(value), weight))
+            else:
+                abort(400, description='Тип приза: GRAM или подарок')
+        pid = body.get('id') if isinstance(body.get('id'), str) and re.fullmatch(r'[a-z0-9_-]{1,40}', body.get('id') or '') else None
+        now = int(time.time())
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            if pid and pack_row(pid):
+                db().execute("UPDATE packs SET title=?,image_url=?,card_weights=?,for_sale=?,price_balls=?,enabled=? WHERE id=?",
+                             (title, image, json.dumps(weights), int(bool(body.get('for_sale'))), price, int(body.get('enabled', True) is not False), pid))
+                db().execute("DELETE FROM pack_prizes WHERE pack_id=?", (pid,))
+            else:
+                pid = uuid.uuid4().hex[:12]
+                db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
+                             (pid, title, image, json.dumps(weights), int(bool(body.get('for_sale'))), price, int(body.get('enabled', True) is not False), now))
+            for pos, (kind, amount, cid, name, img, value, weight) in enumerate(rows):
+                db().execute("INSERT INTO pack_prizes(id,pack_id,kind,amount,collection_id,name,image,value,weight,position) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                             (uuid.uuid4().hex, pid, kind, amount, cid, name, img, value, weight, pos))
+        audit('Pack saved: ' + title)
+        return {'ok': True, 'id': pid}
+
+    @app.post('/api/admin/new-year/packs/<pid>/delete')
+    @auth(admin=True)
+    def admin_pack_delete(pid):
+        with db():
+            if db().execute("SELECT 1 FROM user_packs WHERE pack_id=? LIMIT 1", (pid,)).fetchone():
+                abort(409, description='Этот пак уже выдавали — отключите его вместо удаления')
+            if db().execute("SELECT 1 FROM community_milestones WHERE reward_kind='PACK' AND reward_amount=? LIMIT 1", (pid,)).fetchone():
+                abort(409, description='Пак используется как награда события')
+            db().execute("DELETE FROM pack_prizes WHERE pack_id=?", (pid,))
+            if not db().execute("DELETE FROM packs WHERE id=?", (pid,)).rowcount:
+                abort(404, description='Пак не найден')
+        audit('Pack deleted ' + pid)
+        return {'ok': True}

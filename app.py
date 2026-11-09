@@ -1372,6 +1372,8 @@ def create_app(config=None):
     seasonal_accrue,seasonal_conversion=install_new_year_trade_rewards(app,db,audit)
     app.extensions['crafter_new_year_trade_accrue']=seasonal_accrue
     app.extensions['crafter_new_year_trade_conversion']=seasonal_conversion
+    from packs import install_packs
+    install_packs(app,db,auth,record,audit)
     from promocodes import install_promocodes
     install_promocodes(app,db,auth,record,audit)
     from community_events import install_community_events

@@ -93,15 +93,26 @@ def install_community_events(app, db, auth, record, audit):
         sold = sold_counts(event['id'])
         mine = {r['milestone_id']: r['code'] for r in db().execute(
             "SELECT milestone_id,code FROM community_claims WHERE user_id=?", (uid,)).fetchall()} if uid else {}
+        used = set()
+        if uid:
+            used = {r['code'] for r in db().execute("SELECT code FROM promo_claims WHERE user_id=?", (uid,)).fetchall()}
+            opened = {r['id'] for r in db().execute("SELECT id FROM user_packs WHERE user_id=? AND opened_at IS NOT NULL", (uid,)).fetchall()}
+        else:
+            opened = set()
+        short = app.extensions.get('crafter_pack_short')
         out = []
         for r in rows:
             taken = sold.get(r['id'], 0)
+            code = mine.get(r['id'])
+            pack = short(r['reward_amount']) if r['reward_kind'] == 'PACK' and short else None
+            redeemed = bool(code) and ((code[5:] in opened) if code.startswith('PACK:') else (code in used))
             out.append({'id': r['id'], 'threshold': int(r['threshold']), 'title': r['title'],
                         'reward_kind': r['reward_kind'], 'reward_amount': r['reward_amount'],
                         'supply': int(r['supply']), 'sold': taken, 'left': max(0, int(r['supply']) - taken),
-                        'price_balls': int(r['price_balls']), 'image_url': r['image_url'],
+                        'price_balls': int(r['price_balls']), 'image_url': r['image_url'] or (pack['image'] if pack else ''),
+                        'pack': pack, 'redeemed': redeemed,
                         'reached': int(r['threshold']) <= progress, 'reached_at': r['reached_at'],
-                        'code': mine.get(r['id'])})
+                        'code': code})
         return progress, out
 
     def payload(uid):
@@ -157,6 +168,13 @@ def install_community_events(app, db, auth, record, audit):
             if price:
                 db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
                 db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (balls - price, uid))
+            now = int(time.time())
+            if row['reward_kind'] == 'PACK':
+                upid = app.extensions['crafter_grant_pack'](uid, row['reward_amount'], 'community:' + mid)
+                db().execute("INSERT INTO community_claims(milestone_id,user_id,code,price,created,request_id) VALUES(?,?,?,?,?,?)",
+                             (mid, uid, 'PACK:' + upid, price, now, rid))
+                record('community_claim', {'milestone': mid, 'pack': row['reward_amount'], 'price_balls': price}, uid=uid)
+                return {'ok': True, 'pack_id': upid, 'balance': {'balls': balls - price}}
             code = ''
             for _ in range(30):
                 candidate = 'NY-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(4)) + '-' + \
@@ -166,7 +184,6 @@ def install_community_events(app, db, auth, record, audit):
                     break
             if not code:
                 abort(503, description='Не удалось создать код, повторите')
-            now = int(time.time())
             db().execute(
                 "INSERT INTO promo_codes(code,reward,currency,uses_limit,used,active,created_by,created,owner_id) "
                 "VALUES(?,?,?,?,0,1,?,?,?)",
@@ -246,9 +263,13 @@ def install_community_events(app, db, auth, record, audit):
         title = clean_text(body.get('title'), 80, 'название награды')
         threshold = whole(body.get('threshold'), 1, int(event['target']), 'Порог')
         kind = body.get('reward_kind')
-        if kind not in ('GRAM', 'BALL'):
-            abort(400, description='Награда: GRAM или шары')
-        if kind == 'BALL':
+        if kind not in ('GRAM', 'BALL', 'PACK'):
+            abort(400, description='Награда: GRAM, шары или пак')
+        if kind == 'PACK':
+            amount = str(body.get('reward_amount') or '')
+            if not app.extensions['crafter_pack_exists'](amount):
+                abort(400, description='Выберите существующий пак')
+        elif kind == 'BALL':
             amount = str(whole(body.get('reward_amount'), 1, _LIMIT, 'Награда в шарах'))
         else:
             from promocodes import to_amount
