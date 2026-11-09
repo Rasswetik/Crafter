@@ -108,17 +108,14 @@ go = async function(page, eventId = null, focusLeaderboard = true) {
     }
 };
 const crafterArenaSwordArt = '<svg class="crafter-animated-swords" viewBox="0 0 100 100" aria-hidden="true">'+
-'<defs><linearGradient id="crafter-ice-steel"><stop stop-color="#efffff"/><stop offset=".4" stop-color="#6ed4ff"/><stop offset="1" stop-color="#2387c9"/></linearGradient>'+
-'<linearGradient id="crafter-violet-steel"><stop stop-color="#fff6ff"/><stop offset=".4" stop-color="#cb9cff"/><stop offset="1" stop-color="#8751d8"/></linearGradient>'+
-'<linearGradient id="crafter-guard"><stop stop-color="#f3feff"/><stop offset=".55" stop-color="#acbcd0"/><stop offset="1" stop-color="#50617e"/></linearGradient></defs>'+
-'<g class="sword sword-left"><path class="sword-blade" d="M50 5 43 23 44.3 67H55.7L57 23Z" fill="url(#crafter-ice-steel)"/>'+
-'<path d="M50 9V65" stroke="#f5ffff" stroke-width="1.5" opacity=".9"/>'+
-'<path class="sword-crossguard" d="M26 69 32 61 45 65 50 67 55 65 68 61 74 69 57 74 53 78H47L43 74Z" fill="url(#crafter-guard)"/>'+
-'<path class="sword-hilt" d="M46.5 77H53.5V91H46.5Z" fill="#314869"/><circle cx="50" cy="94" r="4" fill="#88dcfa" stroke="#efffff" stroke-width="1.3"/></g>'+
-'<g class="sword sword-right"><path class="sword-blade" d="M50 5 43 23 44.3 67H55.7L57 23Z" fill="url(#crafter-violet-steel)"/>'+
-'<path d="M50 9V65" stroke="#f5ffff" stroke-width="1.5" opacity=".9"/>'+
-'<path class="sword-crossguard" d="M26 69 32 61 45 65 50 67 55 65 68 61 74 69 57 74 53 78H47L43 74Z" fill="url(#crafter-guard)"/>'+
-'<path class="sword-hilt" d="M46.5 77H53.5V91H46.5Z" fill="#4f3965"/><circle cx="50" cy="94" r="4" fill="#d0aaff" stroke="#efffff" stroke-width="1.3"/></g>'+
+'<defs><linearGradient id="cas-ice" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#bfe9ff"/><stop offset=".5" stop-color="#58b8f5"/><stop offset="1" stop-color="#2272c4"/></linearGradient>'+
+'<linearGradient id="cas-vio" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f0dcff"/><stop offset=".5" stop-color="#b98cff"/><stop offset="1" stop-color="#7440cf"/></linearGradient>'+
+'<linearGradient id="cas-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset=".55" stop-color="#ffc94d"/><stop offset="1" stop-color="#c98512"/></linearGradient>'+
+'<radialGradient id="cas-glow"><stop offset="0" stop-color="#e6c7ff" stop-opacity=".55"/><stop offset="1" stop-color="#e6c7ff" stop-opacity="0"/></radialGradient></defs>'+
+'<circle cx="50" cy="50" r="46" fill="url(#cas-glow)"/>'+
+'<g class="sword sword-left"><path d="M50 3 56.2 15.5 55.4 60H44.6L43.8 15.5Z" fill="url(#cas-ice)"/><path d="M50 3 56.2 15.5 55.4 60H50Z" fill="#fff" opacity=".28"/><path d="M50 9V56" stroke="#e8fbff" stroke-width="1.6" stroke-linecap="round" opacity=".75"/><path d="M28 61.5C35 55.5 43 58 50 60.5 57 58 65 55.5 72 61.5 69.5 68.5 61 67.5 57 65.5H43C39 67.5 30.5 68.5 28 61.5Z" fill="url(#cas-gold)" stroke="#fff3cf" stroke-width=".9" stroke-linejoin="round"/><circle cx="50" cy="63" r="2.6" fill="#e8fbff" stroke="#fff" stroke-width=".8"/><rect x="46.8" y="66" width="6.4" height="21" rx="2.6" fill="#3a2a5c"/><path d="M46.8 70.5 53.2 68.5M46.8 75 53.2 73M46.8 79.5 53.2 77.5M46.8 84 53.2 82" stroke="#d9c7ff" stroke-width="1.2" opacity=".6"/><circle cx="50" cy="91.5" r="4.6" fill="url(#cas-gold)" stroke="#fff3cf" stroke-width=".9"/><circle cx="50" cy="91.5" r="1.8" fill="#e8fbff"/></g>'+
+'<g class="sword sword-right"><path d="M50 3 56.2 15.5 55.4 60H44.6L43.8 15.5Z" fill="url(#cas-vio)"/><path d="M50 3 56.2 15.5 55.4 60H50Z" fill="#fff" opacity=".28"/><path d="M50 9V56" stroke="#fff0ff" stroke-width="1.6" stroke-linecap="round" opacity=".75"/><path d="M28 61.5C35 55.5 43 58 50 60.5 57 58 65 55.5 72 61.5 69.5 68.5 61 67.5 57 65.5H43C39 67.5 30.5 68.5 28 61.5Z" fill="url(#cas-gold)" stroke="#fff3cf" stroke-width=".9" stroke-linejoin="round"/><circle cx="50" cy="63" r="2.6" fill="#fff0ff" stroke="#fff" stroke-width=".8"/><rect x="46.8" y="66" width="6.4" height="21" rx="2.6" fill="#3a2a5c"/><path d="M46.8 70.5 53.2 68.5M46.8 75 53.2 73M46.8 79.5 53.2 77.5M46.8 84 53.2 82" stroke="#d9c7ff" stroke-width="1.2" opacity=".6"/><circle cx="50" cy="91.5" r="4.6" fill="url(#cas-gold)" stroke="#fff3cf" stroke-width=".9"/><circle cx="50" cy="91.5" r="1.8" fill="#fff0ff"/></g>'+
+'<path class="sword-spark" d="M50 36 52.4 47.6 64 50 52.4 52.4 50 64 47.6 52.4 36 50 47.6 47.6Z" fill="#fff"/>'+
 '</svg>';
 
 function renderGamesHub() {

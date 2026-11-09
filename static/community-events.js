@@ -7,7 +7,7 @@ const METRIC_NAME = {craft: 'Крафты', upgrade: 'Апгрейды', buy: '�
 const DEFAULT_IMG = '/static/assets/community-reward.svg';
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? ''));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
-const img = m => (m.image_url && /^(https:\/\/|\/static\/)/.test(m.image_url)) ? m.image_url : DEFAULT_IMG;
+const img = m => (m.image_url && /^(https:\/\/|\/static\/)/.test(m.image_url)) ? m.image_url : (m.pack?.image || DEFAULT_IMG);
 const rewardText = m => m.reward_kind === 'PACK' ? 'Пак «' + (m.pack?.title || '') + '»: 1–5 карточек' : m.reward_kind === 'BALL' ? 'Промокод на ' + num(m.reward_amount) + ' шаров' : 'Промокод на ' + num(m.reward_amount) + ' GRAM';
 const priceText = m => m.price_balls ? num(m.price_balls) + ' шаров' : 'Бесплатно';
 const pct = (a, b) => b > 0 ? Math.max(0, Math.min(100, a / b * 100)) : 0;
@@ -69,36 +69,38 @@ ${bulbs.join('')}
 <g transform="translate(360 156)"><rect x="0" y="-20" width="26" height="22" rx="3" fill="#9b5cf6"/><rect x="10.5" y="-20" width="5" height="22" fill="#ffe9a8"/><rect x="0" y="-11" width="26" height="4.5" fill="#ffe9a8"/><path d="M13-20c-8-11-14 0-3 0M13-20c8-11 14 0 3 0" stroke="#ffe9a8" stroke-width="2.6" fill="none" stroke-linecap="round"/></g>
 </svg>`;
 }
-function cardArt() {
-    return `<svg class="nyh-art nyh-art-cm" viewBox="0 0 400 170" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
-<defs><linearGradient id="cc-sky" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0c1a3e"/><stop offset="1" stop-color="#2b2a78"/></linearGradient>
-<linearGradient id="cc-fill" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#1f7ae0"/><stop offset=".6" stop-color="#5fc3ff"/><stop offset="1" stop-color="#ffe9a8"/></linearGradient>
-<radialGradient id="cc-glow"><stop offset="0" stop-color="#ffe9a8" stop-opacity=".8"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient></defs>
-<rect width="400" height="170" fill="url(#cc-sky)"/>
-${Array.from({length: 22}, (_, i) => `<circle class="nyh-star" style="--i:${i}" cx="${(i * 61 + 11) % 400}" cy="${(i * 37 + 9) % 160}" r="${i % 3 ? .9 : 1.6}" fill="#fff"/>`).join('')}
-<g transform="translate(300 12)">
-<circle cx="35" cy="6" r="34" fill="url(#cc-glow)"/>
-<path d="M35-10l5.8 12.4 13.6 1.7-10 9.4 2.6 13.4L35 19.8 23 26.9l2.6-13.4-10-9.4 13.6-1.7Z" fill="#ffe9a8" stroke="#fff" stroke-width="1.2" stroke-linejoin="round" class="nyh-ball"/>
-<rect x="6" y="40" width="58" height="112" rx="14" fill="#ffffff" fill-opacity=".1" stroke="#cfe8ff" stroke-opacity=".7" stroke-width="2"/>
-<rect x="11" y="92" width="48" height="55" rx="10" fill="url(#cc-fill)"/>
-<path d="M11 92h48" stroke="#fff" stroke-width="2" opacity=".7"/>
-${[0, 1, 2, 3].map(i => `<path d="M2 ${58 + i * 28}h14M54 ${58 + i * 28}h14" stroke="#ffe9a8" stroke-width="2" stroke-linecap="round" opacity=".9"/>`).join('')}
-<rect x="13" y="46" width="6" height="96" rx="3" fill="#fff" opacity=".22"/>
-</g>
-<g transform="translate(212 112)"><rect width="30" height="26" rx="3" fill="#e63946"/><rect x="12.5" width="5" height="26" fill="#ffd25e"/><rect y="9" width="30" height="5" fill="#ffd25e"/><path d="M15 0c-9-12-16 0-3 0M15 0c9-12 16 0 3 0" stroke="#ffd25e" stroke-width="3" fill="none" stroke-linecap="round"/></g>
-<g transform="translate(246 124)"><rect width="22" height="20" rx="3" fill="#2f7be0"/><rect x="9" width="4" height="20" fill="#fff"/><path d="M11 0c-7-9-12 0-2 0M11 0c7-9 12 0 2 0" stroke="#fff" stroke-width="2.4" fill="none" stroke-linecap="round"/></g>
-<path d="M0 150c80-8 160-2 240-2s110 2 160-4v26H0Z" fill="#dcecff" opacity=".9"/>
-</svg>`;
+const LOCK = '<svg class="cm-lock" viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.6" fill="currentColor"/><path d="M8.2 10.5V8a3.8 3.8 0 0 1 7.6 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+/* The hub card shows the real bar in miniature: same tube, ticks and prize icons, with the real progress. */
+function cardArt(data) {
+    const ev = data.event, ms = data.milestones, X = 262, W = 66, Y = 14, H = 142;
+    const frac = Math.min(1, data.progress / ev.target);
+    const pos = ms.map(m => ({m, ty: Y + H * (1 - Math.min(1, m.threshold / ev.target))})).sort((a, b) => a.ty - b.ty);
+    let last = -99;
+    pos.forEach(p => { p.cy = Math.max(p.ty, last + 36, Y + 15); last = p.cy; });
+    for (let i = pos.length - 1, lim = Y + H - 15; i >= 0; i--) { pos[i].cy = Math.min(pos[i].cy, lim); lim = pos[i].cy - 36; }
+    const fillH = Math.max(4, (H - 8) * frac);
+    const stars = Array.from({length: 22}, (_, i) => '<circle class="nyh-star" style="--i:' + i + '" cx="' + ((i * 61 + 11) % 400) + '" cy="' + ((i * 37 + 9) % 160) + '" r="' + (i % 3 ? .9 : 1.6) + '" fill="#fff"/>').join('');
+    const prizes = pos.map(p => {
+        const on = p.m.reached;
+        return '<rect x="' + (X - 4) + '" y="' + (p.ty - 1.4).toFixed(1) + '" width="' + (W + 8) + '" height="2.8" rx="1.4" fill="' + (on ? '#ffe9a8' : '#c8d9f2') + '" opacity=".85"/>' +
+            '<image href="' + e(img(p.m)) + '" x="' + (X + W + 12) + '" y="' + (p.cy - 15).toFixed(1) + '" width="30" height="30" opacity="' + (on ? 1 : .5) + '" preserveAspectRatio="xMidYMid meet"/>';
+    }).join('');
+    return '<svg class="nyh-art nyh-art-cm" viewBox="0 0 400 170" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">' +
+        '<defs><linearGradient id="cc-sky" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0c1a3e"/><stop offset="1" stop-color="#25266b"/></linearGradient>' +
+        '<linearGradient id="cc-fill" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#1366d6"/><stop offset=".6" stop-color="#3ea8ff"/><stop offset="1" stop-color="#bfe8ff"/></linearGradient>' +
+        '<pattern id="cc-str" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="12" fill="#fff" opacity=".18"/></pattern>' +
+        '<linearGradient id="cc-glass" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset=".35" stop-color="#fff" stop-opacity=".04"/><stop offset=".85" stop-color="#fff" stop-opacity=".02"/><stop offset="1" stop-color="#fff" stop-opacity=".16"/></linearGradient></defs>' +
+        '<rect width="400" height="170" fill="url(#cc-sky)"/>' +
+        '<rect x="' + X + '" y="' + Y + '" width="' + W + '" height="' + H + '" rx="20" fill="#0f1830" stroke="rgba(190,225,255,.6)" stroke-width="1.6"/>' +
+        '<rect x="' + (X + 4) + '" y="' + (Y + H - 4 - fillH).toFixed(1) + '" width="' + (W - 8) + '" height="' + fillH.toFixed(1) + '" rx="16" fill="url(#cc-fill)"/>' +
+        '<rect x="' + (X + 4) + '" y="' + (Y + H - 4 - fillH).toFixed(1) + '" width="' + (W - 8) + '" height="' + fillH.toFixed(1) + '" rx="16" fill="url(#cc-str)"/>' +
+        '<rect x="' + X + '" y="' + Y + '" width="' + W + '" height="' + H + '" rx="20" fill="url(#cc-glass)"/>' + prizes + '</svg>';
 }
 
 /* ---------- hub card ---------- */
 function card(data) {
-    const ev = data.event, p = pct(data.progress, ev.target), reached = data.milestones.filter(m => m.reached).length;
-    return '<button type="button" class="nyh-card nyh-community" data-nyh="community" aria-label="События сообщества">' + cardArt() +
-        '<span class="nyh-copy"><small>События сообщества</small><strong>' + e(ev.title) + '</strong>' +
-        '<span class="nyh-mini"><span class="nyh-mini-bar"><i style="width:' + p.toFixed(1) + '%"></i></span>' +
-        '<em>' + num(data.progress) + ' / ' + num(ev.target) + ' ' + (NOUN[ev.metric] || '') + '</em></span></span>' +
-        '<span class="nyh-meta"><b>' + reached + '/' + data.milestones.length + '</b> наград<i aria-hidden="true">›</i></span>' + '</button>';
+    return '<button type="button" class="nyh-card nyh-community" data-nyh="community" aria-label="События сообщества">' + cardArt(data) +
+        '<span class="nyh-copy"><strong>События сообщества</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>';
 }
 
 /* ---------- goal page ---------- */
@@ -133,7 +135,7 @@ function page(main, data, nav, opts = {}) {
         '<div class="cm-now"><b>' + num(data.progress) + '</b> из ' + num(ev.target) + ' · ' + p.toFixed(p < 10 ? 1 : 0) + '%</div></div>' +
         '<div class="cm-legend">' + ms.map(m => '<button type="button" class="cm-lg' + (m.reached ? ' is-on' : '') + '" data-cm-prize="' + e(m.id) + '"><span class="cm-pic"><img src="' + e(img(m)) + '" alt=""></span>' +
             '<span class="cm-info"><b>' + e(m.title) + '</b><small>' + num(m.threshold) + ' ' + (NOUN[ev.metric] || '') + ' · ' + e(priceText(m)) + '</small></span>' +
-            '<em>' + (m.code ? 'Получено' : m.reached ? (m.left ? 'Доступно' : 'Разобрано') : '🔒') + '</em></button>').join('') + '</div></div>' +
+            '<em>' + (m.code ? 'Получено' : m.reached ? (m.left ? 'Доступно' : 'Разобрано') : LOCK) + '</em></button>').join('') + '</div></div>' +
         '<div class="cm-stage" style="height:' + H + 'px">' +
         pos.map(x => '<span class="cm-tl ' + on(x) + '" style="top:' + x.ty.toFixed(1) + 'px">' + num(x.m.threshold) + '</span>').join('') +
         bar(ev, fresh ? from : data.progress, H) +
@@ -151,7 +153,7 @@ function prize(m, cy) {
     const state = m.code ? 'is-claimed' : m.reached ? 'is-reached' : 'is-locked';
     return '<button type="button" class="cm-prize ' + state + '" data-cm-prize="' + e(m.id) + '" style="top:' + (cy - 31).toFixed(1) + 'px" aria-label="' + e(m.title) + '">' +
         '<img src="' + e(img(m)) + '" alt="" loading="lazy">' +
-        (m.code ? '<i class="cm-badge ok">✓</i>' : m.reached ? '' : '<i class="cm-badge">🔒</i>') + '</button>';
+        (m.code ? '<i class="cm-badge ok">✓</i>' : m.reached ? '' : '<i class="cm-badge">' + LOCK + '</i>') + '</button>';
 }
 function celebrate(main, data, fresh, nav) {
     remember(fresh.id);
@@ -239,6 +241,8 @@ function claimSheet(m, refresh) {
 function checkCeremony() {}
 
 /* ---------- administrator ---------- */
+const KINDS = [['GRAM', 'Промокод GRAM'], ['BALL', 'Шары'], ['PACK', 'Карточный пак']];
+const sw = (name, label, on, hint) => '<label class="ny-admin-switch full"><span><b>' + label + '</b>' + (hint ? '<small class="sub" style="display:block;margin-top:4px">' + hint + '</small>' : '') + '</span><input type="checkbox" name="' + name + '"' + (on ? ' checked' : '') + '></label>';
 async function admin(content) {
     let r, packs = [];
     try { r = await api('admin/new-year/community'); } catch (_) { return; }
@@ -247,28 +251,29 @@ async function admin(content) {
     const ev = r.event || {title: 'Крафтим вместе', description: '', metric: 'craft', target: 10000, enabled: false};
     const sec = document.createElement('section');
     sec.className = 'ny-admin-section cm-admin';
-    sec.innerHTML = '<h3>События сообщества</h3><p class="sub">Общая цель всех игроков и награды за её этапы. Награды попадают в новогодний маркет, когда этап пройден. Каждый покупатель получает свой промокод на одну активацию.</p>' +
-        (r.event ? '<p class="sub"><b>Сейчас собрано: ' + num(r.progress) + ' из ' + num(ev.target) + '</b></p>' : '') +
+    sec.dataset.pane = 'events';
+    const rows = (r.milestones || []).map(m => '<div class="ny-admin-row"><div class="cm-admin-pic"><img src="' + e(img(m)) + '" alt=""></div><div><b>' + e(m.title) + '</b><small>с ' + num(m.threshold) + ' · ' + e(rewardText(m)) + ' · ' + e(priceText(m)) + ' · выдано ' + m.sold + '/' + m.supply + '</small></div>' +
+        '<button type="button" data-cm-del="' + e(m.id) + '">Удалить</button></div>').join('');
+    sec.innerHTML = '<h3>Общая цель</h3>' +
+        (r.event ? '<p class="cm-admin-now"><b>' + num(r.progress) + '</b> из ' + num(ev.target) + ' ' + (NOUN[ev.metric] || '') + ' собрано</p>' : '<p class="sub">Создайте событие: все игроки вместе набирают цель и открывают награды.</p>') +
         '<form id="cm-event-form"><div class="ny-admin-fields">' +
         '<label class="full">Название<input name="title" maxlength="80" required value="' + e(ev.title) + '"></label>' +
-        '<label class="full">Описание<input name="description" maxlength="300" value="' + e(ev.description) + '"></label>' +
+        '<label class="full">Описание (необязательно)<input name="description" maxlength="300" value="' + e(ev.description) + '"></label>' +
         '<label>Что считаем<select name="metric">' + Object.keys(METRIC_NAME).map(k => '<option value="' + k + '"' + (ev.metric === k ? ' selected' : '') + '>' + METRIC_NAME[k] + '</option>').join('') + '</select></label>' +
         '<label>Цель<input name="target" type="number" min="1" step="1" required value="' + e(ev.target) + '"></label>' +
-        '<label class="full"><span><input type="checkbox" name="enabled"' + (ev.enabled ? ' checked' : '') + '> Показывать игрокам</span></label>' +
-        '<label class="full"><span><input type="checkbox" name="restart"> Начать счёт заново</span></label></div>' +
+        sw('enabled', 'Показывать игрокам', ev.enabled) + sw('restart', 'Начать счёт заново', false, 'Обнулит прогресс и этапы') + '</div>' +
         '<button class="primary" type="submit">Сохранить событие</button></form>' +
-        (r.event ? '<h3 style="margin-top:18px">Награды</h3><div class="ny-admin-list">' + (r.milestones.map(m =>
-            '<div class="ny-admin-row"><div><b>' + e(m.title) + '</b><small>от ' + num(m.threshold) + ' · ' + e(rewardText(m)) + ' · тираж ' + m.sold + '/' + m.supply + ' · ' + e(priceText(m)) + '</small></div>' +
-            '<button type="button" data-cm-del="' + e(m.id) + '">Удалить</button></div>').join('') || '<p class="sub">Наград пока нет.</p>') + '</div>' +
-        '<form id="cm-ms-form"><div class="ny-admin-fields">' +
-        '<label class="full">Название награды<input name="title" maxlength="80" required placeholder="Промокод на 1 GRAM"></label>' +
-        '<label>Порог (сколько собрать)<input name="threshold" type="number" min="1" step="1" required></label>' +
-        '<label>Тираж<input name="supply" type="number" min="1" step="1" required value="100"></label>' +
-        '<label>Тип награды<select name="reward_kind"><option value="GRAM">GRAM</option><option value="BALL">Новогодние шары</option>' + (packs.length ? '<option value="PACK">Карточный пак</option>' : '') + '</select></label>' +
-        '<label id="cm-amount-label">Размер награды<input name="reward_amount" required inputmode="decimal" value="1"></label>' +
-        '<label id="cm-pack-label" hidden>Пак<select name="reward_pack">' + packs.map(p => '<option value="' + e(p.id) + '">' + e(p.title) + '</option>').join('') + '</select></label>' +
-        '<label>Цена в шарах (0 — бесплатно)<input name="price_balls" type="number" min="0" step="1" value="0"></label>' +
-        '<label class="full">Картинка (PNG, ссылка https://)<input name="image_url" placeholder="https://…/reward.png"></label></div>' +
+        (r.event ? '<h3 style="margin-top:22px">Награды за этапы</h3><div class="ny-admin-list">' + (rows || '<p class="sub">Наград пока нет — добавьте первую ниже.</p>') + '</div>' +
+        '<h3 style="margin-top:22px">Новая награда</h3><form id="cm-ms-form">' +
+        '<div class="cm-seg" role="radiogroup">' + KINDS.filter(k => k[0] !== 'PACK' || packs.length).map((k, i) => '<button type="button" data-kind="' + k[0] + '" class="' + (i === 0 ? 'is-on' : '') + '">' + k[1] + '</button>').join('') + '</div>' +
+        '<div class="ny-admin-fields">' +
+        '<label>Когда открывается<input name="threshold" type="number" min="1" step="1" required placeholder="например 1000"><small class="sub">Сколько должно быть собрано</small></label>' +
+        '<label>Тираж<input name="supply" type="number" min="1" step="1" required value="100"><small class="sub">Сколько игроков получат</small></label>' +
+        '<label id="cm-amount-label">Размер награды<input name="reward_amount" inputmode="decimal" value="1"></label>' +
+        '<label id="cm-pack-label" hidden>Какой пак<select name="reward_pack">' + packs.map(p => '<option value="' + e(p.id) + '">' + e(p.title) + '</option>').join('') + '</select></label>' +
+        '<label>Цена в шарах<input name="price_balls" type="number" min="0" step="1" value="0"><small class="sub">0 — бесплатно</small></label>' +
+        '<label class="full">Картинка (необязательно)<input name="image_url" placeholder="Для пака берётся его картинка"></label>' +
+        '<label class="full">Название (необязательно)<input name="title" maxlength="80" placeholder="Создастся автоматически"></label></div>' +
         '<button class="primary" type="submit">Добавить награду</button></form>' : '');
     content.appendChild(sec);
     const run = async (fn, ok) => { try { await fn(); toast(ok); content.innerHTML = ''; window.renderAdminNewYear?.(content); } catch (err) { toast(err.message); } };
@@ -278,17 +283,23 @@ async function admin(content) {
         run(() => api('admin/new-year/community', {title: f.get('title'), description: f.get('description'), metric: f.get('metric'),
             target: f.get('target'), enabled: f.get('enabled') === 'on', restart: f.get('restart') === 'on'}), 'Событие сохранено');
     });
-    sec.querySelector('#cm-ms-form')?.addEventListener('submit', ev2 => {
+    const form = sec.querySelector('#cm-ms-form');
+    let kind = 'GRAM';
+    form?.querySelectorAll('.cm-seg [data-kind]').forEach(b => b.addEventListener('click', () => {
+        kind = b.dataset.kind;
+        form.querySelectorAll('.cm-seg [data-kind]').forEach(x => x.classList.toggle('is-on', x === b));
+        form.querySelector('#cm-pack-label').hidden = kind !== 'PACK';
+        form.querySelector('#cm-amount-label').hidden = kind === 'PACK';
+        const amt = form.querySelector('[name=reward_amount]');
+        amt.value = kind === 'BALL' ? '100' : '1';
+        form.querySelector('#cm-amount-label').firstChild.textContent = kind === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM';
+    }));
+    form?.addEventListener('submit', ev2 => {
         ev2.preventDefault();
         const body = Object.fromEntries(new FormData(ev2.target));
-        if (body.reward_kind === 'PACK') body.reward_amount = body.reward_pack;
+        body.reward_kind = kind;
+        if (kind === 'PACK') body.reward_amount = body.reward_pack;
         run(() => api('admin/new-year/community/milestones', body), 'Награда добавлена');
-    });
-    const kindSel = sec.querySelector('#cm-ms-form [name=reward_kind]');
-    kindSel?.addEventListener('change', () => {
-        const pack = kindSel.value === 'PACK';
-        sec.querySelector('#cm-pack-label').hidden = !pack; sec.querySelector('#cm-amount-label').hidden = pack;
-        sec.querySelector('#cm-amount-label input').required = !pack;
     });
     sec.querySelectorAll('[data-cm-del]').forEach(b => b.addEventListener('click', () =>
         run(() => api('admin/new-year/community/milestones/' + b.dataset.cmDel + '/delete', {}), 'Награда удалена')));

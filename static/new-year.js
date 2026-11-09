@@ -110,9 +110,7 @@ function drawHub(main,data,shared){
     const art=community()?.marketArt?.()||'';
     main.innerHTML='<div class="new-year-page ny-hubpage">'+
         '<button type="button" class="nyh-card nyh-market" data-nyh="market" aria-label="Новогодний маркет">'+art+
-        '<span class="nyh-copy"><small>Магазин за шары</small><strong>Новогодний маркет</strong>'+
-        '<em>Коллекционные NFT-подарки и награды сообщества</em></span>'+
-        '<span class="nyh-meta"><b>'+data.lots.length+'</b> лотов<i aria-hidden="true">›</i></span></button>'+
+        '<span class="nyh-copy"><strong>Новогодний маркет</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>'+
         (community()&&shared?.event?community().card(shared):'')+'</div>';
     main.querySelector('[data-nyh="market"]')?.addEventListener('click',()=>showNewYear('market'));
     main.querySelector('[data-nyh="community"]')?.addEventListener('click',()=>showNewYear('community'));
@@ -302,6 +300,14 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
             finally{if(button.isConnected)button.disabled=false;}
         });
     }
+    content.querySelectorAll(':scope > .ny-admin-section').forEach(x=>{x.dataset.pane='main';});
+    const tabs=document.createElement('div');
+    tabs.className='ny-tabs';
+    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки']];
+    const setTab=name=>{window.crafterNyTab=name;content.dataset.nyTab=name;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('is-on',b.dataset.tab===name));};
+    tabs.innerHTML=names.map(([id,label])=>'<button type="button" data-tab="'+id+'">'+label+'</button>').join('');
+    tabs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
+    content.prepend(tabs);setTab(window.crafterNyTab||'main');
     window.crafterCommunity?.admin?.(content);
     window.crafterPacks?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{

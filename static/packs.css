@@ -26,7 +26,6 @@
 
 .pk-cards{position:absolute;inset:0;display:flex;flex-wrap:wrap;gap:12px;justify-content:center;align-content:center;margin:auto;width:calc(var(--cw)*3 + 24px);max-width:100%}
 .pk-cards.n1{width:calc(var(--cw)*1.2)}.pk-cards.n2,.pk-cards.n4{width:calc(var(--cw)*2 + 12px)}
-.pk-cards.n1 .pk-card{--k:1.2}
 .pk-cards:not(.is-ready) .pk-card{visibility:hidden}
 .pk-card{--k:1;width:calc(var(--cw)*var(--k));height:calc(var(--cw)*var(--k)*1.42);perspective:900px;transition:transform .95s cubic-bezier(.2,1.15,.3,1) var(--w,0ms),opacity .4s}
 .pk-card.is-fly{transform:translate(var(--dx),var(--dy)) scale(.35) rotate(var(--r))}
@@ -74,3 +73,39 @@
 @media(max-width:560px){.pk-prize{grid-template-columns:80px 1fr 56px 40px 28px}.pk-prize [data-f="collection_id"]{grid-column:auto}}
 @media(prefers-reduced-motion:reduce){.pk-snow{display:none}.pk-pack.is-shake{animation:none}}
 .pk-actions button{white-space:nowrap}.pk-actions .secondary{padding:0 16px}
+
+/* ---- Bigger cards, clean straight cut, richer GRAM card ---- */
+.pk-over{--cw:clamp(96px,calc((min(92vw,430px) - 20px)/3),132px)}
+.pk-stage{height:clamp(380px,62vh,480px)}
+.pk-body{clip-path:inset(11% 0 0 0)}
+.pk-top{clip-path:inset(0 0 89% 0)}
+.pk-cut{top:11%;left:-3%;transform:none;height:3px}
+.pk-pack.is-cut .pk-cut{width:106%}
+.pk-burst{top:11%}
+.pk-pack.is-open .pk-top{transform:translate(-14%,-210%) rotate(-7deg);opacity:0}
+.pk-cards{gap:10px;width:calc(var(--cw)*3 + 20px)}
+.pk-cards.n1{--k:1.6;width:calc(var(--cw)*1.6)}
+.pk-cards.n2{--k:1.35;width:calc(var(--cw)*2.7 + 10px)}
+.pk-cards.n4{--k:1.25;width:calc(var(--cw)*2.5 + 10px)}
+.pk-cards{--k:1}
+.pk-cards .pk-card{--k:unset}
+.pk-card{--cwk:calc(var(--cw)*var(--k));width:var(--cwk);height:calc(var(--cwk)*1.42)}
+.pk-back i{font-size:calc(var(--cwk)*.5)}
+.pk-face{gap:calc(var(--cwk)*.05);padding:calc(var(--cwk)*.08);border-radius:16px}
+.pk-gem svg{width:calc(var(--cwk)*.46);height:calc(var(--cwk)*.46);filter:drop-shadow(0 0 12px rgba(120,200,255,.9))}
+.pk-face.is-gram b{font-size:calc(var(--cwk)*.27);line-height:1}
+.pk-face.is-gram em{padding:3px 10px;border-radius:999px;font-size:calc(var(--cwk)*.1);letter-spacing:.16em;color:#1a1204;background:linear-gradient(135deg,#ffe9a8,#ffc14d)}
+.pk-face.is-gram.t1{background:radial-gradient(circle at 50% 30%,#27508f,#10172c 70%);border-color:rgba(140,200,255,.7)}
+.pk-face.is-gram.t2{background:radial-gradient(circle at 50% 30%,#5a3aa8,#171233 70%);border-color:rgba(190,150,255,.85);box-shadow:0 0 24px rgba(160,110,255,.5)}
+.pk-face.is-gram.t3{background:radial-gradient(circle at 50% 30%,#a8761a,#2a1b07 72%);border-color:rgba(255,211,107,.95);box-shadow:0 0 30px rgba(255,190,80,.6)}
+.pk-face.is-nft img{width:76%}
+.pk-face.is-nft b{font-size:calc(var(--cwk)*.115)}
+.pk-sell{padding:calc(var(--cwk)*.05) calc(var(--cwk)*.09);font-size:calc(var(--cwk)*.105)}
+.pk-sell svg{width:calc(var(--cwk)*.12);height:calc(var(--cwk)*.12)}
+.pk-actions{flex-wrap:wrap;justify-content:center;width:min(92vw,430px)}
+.pk-actions button{flex:1 1 150px;min-width:0!important;padding-left:14px;padding-right:14px}
+
+.pk-gram{display:block;width:100%;height:100%;object-fit:contain}
+.pk-gem{width:calc(var(--cwk)*.46);height:calc(var(--cwk)*.46);display:block;filter:drop-shadow(0 0 12px rgba(120,200,255,.8))}
+.pk-gem svg{width:100%;height:100%}
+.pk-sell .pk-gram{width:calc(var(--cwk)*.12);height:calc(var(--cwk)*.12);display:inline-block;vertical-align:-.15em}

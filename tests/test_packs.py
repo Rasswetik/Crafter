@@ -100,3 +100,17 @@ def test_community_pack_reward_promo_and_redeemed_flag(client):
     r = client.post('/api/promocodes/redeem', headers=player, json={'code': code.json['code']})
     assert r.status_code == 200 and r.json['pack_id']
     assert len(client.get('/api/packs', headers=player).json['mine']) == 1
+
+
+def test_milestone_title_is_generated_when_empty(client):
+    admin = signed(42)
+    pack = client.get('/api/admin/new-year/packs', headers=admin).json['packs'][0]
+    client.post('/api/admin/new-year/community', headers=admin, json={'title': 'Цель', 'metric': 'craft', 'target': '100', 'enabled': True})
+    mk = lambda **kw: client.post('/api/admin/new-year/community/milestones', headers=admin, json=dict(threshold=10, supply=5, **kw))
+    assert mk(reward_kind='PACK', reward_amount=pack['id']).status_code == 200
+    assert mk(reward_kind='GRAM', reward_amount='2').status_code == 200
+    assert mk(reward_kind='BALL', reward_amount='50').status_code == 200
+    titles = {m['title'] for m in client.get('/api/admin/new-year/community', headers=admin).json['milestones']}
+    assert titles == {'Новогодний пак', 'Промокод на 2 GRAM', '50 шаров'}
+    shown = client.get('/api/admin/new-year/community', headers=admin).json['milestones']
+    assert next(m for m in shown if m['reward_kind'] == 'PACK')['image_url'] == pack['image']

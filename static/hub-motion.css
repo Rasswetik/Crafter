@@ -60,7 +60,7 @@
 }
 .crafter-animated-swords .sword{
   transform-box:view-box;
-  transform-origin:50px 74px;
+  transform-origin:50px 50px;
   backface-visibility:hidden;
 }
 .crafter-animated-swords .sword-left{animation:crafter-sword-left 4s ease-in-out infinite}
@@ -185,3 +185,7 @@
 .crafter-swords-motion{
   filter:drop-shadow(0 3px 5px #81d6ff38) drop-shadow(0 11px 9px #140c29c2);
 }
+
+.crafter-animated-swords .sword-spark{transform-box:fill-box;transform-origin:center;animation:crafter-sword-spark 4s ease-in-out infinite}
+@keyframes crafter-sword-spark{0%,100%{opacity:.2;transform:scale(.4) rotate(0)}30%{opacity:1;transform:scale(1.1) rotate(45deg)}55%{opacity:.15;transform:scale(.5) rotate(90deg)}}
+.crafter-swords-motion{top:4%!important;right:2%!important;width:50%!important;height:92%!important}

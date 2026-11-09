@@ -142,3 +142,31 @@
   .cm-done{grid-column:1/-1}
 }
 @media(min-width:900px){.cm-lg:not(.is-on) .cm-pic{opacity:.55;filter:saturate(.5)}}
+
+/* ---- Hub cards: title only, the picture carries the card ---- */
+.nyh-card{min-height:150px}
+.nyh-copy{max-width:56%;padding:0 18px;position:absolute;left:0;top:0;bottom:0;justify-content:center}
+.nyh-copy strong{font-size:24px}
+.nyh-go{position:absolute;right:14px;bottom:12px;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:20px;line-height:1;color:#fff;background:rgba(10,18,44,.55);border:1px solid rgba(255,255,255,.22)}
+.nyh-community .nyh-go{display:none}
+.cm-lock{display:block}
+.cm-badge{color:#cfe0f5}
+.cm-lg em .cm-lock{margin-left:4px}
+
+/* ---- New Year admin: tabs, segmented type picker, tidy rows ---- */
+.ny-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 16px;padding:5px;border-radius:16px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08)}
+.ny-tabs button{flex:1;min-width:110px;padding:10px 12px;border-radius:12px;font-size:14px;font-weight:600;color:#aebbd0;background:none;border:0;cursor:pointer;transition:background .2s,color .2s}
+.ny-tabs button.is-on{color:#fff;background:#2b7be0;box-shadow:0 6px 16px rgba(43,123,224,.35)}
+[data-ny-tab="main"] > [data-pane="events"],[data-ny-tab="main"] > [data-pane="packs"],
+[data-ny-tab="events"] > [data-pane="main"],[data-ny-tab="events"] > [data-pane="packs"],
+[data-ny-tab="packs"] > [data-pane="main"],[data-ny-tab="packs"] > [data-pane="events"]{display:none!important}
+.cm-seg{display:flex;gap:6px;margin:0 0 14px;padding:4px;border-radius:14px;background:rgba(255,255,255,.05)}
+.cm-seg button{flex:1;padding:10px 8px;border-radius:10px;font-size:13px;font-weight:600;color:#aebbd0;background:none;border:0;cursor:pointer}
+.cm-seg button.is-on{color:#fff;background:#2b7be0}
+.cm-admin-now{margin:0 0 12px;font-size:14px;color:#aebbd0}.cm-admin-now b{color:#fff;font-size:18px}
+.cm-admin-pic{flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.06)}
+.cm-admin-pic img{width:32px;height:32px;object-fit:contain}
+.cm-admin .ny-admin-row,.pk-admin .ny-admin-row{align-items:center;gap:12px}
+.ny-admin-switch.full{grid-column:1/-1}
+.cm-admin label small.sub,.pk-admin label small.sub{display:block;margin-top:4px;font-size:11.5px;color:#7f90a8}
+.nyh-go{display:none!important}

@@ -260,7 +260,7 @@ def install_community_events(app, db, auth, record, audit):
         event = event_row()
         if not event:
             abort(409, description='Сначала создайте событие')
-        title = clean_text(body.get('title'), 80, 'название награды')
+        title = clean_text(body.get('title'), 80, 'название награды', required=False)
         threshold = whole(body.get('threshold'), 1, int(event['target']), 'Порог')
         kind = body.get('reward_kind')
         if kind not in ('GRAM', 'BALL', 'PACK'):
@@ -274,6 +274,14 @@ def install_community_events(app, db, auth, record, audit):
         else:
             from promocodes import to_amount
             amount = str(to_amount(body.get('reward_amount')))
+        if not title:
+            if kind == 'PACK':
+                found = app.extensions['crafter_pack_short'](amount)
+                title = found['title'] if found else 'Пак'
+            elif kind == 'BALL':
+                title = amount + ' шаров'
+            else:
+                title = 'Промокод на ' + amount + ' GRAM'
         supply = whole(body.get('supply'), 1, 1000000, 'Тираж')
         price = whole(body.get('price_balls', 0), 0, _LIMIT, 'Цена в шарах')
         image = clean_text(body.get('image_url'), 400, 'картинка', required=False)

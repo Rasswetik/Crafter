@@ -5,7 +5,7 @@
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? ''));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
 const ORN = '<img src="/static/assets/new-year-ornament.svg" alt="" aria-hidden="true">';
-const GEM = '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 21 2.5 9.5 6 3h12l3.5 6.5Z" fill="#7fd0ff"/><path d="M2.5 9.5h19M8.5 3 12 21 15.5 3M6 3l2.5 6.5M18 3l-2.5 6.5" fill="none" stroke="#fff" stroke-width="1.2" stroke-linejoin="round" opacity=".85"/></svg>';
+const GEM = '<img class="pk-gram" src="/static/assets/gram.svg" alt="GRAM">';
 const FLAKE = '<svg viewBox="-50 -50 100 100" aria-hidden="true"><g stroke="currentColor" stroke-width="3.2" stroke-linecap="round" fill="none">' +
     [0, 60, 120, 180, 240, 300].map(a => '<g transform="rotate(' + a + ')"><path d="M0 0V-40"/><path d="M0-16-9-26M0-16 9-26"/><path d="M0-28-6-34M0-28 6-34"/></g>').join('') + '</g></svg>';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -45,8 +45,8 @@ function buySheet(p, refresh) {
 function cardMarkup(c, i) {
     let face;
     if (c.kind === 'GRAM') {
-        const big = Number(c.amount) >= 2;
-        face = '<div class="pk-face is-gram' + (big ? ' is-big' : '') + '"><span class="pk-gem">' + GEM + '</span><b>+' + num(c.amount) + '</b><em>GRAM</em><small>Зачислено на баланс</small></div>';
+        const a = Number(c.amount), tier = a >= 3 ? 't3' : a >= 1 ? 't2' : 't1';
+        face = '<div class="pk-face is-gram ' + tier + '"><span class="pk-gem">' + GEM + '</span><b>+' + num(c.amount) + '</b><em>GRAM</em></div>';
     } else {
         face = '<div class="pk-face is-nft"><img src="' + e(c.image) + '" alt=""><b>' + e(c.title) + '</b>' +
             '<button type="button" class="pk-sell" data-pk-sell="' + e(c.nft_id) + '">Продать ' + GEM + ' ' + num(c.value) + '</button></div>';
@@ -79,9 +79,6 @@ async function open(upid, refresh) {
         if (res.balance !== undefined && state?.me) { state.me.balance = res.balance; if (typeof updateBalance === 'function') updateBalance(); }
         refresh?.();
     };
-    const x = document.createElement('button');
-    x.type = 'button'; x.className = 'pk-x'; x.textContent = '×'; x.setAttribute('aria-label', 'Закрыть');
-    x.addEventListener('click', close); box.appendChild(x);
 
     const sellOne = async btn => {
         btn.disabled = true;
@@ -151,6 +148,7 @@ async function admin(content) {
     if (!content?.isConnected) return;
     const sec = document.createElement('section');
     sec.className = 'ny-admin-section pk-admin';
+    sec.dataset.pane = 'packs';
     const cols = r.collections;
     const list = r.packs.map(p => '<div class="ny-admin-row"><div><b>' + e(p.title) + '</b><small>' + p.prizes.length + ' призов · ' +
         (p.for_sale ? 'в продаже за ' + num(p.price_balls) + ' шаров' : 'не продаётся') + (p.enabled ? '' : ' · выключен') + '</small></div>' +
@@ -167,9 +165,9 @@ async function admin(content) {
             editor.innerHTML = '<form class="pk-form"><div class="ny-admin-fields">' +
                 '<label class="full">Название<input name="title" maxlength="80" required value="' + e(p.title) + '"></label>' +
                 '<label class="full">Картинка пака (https:// или /static/…)<input name="image_url" value="' + e(p.image) + '"></label>' +
-                '<label><span><input type="checkbox" name="for_sale"' + (p.for_sale ? ' checked' : '') + '> Продавать в маркете</span></label>' +
-                '<label>Цена в шарах (0 — бесплатно)<input name="price_balls" type="number" min="0" step="1" value="' + e(p.price_balls) + '"></label>' +
-                '<label class="full"><span><input type="checkbox" name="enabled"' + (p.enabled ? ' checked' : '') + '> Пак включён</span></label></div>' +
+                '<label class="ny-admin-switch full"><span><b>Продавать в маркете</b></span><input type="checkbox" name="for_sale"' + (p.for_sale ? ' checked' : '') + '></label>' +
+                '<label>Цена в шарах<input name="price_balls" type="number" min="0" step="1" value="' + e(p.price_balls) + '"><small class="sub">0 — бесплатно</small></label>' +
+                '<label class="ny-admin-switch full"><span><b>Пак включён</b></span><input type="checkbox" name="enabled"' + (p.enabled ? ' checked' : '') + '></label></div>' +
                 '<h4>Шанс количества карточек</h4><div class="pk-w5">' + [1, 2, 3, 4, 5].map(k => '<label>' + k + '<input name="w' + k + '" type="number" min="0" step="any" value="' + e(p.card_weights[k] ?? 0) + '"></label>').join('') + '</div>' +
                 '<h4>Призы</h4><div class="pk-prizes">' + prizes.map((x, i) =>
                     '<div class="pk-prize" data-i="' + i + '"><select data-f="kind"><option value="GRAM"' + (x.kind === 'GRAM' ? ' selected' : '') + '>GRAM</option><option value="NFT"' + (x.kind === 'NFT' ? ' selected' : '') + '>Подарок</option></select>' +
