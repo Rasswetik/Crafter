@@ -23,10 +23,9 @@ async function contentsHtml(pid) {
         const card = p => p.kind === 'NFT'
             ? '<div class="pk-pc ' + tier(p.chance) + '"><i class="pk-ch">' + pct(p.chance) + '</i><img src="' + e(p.image) + '" alt=""><b>' + e(p.name) + '</b>' + gem(p.value) + '</div>'
             : '<div class="pk-pc is-bal ' + tier(p.chance) + '"><i class="pk-ch">' + pct(p.chance) + '</i><span class="pk-bal">' + GEM + '</span><b>Баланс GRAM</b>' + gem(p.amount) + '</div>';
-        return '<div class="pk-info"><h4 class="pk-h">' + CUBE + 'Что внутри?</h4>' +
+        return '<div class="pk-info show-chances"><h4 class="pk-h">' + CUBE + 'Что внутри?</h4>' +
             '<p class="pk-range">Может выпасть на сумму от ' + gem(c.min) + ' до ' + gem(c.max) + '</p>' +
-            '<div class="pk-toggle-wrap"><button type="button" class="pk-toggle">Показать шансы</button></div>' +
-            '<h5 class="pk-sub">Призы, которые могут выпасть</h5><div class="pk-prizes2">' + nft.concat(gram).map(card).join('') + '</div></div>';
+                        '<h5 class="pk-sub">Призы, которые могут выпасть</h5><div class="pk-prizes2">' + nft.concat(gram).map(card).join('') + '</div></div>';
     } catch (_) { return ''; }
 }
 function bindContents(root) {
@@ -79,34 +78,16 @@ async function granted(upid, refresh) {
     body.querySelector('#pk-later').addEventListener('click', () => { closeSheet(); refresh?.(); });
     body.querySelector('#pk-now').addEventListener('click', async () => { closeSheet(); await open(upid, refresh); });
 }
-/* Inventory detail for a pack: picture, what is inside, open or keep for the market. */
-function detail(gift, refresh) {
-    const status = gift.status === 'listed' ? 'На продаже' : '';
-    sheet('Pack ' + (gift.model || ''), '<div class="pk-sheet-head"><img src="' + e(gift.image) + '" alt=""></div>' +
-        '<div class="detail-row"><span>Коллекция</span><b>Packs</b></div><div class="detail-row"><span>Модель</span><b>' + e(gift.model || '') + '</b></div>' +
-        '<div class="detail-row"><span>Номер</span><b>#' + e(gift.number) + '</b></div>' +
-        (status ? '<div class="detail-row"><span>Статус</span><b>' + status + '</b></div>' : '') +
-        '<div id="pk-contents"><p class="cm-sheet-note">Загрузка…</p></div>' +
-        (gift.status === 'listed' ? '<p class="cm-sheet-note">Снимите пак с продажи, чтобы открыть его.</p>' : '<button type="button" class="ny-action" id="pk-go">Открыть пак</button><button type="button" class="secondary" id="pk-pick" style="width:100%;margin-top:8px">Выбрать для продажи</button>') +
-        '<p class="purchase-error pk-err" role="alert"></p>');
-    const body = document.querySelector('#sheet-body');
-    contentsHtml(gift.pack_id).then(h => { const x = body?.querySelector('#pk-contents'); if (x) { x.innerHTML = h || ''; bindContents(x); } });
-    body.querySelector('#pk-go')?.addEventListener('click', async () => { closeSheet(); await open(gift.user_pack_id, refresh); });
-    body.querySelector('#pk-pick')?.addEventListener('click', () => { closeSheet(); if (typeof togglePicked === 'function') togglePicked(gift.id); });
-}
-function installDetail() {
-    const before = window.detail;
-    if (typeof before !== 'function' || before.__pk) return;
-    const wrapped = function (id) {
-        const g = (state?.inventory || []).find(x => x.id === id);
-        if (g?.pack_item) return detail(g, () => { if (state?.page === 'gifts' && typeof renderGifts === 'function') { api('inventory').then(r => { state.inventory = r.gifts; renderGifts(); }); } });
-        return before.apply(this, arguments);
-    };
-    wrapped.__pk = true;
-    window.detail = wrapped;
-}
-window.addEventListener('load', () => setTimeout(installDetail, 0));
-setTimeout(installDetail, 1500);
+/* The regular gift sheet (catalog-ui.js) is used for packs; its "Open" button calls this. */
+window.openPackFromDetail = function (id) {
+    const g = (state?.inventory || []).find(x => x.id === id);
+    if (!g) return;
+    closeSheet();
+    open(g.user_pack_id, async () => {
+        try { state.inventory = (await api('inventory')).gifts; } catch (_) {}
+        if (state.page === 'gifts' && typeof renderGifts === 'function') renderGifts();
+    });
+};
 
 /* ---------- opening animation ---------- */
 function cardMarkup(c, i) {
@@ -289,5 +270,5 @@ async function admin(content) {
     window.crafterPackList = r.packs;
 }
 
-window.crafterPacks = {tiles, bind, open, admin, contentsHtml, bindContents, granted, detail};
+window.crafterPacks = {tiles, bind, open, admin, contentsHtml, bindContents, granted};
 })();

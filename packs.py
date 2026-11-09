@@ -107,6 +107,33 @@ def install_packs(app, db, auth, record, audit):
                              "VALUES(?,?,?,?,?,?,?,?,?,?)",
                              (uuid.uuid4().hex, DEFAULT_PACK, kind, str(amount), cid, name, image, str(value), float(weight), pos))
 
+    def _canon(v):
+        return re.sub(r'[^a-z0-9]', '', str(v or '').lower())
+
+    def live_value(prize):
+        """Current floor of the prize collection on the connected market; the saved value is only a fallback."""
+        if prize['kind'] != 'NFT':
+            return Decimal(prize['amount'] or '0')
+        want = _canon(prize['name']) or _canon(prize['collection_id'])
+        for key in ('collections', 'thermos:collections'):
+            row = db().execute("SELECT payload FROM cache WHERE key=?", (key,)).fetchone()
+            if not row:
+                continue
+            try:
+                rows = json.loads(row['payload'])
+            except ValueError:
+                continue
+            for c in rows if isinstance(rows, list) else []:
+                names = {_canon(c.get('name')), _canon(c.get('short_name')), _canon(c.get('id'))}
+                if want in names or want + 's' in names or _canon(prize['collection_id']) in names:
+                    try:
+                        v = Decimal(str(c.get('floor_price') or '0'))
+                    except InvalidOperation:
+                        continue
+                    if v > 0:
+                        return v.quantize(Decimal('0.01'))
+        return Decimal(prize['value'] or '0')
+
     def pack_row(pid):
         return db().execute("SELECT * FROM packs WHERE id=?", (pid,)).fetchone()
 
@@ -128,7 +155,8 @@ def install_packs(app, db, auth, record, audit):
         upid = uuid.uuid4().hex
         db().execute("INSERT INTO user_packs(id,user_id,pack_id,source,request_id,created) VALUES(?,?,?,?,?,?)",
                      (upid, uid, pack_id, source, request_id, int(time.time())))
-        gift = {'id': 'packitem-' + upid, 'name': COLLECTION[1], 'number': _rng.randint(1000, 999999), 'model': pack['title'],
+        serial = int(db().execute("SELECT COUNT(*) AS n FROM user_packs WHERE pack_id=?", (pack_id,)).fetchone()['n'])
+        gift = {'id': 'packitem-' + upid, 'name': COLLECTION[1], 'number': serial, 'model': pack['title'],
                 'symbol': '', 'backdrop': '', 'image': pack['image_url'], 'price': '0', 'price_unit': 'GRAM',
                 'collection_id': COLLECTION[0], 'collection_name': COLLECTION[1], 'origin': 'pack', 'pack_item': True,
                 'pack_id': pack_id, 'user_pack_id': upid}
@@ -180,10 +208,15 @@ def install_packs(app, db, auth, record, audit):
         total = sum(float(p['weight']) for p in prizes) or 1.0
         cards = {int(k): float(v) for k, v in json.loads(pack['card_weights']).items() if float(v) > 0}
         ctotal = sum(cards.values()) or 1.0
-        items = [{'kind': p['kind'], 'amount': p['amount'], 'name': p['name'], 'image': p['image'], 'value': p['value'],
-                  'chance': round(float(p['weight']) / total * 100, 2)} for p in prizes if float(p['weight']) > 0]
-        items.sort(key=lambda x: (x['kind'] != 'GRAM', Decimal(x['amount'] or '0') if x['kind'] == 'GRAM' else -Decimal(x['value'] or '0')))
-        values = [Decimal(x['amount'] if x['kind'] == 'GRAM' else x['value'] or '0') for x in items] or [Decimal('0')]
+        items = []
+        for p in prizes:
+            if float(p['weight']) <= 0:
+                continue
+            v = live_value(p)
+            items.append({'kind': p['kind'], 'amount': p['amount'], 'name': p['name'], 'image': p['image'], 'value': plain(v),
+                          'chance': round(float(p['weight']) / total * 100, 2)})
+        items.sort(key=lambda x: (Decimal(x['value'] or '0'), x['kind']))
+        values = [Decimal(x['value'] or '0') for x in items] or [Decimal('0')]
         return {'pack': short(pack), 'prizes': items, 'min': plain(min(values)), 'max': plain(max(values)),
                 'cards': [{'count': k, 'chance': round(v / ctotal * 100, 2)} for k, v in sorted(cards.items())]}
 
@@ -254,14 +287,15 @@ def install_packs(app, db, auth, record, audit):
                     total += amount
                     cards.append({'kind': 'GRAM', 'amount': plain(amount), 'title': '+' + plain(amount) + ' GRAM'})
                 else:
+                    worth = plain(live_value(prize))
                     gift = {'id': 'pack-' + uuid.uuid4().hex, 'name': prize['name'], 'number': _rng.randint(1000, 99999),
-                            'model': '', 'symbol': '', 'backdrop': '', 'image': prize['image'], 'price': prize['value'],
-                            'price_unit': 'GRAM', 'floor_price': prize['value'], 'floor_unit': 'GRAM',
+                            'model': '', 'symbol': '', 'backdrop': '', 'image': prize['image'], 'price': worth,
+                            'price_unit': 'GRAM', 'floor_price': worth, 'floor_unit': 'GRAM',
                             'collection_id': prize['collection_id'], 'origin': 'pack', 'catalog_only': True,
                             'test_only': True, 'pack_prize': True}
                     db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)",
                                  (uid, gift['id'], json.dumps(gift, ensure_ascii=False), 'unlisted'))
-                    cards.append({'kind': 'NFT', 'nft_id': gift['id'], 'title': prize['name'], 'image': prize['image'], 'value': prize['value']})
+                    cards.append({'kind': 'NFT', 'nft_id': gift['id'], 'title': prize['name'], 'image': prize['image'], 'value': worth})
             after = credit(uid, total) if total else credit(uid, Decimal('0'))
             result = {'ok': True, 'pack': short(pack), 'cards': cards, 'balance': str(after), 'credited': plain(total) if total else '0'}
             db().execute("UPDATE user_packs SET opened_at=?,result=?,user_id=? WHERE id=?", (int(time.time()), json.dumps(result, ensure_ascii=False), uid, upid))

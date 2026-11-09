@@ -429,12 +429,12 @@ function showGiftDetail(gift, source) {
     const own = source === 'inventory';
     const listed = own && gift.status === 'listed';
     state.detailGift = gift;
-    const attributes = [['model', 'Модель', gift.model], ['symbol', 'Узор', gift.symbol], ['backdrop', 'Фон', gift.backdrop]];
+    const attributes = gift.pack_item ? [['model', 'Модель', gift.model]] : [['model', 'Модель', gift.model], ['symbol', 'Узор', gift.symbol], ['backdrop', 'Фон', gift.backdrop]];
     sheet('', `
         <div class="portal-product${own ? ' owned-gift-product' : ''}">
             ${giftPattern(gift)}<img ${giftPicture(gift)} alt="${esc(gift.name)}" decoding="async">
             <div class="gift-detail-tools" role="group" aria-label="Действия с подарком">
-                ${own && gift.status === 'unlisted' && !gift.test_only && !gift.catalog_only ? `<button type="button" class="gift-detail-tool gift-send-tool"
+                ${own && gift.status === 'unlisted' && !gift.test_only && !gift.catalog_only && !gift.pack_item ? `<button type="button" class="gift-detail-tool gift-send-tool"
                     onclick="startGiftTransfer(${arg(gift.id)})" aria-label="Отправить подарок" title="Отправить подарок">
                     ${crafterTelegramPlaneSVG()}
                 </button>` : ''}
@@ -463,7 +463,7 @@ function showGiftDetail(gift, source) {
         </div>
         ${own && gift.test_only && ['market-test','demo-craft'].includes(gift.origin)
               ? (window.crafterSeasonRewardHTML?.('sale',gift.source_price||0,gift.source_price_unit||'GRAM','Демо · по цене источника, итог зависит от выбранной цены') || '')
-              : own && !gift.test_only && !gift.catalog_only
+              : own && !gift.test_only && !gift.catalog_only && !gift.pack_item
               ? (window.crafterSeasonRewardForFloor?.(gift) || '')
               : !own && !gift.own_listing && !gift.catalog_only
               ? (window.crafterSeasonRewardHTML?.('purchase',gift.price,gift.price_unit || 'GRAM',
@@ -477,7 +477,7 @@ function showGiftDetail(gift, source) {
                 <button class="primary" onclick="openPreviewGiftSale(${arg(gift.id)})">Продать (демо)</button>
               </div>` :
             own && gift.test_only ? `<div class="ny-footnote">Тестовый NFT нельзя вывести или продать. Для крафта используйте тестовые покупки из маркета.</div>` : own ? `<div class="product-actions owned-gift-actions">
-            <button class="secondary" onclick="requestGiftWithdrawal(${arg(gift.id)})">Вывести NFT</button>
+            ${gift.pack_item ? `<button class="secondary" onclick="openPackFromDetail(${arg(gift.id)})">Открыть</button>` : `<button class="secondary" onclick="requestGiftWithdrawal(${arg(gift.id)})">Вывести NFT</button>`}
             <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>
         </div>` : source === 'market' ? `<div class="market-gift-actions market-offer-actions">
             ${gift.own_listing ? `<button class="primary" onclick="openListedInventory()">Управлять в инвентаре</button>` : `
@@ -497,6 +497,12 @@ function showGiftDetail(gift, source) {
     const panel = document.querySelector('#sheet-body .product-properties');
     const art = document.querySelector('#sheet-body .portal-product');
     const feeLabel = document.querySelector('#sheet-body [data-offer-button-fee]');
+    if (gift.pack_item && panel && window.crafterPacks) {
+        const host = document.createElement('div');
+        host.id = 'pk-contents';
+        document.querySelector('#sheet-body').appendChild(host);
+        window.crafterPacks.contentsHtml(gift.pack_id).then(html => { if (host.isConnected) host.innerHTML = html || ''; });
+    }
     if (feeLabel) api('offers').then(data => {
         if (feeLabel.isConnected && state.detailGift === gift) {
             feeLabel.textContent = money(data.fee_gram) + ' GRAM';
@@ -505,6 +511,7 @@ function showGiftDetail(gift, source) {
     requestAnimationFrame(() => {
         setTimeout(() => {
             if (!panel?.isConnected || !art?.isConnected || state.detailGift !== gift) return;
+            if (gift.pack_item) return;
             loadGiftAttributePrices(panel, gift, attributes);
             mountGiftAnimation(art, gift, null, own); // Auto-play TGS for owned gift details.
         }, 40);
