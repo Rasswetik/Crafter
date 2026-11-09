@@ -182,3 +182,6 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 
 /* a pack in the inventory grid sits inside its tile instead of filling it */
 .gift .art[data-pack] img{box-sizing:border-box;padding:12% 16%;object-fit:contain}
+
+.pk-pc small{font-size:10.5px;color:#8fa0ba;margin-top:-4px}
+.adm-pick-any{align-self:flex-start;width:auto}

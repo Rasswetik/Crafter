@@ -37,6 +37,30 @@ def singular(name):
     return name[:-1] if name.endswith('s') else name
 
 
+_CATALOG = {}
+
+
+def catalog():
+    """Every gift collection with its models, from the bundled catalogue snapshot (cached)."""
+    if not _CATALOG:
+        path = ROOT / 'data/catalog_seed.json.gz'
+        try:
+            rows = json.loads(gzip.decompress(path.read_bytes())).get('collections', [])
+        except (OSError, ValueError):
+            rows = []
+        for r in rows:
+            if r.get('id'):
+                _CATALOG[r['id']] = r
+    return _CATALOG
+
+
+def catalog_model(cid, model):
+    for m in (catalog().get(cid) or {}).get('models', []):
+        if str(m.get('name', '')).replace('\xa0', ' ').strip().lower() == str(model).replace('\xa0', ' ').strip().lower():
+            return m
+    return None
+
+
 def seasonal_collections():
     path = ROOT / 'data/catalog_seed.json.gz'
     if not path.exists():
@@ -85,13 +109,21 @@ def install_packs(app, db, auth, record, audit):
         CREATE TABLE IF NOT EXISTS pack_prizes(
             id TEXT PRIMARY KEY, pack_id TEXT NOT NULL, kind TEXT NOT NULL, amount TEXT NOT NULL DEFAULT '',
             collection_id TEXT NOT NULL DEFAULT '', name TEXT NOT NULL DEFAULT '', image TEXT NOT NULL DEFAULT '',
-            value TEXT NOT NULL DEFAULT '0', weight DOUBLE PRECISION NOT NULL, position BIGINT NOT NULL DEFAULT 0
+            value TEXT NOT NULL DEFAULT '0', weight DOUBLE PRECISION NOT NULL, position BIGINT NOT NULL DEFAULT 0,
+            model TEXT NOT NULL DEFAULT ''
         );
         CREATE TABLE IF NOT EXISTS user_packs(
             id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, pack_id TEXT NOT NULL, source TEXT NOT NULL,
             request_id TEXT, created BIGINT NOT NULL, opened_at BIGINT, result TEXT
         );
         """)
+        database = db()
+        if hasattr(database, 'connection') and database.connection is not None:
+            database.execute("ALTER TABLE pack_prizes ADD COLUMN IF NOT EXISTS model TEXT NOT NULL DEFAULT ''")
+        else:
+            cols = [r['name'] for r in database.execute("PRAGMA table_info(pack_prizes)").fetchall()]
+            if 'model' not in cols:
+                database.execute("ALTER TABLE pack_prizes ADD COLUMN model TEXT NOT NULL DEFAULT ''")
         if not db().execute("SELECT 1 FROM packs WHERE id=?", (DEFAULT_PACK,)).fetchone() \
                 and not db().execute("SELECT 1 FROM packs LIMIT 1").fetchone():
             now = int(time.time())
@@ -112,6 +144,10 @@ def install_packs(app, db, auth, record, audit):
                              "VALUES(?,?,?,?,?,?,?,?,?,?)",
                              (uuid.uuid4().hex, DEFAULT_PACK, kind, str(amount), cid, name, image, str(value), float(weight), pos))
 
+    def put_prize(pid, pos, kind, amount, cid, name, image, value, weight, model=''):
+        db().execute("INSERT INTO pack_prizes(id,pack_id,kind,amount,collection_id,name,image,value,weight,position,model) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                     (uuid.uuid4().hex, pid, kind, amount, cid, name, image, value, weight, pos, model))
+
     def _canon(v):
         return re.sub(r'[^a-z0-9]', '', str(v or '').lower())
 
@@ -119,6 +155,8 @@ def install_packs(app, db, auth, record, audit):
         """Current floor of the prize collection on the connected market, in GRAM. The saved value is only a fallback."""
         if prize['kind'] != 'NFT':
             return Decimal(prize['amount'] or '0')
+        if prize.get('model') if isinstance(prize, dict) else prize['model']:
+            return Decimal(prize['value'] or '0')
         want = _canon(prize['name']) or _canon(prize['collection_id'])
         ctx = pack_ctx()
         thermos = bool(ctx and ctx['thermos_backend']())
@@ -147,6 +185,40 @@ def install_packs(app, db, auth, record, audit):
                         return (v * rate if unit == 'TON' else v).quantize(Decimal('0.01'))
         return Decimal(prize['value'] or '0')
 
+    SNOWMAN_IMAGE = '/static/assets/packs/snowman-pack.webp'
+    # (collection, model, GRAM value from the market screenshots)
+    SNOWMAN_GIFTS = (('jellybunny', 'Snowman', '11'), ('gingercookie', 'Snowman', '5.61'), ('happybrownie', 'Snowman', '4.45'),
+                     ('bunnymuffin', 'Snowman', '10.79'), ('winterwreath', 'Snowman', '7.6'), ('hangingstar', 'Snowman', '10.71'),
+                     ('snowmittens', 'Frost Fingers', '10.5'), ('xmasstocking', 'Translucent', '4.18'), ('bdaycandle', 'Winter Fun', '5.25'),
+                     ('springbasket', 'Penguin', '6.86'), ('vicecream', 'Iceman', '4.08'), ('snowglobe', 'Winter', '7.18'))
+    # per-mille chance of one card being this GRAM amount (the gifts share the rest)
+    SNOWMAN_GRAM = (('0.1', 700), ('0.2', 150), ('0.3', 60), ('0.5', 40), ('1', 22), ('2', 9), ('3', 4), ('5', 1.5), ('10', .4))
+
+    def seed_snowman_pack():
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_snowman_v1'").fetchone():
+            return
+        with db():
+            if not pack_row('snowman'):
+                db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
+                             ('snowman', 'Snowman', SNOWMAN_IMAGE, json.dumps({'1': 62, '2': 28, '3': 10}), 0, 0, 1, int(time.time())))
+                pos = 0
+                for amount, weight in SNOWMAN_GRAM:
+                    put_prize('snowman', pos, 'GRAM', amount, '', 'GRAM', '', amount, weight)
+                    pos += 1
+                gifts = []
+                for cid, model, value in SNOWMAN_GIFTS:
+                    col, m = catalog().get(cid), catalog_model(cid, model)
+                    if col and m:
+                        gifts.append((cid, singular(col.get('name') or cid), m['image'], value, model))
+                # gifts together are about 1.5 cards in a thousand... cheaper ones a little more often
+                total = 15.0
+                inv = [1 / float(g[3]) for g in gifts]
+                for g, w in zip(gifts, inv):
+                    put_prize('snowman', pos, 'NFT', '', g[0], g[1], g[2], g[3], round(total * w / (sum(inv) or 1), 3), g[4])
+                    pos += 1
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_snowman_v1','1') ON CONFLICT(key) DO NOTHING")
+            db().execute("UPDATE packs SET title='New Year' WHERE id=? AND title='Новогодний пак'", (DEFAULT_PACK,))
+
     def tune_default_pack():
         """Once: add 0.1 GRAM and make the gifts rarer in the default pack, unless the administrator already changed it."""
         marker = db().execute("SELECT 1 FROM settings WHERE key='packs_tuned_v2'").fetchone()
@@ -165,8 +237,6 @@ def install_packs(app, db, auth, record, audit):
                                      (uuid.uuid4().hex, DEFAULT_PACK, 'GRAM', '0.1', '', 'GRAM', '', '0.1', 400.0, -1))
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v2','1') ON CONFLICT(key) DO NOTHING")
 
-    with app.app_context():
-        tune_default_pack()
 
     def pack_row(pid):
         return db().execute("SELECT * FROM packs WHERE id=?", (pid,)).fetchone()
@@ -176,6 +246,10 @@ def install_packs(app, db, auth, record, audit):
 
     def short(p):
         return {'id': p['id'], 'title': p['title'], 'image': p['image_url']}
+
+    with app.app_context():
+        tune_default_pack()
+        seed_snowman_pack()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""
@@ -249,7 +323,7 @@ def install_packs(app, db, auth, record, audit):
             if float(p['weight']) <= 0:
                 continue
             v = live_value(p)
-            items.append({'kind': p['kind'], 'amount': p['amount'], 'name': p['name'], 'image': p['image'], 'value': plain(v),
+            items.append({'kind': p['kind'], 'amount': p['amount'], 'name': p['name'], 'model': p['model'], 'image': p['image'], 'value': plain(v),
                           'chance': round(float(p['weight']) / total * 100, 2)})
         items.sort(key=lambda x: (Decimal(x['value'] or '0'), x['kind']))
         values = [Decimal(x['value'] or '0') for x in items] or [Decimal('0')]
@@ -318,6 +392,8 @@ def install_packs(app, db, auth, record, audit):
             elif unit != 'GRAM':
                 price = None
             if price is None or Decimal(str(price)) > limit or not gift.get('image') or not gift.get('model'):
+                continue
+            if prize['model'] and str(gift.get('model', '')).replace('\xa0', ' ').strip().lower() != prize['model'].replace('\xa0', ' ').strip().lower():
                 continue
             shown = {'id': gift['id'], 'name': gift.get('name'), 'number': gift.get('number'), 'model': gift.get('model', ''),
                      'backdrop': gift.get('backdrop', ''), 'symbol': gift.get('symbol', ''), 'image': gift.get('image', ''),
@@ -420,7 +496,7 @@ def install_packs(app, db, auth, record, audit):
                 else:
                     worth = plain(live_value(prize))
                     models = test_models(prize['collection_id'])
-                    model = _rng.choice(models) if models else None
+                    model = ({'name': prize['model'], 'image': prize['image']} if prize['model'] else (_rng.choice(models) if models else None))
                     bd = _rng.choice(BACKDROPS)
                     gift = {'id': 'pack-' + uuid.uuid4().hex, 'name': prize['name'], 'number': _rng.randint(1000, 99999),
                             'model': model['name'].replace('\xa0', ' ') if model else '', 'symbol': '', 'backdrop': bd[0],
@@ -496,7 +572,7 @@ def install_packs(app, db, auth, record, audit):
         return {**short(p), 'card_weights': json.loads(p['card_weights']), 'for_sale': bool(p['for_sale']),
                 'price_balls': int(p['price_balls']), 'enabled': bool(p['enabled']),
                 'prizes': [{'kind': r['kind'], 'amount': r['amount'], 'collection_id': r['collection_id'], 'name': r['name'],
-                            'image': r['image'], 'value': r['value'], 'weight': r['weight']} for r in prizes_of(p['id'])]}
+                            'image': r['image'], 'value': r['value'], 'weight': r['weight'], 'model': r['model']} for r in prizes_of(p['id'])]}
 
     @app.get('/api/admin/new-year/packs')
     @auth(admin=True)
@@ -507,6 +583,27 @@ def install_packs(app, db, auth, record, audit):
             v = live_value({'kind': 'NFT', 'name': c['name'], 'collection_id': c['id'], 'value': c['value']})
             cols.append({**c, 'value': plain(v)})
         return {'packs': [admin_pack(p) for p in rows], 'collections': cols}
+
+    @app.get('/api/admin/new-year/catalog')
+    @auth(admin=True)
+    def admin_catalog():
+        out = []
+        for cid, c in catalog().items():
+            try:
+                v = Decimal(str(c.get('floor_price') or '0'))
+            except InvalidOperation:
+                v = Decimal('0')
+            out.append({'id': cid, 'name': singular(c.get('name') or cid), 'image': c.get('photo_url') or '', 'value': plain(v), 'models': len(c.get('models', []))})
+        out.sort(key=lambda x: x['name'].lower())
+        return {'collections': out}
+
+    @app.get('/api/admin/new-year/catalog/<cid>/models')
+    @auth(admin=True)
+    def admin_catalog_models(cid):
+        c = catalog().get(cid)
+        if not c:
+            abort(404, description='Коллекция не найдена')
+        return {'models': [{'name': str(m.get('name', '')).replace('\xa0', ' '), 'image': m.get('image', ''), 'price': str(m.get('price') or '')} for m in c.get('models', []) if m.get('image')]}
 
     @app.post('/api/admin/new-year/packs')
     @auth(admin=True)
@@ -539,7 +636,6 @@ def install_packs(app, db, auth, record, audit):
         raw_prizes = body.get('prizes')
         if not isinstance(raw_prizes, list) or not 1 <= len(raw_prizes) <= 80:
             abort(400, description='В паке должно быть от 1 до 80 призов')
-        catalog = {c['id']: c for c in seasonal_collections()}
         rows = []
         for item in raw_prizes:
             if not isinstance(item, dict):
@@ -552,15 +648,21 @@ def install_packs(app, db, auth, record, audit):
                 abort(400, description='Шанс приза: больше 0')
             if item.get('kind') == 'GRAM':
                 amount = money(item.get('amount'))
-                rows.append(('GRAM', plain(amount), '', 'GRAM', '', plain(amount), weight))
+                rows.append(('GRAM', plain(amount), '', 'GRAM', '', plain(amount), weight, ''))
             elif item.get('kind') == 'NFT':
-                c = catalog.get(item.get('collection_id'))
-                if not c:
+                col = catalog().get(item.get('collection_id'))
+                if not col:
                     abort(400, description='Неизвестный подарок')
-                value = money(item.get('value') or c['value'], 'цена продажи') if (item.get('value') or c['value']) not in ('0', 0, '') else None
-                if value is None:
+                model = str(item.get('model') or '').strip()
+                found = catalog_model(col['id'], model) if model else None
+                if model and not found:
+                    abort(400, description='У этого подарка нет такой модели')
+                base = Decimal(str(col.get('floor_price') or '0'))
+                given = item.get('value') or (found or {}).get('price') or (plain(base) if base else '')
+                if not given or str(given) in ('0', '0.0'):
                     abort(400, description='У подарка нет цены — укажите цену продажи')
-                rows.append(('NFT', '', c['id'], c['name'], c['image'], plain(value), weight))
+                value = money(given, 'цена продажи')
+                rows.append(('NFT', '', col['id'], singular(col.get('name') or col['id']), (found or {}).get('image') or col.get('photo_url') or '', plain(value), weight, (found or {}).get('name', '') if found else ''))
             else:
                 abort(400, description='Тип приза: GRAM или подарок')
         pid = body.get('id') if isinstance(body.get('id'), str) and re.fullmatch(r'[a-z0-9_-]{1,40}', body.get('id') or '') else None
@@ -575,9 +677,8 @@ def install_packs(app, db, auth, record, audit):
                 pid = uuid.uuid4().hex[:12]
                 db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
                              (pid, title, image, json.dumps(weights), int(bool(body.get('for_sale'))), price, int(body.get('enabled', True) is not False), now))
-            for pos, (kind, amount, cid, name, img, value, weight) in enumerate(rows):
-                db().execute("INSERT INTO pack_prizes(id,pack_id,kind,amount,collection_id,name,image,value,weight,position) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                             (uuid.uuid4().hex, pid, kind, amount, cid, name, img, value, weight, pos))
+            for pos, (kind, amount, cid, name, img, value, weight, model) in enumerate(rows):
+                put_prize(pid, pos, kind, amount, cid, name, img, value, weight, model)
         audit('Pack saved: ' + title)
         return {'ok': True, 'id': pid}
 

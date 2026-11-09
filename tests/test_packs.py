@@ -277,3 +277,44 @@ def test_default_pack_has_01_gram_and_rare_gifts_and_ton_prices(client):
     ctx['thermos_backend'] = lambda: False
     info = client.get('/api/packs/' + pack['id'] + '/contents', headers=player).json
     assert next(p for p in info['prizes'] if p['name'] == 'Snow Mittens')['value'] == '3.01'
+
+
+def test_snowman_pack_economy_and_contents(client):
+    from decimal import Decimal as D
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    packs = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}
+    assert packs['newyear']['title'] == 'New Year' and packs['snowman']['title'] == 'Snowman'
+    snow = packs['snowman']
+    gifts = [p for p in snow['prizes'] if p['kind'] == 'NFT']
+    assert len(gifts) == 12 and all(g['model'] and g['image'].startswith('https://') for g in gifts)
+    assert {g['collection_id'] for g in gifts}.isdisjoint({'toybear', 'genielamp'})       # no teddy bear, no genie lamp
+    assert {'snowmittens', 'vicecream', 'springbasket'} <= {g['collection_id'] for g in gifts}
+    total = sum(p['weight'] for p in snow['prizes'])
+    cards = {int(k): v for k, v in snow['card_weights'].items()}
+    mean_cards = sum(k * v for k, v in cards.items()) / sum(cards.values())
+    ev_card = sum(float(D(p['value'] if p['kind'] == 'NFT' else p['amount'])) * p['weight'] for p in snow['prizes']) / total
+    gift_share = sum(p['weight'] for p in gifts) / total
+    assert 0.3 <= ev_card * mean_cards <= 0.6                                              # an opening is worth about 0.3-0.5 GRAM
+    assert 1 <= 100 * mean_cards * gift_share <= 4                                         # a few gifts per hundred openings at most
+    grams = {p['amount'] for p in snow['prizes'] if p['kind'] == 'GRAM'}
+    assert {'0.1', '0.2', '0.5', '1', '2', '3', '5', '10'} <= grams
+    info = client.get('/api/packs/snowman/contents', headers=player).json
+    assert next(p for p in info['prizes'] if p['model'] == 'Frost Fingers')['name'] == 'Snow Mittens'
+
+
+def test_admin_can_pick_any_collection_and_model(client):
+    admin = signed(42)
+    cat = client.get('/api/admin/new-year/catalog', headers=admin).json['collections']
+    assert len(cat) > 100 and any(c['id'] == 'toybear' for c in cat)
+    models = client.get('/api/admin/new-year/catalog/toybear/models', headers=admin).json['models']
+    assert any(m['name'] == 'Snowman' for m in models)
+    pack = client.get('/api/admin/new-year/packs', headers=admin).json['packs'][0]
+    prize = {'kind': 'NFT', 'collection_id': 'toybear', 'model': 'Snowman', 'value': '38.19', 'weight': 1}
+    saved = client.post('/api/admin/new-year/packs', headers=admin, json=dict(pack, prizes=[prize, {'kind': 'GRAM', 'amount': '1', 'weight': 5}]))
+    assert saved.status_code == 200
+    back = next(p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs'] if p['id'] == pack['id'])
+    nft = next(p for p in back['prizes'] if p['kind'] == 'NFT')
+    assert nft['model'] == 'Snowman' and nft['name'] == 'Toy Bear' and nft['value'] == '38.19'
+    bad = client.post('/api/admin/new-year/packs', headers=admin, json=dict(pack, prizes=[dict(prize, model='No Such Model')]))
+    assert bad.status_code == 400
