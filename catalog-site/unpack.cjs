@@ -12,3 +12,6 @@ for (const [name, contents] of Object.entries(entries)) {
   fs.writeFileSync(target, contents, 'utf8');
 }
 console.log('Crafter Market catalog source unpacked');
+
+// Apply runtime API compatibility adjustments to the unpacked sources.
+require('./patch.cjs');
