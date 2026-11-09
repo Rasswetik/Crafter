@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101114">
+<title>Crafter Partner API v1</title>
+<meta name="description" content="Партнёрское API Crafter: баланс, каталог, лоты, покупка, продажа и передача подарков по одному серверному ключу.">
+<link rel="stylesheet" href="/static/partner-api.css?v=3">
+</head>
+<body>
+<header class="top">
+  <b>Crafter</b><span class="tag">Partner API v1</span>
+  <nav><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#read">Чтение</a><a href="#write">Операции</a><a href="#errors">Ошибки</a><a href="/partner-api.openapi.json">OpenAPI</a></nav>
+</header>
+
+<div class="wrap">
+<aside class="toc">
+  <small>Начало</small><a href="#about">Что это</a><a href="#start">Как подключиться</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a>
+  <small>Чтение</small><a href="#read">Обзор</a><a href="#account">/account</a><a href="#collections">/collections</a><a href="#models">/models</a><a href="#lots">/lots</a><a href="#inventory">/inventory</a><a href="#gifts">/gifts</a><a href="#operations">/operations</a>
+  <small>Операции</small><a href="#write">Обзор</a><a href="#buy">/buy</a><a href="#sell">/sell и /unlist</a><a href="#transfer">/transfer</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a>
+  <small>Эксплуатация</small><a href="#errors">Ошибки и статусы</a><a href="#limits">Лимиты</a><a href="#modes">Тест и рабочий режим</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a>
+</aside>
+
+<main>
+<div class="hero">
+  <small>Для разработчиков</small>
+  <h1>Ваш проект. Подарки в Crafter.</h1>
+  <p>Один серверный ключ открывает всё нужное: каталог и модели, лоты Crafter и подключённого маркета в одном списке, покупку, продажу и передачу подарков. Баланс и подарки лежат на вашем аккаунте Crafter, ключ работает только с ним.</p>
+  <div class="go"><a class="btn" href="#start">Получить ключ</a><a class="btn ghost" href="/partner-api.openapi.json">Скачать OpenAPI JSON</a></div>
+</div>
+
+<section id="about">
+  <h2><span>01</span>Что даёт API</h2>
+  <div class="grid">
+    <div class="card"><b>🔎 Каталог</b><p>Коллекции, модели с картинками, фоны, узоры и минимальные цены.</p></div>
+    <div class="card"><b>🛒 Единый маркет</b><p>Лоты игроков Crafter и подключённого маркета (Portals, Thermos) в одном ответе, отсортированные по цене.</p></div>
+    <div class="card"><b>💰 Баланс аккаунта</b><p>Читайте баланс и тратьте его на покупки — так же, как в самом приложении.</p></div>
+    <div class="card"><b>🎁 Свои подарки</b><p>Смотрите инвентарь, выставляйте на продажу, снимайте с продажи и передавайте другим игрокам.</p></div>
+  </div>
+  <div class="note"><b>Карточные паки в API не участвуют.</b> Паки — внутренняя механика Crafter: их нет ни в инвентаре API, ни в лотах, ни в продаже. Подарки, выпавшие из паков и ставшие обычными подарками аккаунта, API видит как все остальные.</div>
+  <div class="note"><b>Куда идти.</b> Базовый адрес: <code>{{ base }}</code>. Ответы всегда в JSON, кодировка UTF-8, время в секундах Unix (UTC).</div>
+</section>
+
+<section id="start">
+  <h2><span>02</span>Как подключиться</h2>
+  <p>Подключение занимает несколько минут. Ключ привязан к одному аккаунту Telegram, поэтому для проекта удобно завести отдельный аккаунт.</p>
+  <ol class="steps">
+    <li><b>Откройте Crafter один раз.</b> Запустите приложение в Telegram с аккаунта, который будет использовать API. Ключ выдаётся только тем, кто хотя бы раз заходил в приложение.</li>
+    <li><b>Отправьте боту команду <code>/api</code>.</b> Бот <a href="https://t.me/{{ bot }}">@{{ bot }}</a> пришлёт сообщение с ключом. Он скрыт «спойлером»: тапните, чтобы увидеть, долгое нажатие копирует.</li>
+    <li><b>Сохраните ключ на сервере.</b> Храните его в переменных окружения или менеджере секретов. Ключ выглядит так: <code>CRT/aB3dE5fG7hJ9kL1mN3pQ5rS7tU9vW1xY3zA5bC7d</code> — префикс <code>CRT/</code> и 40 символов (буквы и цифры).</li>
+    <li><b>Пополните баланс аккаунта.</b> Покупки списывают GRAM с баланса того аккаунта, которому принадлежит ключ. Баланс видно в приложении и в <code>GET /account</code>.</li>
+    <li><b>Сделайте первый запрос.</b> Проверьте ключ командой ниже. Если вернулся <code>"ok": true</code>, всё работает.</li>
+  </ol>
+  <pre>curl {{ base }}/account \
+  -H "Authorization: Bearer CRT/ваш_ключ"</pre>
+  <div class="ok"><b>Нужен новый ключ?</b> Если ключ утёк или потерян, напишите в поддержку: ключ заменят, старый перестанет работать сразу. Любой повторный <code>/api</code> показывает тот же ключ, пока его не заменили.</div>
+</section>
+
+<section id="auth">
+  <h2><span>03</span>Авторизация</h2>
+  <table>
+    <tr><th>Заголовок</th><th>Значение</th><th>Когда нужен</th></tr>
+    <tr><td><code>Authorization</code></td><td><code>Bearer CRT/…</code></td><td>В каждом запросе</td></tr>
+    <tr><td><code>Content-Type</code></td><td><code>application/json</code></td><td>В POST-запросах</td></tr>
+    <tr><td><code>Idempotency-Key</code></td><td>Уникальный номер операции</td><td>В каждом POST, см. <a href="#idem">раздел</a></td></tr>
+  </table>
+  <h3>Правила</h3>
+  <ul>
+    <li>Только HTTPS и только с сервера. Запросы из браузера с заголовком <code>Origin</code> отклоняются: ключ нельзя встраивать в сайт или мобильное приложение.</li>
+    <li>Ключ даёт доступ к <b>одному</b> аккаунту: его баланс, покупки и подарки. Чужие аккаунты, админ-функции и вывод средств за пределы Crafter ему недоступны.</li>
+    <li>Права ключа: <code>read</code>, <code>buy</code>, <code>sell</code>, <code>transfer</code>. Список приходит в <code>GET /account</code>.</li>
+    <li>Заблокированный аккаунт теряет доступ к API.</li>
+  </ul>
+</section>
+
+<section id="units">
+  <h2><span>04</span>Деньги, ID и форматы</h2>
+  <h3>Деньги</h3>
+  <p>Все суммы в <b>GRAM</b>. Каждая цена в ответе приходит в двух полях: <code>price</code> — десятичная строка (<code>"12.5"</code>) и <code>price_nano</code> — целое число в нано-единицах строкой (<code>"12500000000"</code>, 1 GRAM = 1 000 000 000).</p>
+  <p>В запросах передавайте сумму либо строкой в GRAM (<code>"price": "12.5"</code>), либо в нано (<code>"price_nano": "12500000000"</code>). Никогда не используйте числа с плавающей точкой — только строки.</p>
+  <h3>Идентификаторы</h3>
+  <table>
+    <tr><th>Поле</th><th>Пример</th><th>Откуда берётся</th></tr>
+    <tr><td><code>lot_id</code> лота игрока</td><td><code>crafter-9f2c4a…</code></td><td><code>GET /lots</code>, <code>source: "crafter"</code></td></tr>
+    <tr><td><code>lot_id</code> лота маркета</td><td><code>m.snowmittens.8f1d…</code></td><td><code>GET /lots</code>, <code>source: "market"</code></td></tr>
+    <tr><td><code>gift_id</code></td><td><code>thermos-7a1c…</code></td><td><code>GET /inventory</code> или чек покупки</td></tr>
+    <tr><td><code>collection</code></td><td><code>snowmittens</code></td><td><code>GET /collections</code> (можно и название)</td></tr>
+    <tr><td><code>telegram_id</code></td><td><code>"123456789"</code></td><td>Числовой Telegram ID получателя</td></tr>
+  </table>
+  <div class="warn"><b>Не путайте.</b> <code>number</code> — порядковый номер подарка внутри коллекции (#12345), а <code>gift_id</code> — идентификатор в вашем инвентаре. В операциях используйте <code>gift_id</code> и <code>lot_id</code>.</div>
+</section>
+
+<section id="read">
+  <h2><span>05</span>Чтение данных</h2>
+  <p>Все эти запросы — <code>GET</code>. Лимит один и тот же: <b>{{ limit }} запросов за {{ window }} секунд</b> на ключ.</p>
+  <table>
+    <tr><th>Путь</th><th>Что возвращает</th></tr>
+    <tr><td><code>/account</code></td><td>Баланс, права ключа, режим работы</td></tr>
+    <tr><td><code>/collections</code></td><td>Коллекции с минимальной ценой</td></tr>
+    <tr><td><code>/models?collection=snowmittens</code></td><td>Модели, фоны, узоры и картинки</td></tr>
+    <tr><td><code>/lots?collection=snowmittens&amp;page=1</code></td><td>Лоты Crafter и маркета вместе</td></tr>
+    <tr><td><code>/inventory?before=…</code></td><td>Ваши подарки, по 50 за запрос</td></tr>
+    <tr><td><code>/gifts/{gift_id}</code></td><td>Ваш подарок или открытый лот Crafter</td></tr>
+    <tr><td><code>/operations/{id}</code></td><td>Результат операции по её Idempotency-Key</td></tr>
+  </table>
+
+  <div class="ep" id="account"><span class="m get">GET</span><code>/account</code><em>право read</em></div>
+  <p>Показывает аккаунт, которому принадлежит ключ, его баланс и режим работы сервиса (<code>test</code> или <code>work</code>, см. <a href="#modes">раздел</a>).</p>
+<pre>{
+  "ok": true,
+  "account": { "id": "123456789", "name": "Anna", "username": "anna_dev" },
+  "balance": "142.5",
+  "balance_nano": "142500000000",
+  "currency": "GRAM",
+  "new_year_balls": 320,
+  "rights": ["read", "buy", "sell", "transfer"],
+  "mode": "work"
+}</pre>
+
+  <div class="ep" id="collections"><span class="m get">GET</span><code>/collections</code><em>право read</em></div>
+  <p>Каталог коллекций. <code>floor</code> — минимальная цена на рынке в GRAM (может быть <code>null</code>, если лотов нет). Цены подключённого маркета пересчитаны из TON по текущему курсу сервиса.</p>
+<pre>{
+  "ok": true,
+  "count": 123,
+  "collections": [
+    { "id": "snowmittens", "name": "Snow Mittens", "image": "https://…", "floor": "9.4", "floor_nano": "9400000000" }
+  ]
+}</pre>
+
+  <div class="ep" id="models"><span class="m get">GET</span><code>/models?collection=snowmittens</code><em>право read</em></div>
+  <p>Модели коллекции с картинками. Если у модели нет картинки, <code>preview_url</code> равен <code>null</code> — не подставляйте картинку другой модели.</p>
+<pre>{
+  "ok": true,
+  "collection": { "id": "snowmittens", "name": "Snow Mittens" },
+  "models": [ { "name": "Frost Fingers", "preview_url": "https://…", "floor": "10.5" } ],
+  "backdrops": [ { "name": "Black", "rarity": 10 } ],
+  "symbols": [ { "name": "Star", "preview_url": "https://…" } ]
+}</pre>
+
+  <div class="ep" id="lots"><span class="m get">GET</span><code>/lots</code><em>право read</em></div>
+  <p>Главный запрос для витрины: лоты игроков Crafter и подключённого маркета в <b>одном</b> списке. Цена всегда точная, как при покупке.</p>
+  <table>
+    <tr><th>Параметр</th><th>Описание</th></tr>
+    <tr><td><code>collection</code></td><td>Обязательный. ID или название коллекции.</td></tr>
+    <tr><td><code>model</code></td><td>Только эта модель.</td></tr>
+    <tr><td><code>number</code></td><td>Только подарок с этим номером.</td></tr>
+    <tr><td><code>source</code></td><td><code>all</code> (по умолчанию), <code>crafter</code> — только лоты игроков, <code>market</code> — только подключённый маркет.</td></tr>
+    <tr><td><code>sort</code></td><td><code>price_asc</code> (по умолчанию) или <code>price_desc</code>.</td></tr>
+    <tr><td><code>page</code>, <code>limit</code></td><td>Страница с 1 и размер страницы до 50 (по умолчанию 20).</td></tr>
+  </table>
+<pre>{
+  "ok": true,
+  "collection": { "id": "snowmittens", "name": "Snow Mittens" },
+  "page": 1, "limit": 20, "total": 37, "has_more": true,
+  "lots": [
+    {
+      "lot_id": "m.snowmittens.8f1d2c…",
+      "source": "market", "market": "Thermos",
+      "collection": "Snow Mittens", "number": 40411,
+      "model": "Frost Fingers", "backdrop": "Black", "symbol": "Star",
+      "image": "https://…", "price": "9.4", "price_nano": "9400000000"
+    },
+    {
+      "lot_id": "crafter-9f2c4a7b…",
+      "source": "crafter", "market": "Crafter",
+      "collection": "Snow Mittens", "number": 12877,
+      "model": "Frost Fingers", "price": "9.9", "price_nano": "9900000000"
+    }
+  ]
+}</pre>
+  <div class="note"><b>Защита от неверных цен.</b> Лоты подключённого маркета, цена которых намного ниже минимальной цены коллекции, считаются ошибкой данных и в список не попадают.</div>
+
+  <div class="ep" id="inventory"><span class="m get">GET</span><code>/inventory</code><em>право read</em></div>
+  <p>Ваши подарки (без паков и тестовых подарков). За один запрос приходит до 50 штук. Если подарков больше, в ответе есть <code>next</code> — передайте его в параметре <code>before</code>, чтобы получить следующую страницу.</p>
+<pre>{
+  "ok": true,
+  "gifts": [
+    { "gift_id": "thermos-7a1c…", "name": "Snow Mittens", "number": 40411, "model": "Frost Fingers",
+      "backdrop": "Black", "symbol": "Star", "image": "https://…", "status": "unlisted", "listing_price": null }
+  ],
+  "next": null
+}</pre>
+  <p><code>status</code>: <code>unlisted</code> — лежит в инвентаре, <code>listed</code> — выставлен на продажу (тогда <code>listing_price</code> показывает цену).</p>
+
+  <div class="ep" id="gifts"><span class="m get">GET</span><code>/gifts/{gift_id}</code><em>право read</em></div>
+  <p>Возвращает ваш подарок (<code>"kind": "own"</code>) или открытый лот игрока Crafter (<code>"kind": "lot"</code>, id вида <code>crafter-…</code>). Лоты подключённого маркета ищите через <code>/lots</code>.</p>
+
+  <div class="ep" id="operations"><span class="m get">GET</span><code>/operations/{operation_id}</code><em>право read</em></div>
+  <p>Сохранённый результат операции по её <code>Idempotency-Key</code>. Используйте после обрыва связи, прежде чем что-либо повторять (см. <a href="#retries">повторы</a>).</p>
+<pre>{
+  "ok": true,
+  "operation_id": "order-2026-12-01-0001",
+  "status": "done",
+  "method": "buy",
+  "result": { "lot_id": "crafter-9f2c4a7b…", "state": "done", "price": "9.9" }
+}</pre>
+</section>
+
+<section id="write">
+  <h2><span>06</span>Покупка, продажа и передача</h2>
+  <p>Все операции — <code>POST</code> с JSON-телом и обязательным заголовком <code>Idempotency-Key</code>.</p>
+  <table>
+    <tr><th>Путь</th><th>Право</th><th>Тело запроса</th></tr>
+    <tr><td><code>/buy</code></td><td>buy</td><td><code>{"lot_id":"crafter-9f2c…","max_price":"10"}</code></td></tr>
+    <tr><td><code>/sell</code></td><td>sell</td><td><code>{"gift_id":"thermos-7a1c…","price":"12.5"}</code></td></tr>
+    <tr><td><code>/unlist</code></td><td>sell</td><td><code>{"gift_id":"thermos-7a1c…"}</code></td></tr>
+    <tr><td><code>/transfer</code></td><td>transfer</td><td><code>{"gift_id":"thermos-7a1c…","telegram_id":"123456789"}</code></td></tr>
+  </table>
+  <h3>Комиссии</h3>
+  <ul>
+    <li>Продажа на маркете Crafter облагается стандартной комиссией маркета, её платит продавец (она показывается в приложении при выставлении).</li>
+    <li><code>/transfer</code> бесплатный. Он работает только внутри Crafter: получатель должен хотя бы раз открыть приложение.</li>
+    <li>При покупке покупатель платит ровно цену лота.</li>
+  </ul>
+
+  <div class="ep" id="buy"><span class="m post">POST</span><code>/buy</code><em>право buy</em></div>
+  <p>Покупает лот игрока или лот подключённого маркета — по <code>lot_id</code> из <code>/lots</code>. Параметр <code>max_price</code> — это максимум, который вы готовы заплатить. Если цена лота к моменту покупки выше, покупка не выполняется, деньги не списываются, а ответ содержит код <code>price_changed</code>.</p>
+<pre>curl -X POST {{ base }}/buy \
+  -H "Authorization: Bearer CRT/ваш_ключ" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: order-2026-12-01-0001" \
+  -d '{"lot_id":"crafter-9f2c4a7b…","max_price":"10"}'</pre>
+<pre>{
+  "ok": true,
+  "operation_id": "order-2026-12-01-0001",
+  "status": "done",
+  "result": {
+    "lot_id": "crafter-9f2c4a7b…",
+    "state": "done",
+    "price": "9.9", "price_nano": "9900000000",
+    "gift": { "gift_id": "…", "name": "Snow Mittens", "number": 12877, "model": "Frost Fingers" },
+    "balance": "132.6"
+  }
+}</pre>
+  <div class="note"><b>Подарок подключённого маркета</b> выкупается на маркете и попадает в ваш инвентарь после доставки; это может занять немного времени. До этого статус операции может быть <code>processing</code> — проверяйте <code>/operations/{id}</code>.</div>
+
+  <div class="ep" id="sell"><span class="m post">POST</span><code>/sell</code><em>право sell</em></div>
+  <p>Выставляет ваш подарок на маркет Crafter или меняет цену уже выставленного. Ответ <code>state: "accepted"</code> означает, что цена сохранена. Подарок может быть куплен сразу, а может ждать покупателя — следите за <code>GET /inventory</code>.</p>
+<pre>{ "gift_id": "thermos-7a1c…", "price": "12.5" }</pre>
+<pre>{ "ok": true, "operation_id": "…", "status": "done",
+  "result": { "gift_id": "thermos-7a1c…", "state": "accepted", "price": "12.5", "price_nano": "12500000000" } }</pre>
+
+  <div class="ep"><span class="m post">POST</span><code>/unlist</code><em>право sell</em></div>
+  <p>Снимает ваш подарок с продажи. Работает только на ваших выставленных подарках.</p>
+<pre>{ "gift_id": "thermos-7a1c…" }</pre>
+
+  <div class="ep" id="transfer"><span class="m post">POST</span><code>/transfer</code><em>право transfer</em></div>
+  <p>Передаёт ваш невыставленный подарок другому игроку Crafter по его Telegram ID. Получатель должен хотя бы раз открыть приложение (иначе ошибка <code>recipient_not_found</code>) и иметь @username в Telegram (иначе <code>recipient_no_username</code>).</p>
+<pre>{ "gift_id": "thermos-7a1c…", "telegram_id": "123456789" }</pre>
+<pre>{ "ok": true, "operation_id": "…", "status": "done",
+  "result": { "gift_id": "thermos-7a1c…", "state": "done", "telegram_id": "123456789", "fee": "0" } }</pre>
+</section>
+
+<section id="idem">
+  <h2><span>07</span>Idempotency-Key</h2>
+  <p>Каждая операция записи (<code>/buy</code>, <code>/sell</code>, <code>/unlist</code>, <code>/transfer</code>) требует уникальный <code>Idempotency-Key</code>. Это страховка от двойных покупок: если запрос оборвался, вы можете безопасно отправить его ещё раз с тем же ключом, и сервер вернёт сохранённый результат вместо новой операции.</p>
+  <ul>
+    <li>Формат: 16–80 символов — латинские буквы, цифры, <code>_</code> и <code>-</code>. Подойдёт UUID.</li>
+    <li>Ключ уникален в пределах аккаунта и остаётся действительным после замены API-ключа.</li>
+    <li>Один и тот же Idempotency-Key с <b>другим</b> телом или другим методом даёт <code>409 conflict</code>.</li>
+    <li>Сохраняйте номер и тело запроса <b>до</b> отправки — тогда его всегда можно повторить.</li>
+  </ul>
+<pre><span class="c"># Python</span>
+import uuid, requests
+op = str(uuid.uuid4())          <span class="c"># сохраните op в своей базе до отправки</span>
+r = requests.post("{{ base }}/buy",
+    headers={"Authorization": "Bearer " + KEY, "Idempotency-Key": op},
+    json={"lot_id": lot_id, "max_price": "10"}, timeout=30)
+print(r.status_code, r.json())</pre>
+<pre><span class="c">// Node.js 18+</span>
+const op = crypto.randomUUID();
+const r = await fetch("{{ base }}/buy", {
+  method: "POST",
+  headers: { Authorization: "Bearer " + KEY, "Content-Type": "application/json", "Idempotency-Key": op },
+  body: JSON.stringify({ lot_id, max_price: "10" }),
+});
+console.log(r.status, await r.json());</pre>
+</section>
+
+<section id="retries">
+  <h2><span>08</span>Повторы и неопределённый результат</h2>
+  <ol>
+    <li>Перед отправкой сохраните <code>Idempotency-Key</code> и тело запроса.</li>
+    <li>Если ответ не пришёл (таймаут, обрыв), <b>не создавайте новую операцию</b>. Сначала спросите <code>GET /operations/{id}</code>.</li>
+    <li>Если там <code>404</code>, отправьте исходный запрос ещё раз с тем же ключом и тем же телом.</li>
+    <li>Новый ключ допустим, только когда операция завершилась с ошибкой <code>failed</code> и вы исправили запрос.</li>
+    <li>Статус <code>review</code> (HTTP 503) значит, что результат уточняется. Новую операцию не создавайте: смотрите <code>/operations/{id}</code> или обратитесь в поддержку.</li>
+  </ol>
+</section>
+
+<section id="errors">
+  <h2><span>09</span>Ошибки и статусы</h2>
+  <p>Ошибка всегда выглядит одинаково: <code>{"ok": false, "error": "понятный текст", "code": "машинный_код"}</code>. Для операций она приходит внутри <code>result</code>.</p>
+  <table>
+    <tr><th>HTTP / status</th><th>Что означает и что делать</th></tr>
+    <tr><td>200 · <code>done</code></td><td>Операция выполнена, результат сохранён.</td></tr>
+    <tr><td>202 · <code>processing</code></td><td>Операция ещё выполняется. Опрашивайте <code>/operations/{id}</code>, не создавайте новую.</td></tr>
+    <tr><td>400 · <code>failed</code></td><td>Неверный запрос: проверьте <code>code</code> и <code>error</code>. Повторять можно только с новым ключом и исправленными данными.</td></tr>
+    <tr><td>401</td><td>Нет или неверный ключ, ключ заменён.</td></tr>
+    <tr><td>403</td><td>Запрос из браузера (есть <code>Origin</code>), аккаунт заблокирован или недостаточно прав.</td></tr>
+    <tr><td>404</td><td>Коллекция, лот, подарок или операция не найдены. Лот мог быть продан.</td></tr>
+    <tr><td>409 · <code>conflict</code></td><td>Idempotency-Key уже использован с другим запросом.</td></tr>
+    <tr><td>409 · <code>failed</code></td><td>Операция отклонена по существу: <code>price_changed</code>, недостаточно баланса, лот недоступен.</td></tr>
+    <tr><td>429</td><td>Слишком много запросов. Подождите заголовок <code>Retry-After</code> (10 секунд).</td></tr>
+    <tr><td>503 · <code>review</code></td><td>Результат неизвестен. Не повторяйте с новым ключом, проверьте <code>/operations/{id}</code>.</td></tr>
+  </table>
+  <h3>Частые коды</h3>
+  <table>
+    <tr><th><code>code</code></th><th>Причина</th></tr>
+    <tr><td><code>unauthorized</code></td><td>Ключ не передан или не подходит.</td></tr>
+    <tr><td><code>browser_forbidden</code></td><td>Запрос пришёл из браузера.</td></tr>
+    <tr><td><code>idempotency_required</code></td><td>В POST нет корректного <code>Idempotency-Key</code>.</td></tr>
+    <tr><td><code>price_changed</code></td><td>Цена лота выше вашего <code>max_price</code>.</td></tr>
+    <tr><td><code>lot_not_found</code></td><td>Лот уже продан или снят.</td></tr>
+    <tr><td><code>gift_not_found</code></td><td>Подарка нет среди ваших (или это пак, которого в API нет).</td></tr>
+    <tr><td><code>recipient_not_found</code></td><td>Получатель ни разу не открывал Crafter.</td></tr>
+    <tr><td><code>recipient_no_username</code></td><td>У получателя нет @username в Telegram.</td></tr>
+    <tr><td><code>market_unavailable</code></td><td>Покупки на подключённом маркете сейчас отключены.</td></tr>
+    <tr><td><code>rejected</code></td><td>Приложение отклонило операцию; причина в <code>error</code> (например, недостаточно GRAM).</td></tr>
+    <tr><td><code>rate_limited</code></td><td>Превышен лимит запросов.</td></tr>
+  </table>
+</section>
+
+<section id="limits">
+  <h2><span>10</span>Лимиты</h2>
+  <ul>
+    <li><b>Частота:</b> до {{ limit }} запросов за {{ window }} секунд на один ключ. При превышении приходит <code>429</code> и заголовок <code>Retry-After</code>.</li>
+    <li><b>Страницы:</b> до 50 элементов в <code>/lots</code> и <code>/inventory</code>.</li>
+    <li><b>Покупки:</b> действуют обычные правила Crafter: нужен достаточный баланс, а подарок должен быть ещё в продаже.</li>
+    <li><b>Кэш:</b> список лотов подключённого маркета обновляется регулярно, но может отставать на секунды. Окончательную цену проверяет сам <code>/buy</code>.</li>
+  </ul>
+</section>
+
+<section id="modes">
+  <h2><span>11</span>Тестовый и рабочий режим</h2>
+  <p>Crafter работает в одном из двух режимов, он указан в поле <code>mode</code> ответа <code>/account</code>.</p>
+  <table>
+    <tr><th>Режим</th><th>Как работает</th></tr>
+    <tr><td><code>test</code></td><td>Покупки подарков маркета тестовые: подарки приходят в тестовый инвентарь и не выводятся за пределы Crafter. Удобно для отладки интеграции.</td></tr>
+    <tr><td><code>work</code></td><td>Подарки подключённого маркета выкупаются по-настоящему и приходят в ваш инвентарь. В списке лотов игроков Crafter остаются только подарки, реально находящиеся у сервиса.</td></tr>
+  </table>
+  <div class="note">Отладьте интеграцию в тестовом режиме, а перед рабочим запуском проверьте покупку, повтор запроса с тем же <code>Idempotency-Key</code> и чтение <code>/operations/{id}</code>.</div>
+</section>
+
+<section id="security">
+  <h2><span>12</span>Безопасность ключа</h2>
+  <div class="warn"><b>Никому не передавайте ключ.</b> Он даёт полный доступ к аккаунту: любой, у кого он есть, может тратить баланс и передавать подарки. Команда Crafter и поддержка никогда не просят ключ. Если кто-то просит его — это мошенники.</div>
+  <ul>
+    <li>Храните ключ только на сервере: в переменных окружения или менеджере секретов. Не кладите его в репозиторий, логи и клиентский код.</li>
+    <li>Не пишите ключ в чаты и скриншоты. В сообщении бота он скрыт «спойлером» именно для этого.</li>
+    <li>Если ключ мог утечь, сразу напишите в поддержку для замены: старый ключ перестанет работать мгновенно.</li>
+    <li>Используйте отдельный аккаунт под интеграцию и держите на нём только нужную сумму.</li>
+  </ul>
+</section>
+
+<section id="launch">
+  <h2><span>13</span>Перед запуском</h2>
+  <ol class="steps">
+    <li><b>Проверьте чтение.</b> <code>/account</code>, <code>/collections</code>, <code>/lots</code> возвращают данные и ваш баланс.</li>
+    <li><b>Проверьте покупку.</b> Купите самый дешёвый лот с небольшим <code>max_price</code> и убедитесь, что подарок появился в <code>/inventory</code>.</li>
+    <li><b>Проверьте повтор.</b> Отправьте тот же запрос с тем же <code>Idempotency-Key</code>: ответ должен совпасть, баланс не должен измениться второй раз.</li>
+    <li><b>Проверьте обрыв.</b> Эмулируйте таймаут и убедитесь, что ваш код сначала читает <code>/operations/{id}</code>.</li>
+    <li><b>Следите за лимитами.</b> Обрабатывайте 429 и <code>Retry-After</code>.</li>
+  </ol>
+</section>
+
+<section id="faq">
+  <h2><span>14</span>Вопросы</h2>
+  <div class="card"><b>Можно ли управлять паками через API?</b><p>Нет. Паки — личная механика Crafter, их нет в API.</p></div>
+  <div class="card"><b>Почему /lots не показывает мой лот?</b><p>Вы видите лоты других игроков и маркета. Свои лоты смотрите в <code>/inventory</code> (статус <code>listed</code>).</p></div>
+  <div class="card"><b>Бот не выдаёт ключ.</b><p>Откройте приложение Crafter хотя бы один раз с этого же аккаунта и отправьте <code>/api</code> снова.</p></div>
+  <div class="card"><b>Где машиночитаемое описание?</b><p><a href="/partner-api.openapi.json">/partner-api.openapi.json</a> — OpenAPI 3.0, его можно загрузить в Postman или сгенерировать клиент.</p></div>
+  <div class="card"><b>Что, если цена на маркете выглядит слишком низкой?</b><p>Лоты, цена которых намного ниже минимальной цены коллекции, считаются ошибкой данных и скрываются.</p></div>
+</section>
+
+<footer>
+  <p>Crafter · Partner API v1 · Вопросы по подключению и замена ключа — в поддержку Crafter. <a href="{{ site }}">Открыть Crafter</a></p>
+</footer>
+</main>
+</div>
+</body>
+</html>

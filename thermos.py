@@ -31,6 +31,48 @@ def unique_collections(rows):
 def collections():
     return [dict(id=str(c['id']),short_name=str(c['id']),name=c['name'],photo_url=c['image_url'],floor_price=ton(c.get('stats',{}).get('floor')),price_unit='TON') for c in request('collections')]
 
+_SEED_FLOORS = {}
+
+
+def canon(value):
+    import re
+    return re.sub(r'[^a-z0-9]', '', str(value or '').lower())
+
+
+def seed_floors():
+    """Reference floors from the bundled catalogue snapshot: protection against lots with a broken price."""
+    if not _SEED_FLOORS:
+        import gzip
+        from pathlib import Path
+        try:
+            rows = json.loads(gzip.decompress((Path(__file__).resolve().parent / 'data/catalog_seed.json.gz').read_bytes())).get('collections', [])
+        except (OSError, ValueError):
+            rows = []
+        for r in rows:
+            try:
+                value = Decimal(str(r.get('floor_price') or '0'))
+            except Exception:
+                continue
+            if value > 0:
+                _SEED_FLOORS[canon(r.get('name'))] = value
+    return _SEED_FLOORS
+
+
+MIN_SHARE_OF_FLOOR = Decimal('0.4')
+
+
+def plausible_price(name, price_ton, catalog_floors):
+    """A lot far below the collection floor is a data error (wrong currency or a broken listing), not a bargain."""
+    key = canon(name)
+    reference = max([v for v in (catalog_floors.get(key), seed_floors().get(key)) if v] or [Decimal('0')])
+    if reference <= 0:
+        return True
+    try:
+        return Decimal(str(price_ton)) >= reference * MIN_SHARE_OF_FLOOR
+    except Exception:
+        return False
+
+
 def gifts(params, catalog):
     collection_ids = set(params['collection_id'].split(',')) if params.get('collection_id') else set()
     collections = [item['name'] for item in catalog if str(item['id']) in collection_ids]
@@ -47,4 +89,14 @@ def gifts(params, catalog):
     if price_range:body['price_range']=price_range
     data=request('gifts',body)
     ids={c['name']:c['id'] for c in catalog}
-    return dict(gifts=[dict(id=g['external_id'],name=g['collection'],collection_id=ids.get(g['collection'],''),model=g.get('model',{}).get('name',''),backdrop=g.get('backdrop',{}).get('name',''),background={k:v for k,v in g.get('backdrop',{}).items() if k in ('center_color','edge_color')},symbol=g.get('symbol',{}).get('name',''),price=ton(g['price']),price_unit='TON',number=g['number'],image=g['image_url'],marketplace=g['marketplace']) for g in data.get('items',[])],total=data.get('count',0),demo=False,source='thermos',price_unit='TON',sort_by=params.get('sort_by') if params.get('sort_by') not in (None,'listed_at desc') else 'price asc',warning='Сортировка по новым временно недоступна в Portals. Показаны цены по возрастанию.' if params.get('sort_by') in (None,'listed_at desc') else '')
+    floors = {}
+    for item in catalog:
+        try:
+            value = Decimal(str(item.get('floor_price') or '0'))
+        except Exception:
+            continue
+        if value > 0:
+            floors[canon(item.get('name'))] = max(value, floors.get(canon(item.get('name')), Decimal('0')))
+    lots = [dict(id=g['external_id'],name=g['collection'],collection_id=ids.get(g['collection'],''),model=g.get('model',{}).get('name',''),backdrop=g.get('backdrop',{}).get('name',''),background={k:v for k,v in g.get('backdrop',{}).items() if k in ('center_color','edge_color')},symbol=g.get('symbol',{}).get('name',''),price=ton(g['price']),price_unit='TON',number=g['number'],image=g['image_url'],marketplace=g['marketplace']) for g in data.get('items',[])]
+    lots = [lot for lot in lots if plausible_price(lot['name'], lot['price'], floors)]
+    return dict(gifts=lots,total=data.get('count',0),demo=False,source='thermos',price_unit='TON',sort_by=params.get('sort_by') if params.get('sort_by') not in (None,'listed_at desc') else 'price asc',warning='Сортировка по новым временно недоступна в Portals. Показаны цены по возрастанию.' if params.get('sort_by') in (None,'listed_at desc') else '')

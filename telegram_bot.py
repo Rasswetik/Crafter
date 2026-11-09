@@ -55,7 +55,7 @@ def https_url(value):
 
 
 GIFT_TEMPLATE = '🎁 You received {count} {gift_word} from {sender}: {gifts}!\n\nOpen your inventory to see them.'
-GIFT_TEMPLATE_STYLES = {'b', 'i', 'u', 's', 'tg-spoiler'}
+GIFT_TEMPLATE_STYLES = {'b', 'i', 'u', 's', 'tg-spoiler', 'code'}
 GIFT_TEMPLATE_FIELDS = {'count', 'gift_word', 'sender', 'gifts', 'message'}
 GIFT_TEMPLATE_TOKEN = re.compile(r'(</?[a-z-]+>|\{[a-z_]+\})')
 
@@ -92,6 +92,10 @@ PHRASES = {
     'offer_withdrawn': {'title': 'Оффер отозван', 'text': '↩️ Offer withdrawn: {gift} — {amount} GRAM.', 'fields': ('gift', 'amount')},
     'deposit': {'title': 'Пополнение баланса', 'text': '💸Баланс обновлен\n\n⬆️Депозит: {amount} GRAM успешно зачислено\n\n🔎 Посмотреть транзакцию\n\n{link}',
                 'fields': ('amount', 'link')},
+    'api_key': {'title': 'Команда /api: ключ партнёрского API', 'fields': ('key', 'docs'),
+                'text': '🔑 <b>Ваш API-ключ</b> (тапните, чтобы увидеть; долгое нажатие — скопировать):\n\n<tg-spoiler><code>{key}</code></tg-spoiler>\n\n⚠️ <b>Никому не передавайте этот ключ.</b>\nКлюч даёт полный доступ к вашему аккаунту Crafter — включая баланс, покупки и подарки. Любой, кто его получит, сможет тратить ваш баланс и переводить ваши подарки.\n\nНаша команда и поддержка никогда не запрашивают этот ключ. Если кто-то просит его — это мошенники.\n\nЕсли ключ утёк, немедленно напишите в поддержку для замены.\n\n📖 Документация по API: {docs}'},
+    'api_denied': {'title': 'Команда /api: нет доступа', 'fields': (),
+                   'text': '🔒 API-ключ выдаётся тем, кто хотя бы один раз открыл приложение Crafter. Откройте приложение, затем отправьте /api ещё раз.'},
     'advent': {'title': 'Новая ячейка адвент-календаря', 'text': '🎄 Новая ячейка адвент-календаря уже открыта!\n\nСкорее заберите подарок {day}-го дня 🎁',
                'fields': ('day',), 'button': ('advent_button', 'Открыть адвент')},
 }
@@ -669,11 +673,24 @@ def install_telegram_bot(app, db, auth, audit):
             return {'ok': True}
         parts = message.get('text', '').split(maxsplit=1)
         username = config['username'].lower()
-        if not parts or parts[0].lower() not in ('/start', f'/start@{username}'):
+        command = parts[0].lower() if parts else ''
+        is_api = command in ('/api', f'/api@{username}')
+        if not parts or (command not in ('/start', f'/start@{username}') and not is_api):
             return {'ok': True}
         update_id = update['update_id']
         if db().execute('SELECT 1 FROM telegram_start_updates WHERE bot_id=? AND update_id=?',
                         (bot_id, update_id)).fetchone():
+            return {'ok': True}
+        if is_api:
+            issue = app.extensions.get('crafter_partner_key')
+            key = issue(chat['id']) if issue else None
+            origin = config['app_url'] or os.getenv('RENDER_EXTERNAL_URL') or os.getenv('PUBLIC_APP_URL') or request.url_root
+            docs = origin.rstrip('/') + '/partner-api'
+            reply = {'chat_id': chat['id'], 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True},
+                     'text': render_phrase(config, 'api_key', {'key': escape(key), 'docs': escape(docs)}) if key else render_phrase(config, 'api_denied', {})}
+            bot_api(token_for(config), 'sendMessage', reply)
+            with db():
+                db().execute('INSERT INTO telegram_start_updates VALUES(?, ?, ?) ON CONFLICT DO NOTHING', (bot_id, update_id, int(time.time())))
             return {'ok': True}
         keyboard = []
         for button in config['buttons']:

@@ -139,8 +139,11 @@ def create_app(config=None):
             def run(*args,**kwargs):
                 raw=request.headers.get('X-Telegram-Init-Data','')
                 web_session=request.headers.get('X-Crafter-Web-Session','')
+                internal_user=request.environ.get('crafter.internal_user')   # set only by the server itself (partner API), never by a client
                 try:
-                    if raw:
+                    if internal_user:
+                        g.user=dict(internal_user)
+                    elif raw:
                         # The environment token is normally enough. Do not query
                         # bot settings in PostgreSQL on every authenticated poll.
                         primary = app.config['BOT_TOKEN']
@@ -1493,6 +1496,8 @@ def create_app(config=None):
         acquire=lambda gifts: app.extensions['crafter_thermos_acquire'](gifts),
         can_buy=lambda gift, price: app.extensions['crafter_portals_can_buy'](gift, price),
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
+    from partner_api import install_partner_api
+    install_partner_api(app,db,auth,record,audit)
     app.extensions['crafter_pack_ctx'] = dict(
         public_catalog=public_catalog, canonical_name=canonical_name, market_candidates=craft_market_candidates,
         ensure_listings=ensure_upgrade_listings, test_mode=lambda: purchase_mode() == 'test',

@@ -208,3 +208,14 @@ def test_empty_thermos_balance_does_not_block_work_mode_and_players_get_a_generi
     bought = buy(wired)
     assert bought.status_code == 409 and bought.json['error'] == 'Ошибка покупки. Попробуйте позже.'
     assert balance(wired).startswith('100')                     # nothing was charged
+
+
+def test_lots_priced_far_below_the_floor_are_dropped(monkeypatch):
+    import thermos
+    item = lambda ext, price: {'external_id': ext, 'collection': 'Snow Mittens', 'model': {'name': 'Frost Fingers'}, 'backdrop': {'name': 'Black'},
+                               'symbol': {'name': 'Star'}, 'price': str(int(price * 10**9)), 'number': 1, 'image_url': 'https://i/x.png', 'marketplace': 'TONNEL'}
+    monkeypatch.setattr(thermos, 'request', lambda path, body=None: {'items': [item('bad', 3.16), item('good', 9.5), item('edge', 5.3), item('low', 5.1)], 'count': 4})
+    catalog = [{'id': '1', 'name': 'Snow Mittens', 'floor_price': '9'}]
+    ids = [g['id'] for g in thermos.gifts({'collection_id': '1'}, catalog)['gifts']]
+    assert ids == ['good', 'edge'] or ids == ['good', 'edge', 'low'][:len(ids)] and 'bad' not in ids      # 3.16 is not a real price
+    assert 'bad' not in ids and 'good' in ids
