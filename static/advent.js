@@ -7,6 +7,7 @@ const ICON = {GRAM: '/static/assets/gram.svg', BALL: '/static/assets/new-year-or
 const KIND_NAME = {GRAM: 'GRAM на баланс', BALL: 'Новогодние шары', PACK: 'Карточный пак', PROMO: 'Промокод'};
 const rimg = r => r.image_url || r.image || ICON[r.kind] || ICON.BALL;
 const LOCK = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.6" fill="currentColor"/><path d="M8.2 10.5V8a3.8 3.8 0 0 1 7.6 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+const LOCKBIG = '<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="lk-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a8"/><stop offset="1" stop-color="#e0911c"/></linearGradient></defs><path d="M7.6 10.4V7.8a4.4 4.4 0 0 1 8.8 0v2.6" fill="none" stroke="#eaf1ff" stroke-width="2.3" stroke-linecap="round"/><rect x="4.6" y="10" width="14.8" height="11" rx="3.2" fill="url(#lk-g)"/><circle cx="12" cy="14.8" r="1.7" fill="#6b3d08"/><rect x="11.2" y="15.4" width="1.6" height="3.2" rx=".8" fill="#6b3d08"/></svg>';
 const BOW = '<svg class="adv-bow" viewBox="0 0 48 30" aria-hidden="true"><path d="M24 24C14 24 4 20 4 11S12 2 18 8l6 7 6-7c6-6 14-2 14 3s-10 13-20 13Z" fill="#ffe9a8" stroke="#d99a1f" stroke-width="1.6" stroke-linejoin="round"/><circle cx="24" cy="15" r="4.2" fill="#ffc14d" stroke="#d99a1f" stroke-width="1.4"/></svg>';
 const SNOW = '<svg viewBox="-50 -50 100 100" aria-hidden="true"><g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none">' + [0, 60, 120, 180, 240, 300].map(a => '<g transform="rotate(' + a + ')"><path d="M0 0V-42"/><path d="M0-18-10-28M0-18 10-28"/></g>').join('') + '</g></svg>';
 
@@ -45,8 +46,8 @@ function cell(d, nowTs) {
     }
     const ready = d.state === 'ready';
     return '<button type="button" class="adv-cell ' + cls + (ready ? ' is-ready' : ' is-locked') + '" data-day="' + d.day + '" ' + (ready ? '' : 'aria-disabled="true"') + ' aria-label="День ' + d.day + '">' +
-        '<span class="adv-rib v"></span><span class="adv-rib h"></span>' + BOW + '<span class="adv-snow">' + SNOW + '</span><b class="adv-num">' + d.day + '</b>' +
-        (ready ? '<small class="adv-state">Открыть</small>' : '<small class="adv-state">' + LOCK + ' ' + fmtDate(d.unlock_at) + '</small>') + '</button>';
+        '<span class="adv-rib v"></span><span class="adv-rib h"></span>' + BOW + '<span class="adv-snow">' + SNOW + '</span><b class="adv-num">' + d.day + '</b>' + (ready ? '' : '<i class="adv-lock" aria-hidden="true">' + LOCKBIG + '</i>') +
+        (ready ? '<small class="adv-state">Открыть</small>' : '<small class="adv-state">' + fmtDate(d.unlock_at) + '</small>') + '</button>';
 }
 function page(main, state, nav) {
     clearInterval(ticker);
@@ -149,6 +150,8 @@ async function admin(content) {
         '<form id="adv-channel" class="adv-channel-form"><div class="adm-field"><label>Канал</label><input name="channel" placeholder="@my_channel или https://t.me/my_channel"></div>' +
         '<div class="adv-channel-actions"><button class="primary" type="submit">Проверить и привязать</button>' + (ch ? '<button type="button" class="secondary" id="adv-unbind">Отвязать</button>' : '') + '</div>' +
         '<p class="sub">Сначала добавьте бота администратором канала, затем нажмите «Проверить и привязать».</p></form>' +
+        '<h3 style="margin-top:24px">Сброс</h3><p class="sub">Начать календарь заново: все ячейки снова закрыты для игроков. Уже выданные награды не отзываются.</p>' +
+        '<div class="adv-channel-actions"><button type="button" class="secondary" id="adv-reset">Сбросить прогресс игроков</button><button type="button" class="secondary" id="adv-reset-all">Сбросить прогресс и награды</button></div>' +
         '<h3 style="margin-top:24px">Награды по дням</h3><div class="adv-days">' + r.days.map(d => '<button type="button" class="adv-dayrow" data-day="' + d.day + '"><b>' + d.day + '</b><img src="' + e(rimg({kind: d.kind === 'PROMO' ? 'PROMO' : d.kind, image_url: d.image_url})) + '" alt=""><span>' + e(d.title || d.auto_title) + '</span></button>').join('') + '</div>';
     content.appendChild(sec);
     const run = async (fn, ok) => { try { await fn(); toast(ok); content.innerHTML = ''; window.renderAdminNewYear?.(content); } catch (err) { toast(err.message); } };
@@ -157,6 +160,9 @@ async function admin(content) {
         run(() => api('admin/new-year/advent/settings', {enabled: f.get('enabled') === 'on', start: f.get('start'), days: f.get('days'), hour: f.get('hour'), tz: f.get('tz'), require_sub: f.get('require_sub') === 'on'}), 'Настройки сохранены');
     });
     sec.querySelector('#adv-channel').addEventListener('submit', ev => { ev.preventDefault(); run(() => api('admin/new-year/advent/channel', {channel: new FormData(ev.target).get('channel')}), 'Канал привязан'); });
+    const reset = (rewards, text) => { if (confirm(text)) run(() => api('admin/new-year/advent/reset', {confirm: 'RESET_ADVENT', rewards}), 'Календарь сброшен'); };
+    sec.querySelector('#adv-reset').addEventListener('click', () => reset(false, 'Сбросить прогресс всех игроков? Ячейки снова станут закрытыми.'));
+    sec.querySelector('#adv-reset-all').addEventListener('click', () => reset(true, 'Сбросить прогресс игроков и вернуть стандартные награды во все ячейки?'));
     sec.querySelector('#adv-unbind')?.addEventListener('click', () => run(() => api('admin/new-year/advent/channel/clear', {}), 'Канал отвязан'));
     sec.querySelectorAll('.adv-dayrow').forEach(b => b.addEventListener('click', () => editDay(r.days.find(d => d.day === Number(b.dataset.day)), packs, () => run(async () => {}, 'Сохранено'))));
 }

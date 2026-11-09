@@ -94,3 +94,8 @@
 .adv-minis{align-items:center}
 .adv-mini{flex:none;height:auto}
 .adv-mini:nth-child(odd),.adv-mini:nth-child(even){margin-top:0}
+
+/* a proper padlock on closed cells */
+.adv-lock{position:absolute;top:8px;right:8px;z-index:3;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 35% 30%,#3a3f57,#161a2b);border:1.5px solid rgba(255,226,160,.7);box-shadow:0 3px 10px rgba(0,0,0,.5)}
+.adv-lock svg{width:18px;height:18px}
+.adv-cell.is-locked .adv-state{background:rgba(10,6,24,.7)}

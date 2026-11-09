@@ -339,6 +339,21 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         audit('Advent channel cleared')
         return {'ok': True}
 
+    @app.post('/api/admin/new-year/advent/reset')
+    @auth(admin=True)
+    def admin_advent_reset():
+        b = request.get_json(silent=True) or {}
+        if b.get('confirm') != 'RESET_ADVENT':
+            abort(400, description='Подтвердите сброс')
+        with db():
+            db().execute("DELETE FROM advent_opens")
+            write('advent_notified_v1', {'day': 0})
+            if b.get('rewards'):
+                db().execute("DELETE FROM advent_days")
+        sub_cache.clear()
+        audit('Advent reset' + (' with rewards' if b.get('rewards') else ''))
+        return {'ok': True}
+
     @app.post('/api/admin/new-year/advent/days/<int:day>')
     @auth(admin=True)
     def admin_advent_day(day):

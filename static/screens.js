@@ -16,15 +16,15 @@ function card(g, action = 'detail') {
     const canSend = g.status === 'unlisted' && !g.catalog_only;
     const floor = productFloor(g);
     return `<article class="gift ${own ? 'inventory-gift' : ''}">
-        <button class="art" onclick="${action}(${arg(g.id)})" aria-label="${esc(g.name)}">
+        <button class="art" ${g.pack_item ? 'data-pack="1"' : ''} onclick="${action}(${arg(g.id)})" aria-label="${esc(g.name)}">
             <img ${giftPicture(g)} alt="${esc(g.name)}" loading="lazy">
         </button>
-        ${own && canSend ? `<button class="inventory-craft-dot" onclick="craftGiftById(${arg(g.id)})" aria-label="Использовать для крафта">${anvilArt('inventory-anvil')}</button>` : ''}
-        ${own ? `<button type="button" class="inventory-send-plane" ${canSend ? `onclick="startGiftTransfer(${arg(g.id)})"` : 'disabled'} aria-label="Отправить ${esc(g.name)}${g.number ? ' #' + esc(g.number) : ''} пользователю Telegram" title="${canSend ? 'Отправить подарок' : 'Сначала снимите подарок с продажи'}">${crafterTelegramPlaneSVG()}</button>` : ''}
+        ${own && canSend && !g.pack_item ? `<button class="inventory-craft-dot" onclick="craftGiftById(${arg(g.id)})" aria-label="Использовать для крафта">${anvilArt('inventory-anvil')}</button>` : ''}
+        ${own && !g.pack_item ? `<button type="button" class="inventory-send-plane" ${canSend ? `onclick="startGiftTransfer(${arg(g.id)})"` : 'disabled'} aria-label="Отправить ${esc(g.name)}${g.number ? ' #' + esc(g.number) : ''} пользователю Telegram" title="${canSend ? 'Отправить подарок' : 'Сначала снимите подарок с продажи'}">${crafterTelegramPlaneSVG()}</button>` : ''}
         ${g.resale ? `<span class="resale-source">${g.own_listing ? 'Мой лот' : 'Craft Market'}</span>` : ''}
         <h3>${esc(g.name)}</h3><p class="number">#${esc(g.number)}</p>
         <div class="gift-bottom">
-            <button class="price" onclick="${action}(${arg(g.id)})">${own && g.status === 'listed' ? `<small>Цена продажи</small><b>${money(g.listing_price ?? g.price)} ${gramIcon()}</b>` : own ? `<small>Минимальная цена</small><b>${floor.endsWith(' GRAM') ? esc(floor.slice(0, -5)) + ' ' + gramIcon() : esc(floor)}</b>` : `${money(g.price)} ${g.catalog_only || g.price_unit === 'TON' ? 'TON' : gramIcon()}`}</button>
+            <button class="price" onclick="${action}(${arg(g.id)})">${own && g.pack_item && g.status !== 'listed' ? `<b style="margin:0 auto">${esc(g.model || '')}</b>` : own && g.status === 'listed' ? `<small>Цена продажи</small><b>${money(g.listing_price ?? g.price)} ${gramIcon()}</b>` : own ? `<small>Минимальная цена</small><b>${floor.endsWith(' GRAM') ? esc(floor.slice(0, -5)) + ' ' + gramIcon() : esc(floor)}</b>` : `${money(g.price)} ${g.catalog_only || g.price_unit === 'TON' ? 'TON' : gramIcon()}`}</button>
             ${own || g.resale ? '' : `<button class="basket" onclick="${action}(${arg(g.id)})" aria-label="Открыть подарок">${icon('basket')}</button>`}
         </div>
     </article>`;

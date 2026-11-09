@@ -251,3 +251,29 @@ def test_test_mode_gifts_show_a_model_picture(client):
     opened = client.post('/api/packs/open', headers=player, json={'user_pack_id': _grant_pack(client, admin, player, 'test-req-001')}).json
     nfts = [c for c in opened['cards'] if c['kind'] == 'NFT']
     assert nfts and all(c['image'] for c in nfts)
+
+
+def test_default_pack_has_01_gram_and_rare_gifts_and_ton_prices(client):
+    import json
+    import sqlite3
+    import time
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    pack = client.get('/api/admin/new-year/packs', headers=admin).json['packs'][0]
+    grams = {p['amount']: p['weight'] for p in pack['prizes'] if p['kind'] == 'GRAM'}
+    assert '0.1' in grams and grams['0.1'] == max(grams.values())
+    nft = [p for p in pack['prizes'] if p['kind'] == 'NFT']
+    total = sum(p['weight'] for p in pack['prizes'])
+    assert sum(p['weight'] for p in nft) / total < 0.03                      # gifts are a few percent of a card at most
+    # prices come from the active market in GRAM: Thermos reports TON
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO cache VALUES(?,?,?)", ('thermos:collections', json.dumps([{'name': 'Snow Mittens', 'floor_price': '9', 'price_unit': 'TON'}]), int(time.time())))
+        db.execute("INSERT INTO cache VALUES(?,?,?)", ('collections', json.dumps([{'name': 'Snow Mittens', 'floor_price': '3.01'}]), int(time.time())))
+    ctx = client.application.extensions['crafter_pack_ctx']
+    ctx['thermos_backend'] = lambda: True
+    ctx['gram_per_ton'] = lambda: 1
+    info = client.get('/api/packs/' + pack['id'] + '/contents', headers=player).json
+    assert next(p for p in info['prizes'] if p['name'] == 'Snow Mittens')['value'] == '9'
+    ctx['thermos_backend'] = lambda: False
+    info = client.get('/api/packs/' + pack['id'] + '/contents', headers=player).json
+    assert next(p for p in info['prizes'] if p['name'] == 'Snow Mittens')['value'] == '3.01'

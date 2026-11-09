@@ -99,14 +99,14 @@ def install_packs(app, db, auth, record, audit):
                          (DEFAULT_PACK, 'New Year', NEW_YEAR_IMAGE,
                           json.dumps({'1': 30, '2': 30, '3': 20, '4': 12, '5': 8}), 0, 0, 1, now))
             rows = [('GRAM', a, '', 'GRAM', '', a, w) for a, w in
-                    (('0.2', 300), ('0.5', 200), ('1', 120), ('2', 60), ('2.5', 40), ('3', 30), ('5', 10))]
+                    (('0.1', 400), ('0.2', 300), ('0.5', 200), ('1', 120), ('2', 60), ('2.5', 40), ('3', 30), ('5', 10))]
             for c in seasonal_collections():
                 try:
                     v = Decimal(c['value'])
                 except InvalidOperation:
                     continue
                 if v > 0:
-                    rows.append(('NFT', '', c['id'], c['name'], c['image'], c['value'], round(75 / float(v), 2)))
+                    rows.append(('NFT', '', c['id'], c['name'], c['image'], c['value'], max(0.3, round(45 / float(v), 2))))
             for pos, (kind, amount, cid, name, image, value, weight) in enumerate(rows):
                 db().execute("INSERT INTO pack_prizes(id,pack_id,kind,amount,collection_id,name,image,value,weight,position) "
                              "VALUES(?,?,?,?,?,?,?,?,?,?)",
@@ -116,11 +116,18 @@ def install_packs(app, db, auth, record, audit):
         return re.sub(r'[^a-z0-9]', '', str(v or '').lower())
 
     def live_value(prize):
-        """Current floor of the prize collection on the connected market; the saved value is only a fallback."""
+        """Current floor of the prize collection on the connected market, in GRAM. The saved value is only a fallback."""
         if prize['kind'] != 'NFT':
             return Decimal(prize['amount'] or '0')
         want = _canon(prize['name']) or _canon(prize['collection_id'])
-        for key in ('collections', 'thermos:collections'):
+        ctx = pack_ctx()
+        thermos = bool(ctx and ctx['thermos_backend']())
+        try:
+            rate = Decimal(str(ctx['gram_per_ton']())) if ctx else Decimal('1')
+        except Exception:
+            rate = Decimal('1')
+        order = ('thermos:collections', 'collections') if thermos else ('collections', 'thermos:collections')
+        for key in order:
             row = db().execute("SELECT payload FROM cache WHERE key=?", (key,)).fetchone()
             if not row:
                 continue
@@ -136,8 +143,30 @@ def install_packs(app, db, auth, record, audit):
                     except InvalidOperation:
                         continue
                     if v > 0:
-                        return v.quantize(Decimal('0.01'))
+                        unit = c.get('price_unit') or ('TON' if key == 'thermos:collections' else 'GRAM')
+                        return (v * rate if unit == 'TON' else v).quantize(Decimal('0.01'))
         return Decimal(prize['value'] or '0')
+
+    def tune_default_pack():
+        """Once: add 0.1 GRAM and make the gifts rarer in the default pack, unless the administrator already changed it."""
+        marker = db().execute("SELECT 1 FROM settings WHERE key='packs_tuned_v2'").fetchone()
+        if marker:
+            return
+        with db():
+            rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id=? ORDER BY position", (DEFAULT_PACK,)).fetchall()
+            if rows:
+                old_nft = all(abs(float(r['weight']) - round(75 / float(r['value']), 2)) < 0.011 for r in rows if r['kind'] == 'NFT' and Decimal(r['value'] or '0') > 0)
+                if old_nft:
+                    for r in rows:
+                        if r['kind'] == 'NFT' and Decimal(r['value'] or '0') > 0:
+                            db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (max(0.3, round(45 / float(r['value']), 2)), r['id']))
+                    if not any(r['kind'] == 'GRAM' and r['amount'] == '0.1' for r in rows):
+                        db().execute("INSERT INTO pack_prizes(id,pack_id,kind,amount,collection_id,name,image,value,weight,position) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                                     (uuid.uuid4().hex, DEFAULT_PACK, 'GRAM', '0.1', '', 'GRAM', '', '0.1', 400.0, -1))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v2','1') ON CONFLICT(key) DO NOTHING")
+
+    with app.app_context():
+        tune_default_pack()
 
     def pack_row(pid):
         return db().execute("SELECT * FROM packs WHERE id=?", (pid,)).fetchone()

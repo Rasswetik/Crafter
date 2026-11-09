@@ -179,3 +179,6 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 
 /* A pack in the gift window sits inside the frame, above the title, instead of filling it */
 #sheet.purchase-sheet .portal-product.pack-product > img{box-sizing:border-box;padding:22px 26px 70px}
+
+/* a pack in the inventory grid sits inside its tile instead of filling it */
+.gift .art[data-pack] img{box-sizing:border-box;padding:12% 16%;object-fit:contain}

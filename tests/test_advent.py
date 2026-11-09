@@ -101,3 +101,20 @@ def test_free_calendar_without_channel_pack_and_edits(client, tg, monkeypatch):
     setup_calendar(client, enabled=False)
     assert client.get('/api/advent', headers=player).json == {'enabled': False}
     assert client.post('/api/advent/open', headers=player, json={'day': 8}).status_code == 409
+
+
+def test_admin_can_reset_the_calendar(client, tg, monkeypatch):
+    admin, player = setup_calendar(client, require_sub=False), signed(43)
+    client.get('/api/me', headers=player)
+    at(monkeypatch, 2026, 12, 3, 12)
+    assert client.post('/api/advent/open', headers=player, json={'day': 1}).status_code == 200
+    assert client.post('/api/admin/new-year/advent/reset', headers=player, json={'confirm': 'RESET_ADVENT'}).status_code == 403
+    assert client.post('/api/admin/new-year/advent/reset', headers=admin, json={}).status_code == 400
+    client.post('/api/admin/new-year/advent/days/2', headers=admin, json={'kind': 'BALL', 'amount': '777'})
+    assert client.post('/api/admin/new-year/advent/reset', headers=admin, json={'confirm': 'RESET_ADVENT'}).status_code == 200
+    days = client.get('/api/advent', headers=player).json['days']
+    assert days[0]['state'] == 'ready' and not [d for d in days if d['state'] == 'opened']
+    assert client.post('/api/advent/open', headers=player, json={'day': 1}).json.get('repeat') is None          # can be opened again
+    assert next(d for d in client.get('/api/admin/new-year/advent', headers=admin).json['days'] if d['day'] == 2)['amount'] == '777'   # rewards stay
+    client.post('/api/admin/new-year/advent/reset', headers=admin, json={'confirm': 'RESET_ADVENT', 'rewards': True})
+    assert next(d for d in client.get('/api/admin/new-year/advent', headers=admin).json['days'] if d['day'] == 2)['kind'] == 'PROMO'   # defaults are back
