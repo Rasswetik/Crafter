@@ -118,15 +118,15 @@ function drawHub(main,data,shared){
     main.querySelector('[data-nyh="community"]')?.addEventListener('click',()=>showNewYear('community'));
 }
 function drawMarket(main,data,shared){
+    const rewards=community()&&shared?.event?community().tiles(shared):[];
+    const total=data.lots.length+rewards.length;
     main.innerHTML='<div class="new-year-page">'+
         '<button type="button" class="nyh-back" data-nyh-back>‹ События</button>'+
         '<section class="ny-hero"><small>CRAFTER · WINTER EVENT</small>'+
         '<h1>Новогодний маркет</h1><p>Коллекционные NFT-подарки за новогодние шары.</p></section>'+
-        (community()&&shared?.event?community().shop(shared):'')+
-        '<div class="ny-section-title"><h2>Праздничные подарки</h2><span>'+data.lots.length+' лотов</span></div>'+
-        (data.lots.length?'<div class="ny-grid">'+data.lots.map(lotTile).join('')+'</div>':
-         '<div class="ny-empty">'+displayOrnament()+'<h3>Подарочки уже в пути!</h3>'+
-         '<p>Совсем скоро здесь появятся новогодние NFT-подарки. Следите за обновлениями!</p></div>')+
+        '<div class="ny-section-title"><h2>Праздничные подарки</h2><span>'+total+' шт.</span></div>'+
+        (total?'<div class="ny-grid">'+rewards.join('')+data.lots.map(lotTile).join('')+'</div>':
+         '<p class="ny-quiet">Совсем скоро здесь появятся новогодние подарки.</p>')+
         '</div>';
     main.querySelector('[data-nyh-back]')?.addEventListener('click',()=>showNewYear('hub'));
     main.querySelectorAll('[data-ny-lot]').forEach(btn=>{

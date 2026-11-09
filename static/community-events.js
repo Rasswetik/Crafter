@@ -98,7 +98,7 @@ function card(data) {
         '<span class="nyh-copy"><small>События сообщества</small><strong>' + e(ev.title) + '</strong>' +
         '<span class="nyh-mini"><span class="nyh-mini-bar"><i style="width:' + p.toFixed(1) + '%"></i></span>' +
         '<em>' + num(data.progress) + ' / ' + num(ev.target) + ' ' + (NOUN[ev.metric] || '') + '</em></span></span>' +
-        (unseen(data) ? '<span class="nyh-meta is-new">Цель достигнута!<i aria-hidden="true">›</i></span>' : '<span class="nyh-meta"><b>' + reached + '/' + data.milestones.length + '</b> наград<i aria-hidden="true">›</i></span>') + '</button>';
+        '<span class="nyh-meta"><b>' + reached + '/' + data.milestones.length + '</b> наград<i aria-hidden="true">›</i></span>' + '</button>';
 }
 
 /* ---------- goal page ---------- */
@@ -114,7 +114,8 @@ function bar(ev, value, H) {
 }
 function page(main, data, nav, opts = {}) {
     const ev = data.event, ms = data.milestones, fresh = opts.plain ? null : unseen(data);
-    const H = Math.max(400, ms.length * 74 + 40);
+    const wide = window.innerWidth >= 900;
+    const H = wide ? Math.max(ms.length * 72 + 30, Math.min(400, window.innerHeight - 340)) : Math.max(400, ms.length * 74 + 40);
     const from = fresh ? Math.max(0, ...ms.filter(m => m.reached && m.id !== fresh.id && seen().includes(m.id)).map(m => m.threshold)) : data.progress;
     const pos = ms.map(m => ({m, ty: H * (1 - Math.min(1, m.threshold / ev.target))})).sort((x, y) => x.ty - y.ty);
     let last = -999;
@@ -126,10 +127,13 @@ function page(main, data, nav, opts = {}) {
         '<button type="button" class="nyh-back" data-cm-back>‹ События</button>' +
         '<section class="cm-panel"><div class="cm-snow" aria-hidden="true">' + Array.from({length: 12}, (_, i) =>
             '<i style="--x:' + ((i * 53 + 9) % 100) + '%;--s:' + (2 + i % 3) + 'px;--t:' + (7 + i % 6) + 's;--d:' + (-(i * 2) % 9) + 's"></i>').join('') + '</div>' +
-        '<div class="cm-head"><small>События сообщества</small>' +
+        '<div class="cm-side"><div class="cm-head"><small>События сообщества</small>' +
         '<h1>Набираем <b>' + num(ev.target) + '</b> ' + (NOUN[ev.metric] || '') + '</h1>' +
         (ev.description ? '<p>' + e(ev.description) + '</p>' : '') +
         '<div class="cm-now"><b>' + num(data.progress) + '</b> из ' + num(ev.target) + ' · ' + p.toFixed(p < 10 ? 1 : 0) + '%</div></div>' +
+        '<div class="cm-legend">' + ms.map(m => '<button type="button" class="cm-lg' + (m.reached ? ' is-on' : '') + '" data-cm-prize="' + e(m.id) + '"><span class="cm-pic"><img src="' + e(img(m)) + '" alt=""></span>' +
+            '<span class="cm-info"><b>' + e(m.title) + '</b><small>' + num(m.threshold) + ' ' + (NOUN[ev.metric] || '') + ' · ' + e(priceText(m)) + '</small></span>' +
+            '<em>' + (m.code ? 'Получено' : m.reached ? (m.left ? 'Доступно' : 'Разобрано') : '🔒') + '</em></button>').join('') + '</div></div>' +
         '<div class="cm-stage" style="height:' + H + 'px">' +
         pos.map(x => '<span class="cm-tl ' + on(x) + '" style="top:' + x.ty.toFixed(1) + 'px">' + num(x.m.threshold) + '</span>').join('') +
         bar(ev, fresh ? from : data.progress, H) +
@@ -166,24 +170,22 @@ function celebrate(main, data, fresh, nav) {
     }, 4300);
 }
 
-/* ---------- shop block ---------- */
-function shop(data) {
-    const ev = data.event, got = data.milestones.filter(m => m.reached);
-    if (!got.length) {
-        return '<section class="cm-shop"><div class="ny-section-title"><h2>Награды сообщества</h2><span>скоро</span></div>' +
-            '<div class="cm-teaser">Награды появятся здесь, когда сообщество соберёт ' + num(data.milestones[0]?.threshold || ev.target) + ' ' + (NOUN[ev.metric] || '') + '.</div></section>';
-    }
-    return '<section class="cm-shop" id="cm-shop"><div class="ny-section-title"><h2>Награды сообщества</h2><span>' + got.length + ' шт.</span></div><div class="cm-shop-list">' +
-        got.map(m => '<button type="button" class="cm-lot" data-cm-lot="' + e(m.id) + '"' + (!m.left && !m.code ? ' disabled' : '') + '>' +
-            '<span class="cm-pic"><img src="' + e(img(m)) + '" alt="" loading="lazy"></span>' +
-            '<span class="cm-info"><b>' + e(m.title) + '</b><small>' + e(rewardText(m)) + '</small>' +
-            '<small class="cm-left">Тираж: осталось ' + num(m.left) + ' из ' + num(m.supply) + '</small></span>' +
-            '<span class="cm-buy ' + (m.code ? 'is-own' : m.price_balls ? '' : 'is-free') + '">' + (m.code ? 'Мой код' : !m.left ? 'Разобрано' : priceText(m)) + '</span></button>').join('') +
-        '</div></section>';
+/* ---------- shop tiles (shown inside the market grid) ---------- */
+const ORN = '<img src="/static/assets/new-year-ornament.svg" alt="" aria-hidden="true">';
+function tiles(data) {
+    return data.milestones.filter(m => m.reached).map(m => {
+        const out = !m.left && !m.code;
+        const price = m.code ? 'Мой код' : out ? 'Разобрано' : m.price_balls ? ORN + num(m.price_balls) : 'Бесплатно';
+        return '<button type="button" class="ny-lot cm-tile' + (out ? ' is-out' : '') + '" data-cm-lot="' + e(m.id) + '"' + (out ? ' disabled' : '') + '>' +
+            '<div class="ny-lot-art"><img src="' + e(img(m)) + '" alt=""></div>' +
+            '<div class="ny-lot-name">' + e(m.title) + '</div>' +
+            '<div class="ny-lot-id">Тираж ' + num(m.left) + '/' + num(m.supply) + '</div>' +
+            '<div class="ny-lot-price">' + price + '</div></button>';
+    });
 }
 function bindShop(main, data, refresh) {
     main.querySelectorAll('[data-cm-lot]').forEach(b => b.addEventListener('click', () => claimSheet(data.milestones.find(m => m.id === b.dataset.cmLot), refresh)));
-    if (window.crafterCmFocusShop) { window.crafterCmFocusShop = false; main.querySelector('#cm-shop')?.scrollIntoView({behavior: 'smooth', block: 'start'}); }
+    if (window.crafterCmFocusShop) { window.crafterCmFocusShop = false; main.querySelector('.cm-tile')?.scrollIntoView({behavior: 'smooth', block: 'center'}); }
 }
 function codeBlock(code) {
     return '<div class="cm-code"><small>Ваш уникальный промокод</small><b>' + e(code) + '</b>' +
@@ -280,5 +282,5 @@ async function admin(content) {
         run(() => api('admin/new-year/community/milestones/' + b.dataset.cmDel + '/delete', {}), 'Награда удалена')));
 }
 
-window.crafterCommunity = {card, page, shop, bindShop, checkCeremony, marketArt, admin};
+window.crafterCommunity = {card, page, tiles, bindShop, checkCeremony, marketArt, admin};
 })();

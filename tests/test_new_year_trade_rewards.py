@@ -112,4 +112,4 @@ def test_reward_ui_and_english_seasonal_copy_are_wired():
     assert 'После завершённой сделки' in rewards
     assert "['Новый год','New Year']" in locales or '["Новый год","New Year"]' in locales
     assert 'Администрация пока не разместила новогодние лоты.' not in new_year
-    assert 'Подарочки уже в пути!' in new_year
+    assert 'Совсем скоро здесь появятся новогодние подарки.' in new_year

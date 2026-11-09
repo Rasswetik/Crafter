@@ -111,3 +111,34 @@
 .cm-info{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
 .cm-info b{font-size:14px;line-height:1.2}
 .cm-info small{font-size:11.5px;color:#9fb0c8;line-height:1.3}.cm-info .cm-left{color:#7fa4d6}
+
+/* ---- One calm palette for the whole event area ---- */
+.new-year-page .ny-section-title h2{font-size:17px;font-weight:700;color:#e6eefb}
+.new-year-page .ny-section-title h2::before{content:none}
+.new-year-page .ny-section-title span{padding:0;border:0;background:none;color:#7f90a8;font-size:13px}
+.new-year-page .ny-lot{background:linear-gradient(150deg,#1b2238,#151a2c);border:1px solid rgba(140,190,255,.22);box-shadow:0 6px 16px rgba(5,10,30,.35)}
+.new-year-page .ny-lot:hover{box-shadow:0 10px 24px rgba(40,90,220,.25)}
+.new-year-page .ny-lot-art::after{content:none}
+.new-year-page .ny-lot-price{background:#2b7be0;box-shadow:none}
+.new-year-page .ny-lot-price::after{content:none}
+.new-year-page .cm-tile.is-out{opacity:.5}
+.new-year-page .cm-tile .ny-lot-art img{width:78%;height:78%}
+.new-year-page .cm-tile .ny-lot-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ny-quiet{margin:18px 4px;font-size:14px;line-height:1.5;color:#7f8ba0;text-align:center}
+
+/* ---- Goal page: side column (desktop) ---- */
+.cm-legend{display:none}
+@media(min-width:900px){
+  .cm-panel{max-width:900px;display:grid;grid-template-columns:minmax(0,1fr) 296px;gap:20px 56px;align-items:center;padding:34px 44px}
+  .cm-side{min-width:0}
+  .cm-head{text-align:left;margin-bottom:22px}
+  .cm-head h1{font-size:28px}
+  .cm-head p{margin-left:0;max-width:380px}
+  .cm-legend{display:flex;flex-direction:column;gap:10px}
+  .cm-lg{display:flex;align-items:center;gap:12px;width:100%;padding:10px 12px;border-radius:18px;text-align:left;color:#e6eefb;cursor:pointer;background:rgba(255,255,255,.04);border:1px solid rgba(140,190,255,.18);transition:background .2s,transform .2s}
+  .cm-lg:hover{background:rgba(255,255,255,.08);transform:translateX(3px)}
+  .cm-lg.is-on{border-color:rgba(255,211,107,.5)}
+  .cm-lg em{flex:none;font-style:normal;font-size:11.5px;font-weight:700;color:#9fb0c8}.cm-lg.is-on em{color:#ffe2a0}
+  .cm-done{grid-column:1/-1}
+}
+@media(min-width:900px){.cm-lg:not(.is-on) .cm-pic{opacity:.55;filter:saturate(.5)}}
