@@ -1488,6 +1488,13 @@ def create_app(config=None):
         acquire=lambda gifts: app.extensions['crafter_thermos_acquire'](gifts),
         can_buy=lambda gift, price: app.extensions['crafter_portals_can_buy'](gift, price),
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
+    app.extensions['crafter_pack_ctx'] = dict(
+        public_catalog=public_catalog, canonical_name=canonical_name, market_candidates=craft_market_candidates,
+        ensure_listings=ensure_upgrade_listings, test_mode=lambda: purchase_mode() == 'test',
+        work_mode=lambda: purchase_mode() == 'work',
+        thermos_backend=lambda: app.extensions['crafter_market_backend']() == 'thermos',
+        acquire=lambda gifts: app.extensions['crafter_thermos_acquire'](gifts),
+        gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']())
     if not app.config.get('TESTING'):
         from market_refresh import refresh_interval, start_market_refresh
         start_market_refresh(start_catalog_refresh, refresh_interval(), app.extensions.setdefault('crafter_market_refresh', {}))

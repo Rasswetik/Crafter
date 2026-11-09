@@ -47,7 +47,7 @@ async function sheetFor(it, refresh) {
             const r = await api('shop-items/buy', {item_id: it.id, request_id: 'si-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random().toString(36).slice(2))});
             if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(r.balance);
             if (r.gram_balance !== undefined && state?.me) { state.me.balance = r.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
-            if (r.pack_id) { closeSheet(); await window.crafterPacks?.granted(r.pack_id, refresh, (r.pack_ids || []).length); return; }
+            if (r.pack_id) { closeSheet(); await window.crafterPacks?.granted(r.pack_ids || [r.pack_id], refresh); return; }
             if (r.code) {
                 const cc = window.crafterCommunity;
                 body.innerHTML = '<div class="cm-sheet-head"><span class="cm-pic big"><img src="' + e(art(it)) + '" alt=""></span><div><b>' + e(it.title) + '</b></div></div>' + cc.codeBlock(r.code);

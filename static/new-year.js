@@ -115,6 +115,14 @@ function drawHub(main,data,shared){
     main.querySelector('[data-nyh="market"]')?.addEventListener('click',()=>showNewYear('market'));
     main.querySelector('[data-nyh="community"]')?.addEventListener('click',()=>showNewYear('community'));
 }
+const SEASON_GIFTS=['candycane','cookieheart','gingercookie','holidaydrink','jinglebells','partysparkler','santahat','sleighbell','snowglobe','snowmittens','spicedwine','winterwreath','xmasstocking'];
+function marketHero(){
+    const pool=SEASON_GIFTS.slice().sort(()=>Math.random()-.5).slice(0,4);
+    return '<section class="nym-hero"><div class="nym-glow" aria-hidden="true"></div>'+
+        '<div class="nym-copy"><span class="nym-chip">Crafter · Winter Event</span><h1>Новогодний маркет</h1>'+
+        '<p>Подарки, паки и награды за новогодние шары</p></div>'+
+        '<div class="nym-gifts" aria-hidden="true">'+pool.map((slug,i)=>'<img class="g'+(i+1)+'" src="https://fragment.com/file/gifts/'+slug+'/thumb.webp" alt="" onerror="this.remove()">').join('')+'</div></section>';
+}
 function drawMarket(main,data,shared,packState,shopState){
     const packTiles=window.crafterPacks&&packState?window.crafterPacks.tiles(packState):[];
     const shopTiles=window.crafterShopItems&&shopState?window.crafterShopItems.tiles(shopState.items):[];
@@ -122,8 +130,7 @@ function drawMarket(main,data,shared,packState,shopState){
     const total=data.lots.length+rewards.length;
     main.innerHTML='<div class="new-year-page">'+
         '<button type="button" class="nyh-back" data-nyh-back>‹ События</button>'+
-        '<section class="ny-hero"><small>CRAFTER · WINTER EVENT</small>'+
-        '<h1>Новогодний маркет</h1><p>Коллекционные NFT-подарки за новогодние шары.</p></section>'+
+        marketHero()+
         '<div class="ny-section-title"><h2>Праздничные подарки</h2><span>'+total+' шт.</span></div>'+
         (total?'<div class="ny-grid">'+rewards.join('')+data.lots.map(lotTile).join('')+'</div>':
          '<p class="ny-quiet">Совсем скоро здесь появятся новогодние подарки.</p>')+

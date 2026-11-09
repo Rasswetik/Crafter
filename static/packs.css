@@ -171,3 +171,8 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 .pk-win-body .pk-info{margin:0}
 .pk-win-body .pk-prizes2{grid-template-columns:repeat(2,1fr)}
 @media(min-width:650px){.pk-win-body .pk-prizes2{grid-template-columns:repeat(3,1fr)}}
+
+/* Sell button fits inside the card; counter for opening several packs */
+.pk-face.is-nft .pk-sell{width:92%;justify-content:center;gap:4px;padding:calc(var(--cwk)*.05) 2px;font-size:calc(var(--cwk)*.092);white-space:nowrap}
+.pk-face.is-nft .pk-sell .pk-gram{width:calc(var(--cwk)*.11);height:calc(var(--cwk)*.11);flex:none}
+.pk-counter{position:absolute;top:18px;left:0;right:0;text-align:center;font-size:14px;font-weight:700;letter-spacing:.08em;color:#cfe0f5;z-index:5}

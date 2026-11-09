@@ -188,3 +188,66 @@ def test_shop_pack_bundle_gives_several_packs(client):
     assert client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'bundle-req-001'}).json == got   # repeat is free
     client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'bundle-req-002'})
     assert client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'bundle-req-003'}).status_code == 409   # per-player limit of 2 purchases
+
+
+def _nft_only_pack(client, admin):
+    pack = client.get('/api/admin/new-year/packs', headers=admin).json['packs'][0]
+    nft = [p for p in pack['prizes'] if p['kind'] == 'NFT'][:2]
+    gram = [p for p in pack['prizes'] if p['kind'] == 'GRAM'][:1]
+    pack.update(card_weights={'1': 0, '2': 0, '3': 1, '4': 0, '5': 0}, prizes=[*nft, *[dict(p, weight=1) for p in gram]])
+    for p in nft:
+        p['weight'] = 1000
+    assert client.post('/api/admin/new-year/packs', headers=admin, json=pack).status_code == 200
+    return pack
+
+
+def _grant_pack(client, admin, player, rid):
+    pack = client.get('/api/admin/new-year/packs', headers=admin).json['packs'][0]
+    client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'PACK', 'amount': pack['id'], 'price_balls': 0})
+    item = client.get('/api/shop-items', headers=player).json['items'][-1]
+    return client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': rid}).json['pack_id']
+
+
+def test_work_mode_gifts_need_real_market_lots(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    _nft_only_pack(client, admin)
+    ctx = client.application.extensions['crafter_pack_ctx']
+    ctx['work_mode'] = lambda: True
+    ctx['test_mode'] = lambda: False
+
+    # no gifts on the market: the pack can only drop GRAM, whatever the paper chances say
+    ctx['market_candidates'] = lambda target: []
+    ctx['ensure_listings'] = lambda *a: None
+    first = client.post('/api/packs/open', headers=player, json={'user_pack_id': _grant_pack(client, admin, player, 'work-req-001')}).json
+    assert [c['kind'] for c in first['cards']] == ['GRAM'] * 3
+
+    # lots exist and the purchase succeeds: the gift is bought and lands in the inventory with its own picture
+    bought = []
+    def candidates(target):
+        return [({'id': 'lot-%s-%d' % (target['id'], i), 'name': target['name'], 'number': 100 + i, 'model': 'Model %d' % i, 'image': 'https://img.example/%d.png' % i,
+                  'price': '9', 'price_unit': 'GRAM', 'backdrop': 'Persimmon', 'symbol': 'Star', 'collection_id': target['id']}, Decimal('9')) for i in range(3)]
+    ctx['market_candidates'] = candidates
+    client.application.extensions['crafter_pack_avail_cache'].clear()
+    ctx['acquire'] = lambda gifts: (bought.append(gifts[0]['id']) or ('ok', ''))
+    second = client.post('/api/packs/open', headers=player, json={'user_pack_id': _grant_pack(client, admin, player, 'work-req-002')}).json
+    nfts = [c for c in second['cards'] if c['kind'] == 'NFT']
+    assert nfts and len(bought) == len(nfts) and all(c['image'].startswith('https://img.example/') for c in nfts)
+    inv = {x['id']: x for x in client.get('/api/inventory', headers=player).json['gifts']}
+    assert all(c['nft_id'] in inv and inv[c['nft_id']]['origin'] == 'thermos' for c in nfts)
+
+    # purchase fails: the card turns into the gift value in GRAM
+    ctx['acquire'] = lambda gifts: ('failed', 'no')
+    client.application.extensions['crafter_pack_avail_cache'].clear()
+    before = balance(client, player)
+    third = client.post('/api/packs/open', headers=player, json={'user_pack_id': _grant_pack(client, admin, player, 'work-req-003')}).json
+    assert not [c for c in third['cards'] if c['kind'] == 'NFT'] and balance(client, player) > before
+
+
+def test_test_mode_gifts_show_a_model_picture(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    _nft_only_pack(client, admin)
+    opened = client.post('/api/packs/open', headers=player, json={'user_pack_id': _grant_pack(client, admin, player, 'test-req-001')}).json
+    nfts = [c for c in opened['cards'] if c['kind'] == 'NFT']
+    assert nfts and all(c['image'] for c in nfts)

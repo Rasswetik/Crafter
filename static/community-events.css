@@ -257,3 +257,23 @@
 .adm-range input[type=range]::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:#fff;border:3px solid #2b7be0;box-shadow:0 2px 10px rgba(0,0,0,.45)}
 .adm-range input[type=range]:active::-webkit-slider-thumb{transform:scale(1.15)}
 .adm-range input[type=range]:focus-visible::-webkit-slider-thumb{box-shadow:0 0 0 4px rgba(43,123,224,.35)}
+
+/* ---- Festive header of the New Year market ---- */
+.nym-hero{position:relative;isolation:isolate;overflow:hidden;min-height:170px;padding:28px 26px;margin-bottom:6px;border-radius:30px;border:1px solid rgba(140,190,255,.32);
+  background:linear-gradient(120deg,#0b1a44 0%,#1d2a7a 55%,#3a2a8c 100%);box-shadow:0 16px 40px rgba(8,16,44,.5),inset 0 1px 0 rgba(255,255,255,.14)}
+.nym-glow{position:absolute;inset:-30%;z-index:-1;filter:blur(40px);background:radial-gradient(40% 40% at 82% 40%,rgba(255,190,110,.35),transparent 70%),radial-gradient(45% 45% at 15% 20%,rgba(90,170,255,.4),transparent 70%)}
+.nym-hero::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.8;
+  background:radial-gradient(circle at 10% 30%,#fff 0 1.2px,transparent 2px),radial-gradient(circle at 34% 78%,#fff 0 1px,transparent 2px),radial-gradient(circle at 58% 22%,#ffe9a8 0 1.4px,transparent 2.4px),radial-gradient(circle at 92% 82%,#fff 0 1px,transparent 2px),radial-gradient(circle at 70% 60%,#fff 0 1px,transparent 2px)}
+.nym-copy{position:relative;max-width:52%;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.nym-chip{padding:5px 12px;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#ffe2a0;background:rgba(255,226,160,.1);border:1px solid rgba(255,226,160,.35)}
+.nym-hero h1{margin:0;font-size:clamp(26px,3.2vw,40px);line-height:1.08;font-weight:800;letter-spacing:-.6px;color:#fff;text-shadow:0 2px 16px rgba(0,0,0,.45)}
+.nym-hero p{margin:0;font-size:14px;line-height:1.45;color:#c9d9f2}
+.nym-gifts{position:absolute;right:18px;top:0;bottom:0;width:46%;pointer-events:none}
+.nym-gifts img{position:absolute;width:30%;max-width:120px;filter:drop-shadow(0 10px 18px rgba(0,0,0,.5));animation:nym-float 5s ease-in-out infinite}
+.nym-gifts .g1{left:2%;top:16%;transform:rotate(-12deg)}
+.nym-gifts .g2{left:30%;top:46%;width:34%;animation-delay:-1.2s;transform:rotate(8deg)}
+.nym-gifts .g3{left:58%;top:12%;animation-delay:-2.4s;transform:rotate(14deg)}
+.nym-gifts .g4{left:70%;top:52%;width:26%;animation-delay:-3.4s;transform:rotate(-6deg)}
+@keyframes nym-float{0%,100%{translate:0 0}50%{translate:0 -10px}}
+@media(max-width:560px){.nym-hero{padding:22px 18px;min-height:150px}.nym-copy{max-width:58%}.nym-gifts{width:44%;right:8px}}
+@media(prefers-reduced-motion:reduce){.nym-gifts img{animation:none}}

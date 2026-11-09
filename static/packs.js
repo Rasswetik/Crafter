@@ -92,14 +92,21 @@ function buySheet(p, refresh) {
 async function packInfo(upid) {
     try { return ((await api('packs')).mine || []).find(m => m.id === upid)?.pack || null; } catch (_) { return null; }
 }
-async function granted(upid, refresh, count) {
-    const pack = await packInfo(upid);
+async function openMany(ids, refresh) {
+    for (let i = 0; i < ids.length; i++) {
+        await open(ids[i], i === ids.length - 1 ? refresh : null, {index: i + 1, total: ids.length});
+    }
+}
+async function granted(input, refresh) {
+    const ids = Array.isArray(input) ? input : [input];
+    const count = ids.length;
+    const pack = await packInfo(ids[0]);
     sheet(count > 1 ? 'Паки получены' : 'Пак получен', (pack ? '<div class="pk-sheet-head"><img src="' + e(pack.image) + '" alt=""></div>' : '') +
-        '<p class="cm-sheet-note" style="text-align:center">' + (count > 1 ? 'Паков получено: ' + count + '. Они' : 'Пак') + ' добавлен' + (count > 1 ? 'ы' : '') + ' в ваш инвентарь («Мои подарки»). Его можно открыть, продать на маркете или оставить.</p>' +
-        '<button type="button" class="ny-action" id="pk-now">Открыть сейчас</button><button type="button" class="secondary" id="pk-later" style="width:100%;margin-top:8px">Позже</button>');
+        '<p class="cm-sheet-note" style="text-align:center">' + (count > 1 ? 'Паков получено: ' + count + '. Они добавлены в ваш инвентарь («Мои подарки»). Можно открыть все сразу — по очереди.' : 'Пак добавлен в ваш инвентарь («Мои подарки»). Его можно открыть, продать на маркете или оставить.') + '</p>' +
+        '<button type="button" class="ny-action" id="pk-now">' + (count > 1 ? 'Открыть все (' + count + ')' : 'Открыть сейчас') + '</button><button type="button" class="secondary" id="pk-later" style="width:100%;margin-top:8px">Позже</button>');
     const body = document.querySelector('#sheet-body');
     body.querySelector('#pk-later').addEventListener('click', () => { closeSheet(); refresh?.(); });
-    body.querySelector('#pk-now').addEventListener('click', async () => { closeSheet(); await open(upid, refresh); });
+    body.querySelector('#pk-now').addEventListener('click', async () => { closeSheet(); await openMany(ids, refresh); });
 }
 /* The regular gift sheet (catalog-ui.js) is used for packs; its "Open" button calls this. */
 window.openPackFromDetail = function (id) {
@@ -124,7 +131,7 @@ function cardMarkup(c, i) {
     }
     return '<div class="pk-card" data-i="' + i + '"><div class="pk-in"><div class="pk-back"><span class="pk-flake">' + FLAKE + '</span><i>?</i><small>CRAFTER</small></div>' + face + '</div></div>';
 }
-async function open(upid, refresh) {
+async function open(upid, refresh, meta) {
     if (playing) return;
     playing = true;
     let res;
@@ -133,12 +140,15 @@ async function open(upid, refresh) {
     const cards = res.cards || [];
     const box = document.createElement('div');
     box.className = 'pk-over';
+    let finish;
+    const closed = new Promise(r => { finish = r; });
     box.innerHTML = '<div class="pk-snow" aria-hidden="true">' + Array.from({length: 22}, (_, i) =>
         '<i style="--x:' + ((i * 47 + 5) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (6 + i % 7) + 's;--d:' + (-(i * 2) % 9) + 's"></i>').join('') + '</div>' +
         '<div class="pk-stage"><div class="pk-pack"><div class="pk-part pk-body" style="background-image:url(' + e(res.pack.image) + ')"></div>' +
         '<div class="pk-part pk-top" style="background-image:url(' + e(res.pack.image) + ')"></div><div class="pk-cut"></div><div class="pk-burst"></div></div>' +
         '<div class="pk-cards n' + cards.length + '">' + cards.map(cardMarkup).join('') + '</div></div>' +
         '<div class="pk-actions"></div>';
+    if (meta && meta.total > 1) box.insertAdjacentHTML('afterbegin', '<div class="pk-counter">Пак ' + meta.index + ' из ' + meta.total + '</div>');
     document.body.appendChild(box);
     const pack = box.querySelector('.pk-pack'), wrap = box.querySelector('.pk-cards'), actions = box.querySelector('.pk-actions');
     let sold = 0, finished = false;
@@ -147,6 +157,7 @@ async function open(upid, refresh) {
         box.classList.add('is-out');
         setTimeout(() => box.remove(), 350);
         playing = false;
+        finish();
         if (res.balance !== undefined && state?.me) { state.me.balance = res.balance; if (typeof updateBalance === 'function') updateBalance(); }
         refresh?.();
     };
@@ -167,7 +178,7 @@ async function open(upid, refresh) {
         const left = unsold();
         const total = left.reduce((s, b) => s + Number(cards.find(c => c.nft_id === b.dataset.pkSell)?.value || 0), 0);
         actions.innerHTML = (left.length > 1 ? '<button type="button" class="secondary pk-sell-all">Продать всё · ' + num(total) + ' GRAM</button>' : '') +
-            '<button type="button" class="ny-action pk-done">Забрать</button>';
+            '<button type="button" class="ny-action pk-done">' + (meta && meta.index < meta.total ? 'Следующий пак' : 'Забрать') + '</button>';
         actions.querySelector('.pk-done').addEventListener('click', close);
         actions.querySelector('.pk-sell-all')?.addEventListener('click', async ev => {
             ev.target.disabled = true;
@@ -210,6 +221,7 @@ async function open(upid, refresh) {
     await t(250);
     finished = true;
     refreshActions();
+    await closed;
 }
 
 /* ---------- administrator helpers ---------- */
@@ -323,5 +335,5 @@ async function admin(content) {
     window.crafterPackList = r.packs;
 }
 
-window.crafterPacks = {tiles, bind, open, admin, contentsHtml, bindContents, granted, pickGift, packTiles};
+window.crafterPacks = {tiles, bind, open, openMany, admin, contentsHtml, bindContents, granted, pickGift, packTiles};
 })();

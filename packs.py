@@ -255,6 +255,80 @@ def install_packs(app, db, auth, record, audit):
             record('pack_buy', {'pack': pid, 'price_balls': price}, uid=uid)
         return {'ok': True, 'user_pack_id': upid, 'balance': {'balls': balls - price}}
 
+    # ---- real market access for gift prizes ----
+    avail_cache = {}
+    app.extensions['crafter_pack_avail_cache'] = avail_cache
+
+    def pack_ctx():
+        return app.extensions.get('crafter_pack_ctx')
+
+    def work_mode():
+        ctx = pack_ctx()
+        return bool(ctx and ctx['work_mode']())
+
+    def market_lots(prize):
+        """Cheapest real lots of the prize collection on the connected market: [(listing view, GRAM price)]."""
+        ctx = pack_ctx()
+        canon = ctx['canonical_name']
+        target = next((c for c in ctx['public_catalog']() if canon(c.get('name', '')) == canon(prize['name'])
+                       or str(c.get('id')) == str(prize['collection_id'])), None)
+        if not target:
+            return []
+        floor = live_value(prize)
+        limit = max(floor * Decimal('2'), Decimal('1'))
+        try:
+            ctx['ensure_listings'](target, Decimal('0.01'), limit)
+        except Exception:
+            pass
+        rate = Decimal(str(ctx['gram_per_ton']()))
+        lots = []
+        for gift, price in ctx['market_candidates'](target):
+            unit = gift.get('price_unit', 'GRAM')
+            if unit == 'TON':
+                price = (Decimal(str(price)) * rate).quantize(Decimal('0.01')) if ctx['thermos_backend']() else None
+            elif unit != 'GRAM':
+                price = None
+            if price is None or Decimal(str(price)) > limit or not gift.get('image') or not gift.get('model'):
+                continue
+            shown = {'id': gift['id'], 'name': gift.get('name'), 'number': gift.get('number'), 'model': gift.get('model', ''),
+                     'backdrop': gift.get('backdrop', ''), 'symbol': gift.get('symbol', ''), 'image': gift.get('image', ''),
+                     'background': gift.get('background'), 'collection_id': gift.get('collection_id'),
+                     'price': str(price), 'price_unit': 'GRAM', 'source': 'portals',
+                     'market': gift.get('marketplace') or ('Thermos' if ctx['thermos_backend']() else 'Portals'),
+                     'marketplace': gift.get('marketplace')}
+            if unit == 'TON':
+                shown['ton_price'] = str(gift['price'])
+            lots.append((shown, Decimal(str(price))))
+        lots.sort(key=lambda x: x[1])
+        return lots[:6]
+
+    def availability(prizes):
+        """prize id -> real lots (WORK mode). Cached for two minutes so opening a pack stays quick."""
+        out, now = {}, time.time()
+        for p in prizes:
+            if p['kind'] != 'NFT' or float(p['weight']) <= 0:
+                continue
+            hit = avail_cache.get(p['id'])
+            if not hit or now - hit[0] > (120 if hit[1] else 20):
+                try:
+                    hit = (now, market_lots(p))
+                except Exception:
+                    hit = (now, [])
+                avail_cache[p['id']] = hit
+            out[p['id']] = list(hit[1])
+        return out
+
+    def test_models(cid):
+        path = ROOT / 'data/catalog_seed.json.gz'
+        try:
+            rows = json.loads(gzip.decompress(path.read_bytes())).get('collections', [])
+        except (OSError, ValueError):
+            return []
+        for c in rows:
+            if c.get('id') == cid:
+                return [m for m in c.get('models', []) if m.get('image')]
+        return []
+
     @app.post('/api/packs/open')
     @auth()
     def packs_open():
@@ -263,6 +337,10 @@ def install_packs(app, db, auth, record, audit):
         if not isinstance(upid, str) or not re.fullmatch(r'[a-f0-9]{32}', upid):
             abort(400, description='Неверный пак')
         uid = g.user['id']
+        real = work_mode()
+        early = db().execute("SELECT pack_id,opened_at FROM user_packs WHERE id=?", (upid,)).fetchone()
+        lots_by_prize = availability(prizes_of(early['pack_id'])) if (real and early and not early['opened_at']) else {}
+        pending = []        # [(card, listing, price)] real purchases to make after the pack is opened
         with db():
             db().execute('BEGIN IMMEDIATE')
             row = db().execute("SELECT * FROM user_packs WHERE id=?", (upid,)).fetchone()
@@ -279,34 +357,85 @@ def install_packs(app, db, auth, record, audit):
                 abort(409, description='Сначала снимите пак с продажи')
             db().execute("DELETE FROM inventory WHERE user_id=? AND nft_id=?", (uid, 'packitem-' + upid))
             pack = pack_row(row['pack_id'])
-            prizes = prizes_of(row['pack_id'])
+            prizes = [p for p in prizes_of(row['pack_id']) if float(p['weight']) > 0]
             if not pack or not prizes:
                 abort(409, description='Пак ещё не настроен')
             counts = [(int(k), float(v)) for k, v in json.loads(pack['card_weights']).items() if float(v) > 0 and 1 <= int(k) <= 5]
             if not counts:
                 abort(409, description='В паке не заданы шансы количества карточек')
             n = pick(counts)
-            cards, total = [], Decimal('0')
+            cards, total, used = [], Decimal('0'), set()
             for _ in range(n):
-                prize = pick([(p, float(p['weight'])) for p in prizes if float(p['weight']) > 0])
+                pool = list(prizes)
+                while True:
+                    # Gifts that are not available on the market cannot drop in WORK mode; their chance is zero.
+                    eligible = [p for p in pool if p['kind'] == 'GRAM' or not real or
+                                any(l[0]['id'] not in used for l in lots_by_prize.get(p['id'], []))]
+                    if not eligible:
+                        eligible = [p for p in prizes if p['kind'] == 'GRAM']
+                    if not eligible:
+                        abort(409, description='Сейчас в паке нечего выдать: подарков нет на маркете')
+                    prize = pick([(p, float(p['weight'])) for p in eligible])
+                    break
                 if prize['kind'] == 'GRAM':
                     amount = Decimal(prize['amount'])
                     total += amount
                     cards.append({'kind': 'GRAM', 'amount': plain(amount), 'title': '+' + plain(amount) + ' GRAM'})
+                elif real:
+                    shown, price = next(l for l in lots_by_prize[prize['id']] if l[0]['id'] not in used)
+                    used.add(shown['id'])
+                    card = {'kind': 'NFT', 'nft_id': 'thermos-' + uuid.uuid4().hex, 'title': str(shown['name']) + ' ' + str(shown['model']),
+                            'image': shown['image'], 'value': plain(price), 'real': True}
+                    cards.append(card)
+                    pending.append((card, shown, price))
                 else:
                     worth = plain(live_value(prize))
+                    models = test_models(prize['collection_id'])
+                    model = _rng.choice(models) if models else None
+                    bd = _rng.choice(BACKDROPS)
                     gift = {'id': 'pack-' + uuid.uuid4().hex, 'name': prize['name'], 'number': _rng.randint(1000, 99999),
-                            'model': '', 'symbol': '', 'backdrop': '', 'image': prize['image'], 'price': worth,
+                            'model': model['name'].replace('\xa0', ' ') if model else '', 'symbol': '', 'backdrop': bd[0],
+                            'background': {'center_color': bd[1], 'edge_color': bd[2]},
+                            'image': model['image'] if model else prize['image'], 'price': worth,
                             'price_unit': 'GRAM', 'floor_price': worth, 'floor_unit': 'GRAM',
                             'collection_id': prize['collection_id'], 'origin': 'pack', 'catalog_only': True,
                             'test_only': True, 'pack_prize': True}
                     db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)",
                                  (uid, gift['id'], json.dumps(gift, ensure_ascii=False), 'unlisted'))
-                    cards.append({'kind': 'NFT', 'nft_id': gift['id'], 'title': prize['name'], 'image': prize['image'], 'value': worth})
-            after = credit(uid, total) if total else credit(uid, Decimal('0'))
-            result = {'ok': True, 'pack': short(pack), 'cards': cards, 'balance': str(after), 'credited': plain(total) if total else '0'}
-            db().execute("UPDATE user_packs SET opened_at=?,result=?,user_id=? WHERE id=?", (int(time.time()), json.dumps(result, ensure_ascii=False), uid, upid))
-            record('pack_open', {'pack': pack['id'], 'cards': cards, 'credited': result['credited']}, uid=uid)
+                    cards.append({'kind': 'NFT', 'nft_id': gift['id'], 'title': prize['name'] + (' ' + gift['model'] if gift['model'] else ''),
+                                  'image': gift['image'], 'value': worth})
+            after = credit(uid, total)
+            result = {'ok': True, 'pack': short(pack), 'cards': cards, 'balance': str(after),
+                      'credited': plain(total) if total else '0'}
+            db().execute("UPDATE user_packs SET opened_at=?,result=?,user_id=? WHERE id=?",
+                         (int(time.time()), json.dumps(result, ensure_ascii=False), uid, upid))
+        if pending:
+            ctx = pack_ctx()
+            for card, shown, price in pending:
+                try:
+                    outcome, note = ctx['acquire']([shown])
+                except Exception:
+                    outcome, note = 'unknown', ''
+                with db():
+                    db().execute('BEGIN IMMEDIATE')
+                    if outcome == 'ok':
+                        gift = {**shown, 'id': card['nft_id'], 'source_id': shown['id'], 'origin': 'thermos', 'price': str(price),
+                                'price_unit': 'GRAM', 'relayer_pending': True, 'source_price': str(shown.get('ton_price') or shown['price']),
+                                'source_price_unit': 'TON' if shown.get('ton_price') else 'GRAM'}
+                        db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)",
+                                     (uid, card['nft_id'], json.dumps(gift, ensure_ascii=False), 'unlisted'))
+                        card.pop('real', None)
+                    elif outcome == 'failed':
+                        card.clear()
+                        card.update(kind='GRAM', amount=plain(price), title='+' + plain(price) + ' GRAM', note='Подарок не удалось выкупить — зачислена его стоимость')
+                        total += price
+                        result['balance'] = str(credit(uid, price))
+                    else:
+                        card.update(pending=True, nft_id=None, note='Подарок появится в инвентаре после проверки')
+                        audit('Pack gift purchase needs review: ' + str(shown.get('name')) + ' for ' + str(uid))
+                    result['credited'] = plain(total) if total else '0'
+                    db().execute("UPDATE user_packs SET result=? WHERE id=?", (json.dumps(result, ensure_ascii=False), upid))
+        record('pack_open', {'pack': pack['id'], 'cards': cards, 'credited': result['credited']}, uid=uid)
         return result
 
     @app.post('/api/packs/sell')
