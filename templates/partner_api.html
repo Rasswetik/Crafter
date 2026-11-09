@@ -6,15 +6,16 @@
 <meta name="theme-color" content="#101114">
 <title>Crafter Partner API v1</title>
 <meta name="description" content="Партнёрское API Crafter: баланс, каталог, лоты, покупка, продажа и передача подарков по одному серверному ключу.">
-<link rel="stylesheet" href="/static/partner-api.css?v=5">
+<link rel="stylesheet" href="/static/partner-api.css?v=6">
 </head>
 <body>
 <div class="page">
 <header class="head">
-  <a class="logo" href="{{ site }}">CRAFTER</a>
+  <a class="logo" href="{{ site }}"><i></i>Crafter</a>
   <div class="meta"><small>Developers / API v1</small><a href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a></div>
 </header>
 
+<div class="cols">
 <main>
 <h1>Ваш проект.<br>Подарки в Crafter.</h1>
 <p class="lead">Один серверный ключ: каталог и модели, лоты игроков и подключённого маркета, покупка, продажа и передача подарков. Баланс и подарки лежат на вашем аккаунте Crafter.</p>
@@ -44,7 +45,7 @@
   </ol>
   <pre>curl {{ base }}/account \
   -H "Authorization: Bearer CRT/ваш_ключ"</pre>
-  <div class="ok"><b>Нужен новый ключ?</b> Если ключ утёк или потерян, напишите в поддержку: ключ заменят, старый перестанет работать сразу. Любой повторный <code>/api</code> показывает тот же ключ, пока его не заменили.</div>
+  <div class="ok"><b>Нужен новый ключ?</b> Если ключ утёк или потерян, напишите в поддержку <a href="https://t.me/crafter_support">@crafter_support</a>: ключ заменят, старый перестанет работать сразу. Любой повторный <code>/api</code> показывает тот же ключ, пока его не заменили.</div>
 </section>
 
 <section id="auth">
@@ -275,7 +276,7 @@ console.log(r.status, await r.json());</pre>
     <li>Если ответ не пришёл (таймаут, обрыв), <b>не создавайте новую операцию</b>. Сначала спросите <code>GET /operations/{id}</code>.</li>
     <li>Если там <code>404</code>, отправьте исходный запрос ещё раз с тем же ключом и тем же телом.</li>
     <li>Новый ключ допустим, только когда операция завершилась с ошибкой <code>failed</code> и вы исправили запрос.</li>
-    <li>Статус <code>review</code> (HTTP 503) значит, что результат уточняется. Новую операцию не создавайте: смотрите <code>/operations/{id}</code> или обратитесь в поддержку.</li>
+    <li>Статус <code>review</code> (HTTP 503) значит, что результат уточняется. Новую операцию не создавайте: смотрите <code>/operations/{id}</code> или обратитесь в поддержку <a href="https://t.me/crafter_support">@crafter_support</a>.</li>
   </ol>
 </section>
 
@@ -339,7 +340,7 @@ console.log(r.status, await r.json());</pre>
   <ul>
     <li>Храните ключ только на сервере: в переменных окружения или менеджере секретов. Не кладите его в репозиторий, логи и клиентский код.</li>
     <li>Не пишите ключ в чаты и скриншоты. В сообщении бота он скрыт «спойлером» именно для этого.</li>
-    <li>Если ключ мог утечь, сразу напишите в поддержку для замены: старый ключ перестанет работать мгновенно.</li>
+    <li>Если ключ мог утечь, сразу напишите в поддержку <a href="https://t.me/crafter_support">@crafter_support</a> для замены: старый ключ перестанет работать мгновенно.</li>
     <li>Используйте отдельный аккаунт под интеграцию и держите на нём только нужную сумму.</li>
   </ul>
 </section>
@@ -365,9 +366,16 @@ console.log(r.status, await r.json());</pre>
 </section>
 
 <footer>
-  <p>Crafter · Partner API v1 · Вопросы по подключению и замена ключа — в поддержку Crafter. <a href="{{ site }}">Открыть Crafter</a></p>
+  <div class="support">
+    <div><b>Нужна помощь с подключением?</b><p>Замена ключа, вопросы по операциям и ошибкам — пишите в поддержку.</p></div>
+    <a class="btn" href="https://t.me/crafter_support">@crafter_support</a>
+  </div>
+  <p class="fine">Crafter · Partner API v1 · <a href="{{ site }}">Открыть Crafter</a> · <a href="/partner-api.openapi.json">OpenAPI JSON</a></p>
 </footer>
 </main>
+<aside class="toc"><small>Содержание</small>
+<a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a></aside>
+</div>
 </div>
 </body>
 </html>
