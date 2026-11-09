@@ -174,3 +174,10 @@
 .ny-hubpage{max-width:560px;margin:0 auto}
 .nyh-card::before{background:linear-gradient(90deg,rgba(6,10,28,.82) 0,rgba(6,10,28,.4) 46%,transparent 76%)}
 .si-tile .ny-lot-art img[src$="gram.svg"],.si-tile .ny-lot-art img[src$="new-year-ornament.svg"]{width:46%;height:46%}
+
+/* Hub cards keep the picture's own proportions, so nothing is cropped on any screen */
+.nyh-card{aspect-ratio:400/170;min-height:0!important;height:auto}
+.ny-hubpage{max-width:640px}
+.nyh-copy{max-width:54%}
+.nyh-community .nyh-mini{max-width:200px}
+@media(max-width:380px){.nyh-copy strong{font-size:20px}}

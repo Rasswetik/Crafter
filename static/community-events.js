@@ -100,7 +100,8 @@ function cardArt(data) {
 /* ---------- hub card ---------- */
 function card(data) {
     return '<button type="button" class="nyh-card nyh-community" data-nyh="community" aria-label="События сообщества">' + cardArt(data) +
-        '<span class="nyh-copy"><strong>События сообщества</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>';
+        '<span class="nyh-copy"><strong>События сообщества</strong>' +
+        '<span class="nyh-mini"><span class="nyh-mini-bar"><i style="width:' + pct(data.progress, data.event.target).toFixed(1) + '%"></i></span><em>' + num(data.progress) + ' / ' + num(data.event.target) + '</em></span></span></button>';
 }
 
 /* ---------- goal page ---------- */
