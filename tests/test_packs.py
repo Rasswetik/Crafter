@@ -172,3 +172,19 @@ def test_pack_item_cannot_leave_the_app_and_can_be_listed(client):
     assert client.post('/api/packs/open', headers=player, json={'user_pack_id': bought['pack_id']}).status_code == 409   # listed
     client.post('/api/resale/listings', headers=player, json={'action': 'unlist', 'items': [{'id': nft}]})
     assert client.post('/api/packs/open', headers=player, json={'user_pack_id': bought['pack_id']}).status_code == 200
+
+
+def test_shop_pack_bundle_gives_several_packs(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    pack = client.get('/api/admin/new-year/packs', headers=admin).json['packs'][0]
+    assert client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'PACK', 'amount': pack['id'], 'bundle': 25}).status_code == 400
+    made = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'PACK', 'amount': pack['id'], 'bundle': 5, 'per_user': 2, 'price_balls': 0})
+    assert made.status_code == 200
+    item = client.get('/api/shop-items', headers=player).json['items'][0]
+    assert item['bundle'] == 5 and item['title'].endswith('×5')
+    got = client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'bundle-req-001'}).json
+    assert len(got['pack_ids']) == 5 and len(client.get('/api/packs', headers=player).json['mine']) == 5
+    assert client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'bundle-req-001'}).json == got   # repeat is free
+    client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'bundle-req-002'})
+    assert client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'bundle-req-003'}).status_code == 409   # per-player limit of 2 purchases

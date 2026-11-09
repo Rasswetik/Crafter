@@ -35,6 +35,14 @@ def install_shop_items(app, db, auth, record, audit):
         );
         """)
 
+        database = db()
+        if hasattr(database, 'connection') and database.connection is not None:
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS bundle BIGINT NOT NULL DEFAULT 1")
+        else:
+            cols = [r['name'] for r in database.execute("PRAGMA table_info(shop_items)").fetchall()]
+            if 'bundle' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN bundle BIGINT NOT NULL DEFAULT 1")
+
     import json
 
     def wallet_balls(uid):
@@ -53,7 +61,7 @@ def install_shop_items(app, db, auth, record, audit):
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
                 'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else ''), 'pack': pack,
                 'price_balls': int(row['price_balls']), 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
-                'per_user': row['per_user'], 'mine': mine, 'status': row['status']}
+                'per_user': row['per_user'], 'bundle': int(row['bundle'] or 1), 'mine': mine, 'status': row['status']}
 
     @app.get('/api/shop-items')
     @auth()
@@ -108,7 +116,8 @@ def install_shop_items(app, db, auth, record, audit):
                 balls += gain
                 result.update(balls_gain=gain, balance={'balls': balls})
             elif row['kind'] == 'PACK':
-                result['pack_id'] = app.extensions['crafter_grant_pack'](uid, row['amount'], 'shop:' + iid)
+                ids = [app.extensions['crafter_grant_pack'](uid, row['amount'], 'shop:' + iid) for _ in range(int(row['bundle'] or 1))]
+                result.update(pack_id=ids[0], pack_ids=ids)
             else:
                 code = ''
                 for _ in range(30):
@@ -119,7 +128,7 @@ def install_shop_items(app, db, auth, record, audit):
                 if not code:
                     abort(503, description='Не удалось создать код, повторите')
                 db().execute("INSERT INTO promo_codes(code,reward,currency,uses_limit,used,active,created_by,created,owner_id) VALUES(?,?,?,?,0,1,?,?,?)",
-                             (code, row['amount'], row['promo_kind'], 1, uid, now, uid))
+                             (code, (row['amount'] + ':' + str(int(row['bundle'] or 1))) if row['promo_kind'] == 'PACK' else row['amount'], row['promo_kind'], 1, uid, now, uid))
                 result['code'] = code
             db().execute("UPDATE shop_items SET sold=sold+1 WHERE id=?", (iid,))
             db().execute("INSERT INTO shop_item_buys(item_id,user_id,request_id,result,created) VALUES(?,?,?,?,?)",
@@ -165,13 +174,16 @@ def install_shop_items(app, db, auth, record, audit):
         price = whole(body.get('price_balls', 0), 0, _LIMIT, 'Цена')
         stock = None if str(body.get('stock') or '').strip() == '' else whole(body.get('stock'), 1, 1000000, 'Количество')
         per_user = None if str(body.get('per_user') or '').strip() == '' else whole(body.get('per_user'), 1, 1000, 'Лимит на игрока')
+        bundle = 1
+        if eff == 'PACK':
+            bundle = whole(body.get('bundle') or 1, 1, 20, 'Паков за одну покупку')
         image = str(body.get('image_url') or '').strip()
         if image and not (image.startswith('https://') or re.fullmatch(r'/static/[A-Za-z0-9_./-]+', image)):
             abort(400, description='Картинка: ссылка https:// или файл из /static/')
         title = str(body.get('title') or '').strip()[:80]
         if not title:
             if eff == 'PACK':
-                title = (app.extensions['crafter_pack_short'](amount) or {}).get('title', 'Пак')
+                title = (app.extensions['crafter_pack_short'](amount) or {}).get('title', 'Пак') + (' ×' + str(bundle) if bundle > 1 else '')
             elif eff == 'BALL':
                 title = amount + ' шаров'
             else:
@@ -180,8 +192,8 @@ def install_shop_items(app, db, auth, record, audit):
                 title = 'Промокод: ' + title
         iid = uuid.uuid4().hex
         with db():
-            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,stock,per_user,created) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                         (iid, kind, promo if kind == 'PROMO' else '', amount, title, image, price, stock, per_user, int(time.time())))
+            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,stock,per_user,bundle,created) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                         (iid, kind, promo if kind == 'PROMO' else '', amount, title, image, price, stock, per_user, bundle, int(time.time())))
         audit('Shop item created: ' + title)
         return {'ok': True, 'id': iid}
 
