@@ -6,13 +6,14 @@
 <meta name="theme-color" content="#101114">
 <title>Crafter Partner API v1</title>
 <meta name="description" content="Партнёрское API Crafter: баланс, каталог, лоты, покупка, продажа и передача подарков по одному серверному ключу.">
-<link rel="stylesheet" href="/static/partner-api.css?v=6">
+<link rel="stylesheet" href="/static/partner-api.css?v=8">
 </head>
 <body>
 <div class="page">
 <header class="head">
   <a class="logo" href="{{ site }}"><i></i>Crafter</a>
   <div class="meta"><small>Developers / API v1</small><a href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a></div>
+<details class="menu"><summary aria-label="Меню"><span></span><span></span><span></span></summary><div class="menu-box"><a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a><a class="dl" href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a><a class="dl" href="https://t.me/crafter_support">Поддержка @crafter_support</a></div></details>
 </header>
 
 <div class="cols">
@@ -20,7 +21,6 @@
 <h1>Ваш проект.<br>Подарки в Crafter.</h1>
 <p class="lead">Один серверный ключ: каталог и модели, лоты игроков и подключённого маркета, покупка, продажа и передача подарков. Баланс и подарки лежат на вашем аккаунте Crafter.</p>
 <div class="note"><b>Паки в API не участвуют.</b> Карточные паки — внутренняя механика Crafter. Подарки, выпавшие из паков и ставшие обычными подарками аккаунта, API видит как все остальные.</div>
-<div class="flow"><span>Ключ из бота /api</span><i>→</i><span>Читать лоты и баланс</span><i>→</i><span>Купить / продать / передать</span></div>
 <nav class="jump"><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#read">Чтение</a><a href="#write">Операции</a><a href="#idem">Idempotency-Key</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#security">Безопасность</a></nav>
 <section id="about">
   <h2><span>01</span>Что даёт API</h2>
@@ -377,5 +377,6 @@ console.log(r.status, await r.json());</pre>
 <a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a></aside>
 </div>
 </div>
+<script>document.querySelectorAll(".menu-box a").forEach(function(a){a.addEventListener("click",function(){document.querySelector(".menu").removeAttribute("open")})});document.addEventListener("click",function(e){var m=document.querySelector(".menu");if(m&&!m.contains(e.target))m.removeAttribute("open")});</script>
 </body>
 </html>
