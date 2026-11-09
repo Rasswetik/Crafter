@@ -82,34 +82,59 @@ function lotTile(lot){
         '<div class="ny-lot-id">#'+escapeHTML(lot.gift.number)+'</div>'+
         '<div class="ny-lot-price">'+displayOrnament()+safeInt(lot.price)+'</div></button>';
 }
-async function showNewYear(){
+let view='hub';
+function community(){return window.crafterCommunity||null;}
+async function showNewYear(next){
+    if(next)view=next;
     const main=document.querySelector('#main');
     if(!main)return;
-    main.innerHTML='<div class="new-year-page"><div class="ny-hero"><small>CRAFTER · WINTER EVENT</small><h1>Новый год</h1><p>Загружаем праздничный маркет...</p></div></div>';
+    main.innerHTML='<div class="new-year-page"><div class="ny-hero"><small>CRAFTER · WINTER EVENT</small><h1>Событие</h1><p>Загружаем праздничные разделы...</p></div></div>';
     try{
-        const data=await api('new-year');
+        const [data,shared]=await Promise.all([api('new-year'),api('community').catch(()=>null)]);
         if(state.page!=='new-year'||!main.isConnected)return;
         if(!data.enabled&&!state.me?.is_admin){
             state.me.new_year_enabled=false;await go('market');return;
         }
-        lastData=data;updateHeaderWallet(data.balance);
-        main.innerHTML='<div class="new-year-page">'+
-            '<section class="ny-hero"><small>CRAFTER · WINTER EVENT</small>'+
-            '<h1>Новогодний маркет</h1><p>Коллекционные NFT-подарки за новогодние шары.</p></section>'+
-            '<div class="ny-section-title"><h2>Праздничные подарки</h2><span>'+data.lots.length+' лотов</span></div>'+
-            (data.lots.length?'<div class="ny-grid">'+data.lots.map(lotTile).join('')+'</div>':
-             '<div class="ny-empty">'+displayOrnament()+'<h3>Подарочки уже в пути!</h3>'+
-             '<p>Совсем скоро здесь появятся новогодние NFT-подарки. Следите за обновлениями!</p></div>')+
-            '</div>';
-        main.querySelectorAll('[data-ny-lot]').forEach(btn=>{
-            btn.addEventListener('click',()=>openLot(btn.dataset.nyLot));
-        });
+        lastData=data;lastData.community=shared;updateHeaderWallet(data.balance);
+        if(view==='community'&&community()&&shared?.event){community().page(main,shared,{back:()=>showNewYear('hub'),market:()=>showNewYear('market')});return;}
+        if(view==='market')return drawMarket(main,data,shared);
+        view='hub';drawHub(main,data,shared);
+        community()?.checkCeremony?.(shared,{market:()=>showNewYear('market')});
     }catch(error){
         if(state.page==='new-year')main.innerHTML='<div class="new-year-page ny-empty">'+
             '<h3>Не удалось загрузить подарки</h3><p>'+escapeHTML(error.message)+'</p>'+
             '<button class="secondary" type="button" onclick="go(\'new-year\')">Повторить</button></div>';
     }
 }
+function drawHub(main,data,shared){
+    const art=community()?.marketArt?.()||'';
+    main.innerHTML='<div class="new-year-page ny-hubpage">'+
+        '<button type="button" class="nyh-card nyh-market" data-nyh="market" aria-label="Новогодний маркет">'+art+
+        '<span class="nyh-copy"><small>Магазин за шары</small><strong>Новогодний маркет</strong>'+
+        '<em>Коллекционные NFT-подарки и награды сообщества</em></span>'+
+        '<span class="nyh-meta"><b>'+data.lots.length+'</b> лотов<i aria-hidden="true">›</i></span></button>'+
+        (community()&&shared?.event?community().card(shared):'')+'</div>';
+    main.querySelector('[data-nyh="market"]')?.addEventListener('click',()=>showNewYear('market'));
+    main.querySelector('[data-nyh="community"]')?.addEventListener('click',()=>showNewYear('community'));
+}
+function drawMarket(main,data,shared){
+    main.innerHTML='<div class="new-year-page">'+
+        '<button type="button" class="nyh-back" data-nyh-back>‹ События</button>'+
+        '<section class="ny-hero"><small>CRAFTER · WINTER EVENT</small>'+
+        '<h1>Новогодний маркет</h1><p>Коллекционные NFT-подарки за новогодние шары.</p></section>'+
+        (community()&&shared?.event?community().shop(shared):'')+
+        '<div class="ny-section-title"><h2>Праздничные подарки</h2><span>'+data.lots.length+' лотов</span></div>'+
+        (data.lots.length?'<div class="ny-grid">'+data.lots.map(lotTile).join('')+'</div>':
+         '<div class="ny-empty">'+displayOrnament()+'<h3>Подарочки уже в пути!</h3>'+
+         '<p>Совсем скоро здесь появятся новогодние NFT-подарки. Следите за обновлениями!</p></div>')+
+        '</div>';
+    main.querySelector('[data-nyh-back]')?.addEventListener('click',()=>showNewYear('hub'));
+    main.querySelectorAll('[data-ny-lot]').forEach(btn=>{
+        btn.addEventListener('click',()=>openLot(btn.dataset.nyLot));
+    });
+    community()?.bindShop?.(main,shared,()=>showNewYear('market'));
+}
+window.crafterNewYearShow=showNewYear;
 async function openLot(id){
     const original=lastData?.lots?.find(x=>x.id===id);
     if(!original)return toast('Лот недоступен, обновите страницу');
@@ -172,7 +197,7 @@ async function buyLot(lot){
         if(state.me)state.me.inventory_count=(state.me.inventory_count||0)+1;
         if(Array.isArray(state.inventory))state.inventory.push({...result.gift,status:'unlisted'});
         closeSheet();
-        await showNewYear();
+        await showNewYear('market');
         toast('Подарок добавлен в инвентарь Crafter');
     }catch(error){
         const output=document.querySelector('#ny-buy-error');
@@ -192,6 +217,7 @@ go=async function(page,...args){
     if(!active())return toast('Раздел Новый год пока отключён');
     if(state.crafting)return;
     if(state.page==='arena'&&typeof leaveArena==='function')leaveArena();
+    view='hub';
     state.page='new-year';state.gamesMode=false;
     document.querySelector('#app')?.classList.remove('games-view','arena-view','staking-view','craft-view','cart-view');
     document.querySelector('#app')?.classList.add('new-year-view');
@@ -274,6 +300,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
             finally{if(button.isConnected)button.disabled=false;}
         });
     }
+    window.crafterCommunity?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{
         button.addEventListener('click',async()=>{
             const lot=result.lots.find(l=>l.id===button.dataset.nyAdminLot);

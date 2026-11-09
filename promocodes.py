@@ -122,6 +122,9 @@ def install_promocodes(app, db, auth, record, audit):
             if db().execute("SELECT 1 FROM promo_claims WHERE code=? AND user_id=?",
                             (code,uid)).fetchone():
                 abort(409,description='Этот промокод уже активирован')
+            owner=row['owner_id'] if 'owner_id' in row.keys() else None
+            if owner is not None and int(owner)!=int(uid):
+                abort(403,description='Этот промокод привязан к другому игроку')
             if not row['active'] or row['used']>=row['uses_limit']:
                 abort(409,description='Промокод недействителен или активации закончились')
             if db().execute(

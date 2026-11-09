@@ -1374,6 +1374,8 @@ def create_app(config=None):
     app.extensions['crafter_new_year_trade_conversion']=seasonal_conversion
     from promocodes import install_promocodes
     install_promocodes(app,db,auth,record,audit)
+    from community_events import install_community_events
+    install_community_events(app,db,auth,record,audit)
     from market_test import install_market_test
     install_market_test(app,db,auth,record,DEMO_GIFTS)
     from offers import install_offer_display, install_trading_offers
