@@ -293,7 +293,7 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         result = {}
         for row in db().execute(query, params):
             gift = json.loads(row['payload'])
-            if gift.get('catalog_only'):
+            if gift.get('catalog_only') or gift.get('pack_item'):
                 continue
             price = (floors.get(canonical_name(gift.get('name') or '')) or
                      decimal_amount(demo_prices.get(row['nft_id'])))

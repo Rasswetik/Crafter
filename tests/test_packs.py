@@ -21,7 +21,7 @@ def test_default_pack_and_admin_validation(client):
     client.get('/api/me', headers=player)
     data = client.get('/api/admin/new-year/packs', headers=admin).json
     pack = data['packs'][0]
-    assert pack['title'] == 'Новогодний пак' and len(pack['prizes']) > 15
+    assert pack['title'] == 'New Year' and len(pack['prizes']) > 15
     assert {p['amount'] for p in pack['prizes'] if p['kind'] == 'GRAM'} >= {'0.2', '0.5', '1', '2', '2.5', '3', '5'}
     assert client.get('/api/admin/new-year/packs', headers=player).status_code == 403
     bad = dict(pack, card_weights={'1': 0, '2': 0, '3': 0, '4': 0, '5': 0})
@@ -46,6 +46,10 @@ def test_buy_open_and_sell(client):
     assert got.status_code == 200 and got.json['balance']['balls'] == 0
     assert buy('buy-request-1').json['user_pack_id'] == got.json['user_pack_id']   # idempotent
     upid = got.json['user_pack_id']
+    inv = client.get('/api/inventory', headers=player).json['gifts']
+    item = next(x for x in inv if x['id'] == 'packitem-' + upid)
+    assert item['name'] == 'Pack' and item['model'] == 'New Year' and item['pack_item'] and item['status'] == 'unlisted'
+    assert client.get('/api/packs', headers=player).json['mine'][0]['id'] == upid
     before = balance(client, player)
     opened = client.post('/api/packs/open', headers=player, json={'user_pack_id': upid})
     assert opened.status_code == 200 and len(opened.json['cards']) == 3
@@ -55,6 +59,7 @@ def test_buy_open_and_sell(client):
     assert again.json['cards'] == opened.json['cards'] and balance(client, player) == before + gram   # no double credit
     assert client.post('/api/packs/open', headers=signed(44), json={'user_pack_id': upid}).status_code in (404, 401)
     assert client.get('/api/packs', headers=player).json['mine'] == []
+    assert not any(x['id'] == 'packitem-' + upid for x in client.get('/api/inventory', headers=player).json['gifts'])   # consumed
 
     nfts = [c for c in opened.json['cards'] if c['kind'] == 'NFT']
     if nfts:
@@ -79,7 +84,7 @@ def test_community_pack_reward_promo_and_redeemed_flag(client):
         'title': 'Промо', 'threshold': 5, 'reward_kind': 'GRAM', 'reward_amount': '1', 'supply': 3, 'price_balls': 0})
     add_history(client, 5)
     state = client.get('/api/community', headers=player).json['milestones']
-    assert {m['reward_kind'] for m in state} == {'PACK', 'GRAM'} and state[0]['pack']['title'] == 'Новогодний пак'
+    assert {m['reward_kind'] for m in state} == {'PACK', 'GRAM'} and state[0]['pack']['title'] == 'New Year'
     claim = lambda mid, rid: client.post('/api/community/claim', headers=player, json={'milestone_id': mid, 'request_id': rid})
     pk = claim(made.json['id'], 'claim-pack-001')
     assert pk.status_code == 200 and len(pk.json['pack_id']) == 32
@@ -111,6 +116,58 @@ def test_milestone_title_is_generated_when_empty(client):
     assert mk(reward_kind='GRAM', reward_amount='2').status_code == 200
     assert mk(reward_kind='BALL', reward_amount='50').status_code == 200
     titles = {m['title'] for m in client.get('/api/admin/new-year/community', headers=admin).json['milestones']}
-    assert titles == {'Новогодний пак', 'Промокод на 2 GRAM', '50 шаров'}
+    assert titles == {'New Year', 'Промокод на 2 GRAM', '50 шаров'}
     shown = client.get('/api/admin/new-year/community', headers=admin).json['milestones']
     assert next(m for m in shown if m['reward_kind'] == 'PACK')['image_url'] == pack['image']
+
+
+def test_pack_contents_and_shop_items(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    pack = client.get('/api/admin/new-year/packs', headers=admin).json['packs'][0]
+    info = client.get('/api/packs/' + pack['id'] + '/contents', headers=player).json
+    assert abs(sum(p['chance'] for p in info['prizes']) - 100) < 0.5 and info['prizes'][0]['kind'] == 'GRAM'
+    assert abs(sum(c['chance'] for c in info['cards']) - 100) < 0.5
+    assert client.get('/api/shop-items', headers=player).json['items'] == []
+    mk = lambda **kw: client.post('/api/admin/new-year/shop', headers=admin, json=kw)
+    assert client.post('/api/admin/new-year/shop', headers=player, json={'kind': 'GRAM', 'amount': '1'}).status_code == 403
+    assert mk(kind='GRAM', amount='2.5', price_balls=10, stock=2, per_user=1).status_code == 200
+    assert mk(kind='BALL', amount='40', price_balls=5).status_code == 200
+    assert mk(kind='PACK', amount=pack['id'], price_balls=0).status_code == 200
+    assert mk(kind='PROMO', promo_kind='GRAM', amount='1', price_balls=0).status_code == 200
+    assert mk(kind='PACK', amount='nope').status_code == 400
+    items = {i['kind']: i for i in client.get('/api/shop-items', headers=player).json['items']}
+    assert set(items) == {'GRAM', 'BALL', 'PACK', 'PROMO'} and items['PACK']['title'] == 'New Year'
+    buy = lambda kind, rid: client.post('/api/shop-items/buy', headers=player, json={'item_id': items[kind]['id'], 'request_id': rid})
+    assert buy('GRAM', 'shop-req-0001').status_code == 409                      # no balls yet
+    client.post('/api/admin/new-year/wallet', headers=admin, json={'user_id': 43, 'balls': '30'})
+    before = balance(client, player)
+    g1 = buy('GRAM', 'shop-req-0001')
+    assert g1.status_code == 200 and balance(client, player) == before + Decimal('2.5') and g1.json['balance']['balls'] == 20
+    assert buy('GRAM', 'shop-req-0001').json == g1.json and balance(client, player) == before + Decimal('2.5')   # idempotent
+    assert buy('GRAM', 'shop-req-0002').status_code == 409                      # per-user limit
+    assert buy('BALL', 'shop-req-0003').json['balance']['balls'] == 20 - 5 + 40
+    assert len(buy('PACK', 'shop-req-0004').json['pack_id']) == 32
+    code = buy('PROMO', 'shop-req-0005').json['code']
+    assert client.post('/api/promocodes/redeem', headers=signed(44), json={'code': code}).status_code in (401, 403, 404)
+    assert client.post('/api/promocodes/redeem', headers=player, json={'code': code}).status_code == 200
+    assert client.post('/api/admin/new-year/shop/' + items['GRAM']['id'] + '/delete', headers=admin).status_code == 409
+    assert client.post('/api/admin/new-year/shop/' + items['BALL']['id'] + '/status', headers=admin, json={'status': 'hidden'}).status_code == 200
+    assert 'BALL' not in {i['kind'] for i in client.get('/api/shop-items', headers=player).json['items']}
+
+
+def test_pack_item_cannot_leave_the_app_and_can_be_listed(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    pack = client.get('/api/admin/new-year/packs', headers=admin).json['packs'][0]
+    client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'PACK', 'amount': pack['id'], 'price_balls': 0})
+    item = client.get('/api/shop-items', headers=player).json['items'][0]
+    bought = client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'pack-shop-001'}).json
+    nft = 'packitem-' + bought['pack_id']
+    assert client.post('/api/inventory/action', headers=player, json={'action': 'withdraw', 'gift_ids': [nft]}).status_code in (400, 409)
+    assert client.post('/api/gifts/withdraw', headers=player, json={'gift_ids': [nft]}).status_code in (400, 404, 409)
+    listed = client.post('/api/resale/listings', headers=player, json={'action': 'sell', 'items': [{'id': nft, 'price': '3'}]})
+    assert listed.status_code == 200, listed.json
+    assert client.post('/api/packs/open', headers=player, json={'user_pack_id': bought['pack_id']}).status_code == 409   # listed
+    client.post('/api/resale/listings', headers=player, json={'action': 'unlist', 'items': [{'id': nft}]})
+    assert client.post('/api/packs/open', headers=player, json={'user_pack_id': bought['pack_id']}).status_code == 200

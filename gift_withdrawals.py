@@ -83,7 +83,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             if not row or row['status']!='unlisted':
                 abort(409,description='Подарок недоступен для вывода')
             gift=json.loads(row['payload'])
-            if gift.get('catalog_only') or gift.get('test_only'):
+            if gift.get('catalog_only') or gift.get('test_only') or gift.get('pack_item'):
                 abort(409,description='Тестовый NFT нельзя вывести')
             relayer=(gift.get('origin')=='telegram-deposit' and
                      _TELEGRAM_NFT.fullmatch(str(gift.get('telegram_url') or '')))

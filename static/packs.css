@@ -109,3 +109,41 @@
 .pk-gem{width:calc(var(--cwk)*.46);height:calc(var(--cwk)*.46);display:block;filter:drop-shadow(0 0 12px rgba(120,200,255,.8))}
 .pk-gem svg{width:100%;height:100%}
 .pk-sell .pk-gram{width:calc(var(--cwk)*.12);height:calc(var(--cwk)*.12);display:inline-block;vertical-align:-.15em}
+
+/* ---- Contents and chances (drop-rate board) ---- */
+.pk-sheet-head{display:grid;place-items:center;margin:0 0 6px}
+.pk-sheet-head img{width:120px;filter:drop-shadow(0 8px 18px rgba(80,160,255,.45))}
+.pk-info{margin:6px 0 14px}
+.pk-info h4{margin:14px 0 8px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#ffe2a0}
+.pk-info-cards{padding:10px;border-radius:16px;background:rgba(255,255,255,.05)}
+.pk-info-cards small{display:block;margin-bottom:6px;color:#9fb0c8;font-size:12px}
+.pk-info-cards div{display:flex;gap:6px}
+.pk-info-cards span{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;border-radius:10px;background:rgba(43,123,224,.18)}
+.pk-info-cards i{font-style:normal;font-weight:800;color:#fff}.pk-info-cards b{font-size:11px;color:#bcd2ee}
+.pk-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pk-it{display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:4px;padding:7px 4px;min-height:92px;border-radius:14px;text-align:center;background:linear-gradient(160deg,#27345a,#141b32);border:1px solid rgba(140,190,255,.3)}
+.pk-it.is-nft{border-color:rgba(255,211,107,.5)}
+.pk-it-top{font-size:11px;font-weight:800;color:#fff;line-height:1.1;min-height:24px;display:flex;align-items:center}
+.pk-it-ic{width:34px;height:34px;display:grid;place-items:center}.pk-it-ic img,.pk-it-ic .pk-gram{width:100%;height:100%;object-fit:contain}
+.pk-it b{font-size:12px;color:#ffe2a0}
+
+/* ---- What is inside: range, top prizes, optional chances ---- */
+.pk-info{margin:10px 0 14px}
+.pk-h{display:flex;align-items:center;gap:8px;margin:6px 0 10px;padding-bottom:10px;font-size:18px;font-weight:700;color:#fff;border-bottom:1px solid rgba(255,255,255,.1);text-transform:none;letter-spacing:0}
+.pk-range{margin:0;text-align:center;font-size:14px;color:#8fa0ba;line-height:2}
+.pk-amt{display:inline-flex;align-items:center;gap:5px;vertical-align:middle}
+.pk-amt b{font-size:15px;color:#fff}.pk-amt .pk-gram{width:16px;height:16px}
+.pk-toggle-wrap{display:grid;place-items:center;margin:8px 0 6px}
+.pk-toggle{padding:10px 20px;border-radius:12px;font-size:14px;font-weight:700;color:#fff;background:#1d2230;border:1px solid rgba(255,255,255,.14);cursor:pointer}
+.pk-sub{margin:14px 0 10px;font-size:15px;font-weight:700;color:#fff;text-transform:none;letter-spacing:0}
+.pk-prizes2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.pk-pc{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 8px 12px;border-radius:18px;text-align:center;overflow:hidden;
+  background:radial-gradient(60% 55% at 50% 38%,var(--g1,rgba(120,150,200,.28)),transparent 72%),#141823;border:1px solid rgba(255,255,255,.08)}
+.pk-pc.t1{--g1:rgba(110,160,255,.3)}.pk-pc.t2{--g1:rgba(170,120,255,.38)}.pk-pc.t3{--g1:rgba(255,196,90,.42);border-color:rgba(255,211,107,.35)}
+.pk-pc img{width:78px;height:78px;object-fit:contain;filter:drop-shadow(0 6px 12px rgba(0,0,0,.5))}
+.pk-pc .pk-bal{width:78px;height:78px;display:grid;place-items:center}.pk-pc .pk-bal .pk-gram{width:60px;height:60px;filter:drop-shadow(0 0 14px rgba(130,200,255,.8))}
+.pk-pc b{font-size:13px;line-height:1.2;color:#fff}
+.pk-pc .pk-amt b{font-size:14px}
+.pk-ch{position:absolute;top:8px;right:8px;padding:2px 7px;border-radius:999px;font-style:normal;font-size:11px;font-weight:800;color:#1a1204;background:linear-gradient(135deg,#ffe9a8,#ffc14d);display:none}
+.pk-info.show-chances .pk-ch{display:block}
+.pk-info .pk-h{text-transform:none;letter-spacing:0;font-size:18px;color:#fff}

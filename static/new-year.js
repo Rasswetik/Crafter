@@ -90,14 +90,14 @@ async function showNewYear(next){
     if(!main)return;
     main.innerHTML='<div class="new-year-page"><div class="ny-hero"><small>CRAFTER · WINTER EVENT</small><h1>Событие</h1><p>Загружаем праздничные разделы...</p></div></div>';
     try{
-        const [data,shared,packState]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null)]);
+        const [data,shared,packState,shopState]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null)]);
         if(state.page!=='new-year'||!main.isConnected)return;
         if(!data.enabled&&!state.me?.is_admin){
             state.me.new_year_enabled=false;await go('market');return;
         }
         lastData=data;lastData.community=shared;lastData.packs=packState;updateHeaderWallet(data.balance);
         if(view==='community'&&community()&&shared?.event){community().page(main,shared,{back:()=>showNewYear('hub'),market:()=>showNewYear('market')});return;}
-        if(view==='market')return drawMarket(main,data,shared,packState);
+        if(view==='market')return drawMarket(main,data,shared,packState,shopState);
         view='hub';drawHub(main,data,shared);
         community()?.checkCeremony?.(shared,{market:()=>showNewYear('market')});
     }catch(error){
@@ -115,9 +115,10 @@ function drawHub(main,data,shared){
     main.querySelector('[data-nyh="market"]')?.addEventListener('click',()=>showNewYear('market'));
     main.querySelector('[data-nyh="community"]')?.addEventListener('click',()=>showNewYear('community'));
 }
-function drawMarket(main,data,shared,packState){
+function drawMarket(main,data,shared,packState,shopState){
     const packTiles=window.crafterPacks&&packState?window.crafterPacks.tiles(packState):[];
-    const rewards=packTiles.concat(community()&&shared?.event?community().tiles(shared):[]);
+    const shopTiles=window.crafterShopItems&&shopState?window.crafterShopItems.tiles(shopState.items):[];
+    const rewards=packTiles.concat(shopTiles,community()&&shared?.event?community().tiles(shared):[]);
     const total=data.lots.length+rewards.length;
     main.innerHTML='<div class="new-year-page">'+
         '<button type="button" class="nyh-back" data-nyh-back>‹ События</button>'+
@@ -132,6 +133,7 @@ function drawMarket(main,data,shared,packState){
         btn.addEventListener('click',()=>openLot(btn.dataset.nyLot));
     });
     if(packState)window.crafterPacks?.bind(main,packState,()=>showNewYear('market'));
+    if(shopState)window.crafterShopItems?.bind(main,shopState.items,()=>showNewYear('market'));
     community()?.bindShop?.(main,shared,()=>showNewYear('market'));
 }
 window.crafterNewYearShow=showNewYear;
@@ -303,13 +305,14 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     content.querySelectorAll(':scope > .ny-admin-section').forEach(x=>{x.dataset.pane='main';});
     const tabs=document.createElement('div');
     tabs.className='ny-tabs';
-    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки']];
+    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин']];
     const setTab=name=>{window.crafterNyTab=name;content.dataset.nyTab=name;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('is-on',b.dataset.tab===name));};
     tabs.innerHTML=names.map(([id,label])=>'<button type="button" data-tab="'+id+'">'+label+'</button>').join('');
     tabs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
     content.prepend(tabs);setTab(window.crafterNyTab||'main');
     window.crafterCommunity?.admin?.(content);
     window.crafterPacks?.admin?.(content);
+    window.crafterShopItems?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{
         button.addEventListener('click',async()=>{
             const lot=result.lots.find(l=>l.id===button.dataset.nyAdminLot);

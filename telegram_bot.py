@@ -154,6 +154,8 @@ def notify_gift_sale(config, seller, gift, proceeds, default_token):
         return
     name = str(gift.get('name') or 'Gift')
     number = str(gift.get('number') or '')
+    if gift.get('pack_item') and gift.get('model'):
+        name = f"{name} {gift['model']}"
     label = escape(name + (f' #{number}' if number else ''))
     url = verified_nft_link(gift)
     if url:
@@ -181,8 +183,10 @@ def notify_offer_event(config, seller, gift, price, event, default_token):
     token = config.get('token') or default_token
     if not token or event not in ('received', 'withdrawn'):
         return
-    label = escape(str(gift.get('name') or 'Gift') +
-                   (f" #{gift['number']}" if gift.get('number') else ''))
+    gift_name = str(gift.get('name') or 'Gift')
+    if gift.get('pack_item') and gift.get('model'):
+        gift_name += ' ' + str(gift['model'])
+    label = escape(gift_name + (f" #{gift['number']}" if gift.get('number') else ''))
     url = str(gift.get('telegram_url') or '')
     if re.fullmatch(r'https://(?:t\.me|telegram\.me)/nft/[a-z0-9]+-[1-9][0-9]*', url, re.I):
         label = '<a href="' + escape(url, quote=True) + '">' + label + '</a>'
@@ -245,8 +249,10 @@ def notify_gift_purchase(config, buyer, gift, price, default_token):
     token = config.get('token') or default_token
     if not token:
         return
-    label = escape(str(gift.get('name') or 'Gift') +
-                   (f" #{gift['number']}" if gift.get('number') else ''))
+    gift_name = str(gift.get('name') or 'Gift')
+    if gift.get('pack_item') and gift.get('model'):
+        gift_name += ' ' + str(gift['model'])
+    label = escape(gift_name + (f" #{gift['number']}" if gift.get('number') else ''))
     url = '' if gift.get('test_only') else verified_nft_link(gift)
     if url:
         label = f'<a href="{escape(url, quote=True)}">{label}</a>'

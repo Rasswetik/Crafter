@@ -233,7 +233,7 @@ def install_staking(app, db, auth, record, audit, staking_catalog, canonical_nam
             valued = []
             for i in ids:
                 item = json.loads(gifts[i]['payload'])
-                if item.get('catalog_only'):
+                if item.get('catalog_only') or item.get('pack_item'):
                     abort(409, description='Нельзя заморозить каталоговую модель')
                 value = gift_value(item, floors)
                 if value is None:

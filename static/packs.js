@@ -11,35 +11,102 @@ const FLAKE = '<svg viewBox="-50 -50 100 100" aria-hidden="true"><g stroke="curr
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let playing = false;
 
+/* ---------- contents and chances ---------- */
+const pct = v => (Number(v) >= 10 ? Number(v).toFixed(1) : Number(v).toFixed(2)).replace(/\.?0+$/, '') + '%';
+const CUBE = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7Z" fill="none" stroke="#4fd37a" stroke-width="2" stroke-linejoin="round"/><path d="M3.5 7 12 11.8 20.5 7M12 11.8v9.7" fill="none" stroke="#4fd37a" stroke-width="2" stroke-linejoin="round"/></svg>';
+const gem = n => '<span class="pk-amt">' + GEM + '<b>' + num(n) + '</b></span>';
+async function contentsHtml(pid) {
+    try {
+        const c = await api('packs/' + encodeURIComponent(pid) + '/contents');
+        const nft = c.prizes.filter(p => p.kind === 'NFT'), gram = c.prizes.filter(p => p.kind === 'GRAM');
+        const tier = ch => ch < 3 ? 't3' : ch < 10 ? 't2' : 't1';
+        const card = p => p.kind === 'NFT'
+            ? '<div class="pk-pc ' + tier(p.chance) + '"><i class="pk-ch">' + pct(p.chance) + '</i><img src="' + e(p.image) + '" alt=""><b>' + e(p.name) + '</b>' + gem(p.value) + '</div>'
+            : '<div class="pk-pc is-bal ' + tier(p.chance) + '"><i class="pk-ch">' + pct(p.chance) + '</i><span class="pk-bal">' + GEM + '</span><b>Баланс GRAM</b>' + gem(p.amount) + '</div>';
+        return '<div class="pk-info"><h4 class="pk-h">' + CUBE + 'Что внутри?</h4>' +
+            '<p class="pk-range">Может выпасть на сумму от ' + gem(c.min) + ' до ' + gem(c.max) + '</p>' +
+            '<div class="pk-toggle-wrap"><button type="button" class="pk-toggle">Показать шансы</button></div>' +
+            '<h5 class="pk-sub">Призы, которые могут выпасть</h5><div class="pk-prizes2">' + nft.concat(gram).map(card).join('') + '</div></div>';
+    } catch (_) { return ''; }
+}
+function bindContents(root) {
+    const btn = root?.querySelector('.pk-toggle');
+    btn?.addEventListener('click', () => {
+        const on = root.querySelector('.pk-info').classList.toggle('show-chances');
+        btn.textContent = on ? 'Скрыть шансы' : 'Показать шансы';
+    });
+}
+/* A sheet with the pack picture, its contents and chances and one action button. */
+function packSheet(pack, label, go) {
+    sheet(pack.title, '<div class="pk-sheet-head"><img src="' + e(pack.image) + '" alt=""></div><div id="pk-contents"><p class="cm-sheet-note">Загрузка…</p></div>' +
+        '<button type="button" class="ny-action" id="pk-go">' + e(label) + '</button><p class="purchase-error pk-err" role="alert"></p>');
+    const body = document.querySelector('#sheet-body');
+    contentsHtml(pack.id).then(h => { const x = body?.querySelector('#pk-contents'); if (x) { x.innerHTML = h || ''; bindContents(x); } });
+    const btn = body.querySelector('#pk-go');
+    btn.addEventListener('click', async () => { btn.disabled = true; try { await go(body); } catch (err) { body.querySelector('.pk-err').textContent = err.message; btn.disabled = false; } });
+}
+
 /* ---------- market tiles ---------- */
 function tiles(state) {
     const out = [];
-    for (const m of state.mine) out.push('<button type="button" class="ny-lot cm-tile pk-tile" data-pk-open="' + e(m.id) + '"><div class="ny-lot-art"><img src="' + e(m.pack.image) + '" alt=""></div>' +
-        '<div class="ny-lot-name">' + e(m.pack.title) + '</div><div class="ny-lot-id">Ваш пак</div><div class="ny-lot-price">Открыть</div></button>');
     for (const p of state.shop) out.push('<button type="button" class="ny-lot cm-tile pk-tile" data-pk-buy="' + e(p.id) + '"><div class="ny-lot-art"><img src="' + e(p.image) + '" alt=""></div>' +
-        '<div class="ny-lot-name">' + e(p.title) + '</div><div class="ny-lot-id">1–5 карточек</div><div class="ny-lot-price">' + (p.price_balls ? ORN + num(p.price_balls) : 'Бесплатно') + '</div></button>');
+        '<div class="ny-lot-name">Pack ' + e(p.title) + '</div><div class="ny-lot-id">Пак</div><div class="ny-lot-price">' + (p.price_balls ? ORN + num(p.price_balls) : 'Бесплатно') + '</div></button>');
     return out;
 }
 function bind(main, state, refresh) {
-    main.querySelectorAll('[data-pk-open]').forEach(b => b.addEventListener('click', () => open(b.dataset.pkOpen, refresh)));
     main.querySelectorAll('[data-pk-buy]').forEach(b => b.addEventListener('click', () => buySheet(state.shop.find(p => p.id === b.dataset.pkBuy), refresh)));
 }
 function buySheet(p, refresh) {
     if (!p) return;
-    sheet('Карточный пак', '<div class="cm-sheet-head"><span class="cm-pic big"><img src="' + e(p.image) + '" alt=""></span><div><b>' + e(p.title) + '</b><small>От 1 до 5 карточек: GRAM и новогодние подарки</small></div></div>' +
-        '<button type="button" class="ny-action" id="pk-buy">' + (p.price_balls ? 'Купить за ' + num(p.price_balls) + ' шаров' : 'Получить бесплатно') + '</button>' +
-        '<p class="purchase-error pk-err" role="alert"></p>');
-    const body = document.querySelector('#sheet-body'), btn = body.querySelector('#pk-buy');
-    btn.addEventListener('click', async () => {
-        btn.disabled = true;
-        try {
-            const r = await api('packs/buy', {pack_id: p.id, request_id: 'pk-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random().toString(36).slice(2))});
-            if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(r.balance);
-            closeSheet();
-            await open(r.user_pack_id, refresh);
-        } catch (err) { body.querySelector('.pk-err').textContent = err.message; btn.disabled = false; }
+    packSheet(p, p.price_balls ? 'Купить за ' + num(p.price_balls) + ' шаров' : 'Получить бесплатно', async () => {
+        const r = await api('packs/buy', {pack_id: p.id, request_id: 'pk-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random().toString(36).slice(2))});
+        if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(r.balance);
+        closeSheet();
+        await granted(r.user_pack_id, refresh);
     });
 }
+
+/* ---------- a pack reaches the inventory ---------- */
+async function packInfo(upid) {
+    try { return ((await api('packs')).mine || []).find(m => m.id === upid)?.pack || null; } catch (_) { return null; }
+}
+async function granted(upid, refresh) {
+    const pack = await packInfo(upid);
+    sheet('Пак получен', (pack ? '<div class="pk-sheet-head"><img src="' + e(pack.image) + '" alt=""></div>' : '') +
+        '<p class="cm-sheet-note" style="text-align:center">Пак добавлен в ваш инвентарь («Мои подарки»). Его можно открыть, продать на маркете или оставить.</p>' +
+        '<button type="button" class="ny-action" id="pk-now">Открыть сейчас</button><button type="button" class="secondary" id="pk-later" style="width:100%;margin-top:8px">Позже</button>');
+    const body = document.querySelector('#sheet-body');
+    body.querySelector('#pk-later').addEventListener('click', () => { closeSheet(); refresh?.(); });
+    body.querySelector('#pk-now').addEventListener('click', async () => { closeSheet(); await open(upid, refresh); });
+}
+/* Inventory detail for a pack: picture, what is inside, open or keep for the market. */
+function detail(gift, refresh) {
+    const status = gift.status === 'listed' ? 'На продаже' : '';
+    sheet('Pack ' + (gift.model || ''), '<div class="pk-sheet-head"><img src="' + e(gift.image) + '" alt=""></div>' +
+        '<div class="detail-row"><span>Коллекция</span><b>Packs</b></div><div class="detail-row"><span>Модель</span><b>' + e(gift.model || '') + '</b></div>' +
+        '<div class="detail-row"><span>Номер</span><b>#' + e(gift.number) + '</b></div>' +
+        (status ? '<div class="detail-row"><span>Статус</span><b>' + status + '</b></div>' : '') +
+        '<div id="pk-contents"><p class="cm-sheet-note">Загрузка…</p></div>' +
+        (gift.status === 'listed' ? '<p class="cm-sheet-note">Снимите пак с продажи, чтобы открыть его.</p>' : '<button type="button" class="ny-action" id="pk-go">Открыть пак</button><button type="button" class="secondary" id="pk-pick" style="width:100%;margin-top:8px">Выбрать для продажи</button>') +
+        '<p class="purchase-error pk-err" role="alert"></p>');
+    const body = document.querySelector('#sheet-body');
+    contentsHtml(gift.pack_id).then(h => { const x = body?.querySelector('#pk-contents'); if (x) { x.innerHTML = h || ''; bindContents(x); } });
+    body.querySelector('#pk-go')?.addEventListener('click', async () => { closeSheet(); await open(gift.user_pack_id, refresh); });
+    body.querySelector('#pk-pick')?.addEventListener('click', () => { closeSheet(); if (typeof togglePicked === 'function') togglePicked(gift.id); });
+}
+function installDetail() {
+    const before = window.detail;
+    if (typeof before !== 'function' || before.__pk) return;
+    const wrapped = function (id) {
+        const g = (state?.inventory || []).find(x => x.id === id);
+        if (g?.pack_item) return detail(g, () => { if (state?.page === 'gifts' && typeof renderGifts === 'function') { api('inventory').then(r => { state.inventory = r.gifts; renderGifts(); }); } });
+        return before.apply(this, arguments);
+    };
+    wrapped.__pk = true;
+    window.detail = wrapped;
+}
+window.addEventListener('load', () => setTimeout(installDetail, 0));
+setTimeout(installDetail, 1500);
 
 /* ---------- opening animation ---------- */
 function cardMarkup(c, i) {
@@ -222,5 +289,5 @@ async function admin(content) {
     window.crafterPackList = r.packs;
 }
 
-window.crafterPacks = {tiles, bind, open, admin};
+window.crafterPacks = {tiles, bind, open, admin, contentsHtml, bindContents, granted, detail};
 })();

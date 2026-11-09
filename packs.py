@@ -19,7 +19,9 @@ ROOT = Path(__file__).resolve().parent
 SEASONAL = ('candycane', 'cookieheart', 'gingercookie', 'holidaydrink', 'jinglebells', 'partysparkler',
             'santahat', 'sleighbell', 'snowglobe', 'snowmittens', 'spicedwine', 'winterwreath', 'xmasstocking')
 DEFAULT_PACK = 'newyear'
-DEFAULT_IMAGE = '/static/assets/packs/new-year-pack.webp'
+DEFAULT_IMAGE = '/static/assets/packs/default-pack.webp'
+NEW_YEAR_IMAGE = '/static/assets/packs/new-year-pack.webp'
+COLLECTION = ('packs', 'Pack')
 _LIMIT = 10**9
 _rng = secrets.SystemRandom()
 
@@ -27,8 +29,6 @@ _rng = secrets.SystemRandom()
 def singular(name):
     if name.endswith(('Bells', 'Mittens')):
         return name
-    if name.endswith('ies'):
-        return name[:-3] + 'y'
     return name[:-1] if name.endswith('s') else name
 
 
@@ -91,7 +91,7 @@ def install_packs(app, db, auth, record, audit):
                 and not db().execute("SELECT 1 FROM packs LIMIT 1").fetchone():
             now = int(time.time())
             db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
-                         (DEFAULT_PACK, 'Новогодний пак', DEFAULT_IMAGE,
+                         (DEFAULT_PACK, 'New Year', NEW_YEAR_IMAGE,
                           json.dumps({'1': 30, '2': 30, '3': 20, '4': 12, '5': 8}), 0, 0, 1, now))
             rows = [('GRAM', a, '', 'GRAM', '', a, w) for a, w in
                     (('0.2', 300), ('0.5', 200), ('1', 120), ('2', 60), ('2.5', 40), ('3', 30), ('5', 10))]
@@ -128,6 +128,12 @@ def install_packs(app, db, auth, record, audit):
         upid = uuid.uuid4().hex
         db().execute("INSERT INTO user_packs(id,user_id,pack_id,source,request_id,created) VALUES(?,?,?,?,?,?)",
                      (upid, uid, pack_id, source, request_id, int(time.time())))
+        gift = {'id': 'packitem-' + upid, 'name': COLLECTION[1], 'number': _rng.randint(1000, 999999), 'model': pack['title'],
+                'symbol': '', 'backdrop': '', 'image': pack['image_url'], 'price': '0', 'price_unit': 'GRAM',
+                'collection_id': COLLECTION[0], 'collection_name': COLLECTION[1], 'origin': 'pack', 'pack_item': True,
+                'pack_id': pack_id, 'user_pack_id': upid}
+        db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)",
+                     (uid, gift['id'], json.dumps(gift, ensure_ascii=False), 'unlisted'))
         return upid
 
     app.extensions['crafter_grant_pack'] = grant
@@ -158,10 +164,28 @@ def install_packs(app, db, auth, record, audit):
         uid = g.user['id']
         mine = db().execute(
             "SELECT u.id,u.source,p.id AS pid,p.title,p.image_url FROM user_packs u JOIN packs p ON p.id=u.pack_id "
-            "WHERE u.user_id=? AND u.opened_at IS NULL ORDER BY u.created", (uid,)).fetchall()
+            "JOIN inventory i ON i.nft_id='packitem-'||u.id "
+            "WHERE i.user_id=? AND u.opened_at IS NULL ORDER BY u.created", (uid,)).fetchall()
         shop = db().execute("SELECT * FROM packs WHERE for_sale=1 AND enabled=1 ORDER BY created").fetchall()
         return {'mine': [{'id': r['id'], 'source': r['source'], 'pack': {'id': r['pid'], 'title': r['title'], 'image': r['image_url']}} for r in mine],
                 'shop': [{**short(p), 'price_balls': int(p['price_balls'])} for p in shop]}
+
+    @app.get('/api/packs/<pid>/contents')
+    @auth()
+    def packs_contents(pid):
+        pack = pack_row(pid)
+        if not pack or not pack['enabled']:
+            abort(404, description='Пак не найден')
+        prizes = prizes_of(pid)
+        total = sum(float(p['weight']) for p in prizes) or 1.0
+        cards = {int(k): float(v) for k, v in json.loads(pack['card_weights']).items() if float(v) > 0}
+        ctotal = sum(cards.values()) or 1.0
+        items = [{'kind': p['kind'], 'amount': p['amount'], 'name': p['name'], 'image': p['image'], 'value': p['value'],
+                  'chance': round(float(p['weight']) / total * 100, 2)} for p in prizes if float(p['weight']) > 0]
+        items.sort(key=lambda x: (x['kind'] != 'GRAM', Decimal(x['amount'] or '0') if x['kind'] == 'GRAM' else -Decimal(x['value'] or '0')))
+        values = [Decimal(x['amount'] if x['kind'] == 'GRAM' else x['value'] or '0') for x in items] or [Decimal('0')]
+        return {'pack': short(pack), 'prizes': items, 'min': plain(min(values)), 'max': plain(max(values)),
+                'cards': [{'count': k, 'chance': round(v / ctotal * 100, 2)} for k, v in sorted(cards.items())]}
 
     @app.post('/api/packs/buy')
     @auth()
@@ -201,11 +225,19 @@ def install_packs(app, db, auth, record, audit):
         uid = g.user['id']
         with db():
             db().execute('BEGIN IMMEDIATE')
-            row = db().execute("SELECT * FROM user_packs WHERE id=? AND user_id=?", (upid, uid)).fetchone()
+            row = db().execute("SELECT * FROM user_packs WHERE id=?", (upid,)).fetchone()
             if not row:
                 abort(404, description='Пак не найден')
             if row['opened_at']:
+                if int(row['user_id']) != uid:
+                    abort(404, description='Пак не найден')
                 return {**json.loads(row['result']), 'repeat': True}
+            item = db().execute("SELECT status FROM inventory WHERE user_id=? AND nft_id=?", (uid, 'packitem-' + upid)).fetchone()
+            if not item:
+                abort(404, description='Пак не найден')
+            if item['status'] != 'unlisted':
+                abort(409, description='Сначала снимите пак с продажи')
+            db().execute("DELETE FROM inventory WHERE user_id=? AND nft_id=?", (uid, 'packitem-' + upid))
             pack = pack_row(row['pack_id'])
             prizes = prizes_of(row['pack_id'])
             if not pack or not prizes:
@@ -232,7 +264,7 @@ def install_packs(app, db, auth, record, audit):
                     cards.append({'kind': 'NFT', 'nft_id': gift['id'], 'title': prize['name'], 'image': prize['image'], 'value': prize['value']})
             after = credit(uid, total) if total else credit(uid, Decimal('0'))
             result = {'ok': True, 'pack': short(pack), 'cards': cards, 'balance': str(after), 'credited': plain(total) if total else '0'}
-            db().execute("UPDATE user_packs SET opened_at=?,result=? WHERE id=?", (int(time.time()), json.dumps(result, ensure_ascii=False), upid))
+            db().execute("UPDATE user_packs SET opened_at=?,result=?,user_id=? WHERE id=?", (int(time.time()), json.dumps(result, ensure_ascii=False), uid, upid))
             record('pack_open', {'pack': pack['id'], 'cards': cards, 'credited': result['credited']}, uid=uid)
         return result
 

@@ -894,7 +894,7 @@ def create_app(config=None):
                 source_id = gift.get('id')
                 key = market_collectible_key(gift)
                 if (not source_id or source_id in sold or not key or key in sold or
-                        gift.get('catalog_only') or canonical_name(gift.get('name', '')) != collection_name or
+                        gift.get('catalog_only') or gift.get('pack_item') or canonical_name(gift.get('name', '')) != collection_name or
                         int(gift['number']) in reserved or gift.get('price_unit', 'GRAM') not in ('GRAM', 'TON')):
                     continue
                 try:
@@ -1082,7 +1082,7 @@ def create_app(config=None):
             if any(gift_id not in inventory or inventory[gift_id]['status'] != 'unlisted' for gift_id in ids):
                 abort(409, description='Один из подарков недоступен для отправки')
             gifts = [inventory[gift_id] for gift_id in ids]
-            if any(gift.get('test_only') or gift.get('catalog_only') for gift in gifts):
+            if any(gift.get('test_only') or gift.get('catalog_only') or gift.get('pack_item') for gift in gifts):
                 abort(409,description='Тестовые подарки нельзя отправлять')
             conflict = db().execute(
                 'SELECT 1 FROM inventory WHERE user_id=? AND nft_id IN (' + ','.join('?' for _ in ids) + ') LIMIT 1',
@@ -1376,6 +1376,8 @@ def create_app(config=None):
     install_packs(app,db,auth,record,audit)
     from promocodes import install_promocodes
     install_promocodes(app,db,auth,record,audit)
+    from shop_items import install_shop_items
+    install_shop_items(app,db,auth,record,audit)
     from community_events import install_community_events
     install_community_events(app,db,auth,record,audit)
     from market_test import install_market_test

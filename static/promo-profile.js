@@ -28,6 +28,13 @@ async function submitPromo(form){
     button.disabled=true;
     try{
         const result=await api('promocodes/redeem',{code});
+        if(result.pack_id){
+            feedback(form,true,'Пак получен — открываем!');
+            form.reset();
+            if(typeof closeSheet==='function')closeSheet();
+            if(window.crafterPacks)window.crafterPacks.granted(result.pack_id);
+            return;
+        }
         const balls=result.currency==='BALL';
         feedback(form,true,'Получено: '+liveAmount(result.reward)+(balls?' шаров':' GRAM'));
         if(state.me){state.me.balance=result.balance;updateBalance();}

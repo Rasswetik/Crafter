@@ -90,7 +90,7 @@ function cardArt(data) {
         '<linearGradient id="cc-fill" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#1366d6"/><stop offset=".6" stop-color="#3ea8ff"/><stop offset="1" stop-color="#bfe8ff"/></linearGradient>' +
         '<pattern id="cc-str" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="12" fill="#fff" opacity=".18"/></pattern>' +
         '<linearGradient id="cc-glass" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset=".35" stop-color="#fff" stop-opacity=".04"/><stop offset=".85" stop-color="#fff" stop-opacity=".02"/><stop offset="1" stop-color="#fff" stop-opacity=".16"/></linearGradient></defs>' +
-        '<rect width="400" height="170" fill="url(#cc-sky)"/>' +
+        '<rect width="400" height="170" fill="url(#cc-sky)"/>' + stars +
         '<rect x="' + X + '" y="' + Y + '" width="' + W + '" height="' + H + '" rx="20" fill="#0f1830" stroke="rgba(190,225,255,.6)" stroke-width="1.6"/>' +
         '<rect x="' + (X + 4) + '" y="' + (Y + H - 4 - fillH).toFixed(1) + '" width="' + (W - 8) + '" height="' + fillH.toFixed(1) + '" rx="16" fill="url(#cc-fill)"/>' +
         '<rect x="' + (X + 4) + '" y="' + (Y + H - 4 - fillH).toFixed(1) + '" width="' + (W - 8) + '" height="' + fillH.toFixed(1) + '" rx="16" fill="url(#cc-str)"/>' +
@@ -204,6 +204,7 @@ function bindCode(body, code) {
         btn.disabled = true;
         try {
             const r = await api('promocodes/redeem', {code});
+            if (r.pack_id) { closeSheet(); window.crafterPacks?.granted(r.pack_id); return; }
             out.textContent = 'Получено: ' + num(r.reward) + (r.currency === 'BALL' ? ' шаров' : ' GRAM');
             out.classList.add('ok');
             if (state.me && r.balance !== undefined) { state.me.balance = r.balance; if (typeof updateBalance === 'function') updateBalance(); }
@@ -228,7 +229,7 @@ function claimSheet(m, refresh) {
         try {
             const r = await api('community/claim', {milestone_id: m.id, request_id: rid});
             if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(r.balance);
-            if (r.pack_id) { m.code = 'PACK:' + r.pack_id; closeSheet(); await window.crafterPacks?.open(r.pack_id, refresh); return; }
+            if (r.pack_id) { m.code = 'PACK:' + r.pack_id; closeSheet(); await window.crafterPacks?.granted(r.pack_id, refresh); return; }
             m.code = r.code;
             body.innerHTML = head + codeBlock(r.code);
             bindCode(body, r.code);
@@ -305,5 +306,5 @@ async function admin(content) {
         run(() => api('admin/new-year/community/milestones/' + b.dataset.cmDel + '/delete', {}), 'Награда удалена')));
 }
 
-window.crafterCommunity = {card, page, tiles, bindShop, checkCeremony, marketArt, admin};
+window.crafterCommunity = {card, page, tiles, bindShop, checkCeremony, marketArt, admin, codeBlock, bindCode};
 })();
