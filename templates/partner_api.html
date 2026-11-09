@@ -6,39 +6,29 @@
 <meta name="theme-color" content="#101114">
 <title>Crafter Partner API v1</title>
 <meta name="description" content="Партнёрское API Crafter: баланс, каталог, лоты, покупка, продажа и передача подарков по одному серверному ключу.">
-<link rel="stylesheet" href="/static/partner-api.css?v=3">
+<link rel="stylesheet" href="/static/partner-api.css?v=4">
 </head>
 <body>
-<header class="top">
-  <b>Crafter</b><span class="tag">Partner API v1</span>
-  <nav><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#read">Чтение</a><a href="#write">Операции</a><a href="#errors">Ошибки</a><a href="/partner-api.openapi.json">OpenAPI</a></nav>
+<div class="page">
+<header class="head">
+  <a class="logo" href="{{ site }}">CRAFTER</a>
+  <div class="meta"><small>Developers / API v1</small><a href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a></div>
 </header>
 
-<div class="wrap">
-<aside class="toc">
-  <small>Начало</small><a href="#about">Что это</a><a href="#start">Как подключиться</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a>
-  <small>Чтение</small><a href="#read">Обзор</a><a href="#account">/account</a><a href="#collections">/collections</a><a href="#models">/models</a><a href="#lots">/lots</a><a href="#inventory">/inventory</a><a href="#gifts">/gifts</a><a href="#operations">/operations</a>
-  <small>Операции</small><a href="#write">Обзор</a><a href="#buy">/buy</a><a href="#sell">/sell и /unlist</a><a href="#transfer">/transfer</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a>
-  <small>Эксплуатация</small><a href="#errors">Ошибки и статусы</a><a href="#limits">Лимиты</a><a href="#modes">Тест и рабочий режим</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a>
-</aside>
-
 <main>
-<div class="hero">
-  <small>Для разработчиков</small>
-  <h1>Ваш проект. Подарки в Crafter.</h1>
-  <p>Один серверный ключ открывает всё нужное: каталог и модели, лоты Crafter и подключённого маркета в одном списке, покупку, продажу и передачу подарков. Баланс и подарки лежат на вашем аккаунте Crafter, ключ работает только с ним.</p>
-  <div class="go"><a class="btn" href="#start">Получить ключ</a><a class="btn ghost" href="/partner-api.openapi.json">Скачать OpenAPI JSON</a></div>
-</div>
-
+<h1>Ваш проект.<br>Подарки в Crafter.</h1>
+<p class="lead">Один серверный ключ: каталог и модели, лоты игроков и подключённого маркета, покупка, продажа и передача подарков. Баланс и подарки лежат на вашем аккаунте Crafter.</p>
+<div class="note"><b>Паки в API не участвуют.</b> Карточные паки — внутренняя механика Crafter. Подарки, выпавшие из паков и ставшие обычными подарками аккаунта, API видит как все остальные.</div>
+<div class="flow"><span>Ключ из бота /api</span><i>→</i><span>Читать лоты и баланс</span><i>→</i><span>Купить / продать / передать</span></div>
+<nav class="jump"><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#read">Чтение</a><a href="#write">Операции</a><a href="#idem">Idempotency-Key</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#security">Безопасность</a></nav>
 <section id="about">
   <h2><span>01</span>Что даёт API</h2>
   <div class="grid">
-    <div class="card"><b>🔎 Каталог</b><p>Коллекции, модели с картинками, фоны, узоры и минимальные цены.</p></div>
-    <div class="card"><b>🛒 Единый маркет</b><p>Лоты игроков Crafter и подключённого маркета (Portals, Thermos) в одном ответе, отсортированные по цене.</p></div>
-    <div class="card"><b>💰 Баланс аккаунта</b><p>Читайте баланс и тратьте его на покупки — так же, как в самом приложении.</p></div>
-    <div class="card"><b>🎁 Свои подарки</b><p>Смотрите инвентарь, выставляйте на продажу, снимайте с продажи и передавайте другим игрокам.</p></div>
+    <div class="card"><b>Каталог</b><p>Коллекции, модели с картинками, фоны, узоры и минимальные цены.</p></div>
+    <div class="card"><b>Единый маркет</b><p>Лоты игроков Crafter и подключённого маркета (Portals, Thermos) в одном ответе, отсортированные по цене.</p></div>
+    <div class="card"><b>Баланс аккаунта</b><p>Читайте баланс и тратьте его на покупки — так же, как в самом приложении.</p></div>
+    <div class="card"><b>Свои подарки</b><p>Смотрите инвентарь, выставляйте на продажу, снимайте с продажи и передавайте другим игрокам.</p></div>
   </div>
-  <div class="note"><b>Карточные паки в API не участвуют.</b> Паки — внутренняя механика Crafter: их нет ни в инвентаре API, ни в лотах, ни в продаже. Подарки, выпавшие из паков и ставшие обычными подарками аккаунта, API видит как все остальные.</div>
   <div class="note"><b>Куда идти.</b> Базовый адрес: <code>{{ base }}</code>. Ответы всегда в JSON, кодировка UTF-8, время в секундах Unix (UTC).</div>
 </section>
 
