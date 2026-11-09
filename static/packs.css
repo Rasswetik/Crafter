@@ -176,3 +176,6 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 .pk-face.is-nft .pk-sell{width:92%;justify-content:center;gap:4px;padding:calc(var(--cwk)*.05) 2px;font-size:calc(var(--cwk)*.092);white-space:nowrap}
 .pk-face.is-nft .pk-sell .pk-gram{width:calc(var(--cwk)*.11);height:calc(var(--cwk)*.11);flex:none}
 .pk-counter{position:absolute;top:18px;left:0;right:0;text-align:center;font-size:14px;font-weight:700;letter-spacing:.08em;color:#cfe0f5;z-index:5}
+
+/* A pack in the gift window sits inside the frame, above the title, instead of filling it */
+#sheet.purchase-sheet .portal-product.pack-product > img{box-sizing:border-box;padding:22px 26px 70px}

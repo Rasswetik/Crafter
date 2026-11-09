@@ -21,7 +21,7 @@ MIN_BPS, MAX_BPS = 100, 9499      # 1% .. 94.99%; the 5% house edge is built int
 EDGE_BPS = 9500
 QUOTE_TTL = 120
 TARGET_LIMIT = 60
-GRAM_MIN, GRAM_MAX = Decimal('0.5'), Decimal('100000')
+GRAM_MIN, GRAM_MAX = Decimal('0.1'), Decimal('100000')
 
 
 def chance_bps(stake, target):
@@ -106,7 +106,7 @@ def install_upgrade(app, db, auth, record, ctx):
         except (InvalidOperation, ValueError):
             abort(400, description='Неверная сумма ставки')
         if not amount.is_finite() or not GRAM_MIN <= amount <= GRAM_MAX:
-            abort(400, description='Ставка в GRAM: от 0.5')
+            abort(400, description='Ставка в GRAM: от 0.1')
         if balance_of(g.user['id']) < amount:
             abort(409, description='Недостаточно GRAM на балансе')
         gift = {'id': 'gram:' + format(amount, 'f'), 'name': 'GRAM', 'number': '', 'model': '', 'status': 'unlisted',

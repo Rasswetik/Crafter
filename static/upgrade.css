@@ -122,3 +122,9 @@
 .upg-gram-note{margin:0;font-size:12.5px;line-height:1.45;color:#8fa0ba}.upg-gram-note.is-err{color:#ff8792}
 .upg-gram-go{height:52px;border-radius:26px;font-size:16px;font-weight:700;color:#fff;background:linear-gradient(180deg,#4aa6ff,#1b7cf0);border:0;cursor:pointer}
 .upg-gram-go:disabled{opacity:.45;cursor:default}
+
+/* GRAM stake, simplified: balance, one big field, one button */
+.upg-gram-field{position:relative;display:block}
+.upg-gram-field img{position:absolute;left:18px;top:50%;width:26px;height:26px;transform:translateY(-50%);pointer-events:none}
+.upg-gram-field input{height:64px;padding:0 18px 0 56px;font-size:28px;text-align:left}
+.upg-gram-field input.is-err{outline:2px solid #ff6b7a}

@@ -152,20 +152,16 @@ async function openStakeSheet() {
     try {
         const info = await api('upgrade/stakes');
         ui.gifts = info.gifts;
-        const balance = Number(info.balance || 0), min = Number(info.gram_min || 0.5);
+        const balance = Number(info.balance || 0), min = Number(info.gram_min || 0.1);
         const body = el.querySelector('.upg-sheet-body');
         const giftsHTML = ui.gifts.length ? `<div class="upg-grid">${ui.gifts.map((g, i) => `<button type="button" class="upg-card" data-i="${i}">
             ${giftArt(g)}<strong>${h(g.name)}</strong><small>#${h(g.number || '')} · ${fmt(g.upgrade_value)} GRAM</small></button>`).join('')}</div>` :
             '<p class="upg-empty">Нет подарков, подходящих для апгрейда.</p>';
         const max = Math.floor(balance * 100) / 100;
-        const presets = [1, 5, 10, 25, 50].filter(v => v >= min && v <= max);
         const gramHTML = `<div class="upg-gram">
-            <div class="upg-gram-balance"><img src="/static/assets/gram.svg" alt=""><span>Ваш баланс</span><b>${fmt(balance)} GRAM</b></div>
-            <label class="upg-gram-field"><span>Сумма ставки</span><input id="upg-gram-amount" inputmode="decimal" autocomplete="off" placeholder="${min}" value="${max >= min ? Math.min(max, Math.max(min, 5)) : ''}"></label>
-            <div class="upg-gram-chips">${presets.map(v => `<button type="button" data-v="${v}">${v}</button>`).join('')}${max >= min ? `<button type="button" data-v="${max}">Всё</button>` : ''}</div>
-            ${max >= min ? `<input id="upg-gram-range" class="upg-gram-range" type="range" min="${min}" max="${max}" step="0.01" value="${Math.min(max, 5)}">` : ''}
-            <p class="upg-gram-note" id="upg-gram-note">${max >= min ? 'Минимум ' + min + ' GRAM. Чем больше ставка, тем выше шанс на выбранный подарок.' : 'Недостаточно GRAM: нужно минимум ' + min + '.'}</p>
-            <button type="button" class="upg-gram-go" id="upg-gram-go" ${max >= min ? '' : 'disabled'}>Поставить GRAM</button></div>`;
+            <div class="upg-gram-balance"><img src="/static/assets/gram.svg" alt=""><span>Баланс</span><b>${fmt(balance)} GRAM</b></div>
+            <label class="upg-gram-field"><img src="/static/assets/gram.svg" alt=""><input id="upg-gram-amount" inputmode="decimal" autocomplete="off" placeholder="0.1" value=""></label>
+            <button type="button" class="upg-gram-go" id="upg-gram-go" disabled>Поставить</button></div>`;
         body.innerHTML = `<div class="upg-seg"><button type="button" class="is-on" data-tab="gifts">Подарки</button><button type="button" data-tab="gram">GRAM</button></div>
             <div id="upg-tab-gifts">${giftsHTML}</div><div id="upg-tab-gram" hidden>${gramHTML}</div>`;
         body.querySelectorAll('.upg-seg button').forEach(b => b.addEventListener('click', () => {
@@ -173,13 +169,10 @@ async function openStakeSheet() {
             body.querySelector('#upg-tab-gifts').hidden = b.dataset.tab !== 'gifts';
             body.querySelector('#upg-tab-gram').hidden = b.dataset.tab !== 'gram';
         }));
-        const input = body.querySelector('#upg-gram-amount'), range = body.querySelector('#upg-gram-range'), note = body.querySelector('#upg-gram-note');
-        const clamp = v => Math.min(max, Math.max(min, Math.round(v * 100) / 100));
+        const input = body.querySelector('#upg-gram-amount');
         const valid = () => { const v = Number(String(input.value).replace(',', '.')); return Number.isFinite(v) && v >= min && v <= max ? Math.round(v * 100) / 100 : null; };
-        const sync = () => { const v = valid(); body.querySelector('#upg-gram-go').disabled = v === null; note.classList.toggle('is-err', v === null && input.value !== ''); if (v !== null && range) range.value = v; };
+        const sync = () => { body.querySelector('#upg-gram-go').disabled = valid() === null; input.classList.toggle('is-err', input.value !== '' && valid() === null); };
         input?.addEventListener('input', sync);
-        range?.addEventListener('input', () => { input.value = range.value; sync(); });
-        body.querySelectorAll('.upg-gram-chips button').forEach(b => b.addEventListener('click', () => { input.value = clamp(Number(b.dataset.v)); sync(); }));
         body.querySelector('#upg-gram-go')?.addEventListener('click', () => {
             const v = valid(); if (v === null) return;
             const id = 'gram:' + v.toFixed(2);

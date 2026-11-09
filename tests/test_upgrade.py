@@ -137,9 +137,9 @@ def test_gram_stake_wins_and_loses_from_balance(client, setup, monkeypatch):
             db.execute("UPDATE inventory SET payload=? WHERE user_id=42 AND nft_id=?", (json.dumps(gift), nft_id))
     set_balance(client, 43, '20')
     stakes = client.get('/api/upgrade/stakes', headers=signed(43)).json
-    assert stakes['balance'] == '20' and stakes['gram_min'] == '0.5'
+    assert stakes['balance'] == '20' and stakes['gram_min'] == '0.1'
     get_targets = lambda sid: client.get('/api/upgrade/targets?stake_id=%s&collection_id=snoop' % sid, headers=signed(43))
-    assert get_targets('gram:0.1').status_code == 400                 # below the minimum
+    assert get_targets('gram:0.05').status_code == 400                 # below the minimum
     assert get_targets('gram:500').status_code == 409                 # more than the balance
     gift, = get_targets('gram:3').json['gifts']
     assert gift['chance'] == 28.5                                     # same formula as a 3 GRAM gift

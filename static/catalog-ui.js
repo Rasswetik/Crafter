@@ -438,7 +438,7 @@ function showGiftDetail(gift, source) {
     state.detailGift = gift;
     const attributes = gift.pack_item ? [['model', 'Модель', gift.model]] : [['model', 'Модель', gift.model], ['symbol', 'Узор', gift.symbol], ['backdrop', 'Фон', gift.backdrop]];
     sheet('', `
-        <div class="portal-product${own ? ' owned-gift-product' : ''}">
+        <div class="portal-product${own ? ' owned-gift-product' : ''}${gift.pack_item ? ' pack-product' : ''}">
             ${giftPattern(gift)}<img ${giftPicture(gift)} alt="${esc(gift.name)}" decoding="async">
             <div class="gift-detail-tools" role="group" aria-label="Действия с подарком">
                 ${own && gift.status === 'unlisted' && !gift.test_only && !gift.catalog_only && !gift.pack_item ? `<button type="button" class="gift-detail-tool gift-send-tool"
