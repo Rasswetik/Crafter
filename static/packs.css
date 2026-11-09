@@ -153,3 +153,21 @@
 .pk-inside .adm-pick-win{width:min(560px,100%)}
 .pk-inside-body{display:block}
 .pk-inside .adm-pick-head b{display:flex;align-items:center;gap:8px}
+
+/* "What is inside?" window: same size and place as the upgrade stake window */
+dialog.pk-win{position:fixed;inset:0;margin:0;padding:0;width:100%;height:100%;max-width:none;max-height:none;border:0;background:transparent;color:#eef4ff;display:flex;align-items:flex-end;justify-content:center;opacity:0;transition:opacity .25s}
+dialog.pk-win:not([open]){display:none}
+dialog.pk-win.is-open{opacity:1}
+dialog.pk-win::backdrop{background:rgba(5,8,16,.62);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.pk-win-card{width:100%;max-width:520px;max-height:82dvh;display:flex;flex-direction:column;border-radius:30px 30px 0 0;padding:18px 16px 24px;box-sizing:border-box;
+  background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02)),rgba(24,25,29,.94);border:1px solid rgba(255,255,255,.14);
+  box-shadow:0 -20px 70px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.3);transform:translateY(40px);transition:transform .35s cubic-bezier(.2,.9,.3,1.1)}
+dialog.pk-win.is-open .pk-win-card{transform:none}
+@media(min-width:650px){dialog.pk-win{align-items:center}.pk-win-card{border-radius:30px}}
+.pk-win-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.pk-win-head h2{margin:0;display:flex;align-items:center;gap:8px;font-size:20px;color:#fff}
+.pk-win-x{width:34px;height:34px;border-radius:50%;font-size:24px;line-height:1;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);color:#cfe0f7;cursor:pointer}
+.pk-win-body{overflow:auto;-webkit-overflow-scrolling:touch}
+.pk-win-body .pk-info{margin:0}
+.pk-win-body .pk-prizes2{grid-template-columns:repeat(2,1fr)}
+@media(min-width:650px){.pk-win-body .pk-prizes2{grid-template-columns:repeat(3,1fr)}}

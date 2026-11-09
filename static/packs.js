@@ -29,12 +29,19 @@ async function contentsHtml(pid) {
 async function openInside(pid) {
     let html = '';
     try { html = await contentsGrid(pid); } catch (err) { toast(err.message); return; }
-    const box = document.createElement('div');
-    box.className = 'adm-pick pk-inside';
-    box.innerHTML = '<div class="adm-pick-win" role="dialog" aria-label="Что внутри"><div class="adm-pick-head"><b>' + CUBE + ' Что внутри?</b><button type="button" class="adm-pick-x" aria-label="Закрыть">×</button></div>' +
-        '<div class="adm-pick-grid pk-inside-body">' + html + '</div></div>';
-    (document.querySelector('dialog[open]') || document.body).appendChild(box);   // a modal sheet sits in the top layer, so open inside it
-    box.addEventListener('click', ev => { ev.stopPropagation(); if (ev.target === box || ev.target.closest('.adm-pick-x')) box.remove(); });
+    document.querySelectorAll('dialog.pk-win').forEach(d => d.remove());
+    // Same window as "choose a stake" in upgrades: a card at the bottom on phones, centred on desktop.
+    // It is its own modal dialog, so it sits above the gift sheet and is removed completely on close.
+    const win = document.createElement('dialog');
+    win.className = 'pk-win';
+    win.innerHTML = '<div class="pk-win-card" role="document"><div class="pk-win-head"><h2>' + CUBE + ' Что внутри?</h2><button type="button" class="pk-win-x" aria-label="Закрыть">×</button></div>' +
+        '<div class="pk-win-body">' + html + '</div></div>';
+    const close = () => { win.classList.remove('is-open'); setTimeout(() => { try { win.close(); } catch (_) {} win.remove(); }, 200); };
+    win.addEventListener('click', ev => { if (ev.target === win || ev.target.closest('.pk-win-x')) close(); });
+    win.addEventListener('cancel', ev => { ev.preventDefault(); close(); });
+    document.body.appendChild(win);
+    win.showModal();
+    requestAnimationFrame(() => win.classList.add('is-open'));
 }
 window.openPackContents = function (id) {
     const g = (state?.inventory || []).find(x => x.id === id);
