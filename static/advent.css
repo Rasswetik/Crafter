@@ -90,3 +90,7 @@
 .adv-mini.is-locked{opacity:.55;filter:saturate(.5)}
 @media(max-width:520px){.adv-minis{right:3%}.adv-mini{width:42px}}
 @media(prefers-reduced-motion:reduce){.adv-mini.is-opened .adv-mini-in{animation:none;transform:rotateY(180deg)}.adv-mini.is-ready .adv-mini-in{animation:none}}
+/* the four little cells are all the same size and on one line */
+.adv-minis{align-items:center}
+.adv-mini{flex:none;height:auto}
+.adv-mini:nth-child(odd),.adv-mini:nth-child(even){margin-top:0}
