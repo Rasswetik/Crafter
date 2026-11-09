@@ -4,12 +4,11 @@
 .new-year-page .nyp-aurora,.new-year-page .nyp-stars,.new-year-page .nyp-snow,.new-year-page .nyp-icicles,.new-year-page .nyp-crystal,.new-year-page .nyp-bauble{pointer-events:none}
 
 /* ---- Hero ---- */
-.new-year-page .ny-hero{position:relative;isolation:isolate;min-height:210px;padding:62px 24px 26px;border:1.5px solid transparent;border-radius:30px;
-  background:linear-gradient(#0d1530,#0b1226) padding-box,conic-gradient(from var(--nyp-angle),#6cc3ff,#ffd36b,#ff7ab8,#9b7bff,#6cc3ff) border-box;
-  box-shadow:0 18px 50px rgba(10,20,50,.55),inset 0 1px 0 rgba(255,255,255,.12);animation:nyp-border 9s linear infinite}
+.new-year-page .ny-hero{position:relative;isolation:isolate;padding:26px 24px;border:1px solid rgba(140,190,255,.28);border-radius:28px;
+  background:linear-gradient(#0f1836,#0b1226);box-shadow:0 14px 36px rgba(10,20,50,.45),inset 0 1px 0 rgba(255,255,255,.1)}
 @keyframes nyp-border{to{--nyp-angle:360deg}}
 .new-year-page .ny-hero::after{content:none}
-.nyp-aurora{position:absolute;inset:-30%;z-index:-3;filter:blur(34px);opacity:.9;
+.nyp-aurora{position:absolute;inset:-30%;z-index:-3;filter:blur(34px);opacity:.55;
   background:radial-gradient(40% 36% at 18% 22%,rgba(70,170,255,.55),transparent 70%),radial-gradient(36% 40% at 82% 28%,rgba(170,90,255,.45),transparent 70%),
              radial-gradient(44% 34% at 56% 92%,rgba(255,190,90,.34),transparent 70%);animation:nyp-aurora 14s ease-in-out infinite alternate}
 @keyframes nyp-aurora{from{transform:translate3d(-4%,-2%,0) rotate(-3deg)}to{transform:translate3d(5%,3%,0) rotate(4deg)}}

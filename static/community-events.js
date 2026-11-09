@@ -98,55 +98,72 @@ function card(data) {
         '<span class="nyh-copy"><small>События сообщества</small><strong>' + e(ev.title) + '</strong>' +
         '<span class="nyh-mini"><span class="nyh-mini-bar"><i style="width:' + p.toFixed(1) + '%"></i></span>' +
         '<em>' + num(data.progress) + ' / ' + num(ev.target) + ' ' + (NOUN[ev.metric] || '') + '</em></span></span>' +
-        '<span class="nyh-meta"><b>' + reached + '/' + data.milestones.length + '</b> наград<i aria-hidden="true">›</i></span></button>';
+        (unseen(data) ? '<span class="nyh-meta is-new">Цель достигнута!<i aria-hidden="true">›</i></span>' : '<span class="nyh-meta"><b>' + reached + '/' + data.milestones.length + '</b> наград<i aria-hidden="true">›</i></span>') + '</button>';
 }
 
 /* ---------- goal page ---------- */
-function bar(data, opts = {}) {
-    const ev = data.event, H = opts.height || 440;
-    const fill = pct(opts.value ?? data.progress, ev.target);
+const seenKey = () => 'crafter-cm-seen-' + uid();
+function seen() { try { return JSON.parse(localStorage.getItem(seenKey()) || '[]'); } catch (_) { return []; } }
+function remember(id) { try { const s = seen(); if (!s.includes(id)) { s.push(id); localStorage.setItem(seenKey(), JSON.stringify(s)); } } catch (_) {} }
+const unseen = data => data?.event?.enabled ? data.milestones.find(m => m.reached && !seen().includes(m.id)) : null;
+function bar(ev, value, H) {
     return '<div class="cm-tube" style="height:' + H + 'px"><div class="cm-glass"></div>' +
-        '<div class="cm-fill" style="--to:' + fill.toFixed(2) + '%;height:' + (opts.instant ? fill.toFixed(2) + '%' : '0%') + '">' +
-        Array.from({length: 9}, (_, i) => '<u style="--x:' + ((i * 37 + 11) % 86 + 6) + '%;--d:' + (-(i * 1.3) % 6) + 's;--s:' + (3 + i % 4) + 'px"></u>').join('') +
+        '<div class="cm-fill" style="height:' + pct(value, ev.target).toFixed(2) + '%">' +
+        Array.from({length: 8}, (_, i) => '<u style="--x:' + ((i * 37 + 11) % 80 + 8) + '%;--d:' + (-(i * 1.3) % 6) + 's;--s:' + (3 + i % 4) + 'px"></u>').join('') +
         '</div><i class="cm-cap"></i></div>';
 }
-function page(main, data, nav) {
-    const ev = data.event, H = Math.max(440, data.milestones.length * 104 + 60), tubeH = H;
-    const ms = data.milestones;
-    const pos = ms.map(m => ({m, ty: tubeH * (1 - Math.min(1, m.threshold / ev.target))}));
+function page(main, data, nav, opts = {}) {
+    const ev = data.event, ms = data.milestones, fresh = opts.plain ? null : unseen(data);
+    const H = Math.max(400, ms.length * 74 + 40);
+    const from = fresh ? Math.max(0, ...ms.filter(m => m.reached && m.id !== fresh.id && seen().includes(m.id)).map(m => m.threshold)) : data.progress;
+    const pos = ms.map(m => ({m, ty: H * (1 - Math.min(1, m.threshold / ev.target))})).sort((x, y) => x.ty - y.ty);
     let last = -999;
-    pos.forEach(p => { p.cy = Math.max(p.ty - 44, last + 98, 0); p.cy = Math.min(p.cy, H - 90); last = p.cy; });
-    for (let i = pos.length - 2; i >= 0; i--) pos[i].cy = Math.min(pos[i].cy, pos[i + 1].cy - 98);
+    pos.forEach(p => { p.cy = Math.max(p.ty, last + 68, 32); last = p.cy; });
+    for (let i = pos.length - 1, lim = H - 32; i >= 0; i--) { pos[i].cy = Math.min(pos[i].cy, lim); lim = pos[i].cy - 68; }
     const p = pct(data.progress, ev.target);
+    const on = x => x.m.reached && !(fresh && x.m.id === fresh.id) ? 'is-on' : '';
     main.innerHTML = '<div class="new-year-page cm-page">' +
         '<button type="button" class="nyh-back" data-cm-back>‹ События</button>' +
-        '<section class="cm-hero"><div class="cm-snow" aria-hidden="true">' + Array.from({length: 16}, (_, i) =>
-            '<i style="--x:' + ((i * 53 + 9) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (6 + i % 7) + 's;--d:' + (-(i * 2) % 9) + 's"></i>').join('') + '</div>' +
-        '<small>' + e(ev.title) + '</small><h1>Это цель</h1>' +
-        '<div class="cm-goal"><b>' + num(ev.target) + '</b><span>' + (NOUN[ev.metric] || '') + '</span></div>' +
+        '<section class="cm-panel"><div class="cm-snow" aria-hidden="true">' + Array.from({length: 12}, (_, i) =>
+            '<i style="--x:' + ((i * 53 + 9) % 100) + '%;--s:' + (2 + i % 3) + 'px;--t:' + (7 + i % 6) + 's;--d:' + (-(i * 2) % 9) + 's"></i>').join('') + '</div>' +
+        '<div class="cm-head"><small>События сообщества</small>' +
+        '<h1>Набираем <b>' + num(ev.target) + '</b> ' + (NOUN[ev.metric] || '') + '</h1>' +
         (ev.description ? '<p>' + e(ev.description) + '</p>' : '') +
-        '<div class="cm-now">Сообщество собрало <b>' + num(data.progress) + '</b> · ' + p.toFixed(p < 10 ? 1 : 0) + '%</div></section>' +
-        '<section class="cm-stage" style="height:' + (H + 6) + 'px">' +
-        '<div class="cm-ticks">' + pos.map(x => '<span class="cm-tl' + (x.m.reached ? ' is-on' : '') + '" style="top:' + x.ty.toFixed(1) + 'px">' + num(x.m.threshold) + '</span>').join('') + '</div>' +
-        bar(data, {height: tubeH}) +
-        '<div class="cm-lines" style="height:' + H + 'px"><div class="cm-tickmarks">' + pos.map(x => '<i class="' + (x.m.reached ? 'is-on' : '') + '" style="top:' + x.ty.toFixed(1) + 'px"></i>').join('') + '</div></div>' +
-        '<svg class="cm-conn" width="18" height="' + H + '" viewBox="0 0 18 ' + H + '" aria-hidden="true">' + pos.map(x =>
-            '<path class="' + (x.m.reached ? 'is-on' : '') + '" d="M0 ' + x.ty.toFixed(1) + 'C9 ' + x.ty.toFixed(1) + ' 9 ' + (x.cy + 44).toFixed(1) + ' 18 ' + (x.cy + 44).toFixed(1) + '"/>').join('') + '</svg>' +
-        '<div class="cm-rewards">' + pos.map(x => rewardCard(x.m, x.cy, ev)).join('') + '</div></section></div>';
+        '<div class="cm-now"><b>' + num(data.progress) + '</b> из ' + num(ev.target) + ' · ' + p.toFixed(p < 10 ? 1 : 0) + '%</div></div>' +
+        '<div class="cm-stage" style="height:' + H + 'px">' +
+        pos.map(x => '<span class="cm-tl ' + on(x) + '" style="top:' + x.ty.toFixed(1) + 'px">' + num(x.m.threshold) + '</span>').join('') +
+        bar(ev, fresh ? from : data.progress, H) +
+        '<div class="cm-tickmarks">' + pos.map(x => '<i class="' + on(x) + '" style="top:' + x.ty.toFixed(1) + 'px"></i>').join('') + '</div>' +
+        '<svg class="cm-conn" width="26" height="' + H + '" viewBox="0 0 26 ' + H + '" aria-hidden="true">' + pos.map(x =>
+            '<path class="' + on(x) + '" d="M0 ' + x.ty.toFixed(1) + 'C13 ' + x.ty.toFixed(1) + ' 13 ' + x.cy.toFixed(1) + ' 26 ' + x.cy.toFixed(1) + '"/>').join('') + '</svg>' +
+        pos.map(x => prize(x.m, x.cy)).join('') + '</div>' +
+        '<div class="cm-done" hidden></div></section></div>';
     main.querySelector('[data-cm-back]').addEventListener('click', nav.back);
-    main.querySelectorAll('[data-cm-reward]').forEach(b => b.addEventListener('click', () => nav.market()));
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        const f = main.querySelector('.cm-fill');
-        if (f) f.style.height = f.style.getPropertyValue('--to');
-    }));
+    main.querySelectorAll('[data-cm-prize]').forEach(b => b.addEventListener('click', () =>
+        claimSheet(ms.find(m => m.id === b.dataset.cmPrize), () => window.crafterNewYearShow?.('community'))));
+    if (fresh) celebrate(main, data, fresh, nav);
 }
-function rewardCard(m, top, ev) {
-    const left = Math.max(0, m.threshold - 0);
-    const status = m.code ? '<em class="ok">Получено</em>' : m.reached ? (m.left ? '<em class="go">Забрать ›</em>' : '<em class="out">Тираж разобран</em>') :
-        '<em class="lock">🔒 до ' + num(m.threshold) + '</em>';
-    return '<button type="button" class="cm-reward ' + (m.reached ? 'is-reached' : 'is-locked') + (m.code ? ' is-claimed' : '') + '" data-cm-reward="' + e(m.id) + '" style="top:' + top.toFixed(1) + 'px">' +
-        '<span class="cm-pic"><img src="' + e(img(m)) + '" alt="" loading="lazy"></span>' +
-        '<span class="cm-info"><b>' + e(m.title) + '</b><small>' + e(priceText(m)) + ' · ' + num(m.left) + '/' + num(m.supply) + '</small>' + status + '</span></button>';
+function prize(m, cy) {
+    const state = m.code ? 'is-claimed' : m.reached ? 'is-reached' : 'is-locked';
+    return '<button type="button" class="cm-prize ' + state + '" data-cm-prize="' + e(m.id) + '" style="top:' + (cy - 31).toFixed(1) + 'px" aria-label="' + e(m.title) + '">' +
+        '<img src="' + e(img(m)) + '" alt="" loading="lazy">' +
+        (m.code ? '<i class="cm-badge ok">✓</i>' : m.reached ? '' : '<i class="cm-badge">🔒</i>') + '</button>';
+}
+function celebrate(main, data, fresh, nav) {
+    remember(fresh.id);
+    const ev = data.event, fill = main.querySelector('.cm-fill'), stage = main.querySelector('.cm-stage'), done = main.querySelector('.cm-done');
+    setTimeout(() => { fill.style.transition = 'height 2.4s cubic-bezier(.3,.7,.2,1)'; fill.style.height = pct(fresh.threshold, ev.target) + '%'; }, 500);
+    setTimeout(() => stage.classList.add('is-hit'), 2900);
+    setTimeout(() => stage.classList.add('is-gone'), 3500);
+    setTimeout(() => {
+        done.innerHTML = '<h2>Цель события достигнута</h2><div class="cm-done-pic"><img src="' + e(img(fresh)) + '" alt=""></div>' +
+            '<p>Заберите подарок в магазине</p><button type="button" class="ny-action">В магазин</button>' +
+            '<button type="button" class="cm-link">Показать шкалу</button>';
+        done.hidden = false;
+        requestAnimationFrame(() => done.classList.add('is-on'));
+        done.querySelector('.ny-action').addEventListener('click', () => { window.crafterCmFocusShop = true; nav.market(); });
+        done.querySelector('.cm-link').addEventListener('click', () => page(main, data, nav, {plain: true}));
+    }, 4300);
 }
 
 /* ---------- shop block ---------- */
@@ -194,6 +211,7 @@ function claimSheet(m, refresh) {
     if (!m) return;
     const rid = 'cm-' + (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(36).slice(2));
     const head = '<div class="cm-sheet-head"><span class="cm-pic big"><img src="' + e(img(m)) + '" alt=""></span><div><b>' + e(m.title) + '</b><small>' + e(rewardText(m)) + '</small></div></div>';
+    if (!m.reached) { sheet('Награда сообщества', head + '<p class="cm-sheet-note">Откроется, когда сообщество соберёт ' + num(m.threshold) + '. Цена: ' + e(priceText(m)) + '. Тираж: ' + num(m.supply) + '.</p>'); return; }
     if (m.code) { sheet('Награда сообщества', head + codeBlock(m.code)); bindCode(document.querySelector('#sheet-body'), m.code); return; }
     sheet('Награда сообщества', head +
         '<p class="cm-sheet-note">Тираж: осталось ' + num(m.left) + ' из ' + num(m.supply) + '. Вы получите уникальный промокод, который сможете активировать только вы.</p>' +
@@ -213,45 +231,8 @@ function claimSheet(m, refresh) {
     });
 }
 
-/* ---------- ceremony ---------- */
-const seenKey = () => 'crafter-cm-seen-' + uid();
-function seen() { try { return JSON.parse(localStorage.getItem(seenKey()) || '[]'); } catch (_) { return []; } }
-function remember(id) { try { const s = seen(); if (!s.includes(id)) { s.push(id); localStorage.setItem(seenKey(), JSON.stringify(s)); } } catch (_) {} }
-let playing = false;
-function checkCeremony(data, nav) {
-    if (playing || !data?.event || !data.event.enabled) return;
-    const done = seen();
-    const fresh = data.milestones.find(m => m.reached && !done.includes(m.id));
-    if (!fresh) return;
-    const already = data.milestones.filter(m => m.reached && done.includes(m.id)).map(m => m.threshold);
-    const from = Math.max(0, ...already, 0);
-    playing = true; remember(fresh.id);
-    const ev = data.event, H = 300;
-    const box = document.createElement('div');
-    box.className = 'cm-cele';
-    box.innerHTML = '<div class="cm-cele-bg"></div><button type="button" class="cm-cele-x" aria-label="Закрыть">×</button>' +
-        '<div class="cm-cele-bar"><small>' + e(ev.title) + '</small><div class="cm-bar-wrap">' + bar({event: ev, progress: from}, {height: H, instant: true, value: from}) +
-        '<span class="cm-cele-tick" style="bottom:' + pct(fresh.threshold, ev.target).toFixed(1) + '%"><i></i><b>' + num(fresh.threshold) + '</b></span></div></div>' +
-        '<div class="cm-cele-text"><h2>Цель события достигнута</h2><p>Вы получили</p>' +
-        '<div class="cm-cele-prize"><img src="' + e(img(fresh)) + '" alt=""><b>' + e(fresh.title) + '</b><small>' + e(rewardText(fresh)) + '</small></div>' +
-        '<button type="button" class="ny-action cm-take">Забрать</button></div>';
-    document.body.appendChild(box);
-    const close = go => { box.classList.add('is-out'); setTimeout(() => box.remove(), 350); playing = false; if (go) { window.crafterCmFocusShop = true; (nav?.market || (() => window.crafterNewYearShow?.('market')))(); } };
-    box.querySelector('.cm-cele-x').addEventListener('click', () => close(false));
-    box.querySelector('.cm-take').addEventListener('click', () => close(true));
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-        box.classList.add('is-on');
-        const f = box.querySelector('.cm-fill');
-        if (f) { f.style.transition = 'height 2.4s cubic-bezier(.3,.7,.2,1)'; f.style.height = pct(fresh.threshold, ev.target) + '%'; }
-        setTimeout(() => box.classList.add('is-hit'), 2500);
-        setTimeout(() => box.classList.add('is-gone'), 3300);
-        setTimeout(() => box.classList.add('is-text'), 4000);
-    }));
-}
-setInterval(async () => {
-    if (playing || state?.page !== 'new-year' || document.visibilityState === 'hidden') return;
-    try { const d = await api('community'); checkCeremony(d, {market: () => window.crafterNewYearShow?.('market')}); } catch (_) {}
-}, 30000);
+/* ---------- ceremony hook ---------- */
+function checkCeremony() {}
 
 /* ---------- administrator ---------- */
 async function admin(content) {

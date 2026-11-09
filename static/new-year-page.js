@@ -23,8 +23,7 @@ function decorate() {
     if (hero) {
         hero.dataset.fest = '1';
         hero.insertAdjacentHTML('afterbegin',
-            `<div class="nyp-aurora" aria-hidden="true"></div><div class="nyp-stars" aria-hidden="true"></div>${CRYSTAL}
-             <div class="nyp-snow" aria-hidden="true">${flakes(18)}</div><div class="nyp-icicles" aria-hidden="true"></div>${baubles()}`);
+            `<div class="nyp-aurora" aria-hidden="true"></div><div class="nyp-snow" aria-hidden="true">${flakes(10)}</div>`);
     }
     const empty = document.querySelector('.new-year-page .ny-empty:not([data-fest])');
     if (empty) {
