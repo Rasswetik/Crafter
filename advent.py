@@ -35,7 +35,7 @@ def plain(d):
     return format(d.normalize(), 'f') if d else '0'
 
 
-def install_advent(app, db, auth, record, audit, bot_token):
+def install_advent(app, db, auth, record, audit, bot_token, notify=None):
     with app.app_context(), db():
         db().executescript("""
         CREATE TABLE IF NOT EXISTS advent_days(
@@ -167,6 +167,47 @@ def install_advent(app, db, auth, record, audit, bot_token):
         if not c['enabled'] and not g.is_admin:
             return {'enabled': False}
         return state_for(g.user['id'])
+
+    def notify_tick():
+        """When a new cell has just unlocked, send the players a Telegram message once."""
+        c = cfg()
+        if not c['enabled'] or notify is None:
+            return 0
+        count = max(1, min(31, int(c['days'])))
+        due = [d for d in range(1, count + 1) if now() >= unlock_ts(c, d)]
+        if not due:
+            return 0
+        day = due[-1]
+        state = read('advent_notified_v1', {'day': 0})
+        if int(state.get('day', 0)) >= day:
+            return 0
+        with db():
+            write('advent_notified_v1', {'day': day})          # mark first: a crash must not cause a second broadcast
+        if now() - unlock_ts(c, day) > 12 * 3600:
+            return 0                                           # the server was off for long: stay silent about old news
+        sent = 0
+        for row in db().execute("SELECT id FROM users").fetchall():
+            try:
+                if notify(int(row['id']), day):
+                    sent += 1
+            except Exception:
+                pass
+            time.sleep(0.05)
+        return sent
+
+    app.extensions['crafter_advent_notify_tick'] = notify_tick
+    if notify is not None and not app.config.get('TESTING'):
+        import threading
+
+        def loop():
+            while True:
+                time.sleep(60)
+                try:
+                    with app.app_context():
+                        notify_tick()
+                except Exception:
+                    app.logger.warning('Advent notification round failed')
+        threading.Thread(target=loop, daemon=True, name='advent-notify').start()
 
     @app.get('/api/advent/status')
     @auth()

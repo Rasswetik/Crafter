@@ -84,6 +84,73 @@ def render_gift_template(template, values):
     return ''.join(chunks)
 
 
+PHRASES = {
+    'sale': {'title': 'Подарок продан', 'text': '💰 {gift} has been sold\nYou received: {amount} Gram', 'fields': ('gift', 'amount')},
+    'purchase': {'title': 'Подарок куплен', 'text': '✅ Successfully purchased {gift} for {price} GRAM. The gift is now in your Crafter inventory.',
+                 'fields': ('gift', 'price'), 'button': ('purchase_button', '🎁 VIEW COLLECTIBLE')},
+    'offer_received': {'title': 'Новый оффер', 'text': '🎁 New offer: {gift} — {amount} GRAM. Open Crafter to accept it.', 'fields': ('gift', 'amount')},
+    'offer_withdrawn': {'title': 'Оффер отозван', 'text': '↩️ Offer withdrawn: {gift} — {amount} GRAM.', 'fields': ('gift', 'amount')},
+    'deposit': {'title': 'Пополнение баланса', 'text': '💸Баланс обновлен\n\n⬆️Депозит: {amount} GRAM успешно зачислено\n\n🔎 Посмотреть транзакцию\n\n{link}',
+                'fields': ('amount', 'link')},
+    'advent': {'title': 'Новая ячейка адвент-календаря', 'text': '🎄 Новая ячейка адвент-календаря уже открыта!\n\nСкорее заберите подарок {day}-го дня 🎁',
+               'fields': ('day',), 'button': ('advent_button', 'Открыть адвент')},
+}
+PHRASE_TOKEN = re.compile(r'(\[\[emoji:[0-9]{1,25}\]\]|</?[a-z-]+>|\{[a-z_]+\})')
+
+
+def render_phrase(config, key, values, template=None):
+    """HTML text of a bot phrase: administrator override or default, with {fields}, styles and custom emoji."""
+    spec = PHRASES[key]
+    template = template if template is not None else ((config.get('phrases') or {}).get(key) or spec['text'])
+    chars = config.get('emoji_chars') or {}
+    chunks, styles = [], []
+    for index, part in enumerate(PHRASE_TOKEN.split(template)):
+        if not index % 2:
+            chunks.append(escape(part))
+        elif part.startswith('[['):
+            ident = part[8:-2]
+            chunks.append(f'<tg-emoji emoji-id="{ident}">{escape(chars.get(ident, "⭐"))}</tg-emoji>')
+        elif part.startswith('<'):
+            name = part.strip('</>')
+            if name not in GIFT_TEMPLATE_STYLES:
+                chunks.append(escape(part))
+            elif part.startswith('</'):
+                if not styles or styles.pop() != name:
+                    raise ValueError('Закройте стили в обратном порядке')
+                chunks.append(part)
+            else:
+                styles.append(name)
+                chunks.append(part)
+        elif part[1:-1] in spec['fields']:
+            chunks.append(str(values.get(part[1:-1], '')))
+        else:
+            chunks.append(escape(part))
+    if styles:
+        raise ValueError('Закройте все теги стилей')
+    return ''.join(chunks)
+
+
+def phrase_button(config, key):
+    spec = PHRASES[key]['button']
+    return (config.get('phrases') or {}).get(spec[0]) or spec[1]
+
+
+def notify_advent(config, user_id, day, default_token, url=''):
+    """Tell a player that a new advent cell can be opened now."""
+    token = config.get('token') or default_token
+    if not token:
+        return False
+    message = {'chat_id': user_id, 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True},
+               'text': render_phrase(config, 'advent', {'day': escape(str(day))})}
+    if https_url(url):
+        parts = urlsplit(url)
+        query = dict(parse_qsl(parts.query))
+        query.update(view='new-year', open='advent')
+        message['reply_markup'] = {'inline_keyboard': [[{'text': phrase_button(config, 'advent'), 'web_app': {'url': parts._replace(query=urlencode(query)).geturl()}}]]}
+    bot_api(token, 'sendMessage', message)
+    return True
+
+
 def notify_gift_transfer(config, recipient, gifts, sender, origin, default_token, personal_message=''):
     token = config.get('token') or default_token
     if not token:
@@ -166,7 +233,7 @@ def notify_gift_sale(config, seller, gift, proceeds, default_token):
     bot_api(token, 'sendMessage', {
         'chat_id': seller, 'parse_mode': 'HTML',
         'link_preview_options': {'url':url, 'prefer_large_media':True, 'show_above_text':False} if url else {'is_disabled':True},
-        'text': f'💰 {label} has been sold\nYou received: {escape(amount)} Gram',
+        'text': render_phrase(config, 'sale', {'gift': label, 'amount': escape(amount)}),
     })
     sticker = sale_sticker(gift)
     if sticker:
@@ -193,9 +260,7 @@ def notify_offer_event(config, seller, gift, price, event, default_token):
     amount = str(price)
     if '.' in amount:
         amount = amount.rstrip('0').rstrip('.')
-    message = (f'🎁 New offer: {label} — {escape(amount)} GRAM. Open Crafter to accept it.'
-               if event == 'received' else
-               f'↩️ Offer withdrawn: {label} — {escape(amount)} GRAM.')
+    message = render_phrase(config, 'offer_received' if event == 'received' else 'offer_withdrawn', {'gift': label, 'amount': escape(amount)})
     bot_api(token, 'sendMessage', {'chat_id': seller, 'parse_mode': 'HTML',
                                   'link_preview_options': {'is_disabled': True},
                                   'text': message})
@@ -237,9 +302,8 @@ def notify_gram_deposit(config, recipient, gram, tx_hash, network, default_token
     amount = format(value.normalize(), 'f')
     bot_api(token, 'sendMessage', {
         'chat_id': int(recipient),
-        'text': ('💸Баланс обновлен\n\n'
-                 f'⬆️Депозит: {amount} GRAM успешно зачислено\n\n'
-                 '🔎 Посмотреть транзакцию\n\n' + url),
+        'parse_mode': 'HTML',
+        'text': render_phrase(config, 'deposit', {'amount': escape(amount), 'link': escape(url)}),
         'link_preview_options': {'is_disabled': True},
     })
     return True
@@ -257,8 +321,7 @@ def notify_gift_purchase(config, buyer, gift, price, default_token):
     if url:
         label = f'<a href="{escape(url, quote=True)}">{label}</a>'
     amount = str(price).rstrip('0').rstrip('.') if '.' in str(price) else str(price)
-    message = (f'✅ Successfully purchased {label} for {escape(amount)} GRAM. '
-               'The gift is now in your Crafter inventory.')
+    message = render_phrase(config, 'purchase', {'gift': label, 'price': escape(amount)})
     if url:
         message += (f'\n\n🔗 <a href="{escape(url, quote=True)}">'
                     'View NFT in Telegram</a>')
@@ -266,7 +329,7 @@ def notify_gift_purchase(config, buyer, gift, price, default_token):
               'link_preview_options': {'url':url,'prefer_large_media':True,
                                        'show_above_text':False} if url else {'is_disabled':True}}
     if url:
-        kwargs['reply_markup'] = {'inline_keyboard': [[{'text':'🎁 VIEW COLLECTIBLE','url':url}]]}
+        kwargs['reply_markup'] = {'inline_keyboard': [[{'text': phrase_button(config, 'purchase'), 'url': url}]]}
     bot_api(token,'sendMessage',kwargs)
 
 
@@ -275,25 +338,60 @@ def install_telegram_bot(app, db, auth, audit):
     lock = threading.Lock()
     with app.app_context(), db():
         db().executescript('''CREATE TABLE IF NOT EXISTS telegram_start_updates
-                       (bot_id INTEGER, update_id INTEGER, created INTEGER, PRIMARY KEY(bot_id, update_id))''')
+                       (bot_id INTEGER, update_id INTEGER, created INTEGER, PRIMARY KEY(bot_id, update_id));
+                       CREATE TABLE IF NOT EXISTS telegram_emoji
+                       (id TEXT PRIMARY KEY, emoji TEXT NOT NULL, thumbnail TEXT, grp TEXT NOT NULL DEFAULT '', added BIGINT NOT NULL DEFAULT 0)''')
+
+    def migrate_emoji(saved):
+        """The old library lived inside the settings JSON (500 at most). Move it into its own table once."""
+        old = saved.get('emoji_library') or {}
+        if old and not db().execute("SELECT 1 FROM telegram_emoji LIMIT 1").fetchone():
+            with db():
+                for ident, item in old.items():
+                    db().execute("INSERT INTO telegram_emoji(id,emoji,thumbnail,grp,added) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING",
+                                 (ident, item.get('emoji') or '⭐', item.get('thumbnail'), 'Импорт', int(time.time())))
 
     def settings():
         row = db().execute("SELECT payload FROM settings WHERE key='telegram_bot'").fetchone()
         saved = json.loads(row[0]) if row else {}
-        return {
+        config = {
             'username': app.config['BOT_USERNAME'], 'greeting': 'Добро пожаловать в Crafter!',
             'buttons': [{'text': 'Открыть Crafter', 'type': 'web_app', 'url': ''}],
-            'app_url': '', 'menu_text': '', 'emoji_library': {},
+            'app_url': '', 'menu_text': '', 'emoji_library': {}, 'phrases': {},
             'gift_template': GIFT_TEMPLATE, 'gift_button_text': 'View Inventory', **saved,
         }
+        migrate_emoji(saved)
+        # Fallback characters only for the custom emoji that the texts really use.
+        texts = [config.get('greeting', ''), config.get('gift_template', '')] + [v for v in (config.get('phrases') or {}).values() if isinstance(v, str)]
+        ids = sorted({m for t in texts for m in re.findall(r'\[\[emoji:([0-9]{1,25})\]\]', t)})
+        chars = {}
+        for i in range(0, len(ids), 200):
+            chunk = ids[i:i + 200]
+            for r in db().execute("SELECT id,emoji FROM telegram_emoji WHERE id IN (" + ','.join('?' for _ in chunk) + ")", chunk).fetchall():
+                chars[r['id']] = r['emoji']
+        config['emoji_chars'] = chars
+        return config
 
     def token_for(config):
         return config.get('token') or app.config['BOT_TOKEN']
 
+    def phrase_list(config):
+        mine = config.get('phrases') or {}
+        out = []
+        for key, spec in PHRASES.items():
+            row = {'key': key, 'title': spec['title'], 'default': spec['text'], 'text': mine.get(key) or spec['text'], 'fields': list(spec['fields'])}
+            if spec.get('button'):
+                row['button'] = {'key': spec['button'][0], 'default': spec['button'][1], 'text': mine.get(spec['button'][0]) or spec['button'][1]}
+            out.append(row)
+        return out
+
     def public_settings(config):
+        rows = db().execute("SELECT id,emoji FROM telegram_emoji ORDER BY added,id LIMIT 200").fetchall()
         return {key: config[key] for key in ('username', 'greeting', 'buttons', 'app_url', 'menu_text', 'gift_template', 'gift_button_text')} | {
             'token_configured': bool(token_for(config)), 'connected': bool(config.get('webhook_url')),
-            'emoji_library': [{'id': key, 'emoji': item['emoji']} for key, item in config['emoji_library'].items()],
+            'emoji_library': [{'id': r['id'], 'emoji': r['emoji']} for r in rows],
+            'emoji_total': int(db().execute("SELECT COUNT(*) AS n FROM telegram_emoji").fetchone()['n']),
+            'phrases': phrase_list(config),
         }
 
     def save(config):
@@ -341,6 +439,31 @@ def install_telegram_bot(app, db, auth, audit):
             if not isinstance(label, str) or not 1 <= len(label.strip()) <= 64 or '\x00' in label:
                 abort(400, description='Введите подпись кнопки до 64 символов')
             fields['gift_button_text'] = label.strip()
+        if 'phrases' in data:
+            incoming = data['phrases']
+            if not isinstance(incoming, dict):
+                abort(400)
+            saved_phrases = {}
+            for key, text in incoming.items():
+                spec = PHRASES.get(key)
+                button_keys = {v['button'][0]: v['button'] for v in PHRASES.values() if v.get('button')}
+                if not isinstance(text, str) or len(text) > 1300 or '\x00' in text:
+                    abort(400, description='Фраза: до 1300 символов')
+                if spec:
+                    if text.strip():
+                        try:
+                            render_phrase({}, key, {f: '×' for f in spec['fields']}, template=text.strip())
+                        except ValueError as error:
+                            abort(400, description=str(error))
+                        saved_phrases[key] = text.strip()
+                elif key in button_keys:
+                    if text.strip():
+                        if len(text.strip()) > 64:
+                            abort(400, description='Подпись кнопки до 64 символов')
+                        saved_phrases[key] = text.strip()
+                else:
+                    abort(400, description='Неизвестная фраза')
+            fields['phrases'] = saved_phrases
         buttons = data.get('buttons')
         if not fields['greeting'] or not isinstance(buttons, list) or len(buttons) > 8:
             abort(400, description='Укажите приветствие и не более 8 кнопок')
@@ -386,23 +509,28 @@ def install_telegram_bot(app, db, auth, audit):
         data = request.get_json(silent=True)
         if not isinstance(data, dict):
             abort(400)
-        value = data.get('value')
-        if not isinstance(value, str) or len(value) > 3000:
+        value, group = data.get('value'), data.get('group', '')
+        if not isinstance(value, str) or len(value) > 60000 or not isinstance(group, str) or len(group) > 64:
             abort(400)
-        value = value.strip()
-        ids = list(dict.fromkeys(re.split(r'[\s,]+', value)))
+        value, group = value.strip(), group.strip()
+        ids = list(dict.fromkeys(i for i in re.split(r'[\s,]+', value) if i))
         with lock:
             config = settings()
             token = token_for(config)
             if not token:
                 abort(400, description='Сначала сохраните токен бота')
-            if 1 <= len(ids) <= 100 and all(re.fullmatch(r'[0-9]{1,25}', item) for item in ids):
-                stickers = bot_api(token, 'getCustomEmojiStickers', {'custom_emoji_ids': ids})
+            if ids and all(re.fullmatch(r'[0-9]{1,25}', item) for item in ids):
+                stickers = []
+                for i in range(0, len(ids), 200):
+                    stickers += bot_api(token, 'getCustomEmojiStickers', {'custom_emoji_ids': ids[i:i + 200]}) or []
+                group = group or 'Отдельные'
             else:
                 match = re.fullmatch(r'(?:https://t\.me/addemoji/)?([A-Za-z][A-Za-z0-9_]{0,63})/?', value)
                 if not match:
                     abort(400, description='Введите ID эмодзи или ссылку на набор t.me/addemoji')
-                stickers = bot_api(token, 'getStickerSet', {'name': match[1]}).get('stickers', [])
+                found = bot_api(token, 'getStickerSet', {'name': match[1]}) or {}
+                stickers = found.get('stickers', [])
+                group = group or str(found.get('title') or match[1])[:64]
             imported = {}
             for sticker in stickers:
                 ident = sticker.get('custom_emoji_id')
@@ -413,17 +541,55 @@ def install_telegram_bot(app, db, auth, audit):
                     imported[ident] = {'emoji': sticker.get('emoji') or '⭐', 'thumbnail': thumbnail}
             if not imported:
                 abort(400, description='В Telegram не найдено премиум-эмодзи')
-            if len(config['emoji_library'] | imported) > 500:
-                abort(409, description='В библиотеке можно хранить до 500 эмодзи')
-            config['emoji_library'].update(imported)
-            save(config)
+            with db():
+                for ident, item in imported.items():
+                    db().execute("INSERT INTO telegram_emoji(id,emoji,thumbnail,grp,added) VALUES(?,?,?,?,?) "
+                                 "ON CONFLICT(id) DO UPDATE SET emoji=excluded.emoji,thumbnail=excluded.thumbnail,grp=excluded.grp",
+                                 (ident, item['emoji'], item['thumbnail'], group, int(time.time())))
         return public_settings(config)
+
+    @app.get('/api/admin/telegram-bot/emoji-catalog')
+    @auth(admin=True)
+    def emoji_catalog():
+        q = request.args.get('q', '').strip().lower()[:64]
+        group = request.args.get('group', '')[:64]
+        offset = max(0, request.args.get('offset', 0, type=int))
+        limit = min(200, max(1, request.args.get('limit', 120, type=int)))
+        where, params = [], []
+        if group:
+            where.append('grp=?')
+            params.append(group)
+        if q:
+            where.append("(id LIKE ? OR emoji=? OR lower(grp) LIKE ?)")
+            params += [q + '%', request.args.get('q', '').strip()[:16], '%' + q + '%']
+        clause = (' WHERE ' + ' AND '.join(where)) if where else ''
+        total = int(db().execute('SELECT COUNT(*) AS n FROM telegram_emoji' + clause, params).fetchone()['n'])
+        rows = db().execute('SELECT id,emoji,grp FROM telegram_emoji' + clause + ' ORDER BY grp,added,id LIMIT ? OFFSET ?', params + [limit, offset]).fetchall()
+        groups = db().execute("SELECT grp,COUNT(*) AS n FROM telegram_emoji GROUP BY grp ORDER BY grp").fetchall()
+        return {'items': [{'id': r['id'], 'emoji': r['emoji'], 'group': r['grp']} for r in rows], 'total': total,
+                'all': int(db().execute('SELECT COUNT(*) AS n FROM telegram_emoji').fetchone()['n']),
+                'groups': [{'name': r['grp'], 'count': int(r['n'])} for r in groups]}
+
+    @app.post('/api/admin/telegram-bot/emoji/delete')
+    @auth(admin=True)
+    def delete_emoji():
+        data = request.get_json(silent=True) or {}
+        with db():
+            if isinstance(data.get('group'), str) and data['group']:
+                db().execute('DELETE FROM telegram_emoji WHERE grp=?', (data['group'],))
+            elif isinstance(data.get('ids'), list) and all(isinstance(i, str) and re.fullmatch(r'[0-9]{1,25}', i) for i in data['ids']):
+                for i in data['ids']:
+                    db().execute('DELETE FROM telegram_emoji WHERE id=?', (i,))
+            else:
+                abort(400, description='Укажите группу или список эмодзи')
+        audit('Telegram emoji removed')
+        return {'ok': True}
 
     @app.get('/api/admin/telegram-bot/emoji/<emoji_id>')
     @auth(admin=True)
     def emoji_thumbnail(emoji_id):
         config = settings()
-        item = config['emoji_library'].get(emoji_id)
+        item = db().execute('SELECT thumbnail FROM telegram_emoji WHERE id=?', (emoji_id,)).fetchone()
         token = token_for(config)
         if not item or not item.get('thumbnail') or not token:
             abort(404)
@@ -521,7 +687,7 @@ def install_telegram_bot(app, db, auth, audit):
             parts = re.split(r'\[\[emoji:([0-9]{1,25})\]\]', greeting)
             for index in range(1, len(parts), 2):
                 ident = parts[index]
-                fallback = escape(config['emoji_library'].get(ident, {}).get('emoji', '⭐'))
+                fallback = escape((config.get('emoji_chars') or {}).get(ident, '⭐'))
                 parts[index] = f'<tg-emoji emoji-id="{ident}">{fallback}</tg-emoji>'
             for index in range(0, len(parts), 2):
                 parts[index] = escape(parts[index])

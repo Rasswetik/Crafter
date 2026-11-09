@@ -1,0 +1,24 @@
+/* Bot phrases and the emoji catalog window */
+.bot-phrases{display:flex;flex-direction:column;gap:14px;margin:10px 0 18px}
+.bot-phrase{padding:14px;border-radius:18px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1)}
+.bot-phrase-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}.bot-phrase-head b{font-size:15px}
+.bot-phrase textarea{width:100%;box-sizing:border-box;resize:vertical}
+.bot-phrase-tools{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+.bot-chip{padding:6px 11px;border-radius:999px;font-size:12px;font-weight:700;color:#cfe0f5;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);cursor:pointer}
+.bot-chip.is-emoji{color:#1a1204;background:linear-gradient(135deg,#ffe9a8,#ffc14d);border-color:transparent}
+.bot-emoji-groups{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.bot-egroup{display:inline-flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);font-size:13px}
+.bot-egroup small{color:#9fb0c8}.bot-egroup button{width:24px;height:24px;border-radius:50%;border:0;background:rgba(255,80,100,.18);color:#ff9aa6;cursor:pointer;line-height:1}
+.bot-catalog{display:flex;flex-direction:column;gap:10px}
+.bot-catalog-search{width:100%;box-sizing:border-box}
+.bot-catalog-groups{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;scrollbar-width:thin}
+.bot-catalog-groups button{flex:none;padding:7px 12px;border-radius:999px;font-size:12.5px;font-weight:600;color:#cfe0f5;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);cursor:pointer;white-space:nowrap}
+.bot-catalog-groups button.is-on{color:#fff;background:#2b7be0;border-color:#2b7be0}
+.bot-catalog .bot-emoji-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:6px;max-height:52vh;overflow:auto}
+.bot-emoji-picker button{aspect-ratio:1;display:grid;place-items:center;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);cursor:pointer;font-size:24px}
+.bot-emoji-picker button img{width:70%;height:70%;object-fit:contain}
+.bot-more{grid-column:1/-1;height:1px}
+.bot-catalog-note{margin:0;font-size:12.5px}
+.bot-phrase-head b{flex:1;min-width:0}
+.bot-phrase-head .secondary{flex:none;width:auto;min-width:0;padding:7px 14px;font-size:13px}
+.bot-phrase .bot-chip,.bot-egroup button{width:auto}

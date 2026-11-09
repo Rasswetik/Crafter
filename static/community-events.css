@@ -277,3 +277,19 @@
 @keyframes nym-float{0%,100%{translate:0 0}50%{translate:0 -10px}}
 @media(max-width:560px){.nym-hero{padding:22px 18px;min-height:150px}.nym-copy{max-width:58%}.nym-gifts{width:44%;right:8px}}
 @media(prefers-reduced-motion:reduce){.nym-gifts img{animation:none}}
+
+/* ---- Goal page v2: rewards alternate left and right, breathing room above and below ---- */
+.cm-stage2{position:relative;width:296px;max-width:100%;margin:6px auto 0}
+.cm-inner{position:absolute;left:0;right:0;top:44px}
+.cm-inner .cm-tube{left:92px;width:112px}
+.cm-inner .cm-tickmarks i{left:84px;width:128px}
+.cm-chip{position:absolute;left:148px;transform:translate(-50%,-50%);z-index:7;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:800;color:#cfe0f5;background:rgba(9,14,32,.82);border:1px solid rgba(190,225,255,.35);white-space:nowrap;pointer-events:none}
+.cm-chip.is-on{color:#1a1204;background:linear-gradient(135deg,#ffe9a8,#ffc14d);border-color:transparent;box-shadow:0 0 14px rgba(255,211,107,.6)}
+.cm-conn2{position:absolute;left:0;top:0;pointer-events:none}
+.cm-conn2 path{fill:none;stroke:rgba(200,220,255,.3);stroke-width:1.5;stroke-dasharray:4 4}
+.cm-conn2 path.is-on{stroke:#ffd36b;stroke-dasharray:none;filter:drop-shadow(0 0 4px rgba(255,211,107,.8))}
+.cm-topper{position:absolute;left:50%;top:0;width:52px;height:52px;transform:translateX(-50%);z-index:8;filter:drop-shadow(0 0 14px rgba(255,211,107,.8));animation:nyp-float 4s ease-in-out infinite}
+.cm-glowring{position:absolute;left:50%;top:30px;width:240px;height:240px;transform:translateX(-50%);border-radius:50%;background:radial-gradient(circle,rgba(120,180,255,.22),transparent 68%);pointer-events:none}
+.cm-next{margin-top:8px;font-size:12.5px;color:#9fb4d0}.cm-next b{color:#ffe2a0}.cm-next.is-done{color:#8ef0b0}
+.cm-panel{padding-bottom:30px}
+@media(prefers-reduced-motion:reduce){.cm-topper{animation:none}}

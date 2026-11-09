@@ -229,7 +229,7 @@ go=async function(page,...args){
     if(!active())return toast('Раздел Новый год пока отключён');
     if(state.crafting)return;
     if(state.page==='arena'&&typeof leaveArena==='function')leaveArena();
-    view='hub';
+    view=window.__nyOpen==='advent'?'advent':'hub';window.__nyOpen=null;
     state.page='new-year';state.gamesMode=false;
     document.querySelector('#app')?.classList.remove('games-view','arena-view','staking-view','craft-view','cart-view');
     document.querySelector('#app')?.classList.add('new-year-view');

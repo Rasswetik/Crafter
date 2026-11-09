@@ -11,16 +11,24 @@ const BOW = '<svg class="adv-bow" viewBox="0 0 48 30" aria-hidden="true"><path d
 const SNOW = '<svg viewBox="-50 -50 100 100" aria-hidden="true"><g stroke="currentColor" stroke-width="5" stroke-linecap="round" fill="none">' + [0, 60, 120, 180, 240, 300].map(a => '<g transform="rotate(' + a + ')"><path d="M0 0V-42"/><path d="M0-18-10-28M0-18 10-28"/></g>').join('') + '</g></svg>';
 
 /* ---------- hub card ---------- */
+/* Four neighbouring cells: opened ones turn over one by one and show the real reward, ready ones blink,
+   later ones stay dim. When more cells are opened the window moves on (1-4, then 3-6, then 5-8 ...). */
 function card(state) {
-    const opened = state.days.filter(d => d.state === 'opened').length;
-    const doors = [1, 2, 3, 4].map((n, i) => '<g transform="translate(' + (214 + i * 44) + ' ' + (62 + (i % 2) * 14) + ') rotate(' + [-6, 4, -3, 7][i] + ')"><rect width="38" height="44" rx="8" fill="' + ['#d83a4c', '#2f9a62', '#2f6fd8', '#8a54d8'][i] + '" stroke="#fff3cf" stroke-width="1.5"/>' +
-        '<rect x="16" width="6" height="44" fill="#ffe9a8"/><rect y="19" width="38" height="6" fill="#ffe9a8"/><text x="19" y="32" text-anchor="middle" font-family="Arial,sans-serif" font-weight="800" font-size="16" fill="#fff" stroke="rgba(0,0,0,.35)" stroke-width=".6">' + n + '</text></g>').join('');
-    const art = '<svg class="nyh-art" viewBox="0 0 400 170" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><defs><linearGradient id="ad-sky" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a0f3e"/><stop offset="1" stop-color="#6b1d4a"/></linearGradient><radialGradient id="ad-glow"><stop offset="0" stop-color="#ffe9a8" stop-opacity=".7"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient></defs>' +
-        '<rect width="400" height="170" fill="url(#ad-sky)"/><circle cx="318" cy="70" r="90" fill="url(#ad-glow)"/>' +
-        Array.from({length: 24}, (_, i) => '<circle class="nyh-star" style="--i:' + i + '" cx="' + ((i * 53 + 17) % 400) + '" cy="' + ((i * 31 + 9) % 150) + '" r="' + (i % 4 ? .9 : 1.6) + '" fill="#fff"/>').join('') + doors +
-        '<path d="M0 150c80-10 160-4 240-2s110 2 160-6v28H0Z" fill="#f1e6ff" opacity=".92"/></svg>';
+    const days = state.days, opened = days.filter(d => d.state === 'opened').length;
+    const start = Math.max(1, Math.min(opened - 1, Math.max(1, days.length - 3)));
+    const view = days.slice(start - 1, start + 3);
+    const minis = view.map((d, i) => {
+        const cls = 'adv-mini c' + (d.day % 5) + ' is-' + (d.state === 'opened' ? 'opened' : d.state === 'ready' ? 'ready' : 'locked');
+        return '<span class="' + cls + '" style="--i:' + i + '"><span class="adv-mini-in"><span class="adv-mini-front"><span class="adv-rib v"></span><span class="adv-rib h"></span>' + BOW + '<b>' + d.day + '</b></span>' +
+            '<span class="adv-mini-back">' + (d.reward ? '<img src="' + e(rimg(d.reward)) + '" alt="">' : '') + '<i>' + d.day + '</i></span></span></span>';
+    }).join('');
+    const art = '<svg class="nyh-art" viewBox="0 0 400 170" preserveAspectRatio="xMaxYMid slice" aria-hidden="true"><defs><linearGradient id="ad-sky" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2a0f3e"/><stop offset="1" stop-color="#6b1d4a"/></linearGradient><radialGradient id="ad-glow"><stop offset="0" stop-color="#ffe9a8" stop-opacity=".6"/><stop offset="1" stop-color="#ffe9a8" stop-opacity="0"/></radialGradient></defs>' +
+        '<rect width="400" height="170" fill="url(#ad-sky)"/><circle cx="300" cy="80" r="100" fill="url(#ad-glow)"/>' +
+        Array.from({length: 26}, (_, i) => '<circle class="nyh-star" style="--i:' + i + '" cx="' + ((i * 53 + 17) % 400) + '" cy="' + ((i * 31 + 9) % 150) + '" r="' + (i % 4 ? .9 : 1.6) + '" fill="#fff"/>').join('') +
+        '<path d="M0 152c80-10 160-4 240-2s110 2 160-6v24H0Z" fill="#f1e6ff" opacity=".9"/></svg>';
     return '<button type="button" class="nyh-card nyh-advent" data-nyh="advent" aria-label="Адвент-календарь">' + art +
-        '<span class="nyh-copy"><strong>Адвент-календарь</strong><span class="nyh-mini"><span class="nyh-mini-bar"><i style="width:' + (opened / Math.max(1, state.days.length) * 100).toFixed(1) + '%"></i></span><em>Открыто ' + opened + ' из ' + state.days.length + '</em></span></span></button>';
+        '<span class="nyh-copy"><strong>Адвент-календарь</strong><span class="nyh-mini"><span class="nyh-mini-bar"><i style="width:' + (opened / Math.max(1, days.length) * 100).toFixed(1) + '%"></i></span><em>Открыто ' + opened + ' из ' + days.length + '</em></span></span>' +
+        '<span class="adv-minis" aria-hidden="true">' + minis + '</span></button>';
 }
 
 /* ---------- calendar page ---------- */
@@ -70,19 +78,32 @@ function page(main, state, nav) {
     main.querySelector('[data-adv-check]')?.addEventListener('click', () => nav.reload());
     main.querySelectorAll('.adv-cell').forEach(b => b.addEventListener('click', () => openCell(Number(b.dataset.day), state, b, nav)));
 }
+const wait = ms => new Promise(r => setTimeout(r, ms));
+function cellNode(d, nowTs) {
+    const t = document.createElement('template');
+    t.innerHTML = cell(d, nowTs).trim();
+    return t.content.firstElementChild;
+}
 async function openCell(day, state, button, nav) {
     const d = state.days.find(x => x.day === day);
     if (d.state === 'opened') return reward(d.reward, day);
     if (d.state === 'locked') return toast('Откроется ' + fmtDate(d.unlock_at));
     if (state.require_sub && state.subscribed === false) return toast('Сначала подпишитесь на канал');
-    button.classList.add('is-opening');
+    if (button.classList.contains('is-flip-out')) return;
+    button.classList.add('is-flip-out');                                   // the gift turns away ...
     try {
-        const r = await api('advent/open', {day});
-        await new Promise(res => setTimeout(res, 650));
+        const [r] = await Promise.all([api('advent/open', {day}), wait(300)]);
+        d.state = 'opened'; d.reward = r.reward;
+        const fresh = cellNode(d, state.now);                              // ... and the reward is on its back
+        fresh.classList.add('is-flip-in');
+        fresh.addEventListener('click', () => reward(d.reward, day, () => nav.reload()));
+        button.replaceWith(fresh);
         if (r.reward.balls !== undefined && typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance({balls: r.reward.balls});
-        if (r.reward.gram_balance !== undefined && window.state?.me) { state_me_balance(r.reward.gram_balance); }
-        reward(r.reward, day, () => nav.reload());
-    } catch (err) { button.classList.remove('is-opening'); toast(err.message); if (/подпиш/i.test(err.message)) nav.reload(); }
+        if (r.reward.gram_balance !== undefined && window.state?.me) state_me_balance(r.reward.gram_balance);
+        await wait(650);
+        if (r.reward.code || r.reward.pack_ids) reward(r.reward, day);
+        else toast('Награда: ' + r.reward.title);
+    } catch (err) { button.classList.remove('is-flip-out'); toast(err.message); if (/подпиш/i.test(err.message)) nav.reload(); }
 }
 function state_me_balance(v) { try { window.state.me.balance = v; if (typeof updateBalance === 'function') updateBalance(); } catch (_) {} }
 function reward(r, day, after) {
