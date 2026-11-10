@@ -47,8 +47,7 @@ async function renderThermosAdmin(content) {
 }
 async function thermosProbe(path) {
     const box = document.querySelector('#thermos-probe');
-    try { const r = await api('admin/thermos/probe', {path}); box.textContent = path + ' (' + r.size + ' симв.)
-' + r.raw; }
+    try { const r = await api('admin/thermos/probe', {path}); box.textContent = path + ' (' + r.size + ' chars)\n' + r.raw; }
     catch (error) { box.textContent = error.message; }
 }
 async function renderHouseMarket(content) {
