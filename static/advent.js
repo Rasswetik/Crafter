@@ -164,8 +164,12 @@ function reward(r, day, after) {
 
 /* ---------- administrator ---------- */
 async function admin(content) {
+    try { await adminInner(content); }
+    catch (err) { if (content.isConnected) { const box = document.createElement('section'); box.className = 'ny-admin-section adv-admin'; box.dataset.pane = 'advent'; box.innerHTML = '<h3>Адвент-календарь</h3><p class="sub">Не удалось загрузить: ' + e(err && err.message || err) + '</p>'; content.appendChild(box); } }
+}
+async function adminInner(content) {
     let r, packs = [];
-    try { r = await api('admin/new-year/advent'); } catch (_) { return; }
+    r = await api('admin/new-year/advent');                      // a failure is shown in the tab, never a blank page
     try { packs = (await api('admin/new-year/packs')).packs || []; } catch (_) {}
     try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) { STARS = []; }
     if (!content?.isConnected) return;

@@ -220,6 +220,8 @@ def create_app(config=None):
         from werkzeug.exceptions import HTTPException
         if isinstance(e,HTTPException):return jsonify(error=e.description),e.code
         app.logger.exception('Request failed')
+        if getattr(g,'is_admin',False):          # an administrator sees what actually failed, a player sees the short text
+            return jsonify(error='Ошибка сервера: '+type(e).__name__+': '+str(e)[:240]),500
         return jsonify(error='Ошибка сервера'),500
     def cached(key,default=None):
         row=db().execute('SELECT * FROM cache WHERE key=?',(key,)).fetchone()
