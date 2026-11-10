@@ -427,7 +427,7 @@ def test_christmas_carol_pack_and_one_stingy_table(client):
     gifts = [p for p in xmas['prizes'] if p['kind'] == 'NFT']
     assert [(g['collection_id'], g['model']) for g in gifts] == [
         ('snowglobe', 'Crimson Cabin'), ('hangingstar', 'Christmas'), ('snowmittens', 'Rudolph'), ('gingercookie', 'Cookie Claus'), ('jinglebells', 'Nutcracker'),
-        ('eternalcandle', 'Red Melter'), ('xmasstocking', 'Caramel Fest'), ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein')]
+        ('eternalcandle', 'Red Melter'), ('xmasstocking', 'Caramel Fest'), ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein'), ('candycane', 'Cherry Charm')]
     for pack in all_packs.values():                                              # the same balance table and card counts everywhere
         assert {int(k): v for k, v in pack['card_weights'].items()} == {1: 60, 2: 24, 3: 10, 4: 4, 5: 1.5, 6: .5}
         table = {p['amount']: p['weight'] for p in pack['prizes'] if p['kind'] == 'GRAM' and p['amount'] in STANDARD}
@@ -490,9 +490,28 @@ def test_christmas_carol_has_no_bear_and_tiny_chances_are_not_shown_as_zero(clie
     create_app({'TESTING': True, 'DATABASE': path, 'BOT_TOKEN': 'test-token', 'ADMIN_IDS': {42}, 'DEMO_MODE': False})
     xmas = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}['christmas']
     gifts = [p for p in xmas['prizes'] if p['kind'] == 'NFT']
-    assert 'toybear' not in {g['collection_id'] for g in gifts} and len(gifts) == 9
+    assert 'toybear' not in {g['collection_id'] for g in gifts} and len(gifts) == 10
     total = sum(p['weight'] for p in xmas['prizes'])
     assert abs(sum(g['weight'] for g in gifts) / total - 0.0017) < 0.0001                      # the share stays the same
     info = client.get('/api/packs/christmas/contents', headers=player).json
     cookie = next(p for p in info['prizes'] if p.get('model') == 'Cookie Claus')
     assert 0 < cookie['chance'] < 0.01                                                          # shown with enough digits, never a flat 0
+
+
+def test_cherry_charm_joins_christmas_carol_on_an_existing_server(client):
+    import sqlite3
+    from app import create_app
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    path = client.application.config['DATABASE']
+    with sqlite3.connect(path) as db:                        # a server that has the pack without Cherry Charm
+        db.execute("DELETE FROM pack_prizes WHERE pack_id='christmas' AND model='Cherry Charm'")
+        db.execute("DELETE FROM settings WHERE key='packs_christmas_v3'")
+    create_app({'TESTING': True, 'DATABASE': path, 'BOT_TOKEN': 'test-token', 'ADMIN_IDS': {42}, 'DEMO_MODE': False})
+    xmas = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}['christmas']
+    gifts = {g['model']: g for g in xmas['prizes'] if g['kind'] == 'NFT'}
+    assert len(gifts) == 10 and gifts['Cherry Charm']['collection_id'] == 'candycane' and gifts['Cherry Charm']['value'] == '5'
+    assert gifts['Cherry Charm']['weight'] == max(g['weight'] for g in gifts.values())                 # the cheapest gift is the most frequent
+    assert 'Red Velvet' not in gifts
+    total = sum(p['weight'] for p in xmas['prizes'])
+    assert abs(sum(g['weight'] for g in gifts.values()) / total - 0.0017) < 0.0001

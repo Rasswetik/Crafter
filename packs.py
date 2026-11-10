@@ -339,7 +339,7 @@ def install_packs(app, db, auth, record, audit):
     CHRISTMAS_IMAGE = '/static/assets/packs/christmas-pack.webp'
     CHRISTMAS_GIFTS = (('snowglobe', 'Crimson Cabin'), ('hangingstar', 'Christmas'), ('snowmittens', 'Rudolph'), ('gingercookie', 'Cookie Claus'),
                        ('jinglebells', 'Nutcracker'), ('eternalcandle', 'Red Melter'), ('xmasstocking', 'Caramel Fest'),
-                       ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein'))      # no Toy Bear
+                       ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein'), ('candycane', 'Cherry Charm', '5'))      # Cherry Charm instead of the bear
     WINTER_IMAGE = '/static/assets/packs/winter-pack.webp'
     # (collection, model, value in GRAM): winter gifts up to 15 inclusive. The first group is the model list of the reference pack, the second
     # one is the cheap new-year gifts of the Snowman pack.
@@ -437,10 +437,10 @@ def install_packs(app, db, auth, record, audit):
                     put_prize('christmas', pos, 'GRAM', amount, '', 'GRAM', '', amount, weight)
                     pos += 1
                 gifts = []
-                for cid, model in CHRISTMAS_GIFTS:
+                for cid, model, *shown in CHRISTMAS_GIFTS:
                     col, m = catalog().get(cid), catalog_model(cid, model)
                     if col and m:
-                        gifts.append((cid, singular(col.get('name') or cid), m['image'], str(m.get('price') or '5'), model))
+                        gifts.append((cid, singular(col.get('name') or cid), m['image'], shown[0] if shown else str(m.get('price') or '5'), model))
                 gram = sum(w for _, w in STANDARD_GRAM)
                 total = NFT_CARD_SHARE_V4 / (1 - NFT_CARD_SHARE_V4) * gram                  # about one gift per 400 openings
                 inv = [1 / max(float(g[3]), 1.0) for g in gifts]
@@ -512,6 +512,25 @@ def install_packs(app, db, auth, record, audit):
                         db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * wanted / have, 6), r['id']))
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_christmas_v2','1') ON CONFLICT(key) DO NOTHING")
 
+    def add_cherry_charm():
+        """Once: Cherry Charm (Candy Cane, value 5) joins Christmas Carol; gift chances are spread by value again."""
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_christmas_v3'").fetchone():
+            return
+        with db():
+            if pack_row('christmas') and not db().execute("SELECT 1 FROM pack_prizes WHERE pack_id='christmas' AND collection_id='candycane' AND model='Cherry Charm'").fetchone():
+                col, m = catalog().get('candycane'), catalog_model('candycane', 'Cherry Charm')
+                if col and m:
+                    put_prize('christmas', 98, 'NFT', '', 'candycane', singular(col.get('name') or 'candycane'), m['image'], '5', 0.0001, 'Cherry Charm')
+                rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id='christmas'").fetchall()
+                gram = sum(float(r['weight']) for r in rows if r['kind'] == 'GRAM')
+                nft = [r for r in rows if r['kind'] == 'NFT']
+                inv = [1 / max(float(r['value'] or 1), 1.0) for r in nft]
+                if gram > 0 and nft:
+                    total = NFT_CARD_SHARE_V4 / (1 - NFT_CARD_SHARE_V4) * gram
+                    for r, w in zip(nft, inv):
+                        db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(total * w / sum(inv), 6), r['id']))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_christmas_v3','1') ON CONFLICT(key) DO NOTHING")
+
     with app.app_context():
         tune_default_pack()
         seed_snowman_pack()
@@ -524,6 +543,7 @@ def install_packs(app, db, auth, record, audit):
         rename_pack_items()
         tune_card_counts()
         drop_christmas_bear()
+        add_cherry_charm()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""
