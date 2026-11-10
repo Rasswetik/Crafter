@@ -105,7 +105,7 @@ def test_player_sees_status_reason_and_gets_a_message(client, monkeypatch):
     user, admin = signed(43), signed()
     wid = client.post('/api/gifts/withdraw', headers=user, json={'gift_id': gift['id'], 'request_id': 'request-9'}).json['id']
     mine, = client.get('/api/gifts/withdrawals', headers=user).json['items']
-    assert mine['gift_id'] == gift['id'] and mine['status'] == 'queued' and 'администратором' in mine['text'] and mine['reason'] == ''
+    assert mine['gift_id'] == gift['id'] and mine['status'] == 'queued' and 'обработк' in mine['text'] and mine['reason'] == ''
     assert client.get('/api/admin/withdrawals', headers=admin).json['gifts'][0]['auto'] is None
     route = '/api/admin/withdrawals/gift/' + wid + '/resolve'
     assert client.post(route, headers=admin, json={'decision': 'failed', 'note': ''}).status_code == 400       # the reason is required

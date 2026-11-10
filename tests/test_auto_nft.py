@@ -51,13 +51,13 @@ def test_enable_needs_connected_relayer_and_admin(client):
     client.get('/api/me', headers=signed(43))
     assert client.post('/api/admin/auto-nft', headers=signed(43), json=body).status_code == 403
     assert client.post('/api/admin/auto-nft', headers=signed(), json=body).status_code == 409
-    assert client.get('/api/admin/auto-nft', headers=signed()).json['enabled'] is False
+    assert client.get('/api/admin/auto-nft', headers=signed()).json['enabled'] is True                   # on by default
 
 
 def test_relayer_gift_goes_straight_to_user(client, monkeypatch):
     sent = []
 
-    async def fake_transfer(api_id, api_hash, session, slug, to_user_id, to_username=''):
+    async def fake_transfer(api_id, api_hash, session, slug, to_user_id, to_username='', max_stars=0):
         sent.append((slug, to_user_id))
         return True
     monkeypatch.setattr(rt, 'transfer', fake_transfer)
@@ -87,7 +87,7 @@ def test_portals_gift_path_via_relayer(client, monkeypatch):
     async def found(*a, **k):
         return 'snoop-77'
 
-    async def fake_transfer(api_id, api_hash, session, slug, to_user_id, to_username=''):
+    async def fake_transfer(api_id, api_hash, session, slug, to_user_id, to_username='', max_stars=0):
         sent.append(slug)
         return True
     monkeypatch.setattr(rt, 'find_on_relayer', found)
@@ -270,3 +270,11 @@ def test_recover_returns_missed_relayer_gifts_to_their_senders(client, monkeypat
     assert [g['number'] for g in gifts] == [1]
     again = client.post('/api/admin/telegram-deposits/recover', headers=signed(), json={}).json
     assert again['credited'] == [] and again['skipped']['already'] == 1          # never credited twice
+
+
+def test_relayer_star_limit_is_set_by_the_administrator(client):
+    client.get('/api/me', headers=signed(43))
+    assert client.get('/api/admin/auto-nft', headers=signed()).json['max_stars'] == 0           # never pays by default
+    assert client.post('/api/admin/auto-nft/max-stars', headers=signed(43), json={'stars': 30}).status_code == 403
+    assert client.post('/api/admin/auto-nft/max-stars', headers=signed(), json={'stars': -1}).status_code == 400
+    assert client.post('/api/admin/auto-nft/max-stars', headers=signed(), json={'stars': 30}).json['max_stars'] == 30

@@ -37,14 +37,25 @@ def install_auto_nft(app, db, auth, audit):
 
     def enabled():
         row = db().execute("SELECT payload FROM settings WHERE key='auto_nft_withdraw_v1'").fetchone()
+        if not row:
+            return True                      # on by default: the administrator can switch it off
         try:
-            return bool(row and json.loads(row[0]).get('enabled'))
+            return bool(json.loads(row[0]).get('enabled'))
         except (ValueError, TypeError, AttributeError):
             return False
     app.extensions['crafter_auto_nft_enabled'] = enabled
 
     def creds():
         return app.extensions['crafter_relayer_credentials']()
+
+    def max_stars():
+        """Most Stars the relayer may pay for one transfer by itself (0 = never pay, send to review)."""
+        row = db().execute("SELECT payload FROM settings WHERE key='auto_nft_max_stars_v1'").fetchone()
+        try:
+            return max(0, min(1000, int(json.loads(row[0]).get('stars')))) if row else 0
+        except (ValueError, TypeError, AttributeError):
+            return 0
+    app.extensions['crafter_auto_nft_max_stars'] = max_stars
 
     def set_job(wid, **fields):
         fields['updated'] = int(time.time())
@@ -146,7 +157,7 @@ def install_auto_nft(app, db, auth, audit):
             set_job(wid, stage='transfer_sending')
             try:
                 asyncio.run(rt.transfer(api_id, api_hash, session, job['slug'],
-                                        payload['receiver_user_id'], payload.get('receiver_username', '')))
+                                        payload['receiver_user_id'], payload.get('receiver_username', ''), max_stars=max_stars()))
             except rt.NotReady as error:
                 return set_job(wid, stage='transfer', retry_at=error.retry_at)      # nothing was sent
             except rt.NeedsPayment:
@@ -181,7 +192,7 @@ def install_auto_nft(app, db, auth, audit):
                 except Exception as error:      # never let one job block the others
                     app.logger.warning('auto NFT step failed: %s', type(error).__name__)
                     if not str(job['stage']).endswith('_sending'):
-                        set_job(job['withdrawal_id'], note=('retry: ' + type(error).__name__)[:200])
+                        set_job(job['withdrawal_id'], note=('retry: ' + type(error).__name__ + ': ' + str(error))[:200])
         finally:
             with db():
                 db().execute('UPDATE auto_nft_lease SET until=0 WHERE id=1')
@@ -196,7 +207,7 @@ def install_auto_nft(app, db, auth, audit):
             connected = False
         jobs = [dict(r) for r in db().execute(
             'SELECT withdrawal_id,user_id,source,stage,note,updated FROM auto_nft_jobs ORDER BY created DESC LIMIT 30')]
-        return {'enabled': enabled(), 'relayer_connected': connected, 'jobs': jobs}
+        return {'enabled': enabled(), 'relayer_connected': connected, 'jobs': jobs, 'max_stars': max_stars()}
 
     @app.get('/api/admin/auto-nft')
     @auth(admin=True)
@@ -219,6 +230,17 @@ def install_auto_nft(app, db, auth, audit):
                          "ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
                          (json.dumps({'enabled': body['enabled']}),))
         audit('Auto NFT withdrawal ' + ('enabled' if body['enabled'] else 'disabled'))
+        return overview()
+
+    @app.post('/api/admin/auto-nft/max-stars')
+    @auth(admin=True)
+    def auto_nft_max_stars():
+        stars = (request.get_json(silent=True) or {}).get('stars')
+        if type(stars) is not int or not 0 <= stars <= 1000:
+            abort(400, description='Звёзды: целое число от 0 до 1000 (0 — никогда не платить)')
+        with db():
+            db().execute("INSERT INTO settings(key,payload) VALUES('auto_nft_max_stars_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps({'stars': stars}),))
+        audit('Auto NFT: relayer may pay up to %d Stars per transfer' % stars)
         return overview()
 
     @app.post('/api/admin/auto-nft/run')

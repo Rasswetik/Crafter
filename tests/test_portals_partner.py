@@ -136,6 +136,7 @@ def test_partner_nft_withdrawal_missing_custody_routes_to_manual_without_transfe
 def test_partner_withdrawal_checks_exact_owned_nft_and_refunds_errored_transfer(tmp_path,monkeypatch):
     client=make_partner(tmp_path,monkeypatch)
     key=save_key(client)
+    client.post('/api/admin/auto-nft',headers=signed(42),json={'enabled':False,'confirm':'SET_AUTO_NFT'})    # the direct Portals path is tested here
     with sqlite3.connect(client.application.config['DATABASE']) as db:
         db.execute("INSERT INTO inventory VALUES (?,?,?,'unlisted')",
             (42,NFT,json.dumps({"id":NFT,"name":"Lucky Locket","origin":"portals-partner"})))

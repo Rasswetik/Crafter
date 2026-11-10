@@ -81,7 +81,7 @@ async def find_on_relayer(api_id, api_hash, session, slug=None, title=None, numb
     return await with_client(api_id, api_hash, session, run)
 
 
-async def transfer(api_id, api_hash, session, slug, to_user_id, to_username=''):
+async def transfer(api_id, api_hash, session, slug, to_user_id, to_username='', max_stars=0):
     async def run(client):
         entry = next((e for e in await saved_gifts(client) if match(e, slug=slug)), None)
         if entry is None or not getattr(entry, 'msg_id', None):
@@ -89,8 +89,9 @@ async def transfer(api_id, api_hash, session, slug, to_user_id, to_username=''):
         ready_at = getattr(entry, 'can_transfer_at', None)
         if ready_at and int(ready_at) > time.time():
             raise NotReady(ready_at)
-        if getattr(entry, 'transfer_stars', None):
-            raise NeedsPayment(slug)             # never spend Stars automatically
+        price = int(getattr(entry, 'transfer_stars', 0) or 0)
+        if price and (not max_stars or price > int(max_stars)):
+            raise NeedsPayment(slug)             # Stars are spent only up to the limit the administrator has set (0 = never)
         try:
             try:
                 peer = await client.get_input_entity(int(to_user_id))
@@ -101,8 +102,13 @@ async def transfer(api_id, api_hash, session, slug, to_user_id, to_username=''):
         except (ValueError, RPCError) as error:
             raise TransferRejected('recipient cannot be resolved') from error
         try:
-            await client(functions.payments.TransferStarGiftRequest(
-                stargift=types.InputSavedStarGiftUser(msg_id=int(entry.msg_id)), to_id=peer))
+            stargift = types.InputSavedStarGiftUser(msg_id=int(entry.msg_id))
+            if price:                            # a paid transfer: pay the invoice for it (within the limit)
+                invoice = types.InputInvoiceStarGiftTransfer(stargift=stargift, to_id=peer)
+                form = await client(functions.payments.GetPaymentFormRequest(invoice=invoice))
+                await client(functions.payments.SendStarsFormRequest(form_id=form.form_id, invoice=invoice))
+            else:
+                await client(functions.payments.TransferStarGiftRequest(stargift=stargift, to_id=peer))
         except RPCError as error:
             if 'PAYMENT_REQUIRED' in str(error):
                 raise NeedsPayment(slug) from error

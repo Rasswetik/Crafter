@@ -311,8 +311,10 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
 
     def delivery_mode():
         row = db().execute("SELECT payload FROM settings WHERE key='thermos_delivery_v1'").fetchone()
+        if not row:
+            return 'assign' if api_token() else 'relayer'      # with a Thermos token a Thermos gift is handed over inside Thermos
         try:
-            return 'assign' if row and json.loads(row[0]).get('mode') == 'assign' else 'relayer'
+            return 'assign' if json.loads(row[0]).get('mode') == 'assign' else 'relayer'
         except (ValueError, TypeError, AttributeError):
             return 'relayer'
     app.extensions['crafter_thermos_delivery'] = delivery_mode

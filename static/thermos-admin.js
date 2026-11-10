@@ -37,9 +37,12 @@ async function renderThermosAdmin(content) {
         ${th.last_error ? `<p class="th-note">Последний отказ Thermos (${new Date(th.last_error.at * 1000).toLocaleString('ru-RU')}): <code>${esc(th.last_error.where)} → ${esc(th.last_error.code)} ${esc(th.last_error.answer)}</code> <button type="button" onclick="thermosAdmin('clear-error')">Стереть</button></p>` : ''}
         <div class="th-actions"><button type="button" class="${th.delivery === 'assign' ? 'is-active' : ''}" onclick="thermosAdmin('${th.delivery === 'assign' ? 'delivery-relayer' : 'delivery-assign'}')">${th.delivery === 'assign' ? 'Выдача NFT через Thermos включена — вернуть через релейер' : 'Выдавать NFT игрокам через Thermos'}</button></div>
         <p class="th-note">Выдача через Thermos: подарок, купленный на Thermos, автоматически передаётся игроку внутри Thermos (метод /gifts/assign, без комиссии и без подключения к Telegram). Игрок увидит его в боте @thermos → «Мои подарки» и сам выведет в Telegram. Включайте после проверки кнопкой «Мои подарки в Thermos» ниже.</p>
+        <div class="th-actions"><label>Релейер сам платит за перевод подарка до <input id="nft-max-stars" type="number" min="0" max="1000" value="0" style="width:80px"> ★ <button type="button" onclick="thermosAdmin('max-stars')">Сохранить</button></label></div>
+        <p class="th-note">Для подарков, лежащих на релейере (игрок сам передал их релейеру): автовывод находит подарок на релейере и передаёт игроку. Если Telegram просит звёзды за перевод (около 25 ★), релейер заплатит их сам, но не больше указанного числа. 0 — никогда не платить (заявка уйдёт на ручную проверку).</p>
         <div id="thermos-info" class="th-info" role="status"></div>
         <p class="th-note">Комиссии Thermos: покупка 0,1 TON (0,2 TON при выводе на релейер), вывод подарка 0,1 TON. Лимит API — 2 запроса в секунду.</p>
     </section>`;
+    api('admin/auto-nft').then(a => { const i = document.querySelector('#nft-max-stars'); if (i && a) i.value = a.max_stars || 0; }).catch(() => {});
     if (th.token_configured) thermosAdmin('check', true);       // show the live Thermos balance right away
     content.insertAdjacentHTML('beforeend', `<section class="admin-glass-panel th-card"><h3>Диагностика Thermos</h3>
         <p>Показывает, что именно отвечает Thermos (названия полей). Только чтение: ничего не отправляется и не покупается.</p>
@@ -82,6 +85,10 @@ async function thermosAdmin(action, quiet = false) {
             await api('admin/thermos/token', {token: input.value.trim()});
             input.value = '';
             toast('Токен сохранён');
+        } else if (action === 'max-stars') {
+            await api('admin/auto-nft/max-stars', {stars: Number(document.querySelector('#nft-max-stars').value || 0)});
+            toast('Сохранено');
+            return;
         } else if (action === 'clear-error') {
             await api('admin/thermos/clear-error', {});
         } else if (action === 'delivery-assign' || action === 'delivery-relayer') {
