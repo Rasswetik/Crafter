@@ -266,6 +266,10 @@ def create_app(config=None):
     def index():
         return render_template('index.html', site_maintenance=is_maintenance_enabled())
 
+    # every section of the app has its own address: a refresh (or a shared link) opens that very section
+    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'):
+        app.add_url_rule(_path, 'section_' + _path.strip('/').replace('-', '_'), index)
+
     @app.get('/admin')
     def admin_page():
         return render_template('admin.html')
@@ -294,7 +298,7 @@ def create_app(config=None):
         return build_preview()
     @app.after_request
     def cache_control(response):
-        if request.path in {'/', '/admin', '/preview', '/api/banners'} or request.path.startswith('/static/'):
+        if request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')

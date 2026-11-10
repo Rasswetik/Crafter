@@ -66,7 +66,7 @@ go = async function (page) {
             Object.assign(state, saved);
             saveView();
         }
-        if (location.pathname.startsWith('/collections/')) window.history.replaceState(null, '', '/');
+        if (location.pathname.startsWith('/collections/')) window.history.replaceState(null, '', (typeof crafterPagePath === 'function' && crafterPagePath()) || '/');
     }
     await goWithoutCollection(page);
     document.querySelector('#main').classList.toggle('profile-entered', state.page === 'profile');

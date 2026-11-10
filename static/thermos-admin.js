@@ -62,27 +62,17 @@ async function tonWithdrawRun() {
     const box = document.querySelector('#ton-withdraw-state');
     try {
         const r = await api('admin/thermos/withdraw-run', {});
-        box.textContent = (r.reasons.length ? 'ПРЕПЯТСТВИЯ:
-- ' + r.reasons.join('
-- ') + '
-
-' : 'Препятствий нет
-') +
-            'Баланс Thermos: ' + (r.balance ?? '—') + ' TON · отправлено сейчас: ' + (r.sent || 0) + ' · завершено: ' + (r.settled || 0) + '
-' +
-            (r.queue.length ? r.queue.map(q => q.ton + ' TON → ' + q.receiver.slice(0, 10) + '… · ' + q.state).join('
-') : 'Заявок на вывод TON в очереди нет');
+        const head = r.reasons.length ? 'ПРЕПЯТСТВИЯ:\n- ' + r.reasons.join('\n- ') + '\n\n' : 'Препятствий нет\n';
+        const queue = r.queue.length ? r.queue.map(q => q.ton + ' TON → ' + q.receiver.slice(0, 10) + '… · ' + q.state).join('\n') : 'Заявок на вывод TON в очереди нет';
+        box.textContent = head + 'Баланс Thermos: ' + (r.balance ?? '—') + ' TON · отправлено сейчас: ' + (r.sent || 0) + ' · завершено: ' + (r.settled || 0) + '\n' + queue;
     } catch (error) { if (box) box.textContent = error.message; }
 }
 async function autoNftJobs(extra) {
     const box = document.querySelector('#auto-nft-jobs');
     try {
         const a = await api('admin/auto-nft');
-        box.textContent = (extra ? extra + '
-' : '') + (a.enabled ? 'Автовывод включён' : 'Автовывод ВЫКЛЮЧЕН') + (a.relayer_connected ? ' · релейер подключён' : ' · релейер не подключён') + '
-' +
-            (a.jobs.length ? a.jobs.map(j => new Date(j.updated * 1000).toLocaleTimeString('ru-RU') + ' · ' + j.source + ' · ' + j.stage + (j.note ? ' · ' + j.note : '')).join('
-') : 'Заявок пока нет');
+        const jobs = a.jobs.length ? a.jobs.map(j => new Date(j.updated * 1000).toLocaleTimeString('ru-RU') + ' · ' + j.source + ' · ' + j.stage + (j.note ? ' · ' + j.note : '')).join('\n') : 'Заявок пока нет';
+        box.textContent = (extra ? extra + '\n' : '') + (a.enabled ? 'Автовывод включён' : 'Автовывод ВЫКЛЮЧЕН') + (a.relayer_connected ? ' · релейер подключён' : ' · релейер не подключён') + '\n' + jobs;
     } catch (error) { if (box) box.textContent = error.message; }
 }
 async function autoNftRun() {

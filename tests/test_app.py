@@ -733,3 +733,11 @@ def test_site_has_the_crafter_icon(client):
         page = client.get(path).get_data(as_text=True)
         assert '/static/icons/crafter-32.png' in page and 'apple-touch-icon' in page
     assert client.get('/static/icons/crafter-192.png').status_code == 200
+
+
+def test_every_section_has_its_own_address(client):
+    for path in ('/', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'):
+        page = client.get(path)
+        assert page.status_code == 200 and 'id="app"' in page.get_data(as_text=True), path
+    assert client.get('/market').headers['Cache-Control'].startswith('no-cache')
+    assert '/static/router.js' in client.get('/market').get_data(as_text=True)
