@@ -445,6 +445,17 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 'balance_ton': str(Decimal(str(account.get('effective_balance', 0))) / NANO),
                 'deposit_address': deposit.get('address'), 'deposit_memo': deposit.get('memo')}
 
+    @app.post('/api/admin/thermos/probe')
+    @auth(admin=True)
+    def thermos_probe():
+        """Read-only look at what Thermos answers (to see the real field names): only a few GET paths are allowed."""
+        path = (request.get_json(silent=True) or {}).get('path') or '/gifts/me'
+        if path not in ('/gifts/me', '/gifts/me/on-sale'):
+            abort(400, description='Разрешены только /gifts/me и /gifts/me/on-sale')
+        data = call('GET', path)
+        text = json.dumps(data, ensure_ascii=False)
+        return {'path': path, 'size': len(text), 'raw': text[:6000]}
+
     @app.post('/api/admin/thermos/backend')
     @auth(admin=True)
     def thermos_set_backend():

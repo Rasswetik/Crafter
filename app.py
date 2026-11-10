@@ -831,7 +831,7 @@ def create_app(config=None):
         if isinstance(listing_id, str) and listing_id.startswith('crafter-'):
             lot = available_crafter_lot(listing_id, g.user['id'])
             gift = json.loads(lot['payload'])
-            if purchase_mode() == 'work' and gift.get('origin') != 'telegram-deposit':
+            if purchase_mode() == 'work' and gift.get('origin') not in app.extensions['crafter_real_origins']:
                 abort(409, description='Этого подарка нет на релейере — выберите другой')
             target_id = str(gift.get('collection_id') or canonical_name(gift.get('name') or ''))
             if str(data.get('target_id')) != target_id:
@@ -1026,7 +1026,11 @@ def create_app(config=None):
             elif success:
                 reward = award_market_gift(q['target'], listing, expected_price.quantize(Decimal('0.01')))
                 db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(g.user['id'],reward['id'],json.dumps(reward),'unlisted'))
-            for nft in ids:db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?',(g.user['id'],nft))
+            burned={x['id']:x for x in owned()}
+            for nft in ids:
+                db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?',(g.user['id'],nft))
+                if nft in burned:                      # burned: the real gift stays on the relayer and goes on sale
+                    app.extensions['crafter_house_relist'](burned[nft],g.user['id'],'craft',positive_price(burned[nft].get('price')) if burned[nft].get('price_unit','GRAM')=='GRAM' else None)
             result=dict(success=success,chance=q['chance_bps']/100,gift=reward,consumed=ids,scope='application',mode=q.get('mode','lucky'))
             if preview:
                 result.update(test_mode=True,input_value=q['input_value'],price_unit='TON')
@@ -1386,6 +1390,8 @@ def create_app(config=None):
     from gift_withdrawals import install_gift_withdrawals
     install_gift_withdrawals(app,db,auth,record,audit)
     def notify_crafter_sale(seller, trade):
+        if seller == app.extensions.get('crafter_house_id'):
+            return                                  # the house account is not a Telegram user
         try:
             notify_gift_sale(bot_settings(), seller, trade['gift'], trade['proceeds'], app.config['BOT_TOKEN'])
         except Exception:
@@ -1495,6 +1501,8 @@ def create_app(config=None):
     install_launch_readiness(app, db, auth, audit)
     from portals_partner import install_portals_partner
     install_portals_partner(app, db, auth, record, audit)
+    from house_market import install_house_market
+    install_house_market(app, db, auth, record, audit)
     from ny_extras import install_ny_extras
     install_ny_extras(app, db, auth, audit)
     from thermos_market import install_thermos_market

@@ -161,7 +161,9 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                     text = 'Заявка принята и ждёт автоматической обработки' if auto_on else 'Заявка принята и ждёт обработки администратором'
             else:
                 text = {'confirmed': 'Подарок отправлен вам в Telegram', 'failed': 'Вывод не выполнен, подарок возвращён в инвентарь'}.get(row['status'], row['status'])
+            busy = bool(auto and auto['stage'] in ('portal_sending', 'transfer_sending'))
             out.append({'id': row['id'], 'kind': 'nft', 'gift_id': row['gift_id'], 'name': gift.get('name'), 'number': gift.get('number'),
+                        'can_cancel': row['status'] == 'queued' and not busy,
                         'status': row['status'], 'text': text,
                         'reason': row['note'] if row['status'] == 'failed' else '', 'created': row['created'], 'updated': row['updated']})
         star = app.extensions.get('crafter_star_withdrawals')
@@ -243,6 +245,28 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             tell(owner, gift, decision == 'confirmed', '' if decision == 'confirmed' else note)
 
     app.extensions['crafter_gift_withdrawal_finalize'] = finalize_withdrawal
+
+    @app.post('/api/gifts/withdrawals/<wid>/cancel')
+    @auth()
+    def cancel_my_withdrawal(wid):
+        """The player takes the request back: the gift returns to the inventory and the fee is refunded.
+        Not possible while the gift is being sent (the result of that step is not known yet)."""
+        uid = g.user['id']
+        row = db().execute('SELECT status FROM gift_withdrawals WHERE id=? AND user_id=?', (wid, uid)).fetchone()
+        if not row:
+            abort(404, description='Заявка не найдена')
+        if row['status'] != 'queued':
+            abort(409, description='Заявка уже обработана')
+        auto = auto_state(wid)
+        if auto and auto['stage'] in ('portal_sending', 'transfer_sending'):
+            abort(409, description='Подарок уже отправляется — отменить нельзя. Дождитесь результата.')
+        finalize_withdrawal(wid, 'failed', 'Вы отменили вывод')
+        try:
+            with db():
+                db().execute("UPDATE auto_nft_jobs SET stage='failed',note=? WHERE withdrawal_id=?", ('Отменено игроком', wid))
+        except Exception:
+            pass
+        return {'status': 'cancelled'}
 
     @app.post('/api/admin/withdrawals/gift/<wid>/resolve')
     @auth(admin=True)

@@ -57,6 +57,15 @@
                 const box = document.querySelector('#wd-status');
                 if (!box) return;
                 box.textContent = row ? row.text : 'Заявка обрабатывается';
+                const holder = document.querySelector('#wd-note');
+                if (holder && row && row.can_cancel && !document.querySelector('#wd-cancel')) {
+                    holder.insertAdjacentHTML('afterend', '<button type="button" class="secondary" id="wd-cancel" style="width:100%;margin-top:10px">Отменить вывод и вернуть подарок</button>');
+                    document.querySelector('#wd-cancel').addEventListener('click', async ev => {
+                        ev.target.disabled = true;
+                        try { await api('gifts/withdrawals/' + encodeURIComponent(row.id) + '/cancel', {}); toast('Вывод отменён, подарок в инвентаре'); stopped = true; closeSheet(); if (typeof refreshMe === 'function') refreshMe().catch(() => {}); if (state.page === 'gifts' && typeof renderGifts === 'function') renderGifts(); }
+                        catch (error) { ev.target.disabled = false; toast(error.message); }
+                    });
+                } else if (row && !row.can_cancel) document.querySelector('#wd-cancel')?.remove();
                 if (row && row.status !== 'queued' && row.status !== 'sending' && row.status !== 'review') stopped = true;
             } catch (error) {
                 const box = document.querySelector('#wd-status');

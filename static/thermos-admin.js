@@ -39,6 +39,38 @@ async function renderThermosAdmin(content) {
         <p class="th-note">Комиссии Thermos: покупка 0,1 TON (0,2 TON при выводе на релейер), вывод подарка 0,1 TON. Лимит API — 2 запроса в секунду.</p>
     </section>`;
     if (th.token_configured) thermosAdmin('check', true);       // show the live Thermos balance right away
+    content.insertAdjacentHTML('beforeend', `<section class="admin-glass-panel th-card"><h3>Диагностика Thermos</h3>
+        <p>Показывает, что именно отвечает Thermos (названия полей). Только чтение: ничего не отправляется и не покупается.</p>
+        <div class="th-actions"><button type="button" onclick="thermosProbe('/gifts/me')">Мои подарки в Thermos</button><button type="button" onclick="thermosProbe('/gifts/me/on-sale')">Выставленные на продажу</button></div>
+        <pre id="thermos-probe" class="th-info" style="white-space:pre-wrap;word-break:break-all;max-height:320px;overflow:auto"></pre></section>`);
+    renderHouseMarket(content);
+}
+async function thermosProbe(path) {
+    const box = document.querySelector('#thermos-probe');
+    try { const r = await api('admin/thermos/probe', {path}); box.textContent = path + ' (' + r.size + ' симв.)
+' + r.raw; }
+    catch (error) { box.textContent = error.message; }
+}
+async function renderHouseMarket(content) {
+    let h;
+    try { h = await api('admin/house-market'); } catch (_) { return; }
+    if (!content.isConnected) return;
+    const sec = document.createElement('section');
+    sec.className = 'admin-glass-panel th-card';
+    const when = ts => new Date(ts * 1000).toLocaleString('ru-RU');
+    sec.innerHTML = `<h3>Маркет Crafter: сожжённые подарки</h3>
+        <p>Когда игрок сжигает настоящий подарок (ставка в апгрейде, крафт), подарок остаётся на релейере и сразу выставляется на маркет от имени «Crafter relayer» по цене из оценки (флор). В апгрейдах такие лоты стоят первыми, и выигрыш выдаётся без покупки на Thermos. Передача другому игроку (арена) — не сжигание.</p>
+        <div class="th-status"><div>Лотов в продаже <b>${h.active_count}</b></div><div>На сумму <b>${esc(h.active_value)} GRAM</b></div><div>Продано <b>${h.sold}</b></div><div>Баланс релейера <b>${esc(h.balance)} GRAM</b></div></div>
+        <div class="th-actions"><label><input type="checkbox" id="hm-on" ${h.settings.enabled ? 'checked' : ''}> Выставлять сожжённые подарки</label>
+        <label>Наценка, % <input id="hm-markup" type="number" step="1" min="-50" max="500" value="${esc(h.settings.markup_percent)}" style="width:80px"></label>
+        <button type="button" id="hm-save">Сохранить</button></div>
+        <div class="ny-admin-list">${h.lots.map(l => `<div class="ny-admin-row"><div><b>${esc(l.name)} #${esc(l.number)}</b><small>${esc(l.reason === 'upgrade' ? 'апгрейд' : 'крафт')} · игрок ${esc(l.burned_by)} · ${when(l.created)} · ${l.on_sale ? esc(l.price) + ' GRAM' : 'продан/снят'}</small></div>
+            ${l.on_sale ? `<span><input data-hm-price="${esc(l.gift_id)}" value="${esc(l.price)}" style="width:90px"> <button type="button" data-hm-set="${esc(l.gift_id)}">Цена</button> <button type="button" data-hm-del="${esc(l.gift_id)}">Снять</button></span>` : ''}</div>`).join('') || '<p class="sub">Пока ничего не сожжено.</p>'}</div>`;
+    content.appendChild(sec);
+    const go = async (fn, ok) => { try { await fn(); toast(ok); content.innerHTML = ''; renderThermosAdmin(content); } catch (error) { toast(error.message); } };
+    sec.querySelector('#hm-save').addEventListener('click', () => go(() => api('admin/house-market/settings', {enabled: sec.querySelector('#hm-on').checked, markup_percent: sec.querySelector('#hm-markup').value}), 'Сохранено'));
+    sec.querySelectorAll('[data-hm-set]').forEach(b => b.addEventListener('click', () => go(() => api('admin/house-market/' + b.dataset.hmSet + '/price', {price: sec.querySelector('[data-hm-price="' + b.dataset.hmSet + '"]').value}), 'Цена изменена')));
+    sec.querySelectorAll('[data-hm-del]').forEach(b => b.addEventListener('click', () => go(() => api('admin/house-market/' + b.dataset.hmDel + '/delist', {}), 'Лот снят')));
 }
 
 async function thermosAdmin(action, quiet = false) {

@@ -141,19 +141,19 @@ def install_upgrade(app, db, auth, record, ctx):
         name = ctx['canonical_name'](target['name'])
         for row in rows:
             gift = json.loads(row['payload'])
-            if ctx['work_mode']() and gift.get('origin') != 'telegram-deposit':
+            if ctx['work_mode']() and gift.get('origin') not in app.extensions['crafter_real_origins']:
                 continue          # work mode: only gifts that really sit on our relayer are shown
             if ctx['canonical_name'](gift.get('name', '')) == name:
                 yield {**{k: gift.get(k) for k in ('name', 'number', 'model', 'image', 'backdrop', 'symbol',
                                                     'background', 'collection_id')},
-                       'id': row['id'], 'price': row['price'], 'source': 'crafter'}
+                       'id': row['id'], 'price': row['price'], 'source': 'crafter', 'house': row['seller_id'] == app.extensions['crafter_house_id']}
 
     def view(gift, price, source):
         return {'id': gift['id'], 'name': gift.get('name'), 'number': gift.get('number'),
                 'model': gift.get('model', ''), 'backdrop': gift.get('backdrop', ''),
                 'symbol': gift.get('symbol', ''), 'image': gift.get('image', ''),
                 'background': gift.get('background'), 'collection_id': gift.get('collection_id'),
-                'price': str(price), 'price_unit': 'GRAM', 'source': source}
+                'price': str(price), 'price_unit': 'GRAM', 'source': source, 'house': bool(gift.get('house'))}
 
     def collection(collection_id):
         target = next((c for c in ctx['public_catalog']() if str(c['id']) == str(collection_id)), None)
@@ -196,7 +196,7 @@ def install_upgrade(app, db, auth, record, ctx):
                 unique.append(item)
         out = unique
         # Crafter market lots come first, then Portals; cheapest first inside each group.
-        out.sort(key=lambda item: (item[0]['source'] != 'crafter', item[1], item[0]['id']))
+        out.sort(key=lambda item: (item[0]['source'] != 'crafter', not item[0].get('house'), item[1], item[0]['id']))   # Crafter lots first, the house's own gifts before players' lots
         return out
 
     @app.get('/api/upgrade/collections')
@@ -215,7 +215,7 @@ def install_upgrade(app, db, auth, record, ctx):
                 price = positive_price(row['price'])
                 if price is None or not low <= price <= high:
                     continue
-                if ctx['work_mode']() and lot.get('origin') != 'telegram-deposit':
+                if ctx['work_mode']() and lot.get('origin') not in app.extensions['crafter_real_origins']:
                     continue
                 key = ctx['canonical_name'](lot.get('name', ''))
                 found[key] = found.get(key, 0) + 1
@@ -346,6 +346,7 @@ def install_upgrade(app, db, auth, record, ctx):
                 db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?', (str(left), uid))
             else:
                 db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?', (uid, gift['id']))
+                app.extensions['crafter_house_relist'](stake_payload, uid, 'upgrade', value)      # burned: the gift stays on the relayer and goes on sale
             if win and gift.get('test_only'):
                 reward = {**listing, 'id': 'demo-craft-' + uuid.uuid4().hex, 'collection_id': target['id'],
                           'source_id': listing['id'], 'origin': 'demo-craft', 'test_only': True, 'catalog_only': True,
@@ -389,6 +390,12 @@ def install_upgrade(app, db, auth, record, ctx):
                 if stake_payload.get('gram_stake'):
                     db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',
                                  (str(balance_of(uid) + Decimal(stake_payload['gram_amount'])), uid))
+                elif app.extensions['crafter_house_unrelist'](stake_payload['id']):
+                    db().execute('INSERT INTO inventory VALUES(?,?,?,?) ON CONFLICT DO NOTHING',
+                                 (uid, stake_payload['id'], json.dumps(stake_payload), 'unlisted'))
+                elif stake_payload.get('origin') in app.extensions['crafter_real_origins']:
+                    db().execute('UPDATE demo_accounts SET balance=? WHERE user_id=?',      # already sold to somebody: pay its value instead
+                                 (str(balance_of(uid) + Decimal(result['stake_value'])), uid))
                 else:
                     db().execute('INSERT INTO inventory VALUES(?,?,?,?) ON CONFLICT DO NOTHING',
                                  (uid, stake_payload['id'], json.dumps(stake_payload), 'unlisted'))

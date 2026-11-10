@@ -672,3 +672,51 @@ def test_thermos_auto_withdraw_pays_from_thermos_balance(client, monkeypatch):
         assert once() == {'sent': 0, 'settled': 0}                                # never sent twice
     with sqlite3.connect(path) as con:
         assert con.execute("SELECT status,tx FROM ton_withdrawals").fetchone() == ('confirmed', 'thermos:77')
+
+
+def test_burned_real_gift_goes_back_on_sale_by_the_house(client):
+    import json
+    app, player = client.application, signed(43)
+    client.get('/api/me', headers=player)
+    relist, unrelist = app.extensions['crafter_house_relist'], app.extensions['crafter_house_unrelist']
+    house = app.extensions['crafter_house_id']
+    path = app.config['DATABASE']
+    gift = {'id': 'telegram-snoop-1', 'name': 'Snoop Dogg', 'number': 7, 'origin': 'telegram-deposit', 'image': 'https://x/y.png', 'model': 'M'}
+    test_gift = {**gift, 'id': 'demo-1', 'test_only': True}
+    with app.app_context():
+        from flask import g
+        import sqlite3
+        db = sqlite3.connect(path); db.row_factory = sqlite3.Row
+        g.db = db
+        assert relist(test_gift, 43, 'upgrade', 5) is False                         # demo gifts are never resold
+        assert relist({**gift, 'origin': 'application-craft'}, 43, 'craft', 5) is False   # not physically on the relayer
+        assert relist(gift, 43, 'upgrade', 12.5) is True and relist(gift, 43, 'upgrade', 12.5) is False   # once
+        db.commit(); db.close()
+    with sqlite3.connect(path) as con:
+        assert con.execute("SELECT seller_id,price FROM crafter_listings").fetchall() == [(house, '12.50')]
+        assert con.execute("SELECT status FROM inventory WHERE user_id=?", (house,)).fetchone()[0] == 'listed'
+    admin = signed(42)
+    view = client.get('/api/admin/house-market', headers=admin).json
+    assert view['active_count'] == 1 and view['active_value'] == '12.50' and view['lots'][0]['reason'] == 'upgrade'
+    assert client.post('/api/admin/house-market/settings', headers=admin, json={'enabled': True, 'markup_percent': 10}).status_code == 200
+    assert client.post('/api/admin/house-market/telegram-snoop-1/price', headers=admin, json={'price': '14'}).status_code == 200
+    assert client.post('/api/admin/house-market/telegram-snoop-1/delist', headers=admin).status_code == 200
+    assert client.get('/api/admin/house-market', headers=admin).json['active_count'] == 0
+
+
+def test_player_can_cancel_a_queued_nft_withdrawal(client):
+    import json
+    app, player = client.application, signed(43)
+    client.get('/api/me', headers=player)
+    path = app.config['DATABASE']
+    gift = {'id': 'thermos-x1', 'name': 'Snoop Dogg', 'number': 1, 'origin': 'thermos', 'price': '10', 'price_unit': 'GRAM'}
+    with sqlite3.connect(path) as con:
+        con.execute("INSERT INTO inventory VALUES(?,?,?,'withdrawing')", (43, gift['id'], json.dumps(gift)))
+        con.execute("INSERT INTO gift_withdrawals VALUES(?,?,?,?,?,?,?,?)", ('gw-43-a', 43, gift['id'], json.dumps({'gift': gift, 'receiver_user_id': 43}), 'queued', 1, 1, ''))
+    rows = client.get('/api/gifts/withdrawals', headers=player).json['items']
+    assert rows[0]['can_cancel'] is True
+    assert client.post('/api/gifts/withdrawals/gw-43-a/cancel', headers=signed(44)).status_code == 404       # not somebody else's
+    assert client.post('/api/gifts/withdrawals/gw-43-a/cancel', headers=player).status_code == 200
+    with sqlite3.connect(path) as con:
+        assert con.execute("SELECT status FROM inventory WHERE nft_id='thermos-x1'").fetchone()[0] == 'unlisted'
+    assert client.post('/api/gifts/withdrawals/gw-43-a/cancel', headers=player).status_code == 409
