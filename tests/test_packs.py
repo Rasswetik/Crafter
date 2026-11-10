@@ -373,7 +373,7 @@ def test_every_pack_has_its_own_backdrop_set():
     import packs
     names = {b[0] for b in packs.BACKDROPS}
     sets = {k: set(v) for k, v in packs.PACK_BACKDROPS.items()}
-    assert set(sets) == {'newyear', 'snowman', 'winter'} and all(v <= names and len(v) == 16 for v in sets.values())
+    assert set(sets) == {'newyear', 'snowman', 'winter', 'christmas'} and all(v <= names and len(v) == 16 for v in sets.values())
     for a in sets:
         for b in sets:
             if a < b:
@@ -386,11 +386,11 @@ def test_a_pack_gets_a_backdrop_from_its_own_set(client):
     import packs
     admin, player = signed(42), signed(43)
     client.get('/api/me', headers=player)
-    for pack in ('winter', 'newyear', 'snowman'):
+    for pack in ('winter', 'newyear', 'snowman', 'christmas'):
         for _ in range(8):
             client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': pack})
     items = [g for g in client.get('/api/inventory', headers=player).json['gifts'] if g.get('pack_item')]
-    assert len(items) == 24
+    assert len(items) == 32
     for g in items:
         assert g['backdrop'] in packs.PACK_BACKDROPS[g['pack_id']]
         assert g['background']['center_color'] and g['background']['edge_color']
@@ -405,13 +405,33 @@ def test_existing_packs_are_given_backdrops_of_their_own_set(client):
     path = client.application.config['DATABASE']
     wrong = {'id': 'packitem-old1', 'name': 'Pack', 'number': 1, 'model': 'Winter', 'backdrop': 'Emerald', 'background': {'center_color': 1, 'edge_color': 2},
              'pack_item': True, 'pack_id': 'winter', 'image': '/static/assets/packs/winter-pack.webp', 'price': '0', 'price_unit': 'GRAM'}
-    right = {**wrong, 'id': 'packitem-old2', 'backdrop': 'Burgundy'}
+    right = {**wrong, 'id': 'packitem-old2', 'backdrop': 'Lavender'}
     with sqlite3.connect(path) as db:
         for gift in (wrong, right):
             db.execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(43,?,?,'unlisted')", (gift['id'], json.dumps(gift)))
-        db.execute("DELETE FROM settings WHERE key='packs_backdrops_v1'")
+        db.execute("DELETE FROM settings WHERE key='packs_backdrops_v2'")
     create_app({'TESTING': True, 'DATABASE': path, 'BOT_TOKEN': 'test-token', 'ADMIN_IDS': {42}, 'DEMO_MODE': False})
     with sqlite3.connect(path) as db:
         got = {r[0]: json.loads(r[1]) for r in db.execute("SELECT nft_id,payload FROM inventory WHERE nft_id LIKE 'packitem-old%'")}
     assert got['packitem-old1']['backdrop'] in packs.PACK_BACKDROPS['winter'] and got['packitem-old1']['background']['center_color'] != 1
-    assert got['packitem-old2']['backdrop'] == 'Burgundy'                    # already fitting: left alone
+    assert got['packitem-old2']['backdrop'] == 'Lavender'                    # already fitting: left alone
+
+
+def test_christmas_carol_pack_and_one_stingy_table(client):
+    admin, player = signed(42), signed(43)
+    STANDARD = {'0.1': 840.0, '0.2': 100.0, '0.3': 35.0, '0.5': 14.0, '0.75': 6.0, '1': 3.0, '1.5': 1.2, '2': .5, '3': .2, '5': .08, '10': .02, '20': .006}
+    client.get('/api/me', headers=player)
+    all_packs = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}
+    xmas = all_packs['christmas']
+    assert xmas['title'] == 'Christmas Carol' and xmas['image'].endswith('christmas-pack.webp')
+    gifts = [p for p in xmas['prizes'] if p['kind'] == 'NFT']
+    assert [(g['collection_id'], g['model']) for g in gifts] == [
+        ('snowglobe', 'Crimson Cabin'), ('hangingstar', 'Christmas'), ('snowmittens', 'Rudolph'), ('gingercookie', 'Cookie Claus'), ('jinglebells', 'Nutcracker'),
+        ('eternalcandle', 'Red Melter'), ('toybear', 'Red Velvet'), ('xmasstocking', 'Caramel Fest'), ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein')]
+    for pack in all_packs.values():                                              # the same balance table and card counts everywhere
+        assert {int(k): v for k, v in pack['card_weights'].items()} == {1: 88, 2: 10, 3: 2}
+        table = {p['amount']: p['weight'] for p in pack['prizes'] if p['kind'] == 'GRAM' and p['amount'] in STANDARD}
+        assert table == {k: float(v) for k, v in STANDARD.items() if k in table} and '0.1' in table
+    for pack in all_packs.values():
+        total = sum(p['weight'] for p in pack['prizes'])
+        assert sum(p['weight'] for p in pack['prizes'] if p['kind'] == 'NFT') / total < 0.0025          # a gift per card: at most 0.25%

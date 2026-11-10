@@ -41,6 +41,11 @@ _FAMILIES = {
     'Dark Lilac': (280, .30, .50), 'Electric Purple': (280, .80, .58), 'Royal Violet': (268, .60, .46), 'English Violet': (285, .28, .40),
     'Grape': (285, .50, .38), 'Fandango': (318, .60, .46), 'Purple': (275, .55, .50), 'Carmine': (350, .75, .45),
     'Rosewood': (352, .45, .40), 'Strawberry': (348, .70, .58), 'Coral Red': (5, .72, .58),
+    # reds for Christmas Carol
+    'Crimson': (348, .78, .42), 'Ruby': (345, .80, .46), 'Cherry': (352, .75, .40), 'Brick Red': (8, .55, .40), 'Garnet': (350, .65, .34),
+    'Scarlet': (4, .85, .50), 'Poinsettia': (355, .70, .44),
+    # more violets for Winter
+    'Amethyst': (275, .45, .54), 'Orchid': (300, .40, .60), 'Plum': (300, .38, .34), 'Twilight': (255, .40, .38), 'Iris': (250, .55, .58), 'Mauve': (290, .25, .58),
 }
 
 
@@ -61,7 +66,9 @@ PACK_BACKDROPS = {
     'snowman': ('Mint Green', 'Emerald', 'Pine Green', 'Hunter Green', 'Jade Green', 'Malachite', 'Shamrock Green', 'Pacific Green',
                 'Pistachio', 'Moonstone', 'Ivory White', 'Platinum', 'Roman Silver', 'Persimmon', 'Tangerine', 'Silver Blue'),    # pines and snow, a carrot
     'winter': ('Lavender', 'Dark Lilac', 'Electric Purple', 'Royal Violet', 'English Violet', 'Grape', 'Fandango', 'Purple',
-               'Burgundy', 'Raspberry', 'Carmine', 'Rosewood', 'Strawberry', 'Coral Red', 'Midnight Blue', 'Indigo Dye'),         # violet dusk and wine
+               'Amethyst', 'Orchid', 'Plum', 'Twilight', 'Iris', 'Mauve', 'Midnight Blue', 'Indigo Dye'),                          # violet dusk
+    'christmas': ('Burgundy', 'Raspberry', 'Carmine', 'Rosewood', 'Strawberry', 'Coral Red', 'Tomato', 'Coral',
+                  'Crimson', 'Ruby', 'Cherry', 'Brick Red', 'Garnet', 'Scarlet', 'Poinsettia', 'Persimmon'),                       # reds, one orange
 }
 
 
@@ -321,6 +328,13 @@ def install_packs(app, db, auth, record, audit):
                             db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * factor, 5), r['id']))
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v3','1') ON CONFLICT(key) DO NOTHING")
 
+    # Every pack uses the same stingy balance table: a card is almost always 0.1 GRAM, big sums are very rare.
+    STANDARD_GRAM = (('0.1', 840), ('0.2', 100), ('0.3', 35), ('0.5', 14), ('0.75', 6), ('1', 3), ('1.5', 1.2), ('2', .5), ('3', .2), ('5', .08), ('10', .02), ('20', .006))
+    CARD_WEIGHTS = {'1': 88, '2': 10, '3': 2}              # 88% of packs hold one card, 10% two, 2% three
+    CHRISTMAS_IMAGE = '/static/assets/packs/christmas-pack.webp'
+    CHRISTMAS_GIFTS = (('snowglobe', 'Crimson Cabin'), ('hangingstar', 'Christmas'), ('snowmittens', 'Rudolph'), ('gingercookie', 'Cookie Claus'),
+                       ('jinglebells', 'Nutcracker'), ('eternalcandle', 'Red Melter'), ('toybear', 'Red Velvet'), ('xmasstocking', 'Caramel Fest'),
+                       ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein'))
     WINTER_IMAGE = '/static/assets/packs/winter-pack.webp'
     # (collection, model, value in GRAM): winter gifts up to 15 inclusive. The first group is the model list of the reference pack, the second
     # one is the cheap new-year gifts of the Snowman pack.
@@ -388,7 +402,7 @@ def install_packs(app, db, auth, record, audit):
 
     def fix_pack_backdrops():
         """Once: every existing pack gets a backdrop from its own pack's set (the old ones were drawn from one common list)."""
-        if db().execute("SELECT 1 FROM settings WHERE key='packs_backdrops_v1'").fetchone():
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_backdrops_v2'").fetchone():
             return
         with db():
             for row in db().execute("SELECT user_id,nft_id,payload FROM inventory WHERE payload LIKE ?", ('%"pack_item": true%',)).fetchall():
@@ -404,7 +418,54 @@ def install_packs(app, db, auth, record, audit):
                 bd = _rng.choice(pool)
                 gift['backdrop'], gift['background'] = bd[0], {'center_color': bd[1], 'edge_color': bd[2]}
                 db().execute("UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?", (json.dumps(gift, ensure_ascii=False), row['user_id'], row['nft_id']))
-            db().execute("INSERT INTO settings(key,payload) VALUES('packs_backdrops_v1','1') ON CONFLICT(key) DO NOTHING")
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_backdrops_v2','1') ON CONFLICT(key) DO NOTHING")
+
+    def seed_christmas_pack():
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_christmas_v1'").fetchone():
+            return
+        with db():
+            if not pack_row('christmas'):
+                db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
+                             ('christmas', 'Christmas Carol', CHRISTMAS_IMAGE, json.dumps(CARD_WEIGHTS), 0, 0, 1, int(time.time())))
+                pos = 0
+                for amount, weight in STANDARD_GRAM:
+                    put_prize('christmas', pos, 'GRAM', amount, '', 'GRAM', '', amount, weight)
+                    pos += 1
+                gifts = []
+                for cid, model in CHRISTMAS_GIFTS:
+                    col, m = catalog().get(cid), catalog_model(cid, model)
+                    if col and m:
+                        gifts.append((cid, singular(col.get('name') or cid), m['image'], str(m.get('price') or '5'), model))
+                gram = sum(w for _, w in STANDARD_GRAM)
+                total = NFT_CARD_SHARE_V4 / (1 - NFT_CARD_SHARE_V4) * gram                  # about one gift per 400 openings
+                inv = [1 / max(float(g[3]), 1.0) for g in gifts]
+                for g, w in zip(gifts, inv):
+                    put_prize('christmas', pos, 'NFT', '', g[0], g[1], g[2], g[3], round(total * w / (sum(inv) or 1), 6), g[4])
+                    pos += 1
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_christmas_v1','1') ON CONFLICT(key) DO NOTHING")
+
+    def tune_packs_final():
+        """Once: one stingy balance table and fewer multi-card packs for every pack; gifts stay at one per ~400 openings."""
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_tuned_v5'").fetchone():
+            return
+        table = dict(STANDARD_GRAM)
+        with db():
+            for pack in db().execute("SELECT id FROM packs").fetchall():
+                db().execute("UPDATE packs SET card_weights=? WHERE id=?", (json.dumps(CARD_WEIGHTS), pack['id']))
+                for r in db().execute("SELECT * FROM pack_prizes WHERE pack_id=? AND kind='GRAM'", (pack['id'],)).fetchall():
+                    key = str(r['amount'])
+                    weight = table[key] if key in table else round(float(r['weight']) * 0.3, 5)
+                    db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (weight, r['id']))
+                rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id=?", (pack['id'],)).fetchall()
+                gram = sum(float(r['weight']) for r in rows if r['kind'] == 'GRAM')
+                nft = sum(float(r['weight']) for r in rows if r['kind'] == 'NFT')
+                if gram > 0 and nft > 0:
+                    wanted = NFT_CARD_SHARE_V4 / (1 - NFT_CARD_SHARE_V4) * gram
+                    if nft > wanted:
+                        for r in rows:
+                            if r['kind'] == 'NFT':
+                                db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * wanted / nft, 6), r['id']))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v5','1') ON CONFLICT(key) DO NOTHING")
 
     with app.app_context():
         tune_default_pack()
@@ -412,6 +473,8 @@ def install_packs(app, db, auth, record, audit):
         tune_packs_rarer()
         seed_winter_pack()
         tune_packs_stingier()
+        seed_christmas_pack()
+        tune_packs_final()
         fix_pack_backdrops()
 
     def grant(uid, pack_id, source, request_id=None):
