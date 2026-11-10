@@ -386,12 +386,33 @@ def install_packs(app, db, auth, record, audit):
                                 db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * wanted / nft, 6), r['id']))
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v4','1') ON CONFLICT(key) DO NOTHING")
 
+    def fix_pack_backdrops():
+        """Once: every existing pack gets a backdrop from its own pack's set (the old ones were drawn from one common list)."""
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_backdrops_v1'").fetchone():
+            return
+        with db():
+            for row in db().execute("SELECT user_id,nft_id,payload FROM inventory WHERE payload LIKE ?", ('%"pack_item": true%',)).fetchall():
+                try:
+                    gift = json.loads(row['payload'])
+                except ValueError:
+                    continue
+                if not gift.get('pack_item'):
+                    continue
+                pool = backdrops_for(gift.get('pack_id'))
+                if gift.get('backdrop') in {b[0] for b in pool}:
+                    continue
+                bd = _rng.choice(pool)
+                gift['backdrop'], gift['background'] = bd[0], {'center_color': bd[1], 'edge_color': bd[2]}
+                db().execute("UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?", (json.dumps(gift, ensure_ascii=False), row['user_id'], row['nft_id']))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_backdrops_v1','1') ON CONFLICT(key) DO NOTHING")
+
     with app.app_context():
         tune_default_pack()
         seed_snowman_pack()
         tune_packs_rarer()
         seed_winter_pack()
         tune_packs_stingier()
+        fix_pack_backdrops()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""

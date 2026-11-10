@@ -436,7 +436,7 @@ function showGiftDetail(gift, source) {
     const own = source === 'inventory';
     const listed = own && gift.status === 'listed';
     state.detailGift = gift;
-    const attributes = gift.pack_item ? [['model', 'Модель', gift.model]] : [['model', 'Модель', gift.model], ['symbol', 'Узор', gift.symbol], ['backdrop', 'Фон', gift.backdrop]];
+    const attributes = gift.pack_item ? [['model', 'Модель', gift.model], ['backdrop', 'Фон', gift.backdrop]] : [['model', 'Модель', gift.model], ['symbol', 'Узор', gift.symbol], ['backdrop', 'Фон', gift.backdrop]];
     sheet('', `
         <div class="portal-product${own ? ' owned-gift-product' : ''}${gift.pack_item ? ' pack-product' : ''}">
             ${giftPattern(gift)}<img ${giftPicture(gift)} alt="${esc(gift.name)}" decoding="async">

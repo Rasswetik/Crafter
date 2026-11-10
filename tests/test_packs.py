@@ -394,3 +394,24 @@ def test_a_pack_gets_a_backdrop_from_its_own_set(client):
     for g in items:
         assert g['backdrop'] in packs.PACK_BACKDROPS[g['pack_id']]
         assert g['background']['center_color'] and g['background']['edge_color']
+
+
+def test_existing_packs_are_given_backdrops_of_their_own_set(client):
+    import json
+    import sqlite3
+    import packs
+    from app import create_app
+    client.get('/api/me', headers=signed(43))
+    path = client.application.config['DATABASE']
+    wrong = {'id': 'packitem-old1', 'name': 'Pack', 'number': 1, 'model': 'Winter', 'backdrop': 'Emerald', 'background': {'center_color': 1, 'edge_color': 2},
+             'pack_item': True, 'pack_id': 'winter', 'image': '/static/assets/packs/winter-pack.webp', 'price': '0', 'price_unit': 'GRAM'}
+    right = {**wrong, 'id': 'packitem-old2', 'backdrop': 'Burgundy'}
+    with sqlite3.connect(path) as db:
+        for gift in (wrong, right):
+            db.execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(43,?,?,'unlisted')", (gift['id'], json.dumps(gift)))
+        db.execute("DELETE FROM settings WHERE key='packs_backdrops_v1'")
+    create_app({'TESTING': True, 'DATABASE': path, 'BOT_TOKEN': 'test-token', 'ADMIN_IDS': {42}, 'DEMO_MODE': False})
+    with sqlite3.connect(path) as db:
+        got = {r[0]: json.loads(r[1]) for r in db.execute("SELECT nft_id,payload FROM inventory WHERE nft_id LIKE 'packitem-old%'")}
+    assert got['packitem-old1']['backdrop'] in packs.PACK_BACKDROPS['winter'] and got['packitem-old1']['background']['center_color'] != 1
+    assert got['packitem-old2']['backdrop'] == 'Burgundy'                    # already fitting: left alone
