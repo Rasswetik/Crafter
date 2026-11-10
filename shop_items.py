@@ -39,12 +39,15 @@ def install_shop_items(app, db, auth, record, audit):
         if hasattr(database, 'connection') and database.connection is not None:
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS bundle BIGINT NOT NULL DEFAULT 1")
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS old_price_balls BIGINT")
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS contents TEXT")
         else:
             cols = [r['name'] for r in database.execute("PRAGMA table_info(shop_items)").fetchall()]
             if 'bundle' not in cols:
                 database.execute("ALTER TABLE shop_items ADD COLUMN bundle BIGINT NOT NULL DEFAULT 1")
             if 'old_price_balls' not in cols:
                 database.execute("ALTER TABLE shop_items ADD COLUMN old_price_balls BIGINT")
+            if 'contents' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN contents TEXT")
 
     import json
 
@@ -60,12 +63,19 @@ def install_shop_items(app, db, auth, record, audit):
         pid = row['amount'] if row['kind'] == 'PACK' or (row['kind'] == 'PROMO' and row['promo_kind'] == 'PACK') else None
         if pid and app.extensions.get('crafter_pack_short'):
             pack = app.extensions['crafter_pack_short'](pid)
+        mix = None
+        if row['contents']:
+            try:
+                mix = [{'pack': app.extensions['crafter_pack_short'](c['pack_id']), 'count': int(c['count'])} for c in json.loads(row['contents'])]
+                mix = [c for c in mix if c['pack']]
+            except (ValueError, KeyError, TypeError):
+                mix = None
         star = None
         if row['kind'] == 'STAR' or (row['kind'] == 'PROMO' and row['promo_kind'] == 'STAR'):
             star = app.extensions['crafter_star_gift_short'](row['amount'])
         left = None if row['stock'] is None else max(0, int(row['stock']) - int(row['sold']))
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
-                'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else '') or (star['image'] if star else ''), 'pack': pack, 'star': star,
+                'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else '') or (star['image'] if star else ''), 'pack': pack, 'star': star, 'contents': mix,
                 'price_balls': int(row['price_balls']), 'old_price_balls': (int(row['old_price_balls']) if row['old_price_balls'] else None),
                 'discount_percent': (round((1 - int(row['price_balls']) / int(row['old_price_balls'])) * 100) if row['old_price_balls'] and int(row['old_price_balls']) > int(row['price_balls']) else None),
                 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
@@ -124,7 +134,10 @@ def install_shop_items(app, db, auth, record, audit):
                 balls += gain
                 result.update(balls_gain=gain, balance={'balls': balls})
             elif row['kind'] == 'PACK':
-                ids = [app.extensions['crafter_grant_pack'](uid, row['amount'], 'shop:' + iid) for _ in range(int(row['bundle'] or 1))]
+                if row['contents']:                                  # a mixed set: every pack of the set is given
+                    ids = [app.extensions['crafter_grant_pack'](uid, c['pack_id'], 'shop:' + iid) for c in json.loads(row['contents']) for _ in range(int(c['count']))]
+                else:
+                    ids = [app.extensions['crafter_grant_pack'](uid, row['amount'], 'shop:' + iid) for _ in range(int(row['bundle'] or 1))]
                 result.update(pack_id=ids[0], pack_ids=ids)
             elif row['kind'] == 'STAR':
                 ids = [app.extensions['crafter_grant_star_gift'](uid, row['amount'], 'shop:' + iid) for _ in range(int(row['bundle'] or 1))]
@@ -173,6 +186,25 @@ def install_shop_items(app, db, auth, record, audit):
         if kind == 'PROMO' and promo not in PROMO_KINDS:
             abort(400, description='Тип промокода: GRAM, шары или пак')
         eff = promo if kind == 'PROMO' else kind
+        mix, mix_title = None, ''
+        if kind == 'PACK' and isinstance(body.get('contents'), list) and body['contents']:
+            merged = {}
+            for entry in body['contents']:
+                pid = str((entry or {}).get('pack_id') or '')
+                try:
+                    n = int((entry or {}).get('count') or 0)
+                except (TypeError, ValueError):
+                    abort(400, description='Количество паков в наборе — целое число')
+                if n <= 0:
+                    continue
+                if not app.extensions['crafter_pack_exists'](pid):
+                    abort(400, description='В наборе есть несуществующий пак')
+                merged[pid] = merged.get(pid, 0) + n
+            if not merged or sum(merged.values()) > 20:
+                abort(400, description='В наборе от 1 до 20 паков')
+            mix = json.dumps([{'pack_id': k, 'count': v} for k, v in merged.items()])
+            mix_title = ' + '.join(((app.extensions['crafter_pack_short'](k) or {}).get('title', 'Пак')) + (' ×' + str(v) if v > 1 else '') for k, v in merged.items())
+            body = {**body, 'amount': next(iter(merged)), 'bundle': sum(merged.values())}
         if eff == 'PACK':
             amount = str(body.get('amount') or '')
             if not app.extensions['crafter_pack_exists'](amount):
@@ -202,7 +234,9 @@ def install_shop_items(app, db, auth, record, audit):
             abort(400, description='Картинка: ссылка https:// или файл из /static/')
         title = str(body.get('title') or '').strip()[:80]
         if not title:
-            if eff == 'PACK':
+            if eff == 'PACK' and mix_title:
+                title = mix_title[:80]
+            elif eff == 'PACK':
                 title = (app.extensions['crafter_pack_short'](amount) or {}).get('title', 'Пак') + (' ×' + str(bundle) if bundle > 1 else '')
             elif eff == 'STAR':
                 title = (app.extensions['crafter_star_gift_short'](amount) or {}).get('title', 'Подарок') + (' ×' + str(bundle) if bundle > 1 else '')
@@ -214,8 +248,8 @@ def install_shop_items(app, db, auth, record, audit):
                 title = 'Промокод: ' + title
         iid = uuid.uuid4().hex
         with db():
-            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,old_price_balls,stock,per_user,bundle,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-                         (iid, kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, int(time.time())))
+            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,old_price_balls,stock,per_user,bundle,contents,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                         (iid, kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, mix, int(time.time())))
         audit('Shop item created: ' + title)
         return {'ok': True, 'id': iid}
 

@@ -52,3 +52,13 @@
 .si-fan.n2 img,.si-fan.n3 img,.si-fan.n4 img,.si-fan.n5 img{width:68%!important}
 .si-stage .si-fan img,.si-stage .si-fan.n1 img,.si-stage .si-fan.n2 img,.si-stage .si-fan.n3 img,.si-stage .si-fan.n4 img,.si-stage .si-fan.n5 img{width:44%!important;bottom:2%;
   filter:brightness(calc(1 - var(--i) * .07)) drop-shadow(0 10px 16px rgba(0,0,0,.55)) drop-shadow(0 0 16px rgb(var(--ac) / .35))}
+
+/* Admin: the mixer of a pack set */
+.si-mix{display:grid;gap:8px}
+.si-mix-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 12px;border-radius:16px;border:1px solid #ffffff1c;background:#ffffff08}
+.si-mix-row.is-on{border-color:#6aa6ff88;background:#2b7be01c}
+.si-mix-row img{width:44px;height:54px;object-fit:contain}
+.si-mix-row b{font-size:14px;color:#f0f2f5}
+.si-mix-step{display:flex;align-items:center;gap:8px}
+.si-mix-step button{width:34px;height:34px;border-radius:12px;border:1px solid #ffffff2a;background:#ffffff12;color:#fff;font-size:20px;line-height:1;cursor:pointer}
+.si-mix-step output{min-width:26px;text-align:center;font-weight:800;font-size:16px;color:#fff}

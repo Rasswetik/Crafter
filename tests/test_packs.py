@@ -591,3 +591,18 @@ def test_offers_can_be_made_on_the_lucky_pack_collection(client):
     assert {m['name'] for m in attrs['models']} >= {'New Year', 'Winter', 'Silverfrost', 'Christmas Carol'} and attrs['backdrops']
     shown = client.get('/api/offers?collection=Lucky%20Pack', headers=buyer)
     assert shown.status_code == 200
+
+
+def test_shop_set_of_mixed_packs(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    packs = [p['id'] for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']]
+    assert len(packs) >= 2
+    mk = lambda contents: client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'PACK', 'price_balls': 0, 'contents': contents})
+    assert mk([{'pack_id': 'nope', 'count': 1}]).status_code == 400
+    assert mk([{'pack_id': packs[0], 'count': 21}]).status_code == 400
+    assert mk([{'pack_id': packs[0], 'count': 2}, {'pack_id': packs[1], 'count': 1}]).status_code == 200
+    item = client.get('/api/shop-items', headers=player).json['items'][0]
+    assert item['bundle'] == 3 and [c['count'] for c in item['contents']] == [2, 1] and '+' in item['title']
+    bought = client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'mixed-set-0001'}).json
+    assert len(bought['pack_ids']) == 3
