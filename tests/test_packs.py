@@ -346,3 +346,15 @@ def test_pack_collection_page_shows_all_three_packs_as_png_models(client):
     assert {m['name'] for m in models} >= {'New Year', 'Snowman', 'Winter'}
     assert all(m['image'].startswith('/static/assets/packs/') for m in models)
     assert info.json['collection']['photo_url'] == models[0]['image']
+
+
+def test_packs_share_one_running_number_and_cannot_be_crafted(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    for pack in ('winter', 'newyear', 'snowman', 'winter'):
+        assert client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': pack}).status_code == 200
+    items = [g for g in client.get('/api/inventory', headers=player).json['gifts'] if g.get('pack_item')]
+    assert sorted(g['number'] for g in items) == [1, 2, 3, 4]                       # one order, not one per model
+    assert {g['model'] for g in items} == {'Winter', 'New Year', 'Snowman'}
+    craft = client.post('/api/craft/quote', headers=player, json={'gift_ids': [items[0]['id']], 'target_id': 'snoop'})
+    assert craft.status_code == 409

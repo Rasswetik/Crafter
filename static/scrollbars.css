@@ -1,0 +1,7 @@
+/* Liquid-glass scrollbars: thin, rounded, graphite, on every scrollable window and list */
+*{scrollbar-width:thin;scrollbar-color:#6a6e76 transparent}
+::-webkit-scrollbar{width:8px;height:8px;background:transparent}
+::-webkit-scrollbar-track{background:transparent;margin:10px 0}
+::-webkit-scrollbar-thumb{border-radius:999px;border:2px solid transparent;background:linear-gradient(180deg,#8a8f98,#5d6168) padding-box;box-shadow:inset 0 1px #ffffff40}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#a7acb4,#7a7f87) padding-box}
+::-webkit-scrollbar-corner{background:transparent}

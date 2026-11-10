@@ -333,7 +333,7 @@ def install_packs(app, db, auth, record, audit):
         upid = uuid.uuid4().hex
         db().execute("INSERT INTO user_packs(id,user_id,pack_id,source,request_id,created) VALUES(?,?,?,?,?,?)",
                      (upid, uid, pack_id, source, request_id, int(time.time())))
-        serial = int(db().execute("SELECT COUNT(*) AS n FROM user_packs WHERE pack_id=?", (pack_id,)).fetchone()['n'])
+        serial = int(db().execute("SELECT COUNT(*) AS n FROM user_packs").fetchone()['n'])      # one running number for all packs
         bd = _rng.choice(BACKDROPS)
         gift = {'id': 'packitem-' + upid, 'name': COLLECTION[1], 'number': serial, 'model': pack['title'],
                 'symbol': '', 'image': pack['image_url'], 'price': '0', 'price_unit': 'GRAM',

@@ -187,7 +187,7 @@ sheet=function(title,html){document.querySelector('#sheet').classList.remove('gi
 
 function pickGift() {
     if (state.crafting) return;
-    state.pickerGifts = state.inventory.filter(gift => gift.status === 'unlisted');
+    state.pickerGifts = state.inventory.filter(gift => gift.status === 'unlisted' && !gift.pack_item);      // card packs never go into a craft
     if (!state.pickerGifts.length) {
         sheet('Добавить подарки', emptyGiftActions());
         startEmptyGiftCarousel(appSheet);

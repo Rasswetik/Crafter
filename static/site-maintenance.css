@@ -114,7 +114,7 @@ body.maintenance-locked {overflow:hidden!important}
 /* ---- Launch countdown: its own full-page screen in the project's graphite liquid glass, with the holiday canopy and snow ---- */
 #crafter-launch-screen{display:none;position:fixed;inset:0;z-index:2147483647;align-items:center;justify-content:center;padding:clamp(18px,5vw,64px);color:#eff1f3;overflow:hidden;isolation:isolate;
   background:radial-gradient(ellipse at 50% 24%,#4a4d5560,transparent 62%),radial-gradient(ellipse at 14% 96%,#3a3d4350,transparent 55%),radial-gradient(ellipse at 90% 80%,#34373d48,transparent 55%),#0a0b0e;
-  backdrop-filter:blur(30px) saturate(.75);-webkit-backdrop-filter:blur(30px) saturate(.75)}
+}
 #crafter-launch-screen.is-active{display:flex}
 #crafter-launch-screen::after{content:"";position:absolute;top:0;left:0;width:100%;height:89px;z-index:3;pointer-events:none;
   background:url("/static/assets/crafter-top-canopy.svg?v=1") repeat-x center top / 310px 85px;opacity:.94}
@@ -125,17 +125,28 @@ body.maintenance-locked {overflow:hidden!important}
   background:linear-gradient(180deg,#fff 12%,#d9dde2 55%,#9aa0a8);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 8px 30px rgba(0,0,0,.55))}
 .crafter-launch-cap{font-size:clamp(12px,2.2vw,19px);letter-spacing:.34em;text-transform:uppercase;font-weight:800;color:#c5ccd3}
 .crafter-launch-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:clamp(8px,2vw,22px);width:100%}
-.crafter-launch-grid>div{position:relative;display:grid;justify-items:center;gap:clamp(6px,1.2vw,12px);padding:clamp(16px,4vw,44px) 4px clamp(12px,2.6vw,28px);border-radius:clamp(20px,3.2vw,36px);overflow:hidden;
-  border:1px solid #e6e9f166;background:linear-gradient(138deg,#ffffff24,#ffffff09 58%,#ffffff0b),#202226bc;
-  box-shadow:inset 0 1px #fff5,inset 0 -2px #ffffff0c,0 25px 70px #0009;
-  backdrop-filter:blur(35px) saturate(.68);-webkit-backdrop-filter:blur(35px) saturate(.68)}
-.crafter-launch-grid>div:before{content:"";position:absolute;inset:6px;border:1px solid #ffffff12;border-radius:calc(clamp(20px,3.2vw,36px) - 6px);pointer-events:none}
-.crafter-launch-grid>div:after{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:#ffffff10}
-.crafter-launch-grid b{font-size:clamp(34px,11vw,124px);font-weight:850;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em;color:#fff;text-shadow:0 6px 26px rgba(0,0,0,.5)}
-.crafter-launch-grid i{font-style:normal;font-size:clamp(9px,1.7vw,16px);letter-spacing:.18em;text-transform:uppercase;color:#b3bac2;font-weight:700}
-.crafter-launch-grid b.is-tick{animation:crafter-tick .45s ease-out}
-@keyframes crafter-tick{0%{transform:translateY(-8px);opacity:.3}100%{transform:none;opacity:1}}
+/* Flip clock: the old number folds down like a calendar leaf and the new one lies underneath. Only transforms are animated, so it stays smooth. */
+.fl{position:relative;display:grid;justify-items:center;gap:clamp(8px,1.4vw,14px);padding:clamp(10px,2vw,22px) clamp(6px,1.4vw,16px) clamp(10px,2vw,20px);border-radius:clamp(20px,3.2vw,36px);
+  border:1px solid #e6e9f155;background:linear-gradient(138deg,#ffffff1c,#ffffff08 58%,#ffffff0a),#1c1e22d9;box-shadow:inset 0 1px #fff4,0 25px 60px #000a}
+.fl-card{position:relative;width:100%;height:clamp(78px,17vw,200px);perspective:800px;-webkit-perspective:800px}
+.fl-half{position:absolute;left:0;right:0;height:50%;overflow:hidden;background:linear-gradient(180deg,#34363c,#2a2c31);backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.fl-half b{position:absolute;left:0;right:0;height:200%;display:grid;place-items:center;font-size:clamp(46px,12.5vw,150px);font-weight:850;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em;color:#fff;text-shadow:0 4px 18px rgba(0,0,0,.5)}
+.fl-top,.fl-leaf-top{top:0;border-radius:clamp(12px,2vw,22px) clamp(12px,2vw,22px) 0 0;border-bottom:1px solid #00000066}
+.fl-top b,.fl-leaf-top b{top:0}
+.fl-bot,.fl-leaf-bot{bottom:0;background:linear-gradient(180deg,#26282c,#1e2024);border-radius:0 0 clamp(12px,2vw,22px) clamp(12px,2vw,22px)}
+.fl-bot b,.fl-leaf-bot b{bottom:0}
+.fl-leaf{z-index:2;will-change:transform}
+.fl-leaf-top{transform-origin:50% 100%}
+.fl-leaf-bot{transform-origin:50% 0;transform:rotateX(90deg)}
+.fl.is-flip .fl-leaf-top{animation:fl-top .3s ease-in forwards}
+.fl.is-flip .fl-leaf-bot{animation:fl-bot .3s ease-out .3s forwards}
+@keyframes fl-top{to{transform:rotateX(-90deg)}}
+@keyframes fl-bot{to{transform:rotateX(0deg)}}
+.fl i{font-style:normal;font-size:clamp(9px,1.7vw,16px);letter-spacing:.18em;text-transform:uppercase;color:#b3bac2;font-weight:700}
 .crafter-launch-date{font-size:clamp(12px,1.9vw,17px);color:#a4abb3;letter-spacing:.04em}
 body.launch-locked{overflow:hidden!important}
 @media(max-width:520px){#crafter-launch-screen::after{height:75px;background-size:245px 72px}}
-@media(prefers-reduced-motion:reduce){.crafter-launch-grid b.is-tick{animation:none}}
+@media(prefers-reduced-motion:reduce){.fl.is-flip .fl-leaf-top,.fl.is-flip .fl-leaf-bot{animation-duration:.01s;animation-delay:0s}}
+
+.crafter-launch-admin{margin-top:6px;padding:8px 16px;border-radius:999px;border:1px solid #e6e9f133;background:#ffffff0d;color:#9ea5ad;font-size:12px;letter-spacing:.06em;cursor:pointer}
+.crafter-launch-admin:hover{color:#fff;background:#ffffff1a}

@@ -105,7 +105,7 @@
     if (!box || !opensAt) return;
     const offset = (serverNow || Math.floor(Date.now() / 1000)) - Math.floor(Date.now() / 1000);
     const cells = {};
-    box.querySelectorAll('[data-u]').forEach(b => { cells[b.dataset.u] = b; });
+    box.querySelectorAll('.fl').forEach(el => { cells[el.dataset.u] = el; });
     const when = document.getElementById('crafter-launch-date');
     if (when) when.textContent = new Date(opensAt * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
     if (!box.querySelector('.crafter-maintenance-snow')) {                 // the same snow as on the maintenance screen
@@ -125,16 +125,56 @@
     }
     box.classList.add('is-active'); box.setAttribute('aria-hidden', 'false'); document.body.classList.add('launch-locked');
     clearInterval(timer);
-    const put = (key, value) => { const b = cells[key]; if (b && b.textContent !== value) { b.textContent = value; b.classList.remove('is-tick'); void b.offsetWidth; b.classList.add('is-tick'); } };
+    const text = (el, sel, v) => { el.querySelectorAll(sel).forEach(b => { b.textContent = v; }); };
+    const set = (el, v) => { el.dataset.v = v; text(el, '.fl-top b', v); text(el, '.fl-bot b', v); text(el, '.fl-leaf-top b', v); text(el, '.fl-leaf-bot b', v); };
+    const put = (key, value) => {
+      const el = cells[key];
+      if (!el || el.dataset.v === value) return;
+      if (el.dataset.v === undefined || document.hidden) { set(el, value); return; }        // first paint, or a hidden tab: no animation
+      const old = el.dataset.v;
+      el.classList.remove('is-flip'); void el.offsetWidth;
+      text(el, '.fl-top b', value); text(el, '.fl-bot b', old); text(el, '.fl-leaf-top b', old); text(el, '.fl-leaf-bot b', value);
+      el.dataset.v = value;
+      el.classList.add('is-flip');
+      clearTimeout(el._flip);
+      el._flip = setTimeout(() => { set(el, value); el.classList.remove('is-flip'); }, 640);
+    };
     const tick = () => {
       const left = Math.max(0, opensAt - (Math.floor(Date.now() / 1000) + offset));
       put('d', pad(Math.floor(left / 86400))); put('h', pad(Math.floor(left % 86400 / 3600)));
       put('m', pad(Math.floor(left % 3600 / 60))); put('s', pad(left % 60));
-      if (left === 0) { clearInterval(timer); setTimeout(() => location.reload(), 1200); }
+      if (left === 0) { clearInterval(timer); setTimeout(() => location.reload(), 1500); }
     };
     tick();
     timer = setInterval(tick, 1000);
   };
-  // the screen also appears on a plain page load, before any request fails
-  fetch('/api/site/launch', {cache: 'no-store'}).then(r => r.json()).then(s => { if (s.active) window.crafterShowLaunch(s.opens_at, s.now); }).catch(() => {});
+  function hideLaunch() {
+    clearInterval(timer);
+    const box = document.getElementById('crafter-launch-screen');
+    box?.classList.remove('is-active'); box?.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('launch-locked');
+  }
+  window.crafterHideLaunch = hideLaunch;
+  // The screen appears on a plain page load, before any request fails. Administrators are let through.
+  async function launchGate() {
+    try {
+      const s = await (await fetch('/api/site/launch', {cache: 'no-store'})).json();
+      if (!s.active) return;
+      const headers = {'X-Telegram-Init-Data': typeof telegramInitData === 'function' ? telegramInitData() : (window.Telegram?.WebApp?.initData || '')};
+      if (!headers['X-Telegram-Init-Data']) {
+        delete headers['X-Telegram-Init-Data'];
+        const site = typeof crafterWebSession === 'function' ? crafterWebSession() : '';
+        if (site) headers['X-Crafter-Web-Session'] = site;
+      }
+      const reply = await fetch('/api/site/maintenance/access', {headers, cache: 'no-store'});
+      if (reply.ok && (await reply.json()).is_admin) return;                   // an administrator: no countdown
+      window.crafterShowLaunch(s.opens_at, s.now);
+      const link = document.getElementById('crafter-launch-admin');
+      if (link && !window.Telegram?.WebApp?.initData && typeof window.crafterWebLogin === 'function') {
+        link.hidden = false;
+        link.onclick = () => { hideLaunch(); window.crafterWebLogin(); };
+      }
+    } catch (error) { /* the countdown is optional */ }
+  }
+  launchGate();
 })();

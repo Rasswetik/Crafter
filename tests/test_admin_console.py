@@ -168,11 +168,15 @@ def test_launch_countdown_is_separate_and_wins_over_maintenance(client, monkeypa
     blocked = client.get('/api/me', headers=player)
     assert blocked.status_code == 503 and blocked.json['launch'] and blocked.json['opens_at'] == soon
     assert client.get('/api/me', headers=admin).status_code == 200                              # administrators pass
+    assert client.get('/api/site/maintenance/access', headers=admin).json['is_admin'] is True        # the page lets administrators in
+    assert client.get('/api/site/maintenance/access', headers=player).json['is_admin'] is False
     # both screens on: the countdown has priority
     client.post('/api/admin/maintenance', headers=admin, json={'enabled': True, 'confirm': 'ENABLE_MAINTENANCE', 'message': 'x'})
     both = client.get('/api/me', headers=player).json
     assert both.get('launch') and not both.get('maintenance')
     client.post('/api/admin/maintenance', headers=admin, json={'enabled': False, 'confirm': 'DISABLE_MAINTENANCE'})
+    only_launch = client.get('/api/me', headers=player)
+    assert only_launch.status_code == 503 and only_launch.json.get('launch') and not only_launch.json.get('maintenance')       # works with maintenance off
     real = _time.time
     monkeypatch.setattr(admin_console.time, 'time', lambda: real() + 6 * 86400)                 # the time has come: the site opens itself
     assert client.get('/api/site/launch').json['active'] is False
@@ -180,3 +184,32 @@ def test_launch_countdown_is_separate_and_wins_over_maintenance(client, monkeypa
     monkeypatch.setattr(admin_console.time, 'time', real)
     client.post(route, headers=admin, json={'opens_at': soon})
     assert client.post(route, headers=admin, json={'opens_at': None}).json['active'] is False   # cleared by hand
+
+
+def test_maintenance_and_launch_screens_are_well_formed(client):
+    from html.parser import HTMLParser
+    page = client.get('/').get_data(as_text=True)
+
+    class Walk(HTMLParser):
+        VOID = {'img', 'meta', 'link', 'br', 'input', 'path', 'circle', 'source'}
+
+        def __init__(self):
+            super().__init__()
+            self.stack, self.found = [], {}
+
+        def handle_starttag(self, tag, attrs):
+            if tag in self.VOID:
+                return
+            ident = dict(attrs).get('id')
+            if ident in ('crafter-maintenance-retry', 'crafter-launch-screen', 'crafter-maintenance-status'):
+                self.found[ident] = [x for x in self.stack if x]
+            self.stack.append(dict(attrs).get('id'))
+
+        def handle_endtag(self, tag):
+            if tag not in self.VOID and self.stack:
+                self.stack.pop()
+    walk = Walk()
+    walk.feed(page)
+    assert 'crafter-maintenance' in walk.found['crafter-maintenance-retry'] and 'crafter-maintenance' in walk.found['crafter-maintenance-status']   # the button lives inside its card
+    assert 'crafter-maintenance' not in walk.found['crafter-launch-screen']                                                                          # the countdown is a separate screen
+    assert 'crafter-launch-screen' not in walk.found['crafter-maintenance-retry']

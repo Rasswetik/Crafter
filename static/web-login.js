@@ -5,6 +5,7 @@
 'use strict';
 const SESSION_KEY = 'crafter-web-session', PENDING_KEY = 'crafter-web-login';
 const inTelegram = () => Boolean(window.Telegram?.WebApp?.initData);
+window.crafterWebLogin = () => loginScreen();              // used by the launch countdown: administrators sign in from there
 const esc2 = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const plane = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="M21.9 4.1 2.8 11.5c-1 .4-1 1.2-.2 1.4l4.9 1.5 1.9 5.8c.2.6.4.8.9.8s.7-.2 1-.5l2.4-2.3 4.9 3.6c.9.5 1.5.2 1.7-.9l3.2-15.3c.3-1.3-.5-1.9-1.6-1.4ZM8.6 13.6l9.5-6c.4-.3.9-.1.5.3l-7.8 7.1-.3 3.2-1.9-4.6Z"/></svg>';
 
@@ -188,11 +189,11 @@ boot = async function () {
                 const info = await answer.json().catch(() => ({}));
                 maintenance = Boolean(info.maintenance);
                 launch = Boolean(info.launch);
-                if (launch && typeof window.crafterShowLaunch === 'function') window.crafterShowLaunch(info.opens_at, info.now);
+                if (launch && typeof window.crafterShowLaunch === 'function' && !crafterWebSession()) window.crafterShowLaunch(info.opens_at, info.now);
             }
         } catch (_) { /* offline: let the normal error show */ }
         // During maintenance a visitor without a session signs in first: administrators are let through afterwards.
-        if (launch) return;                                   // the countdown screen is shown: nothing else to do until the opening
+        if (launch && !crafterWebSession()) return;           // the countdown screen is shown: nothing else to do until the opening
         if (status === 401 || (maintenance && !crafterWebSession())) {
             const pending = readPending();
             if (pending && Date.now() < pending.until) { waitingScreen(pending.link, pending.appLink); poll(pending); }
