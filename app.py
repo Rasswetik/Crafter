@@ -273,6 +273,9 @@ def create_app(config=None):
         return render_template('admin_user.html', uid=uid)
 
 
+    @app.get('/favicon.ico')
+    def site_favicon():
+        return app.send_static_file('favicon.ico')
     @app.get('/collections/<slug>')
     def collection_page(slug):
         return render_template('index.html')

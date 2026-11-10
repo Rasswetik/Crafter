@@ -724,3 +724,12 @@ def test_production_market_uses_public_listings_with_partner_key(client, monkeyp
     response = client.get('/api/market', headers=signed())
     assert response.status_code == 200
     assert response.json['gifts'][0]['id'] == lot['id']
+
+
+def test_site_has_the_crafter_icon(client):
+    ico = client.get('/favicon.ico')
+    assert ico.status_code == 200 and ico.data[:4] == b'\x00\x00\x01\x00'
+    for path in ('/', '/partner-api'):
+        page = client.get(path).get_data(as_text=True)
+        assert '/static/icons/crafter-32.png' in page and 'apple-touch-icon' in page
+    assert client.get('/static/icons/crafter-192.png').status_code == 200
