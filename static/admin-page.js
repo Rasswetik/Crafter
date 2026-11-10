@@ -73,9 +73,14 @@ async function renderAdmin() {
         'onclick="adminToggleMenu()" aria-label="Открыть меню">☰ Меню</button>'+
         '<div><small>ПАНЕЛЬ УПРАВЛЕНИЯ</small><h2>'+section.label+'</h2>'+
         '<p>'+section.detail+'</p></div>'+
+'<label class="admin-hide-switch"><input type="checkbox" id="admin-hide-toggle"'+(state.me.admin_hidden?' checked':'')+'> Скрыть админ-панель на сайте</label>'+
 '</div>'+
         '<div id="admin-content" class="admin-content"><p class="admin-loading-panel">Загрузка раздела…</p></div>'+
         '</section></div>';
+    document.getElementById('admin-hide-toggle')?.addEventListener('change',async event=>{
+        try{await api('admin/ui/admin-hidden',{hidden:event.target.checked});state.me.admin_hidden=event.target.checked;toast(event.target.checked?'Скрыто. Чтобы открыть: введите 777 в сумме пополнения':'Админ-панель снова видна');}
+        catch(error){event.target.checked=!event.target.checked;toast(error.message);}
+    });
     const newNavigation=document.getElementById('admin-navigation');
     adminFilterSections(state.adminNavQuery||'');
     if(newNavigation) {

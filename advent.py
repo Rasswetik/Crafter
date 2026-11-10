@@ -23,12 +23,22 @@ CHANNEL_KEY = 'advent_channel_v1'
 _LIMIT = 10**9
 now = time.time          # replaced in tests
 
+SHAPES = ('sq', 'wide', 'tall', 'big')
+# Cheap on purpose: a fully collected calendar must not cost much. A few small packs, small promo codes, balls.
 DEFAULT_PLAN = (
-    ('BALL', '', '50', 1), ('PROMO', 'GRAM', '0.3', 1), ('BALL', '', '100', 1), ('GRAM', '', '0.5', 1), ('BALL', '', '150', 1), ('PACK', '', '', 1),
-    ('PROMO', 'BALL', '200', 1), ('BALL', '', '100', 1), ('GRAM', '', '1', 1), ('BALL', '', '200', 1), ('PROMO', 'GRAM', '0.5', 1), ('PACK', '', '', 1),
-    ('BALL', '', '150', 1), ('GRAM', '', '1.5', 1), ('BALL', '', '250', 1), ('PROMO', 'BALL', '300', 1), ('BALL', '', '150', 1), ('PACK', '', '', 1),
-    ('GRAM', '', '2', 1), ('BALL', '', '300', 1), ('PROMO', 'GRAM', '1', 1), ('BALL', '', '400', 1), ('PACK', '', '', 2), ('PACK', '', '', 3),
+    ('BALL', '', '20', 1), ('BALL', '', '30', 1), ('PROMO', 'GRAM', '0.05', 1), ('BALL', '', '30', 1), ('BALL', '', '40', 1), ('PROMO', 'BALL', '50', 1),
+    ('GRAM', '', '0.1', 1), ('BALL', '', '40', 1), ('BALL', '', '50', 1), ('PROMO', 'GRAM', '0.08', 1), ('BALL', '', '50', 1), ('PACK', '', '', 1),
+    ('BALL', '', '60', 1), ('PROMO', 'BALL', '80', 1), ('GRAM', '', '0.15', 1), ('BALL', '', '60', 1), ('BALL', '', '70', 1), ('PROMO', 'GRAM', '0.1', 1),
+    ('BALL', '', '70', 1), ('PACK', '', '', 1), ('BALL', '', '80', 1), ('PROMO', 'BALL', '100', 1), ('GRAM', '', '0.2', 1), ('BALL', '', '100', 1),
+    ('BALL', '', '80', 1), ('PROMO', 'GRAM', '0.15', 1), ('BALL', '', '90', 1), ('PACK', '', '', 1), ('BALL', '', '100', 1), ('GRAM', '', '0.25', 1), ('PACK', '', '', 2),
 )
+# Extra rewards that lie in the same cell: (kind, promo_kind, amount, count)
+DEFAULT_EXTRAS = {7: [('BALL', '', '20', 1)], 14: [('BALL', '', '30', 1)], 21: [('BALL', '', '40', 1)], 24: [('GRAM', '', '0.1', 1)],
+                  31: [('BALL', '', '100', 1), ('GRAM', '', '0.2', 1)]}
+# Cells differ in size: square, wide, tall, big (the grid fills the gaps by itself)
+DEFAULT_SHAPES = ('big', 'sq', 'sq', 'wide', 'sq', 'tall', 'sq', 'sq', 'wide', 'sq', 'sq', 'tall', 'big', 'sq', 'wide', 'sq', 'sq', 'tall', 'sq', 'wide',
+                  'sq', 'big', 'sq', 'sq', 'tall', 'wide', 'sq', 'sq', 'sq', 'wide', 'big')
+DEFAULTS_MARK = 'advent_defaults_v3'
 
 
 def plain(d):
@@ -40,7 +50,8 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         db().executescript("""
         CREATE TABLE IF NOT EXISTS advent_days(
             day BIGINT PRIMARY KEY, kind TEXT NOT NULL, promo_kind TEXT NOT NULL DEFAULT '', amount TEXT NOT NULL DEFAULT '',
-            count BIGINT NOT NULL DEFAULT 1, title TEXT NOT NULL DEFAULT '', image_url TEXT NOT NULL DEFAULT ''
+            count BIGINT NOT NULL DEFAULT 1, title TEXT NOT NULL DEFAULT '', image_url TEXT NOT NULL DEFAULT '',
+            shape TEXT NOT NULL DEFAULT '', extra TEXT NOT NULL DEFAULT '', position BIGINT
         );
         CREATE TABLE IF NOT EXISTS advent_opens(
             user_id BIGINT NOT NULL, day BIGINT NOT NULL, opened_at BIGINT NOT NULL, result TEXT NOT NULL,
@@ -114,8 +125,10 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
                     kind, amount, n = 'BALL', '100', 1
             if kind == 'PROMO' and promo == 'PACK' and not pack_ok:
                 promo, amount = 'BALL', '100'
-            db().execute("INSERT INTO advent_days(day,kind,promo_kind,amount,count,title,image_url) VALUES(?,?,?,?,?,?,?)",
-                         (d, kind, promo, amount, n, '', ''))
+            extra = [dict(kind=k, promo_kind=p, amount=('newyear' if k == 'PACK' else a), count=c) for k, p, a, c in DEFAULT_EXTRAS.get(d, ())
+                     if k != 'PACK' or pack_ok]
+            db().execute("INSERT INTO advent_days(day,kind,promo_kind,amount,count,title,image_url,shape,extra,position) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                         (d, kind, promo, amount, n, '', '', DEFAULT_SHAPES[(d - 1) % len(DEFAULT_SHAPES)], json.dumps(extra) if extra else '', d))
 
     with app.app_context(), db():
         pass
@@ -145,7 +158,7 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         un = unlock_ts(c, row['day'])
         state = 'opened' if row['day'] in opened else ('ready' if now() >= un else 'locked')
         out = {'day': int(row['day']), 'unlock_at': un, 'state': state, 'kind': row['kind'] if row['kind'] != 'PROMO' else 'PROMO',
-               'image_url': row['image_url']}
+               'image_url': row['image_url'], 'shape': row['shape'] if row['shape'] in SHAPES else 'sq', 'extras': len(json.loads(row['extra'] or '[]'))}
         if state == 'opened':
             out['reward'] = opened[row['day']]
         return out
@@ -156,7 +169,7 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         with db():
             ensure_days(count)
         opened = {r['day']: json.loads(r['result']) for r in db().execute("SELECT day,result FROM advent_opens WHERE user_id=?", (uid,)).fetchall()}
-        rows = db().execute("SELECT * FROM advent_days WHERE day<=? ORDER BY day", (count,)).fetchall()
+        rows = db().execute("SELECT * FROM advent_days WHERE day<=? ORDER BY COALESCE(position, day), day", (count,)).fetchall()
         ch = channel()
         return {'enabled': bool(c['enabled']), 'now': int(now()), 'hour': c['hour'], 'tz': c['tz'], 'require_sub': bool(c['require_sub'] and ch),
                 'channel': ({'title': ch['title'], 'username': ch.get('username') or '',
@@ -228,6 +241,31 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
                 return cand
         abort(503, description='Не удалось создать код, повторите')
 
+    def grant_one(uid, day, row):
+        reward = {'kind': row['kind'], 'title': title_of(row), 'image_url': row['image_url']}
+        if row['kind'] == 'GRAM':
+            acc = db().execute("SELECT balance FROM demo_accounts WHERE user_id=?", (uid,)).fetchone()
+            after = (Decimal(str(acc['balance'])) if acc else Decimal('0')) + Decimal(row['amount'])
+            db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance", (uid, str(after)))
+            reward.update(amount=row['amount'], gram_balance=str(after))
+        elif row['kind'] == 'BALL':
+            wal = db().execute("SELECT balls FROM new_year_wallets WHERE user_id=?", (uid,)).fetchone()
+            after = (int(wal['balls']) if wal else 0) + int(row['amount'])
+            db().execute("INSERT INTO new_year_wallets(user_id,balls) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balls=excluded.balls", (uid, after))
+            reward.update(amount=row['amount'], balls=after)
+        elif row['kind'] == 'STAR':
+            star = app.extensions['crafter_star_gift_short'](row['amount'])
+            if not star:
+                abort(409, description='Подарок дня недоступен')
+            ids = [app.extensions['crafter_grant_star_gift'](uid, row['amount'], 'advent:' + str(day)) for _ in range(int(row['count']))]
+            reward.update(gift_ids=ids, count=int(row['count']), image=star['image'])
+        elif row['kind'] == 'PACK':
+            ids = [app.extensions['crafter_grant_pack'](uid, row['amount'], 'advent:' + str(day)) for _ in range(int(row['count']))]
+            reward.update(pack_ids=ids, count=int(row['count']))
+        else:
+            reward.update(code=code_for(uid, row['promo_kind'], row['amount'], int(row['count'])), promo_kind=row['promo_kind'])
+        return reward
+
     @app.post('/api/advent/open')
     @auth()
     def advent_open():
@@ -240,6 +278,8 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         c = cfg()
         if not c['enabled']:
             abort(409, description='Календарь сейчас выключен')
+        if app.extensions.get('crafter_ny_lock_left', lambda _: 0)('advent'):
+            abort(409, description='Раздел ещё закрыт')
         if not 1 <= day <= max(1, min(31, int(c['days']))):
             abort(400, description='Такого дня нет')
         if now() < unlock_ts(c, day):
@@ -253,28 +293,11 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
                 return {'ok': True, 'repeat': True, 'day': day, 'reward': json.loads(have['result'])}
             ensure_days(day)
             row = day_row(day)
-            reward = {'kind': row['kind'], 'title': title_of(row), 'image_url': row['image_url']}
-            if row['kind'] == 'GRAM':
-                acc = db().execute("SELECT balance FROM demo_accounts WHERE user_id=?", (uid,)).fetchone()
-                after = (Decimal(str(acc['balance'])) if acc else Decimal('0')) + Decimal(row['amount'])
-                db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance", (uid, str(after)))
-                reward.update(amount=row['amount'], gram_balance=str(after))
-            elif row['kind'] == 'BALL':
-                wal = db().execute("SELECT balls FROM new_year_wallets WHERE user_id=?", (uid,)).fetchone()
-                after = (int(wal['balls']) if wal else 0) + int(row['amount'])
-                db().execute("INSERT INTO new_year_wallets(user_id,balls) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balls=excluded.balls", (uid, after))
-                reward.update(amount=row['amount'], balls=after)
-            elif row['kind'] == 'STAR':
-                star = app.extensions['crafter_star_gift_short'](row['amount'])
-                if not star:
-                    abort(409, description='Подарок дня недоступен')
-                ids = [app.extensions['crafter_grant_star_gift'](uid, row['amount'], 'advent:' + str(day)) for _ in range(int(row['count']))]
-                reward.update(gift_ids=ids, count=int(row['count']), image=star['image'])
-            elif row['kind'] == 'PACK':
-                ids = [app.extensions['crafter_grant_pack'](uid, row['amount'], 'advent:' + str(day)) for _ in range(int(row['count']))]
-                reward.update(pack_ids=ids, count=int(row['count']))
-            else:
-                reward.update(code=code_for(uid, row['promo_kind'], row['amount'], int(row['count'])), promo_kind=row['promo_kind'])
+            reward = grant_one(uid, day, row)
+            extras = [grant_one(uid, day, {'kind': x['kind'], 'promo_kind': x.get('promo_kind', ''), 'amount': x['amount'], 'count': int(x.get('count') or 1),
+                                           'title': x.get('title', ''), 'image_url': x.get('image_url', '')}) for x in json.loads(row['extra'] or '[]')]
+            if extras:
+                reward['extras'] = extras
             db().execute("INSERT INTO advent_opens(user_id,day,opened_at,result) VALUES(?,?,?,?)", (uid, day, int(now()), json.dumps(reward, ensure_ascii=False)))
             record('advent_open', {'day': day, 'kind': row['kind']}, uid=uid)
         return {'ok': True, 'day': day, 'reward': reward}
@@ -285,11 +308,12 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         count = max(1, min(31, int(c['days'])))
         with db():
             ensure_days(count)
-        rows = db().execute("SELECT * FROM advent_days WHERE day<=? ORDER BY day", (count,)).fetchall()
+        rows = db().execute("SELECT * FROM advent_days WHERE day<=? ORDER BY COALESCE(position, day), day", (count,)).fetchall()
         ch = channel()
-        return {'settings': c, 'channel': ch,
+        return {'shapes': list(SHAPES), 'settings': c, 'channel': ch,
                 'days': [{'day': int(r['day']), 'kind': r['kind'], 'promo_kind': r['promo_kind'], 'amount': r['amount'], 'count': int(r['count']),
                           'title': r['title'], 'image_url': r['image_url'], 'auto_title': title_of({**dict(r), 'title': ''}),
+                          'shape': r['shape'] if r['shape'] in SHAPES else 'sq', 'extra': json.loads(r['extra'] or '[]'),
                           'unlock_at': unlock_ts(c, r['day'])} for r in rows]}
 
     @app.get('/api/admin/new-year/advent')
@@ -364,12 +388,7 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         audit('Advent reset' + (' with rewards' if b.get('rewards') else ''))
         return {'ok': True}
 
-    @app.post('/api/admin/new-year/advent/days/<int:day>')
-    @auth(admin=True)
-    def admin_advent_day(day):
-        b = request.get_json(silent=True) or {}
-        if not 1 <= day <= 31:
-            abort(404)
+    def parse_reward(b):
         kind, promo = b.get('kind'), b.get('promo_kind') or ''
         if kind not in KINDS or (kind == 'PROMO' and promo not in PROMO_KINDS):
             abort(400, description='Неверный тип награды')
@@ -398,13 +417,51 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
             abort(400, description='Проверьте количество или сумму')
         if not 1 <= count <= 20:
             abort(400, description='Паков за награду: от 1 до 20')
+        return kind, (promo if kind == 'PROMO' else ''), amount, (count if eff in ('PACK', 'STAR') else 1)
+
+    @app.post('/api/admin/new-year/advent/days/<int:day>')
+    @auth(admin=True)
+    def admin_advent_day(day):
+        b = request.get_json(silent=True) or {}
+        if not 1 <= day <= 31:
+            abort(404)
+        kind, promo, amount, count = parse_reward(b)
         image = str(b.get('image_url') or '').strip()
         if image and not (image.startswith('https://') or re.fullmatch(r'/static/[A-Za-z0-9_./-]+', image)):
             abort(400, description='Картинка: ссылка https:// или файл из /static/')
         title = str(b.get('title') or '').strip()[:80]
+        shape = str(b.get('shape') or 'sq')
+        if shape not in SHAPES:
+            abort(400, description='Форма ячейки: ' + ', '.join(SHAPES))
+        extras_in = b.get('extra') or []
+        if not isinstance(extras_in, list) or len(extras_in) > 6:
+            abort(400, description='Дополнительных наград: до 6')
+        extras = []
+        for item in extras_in:
+            k, p, a, n = parse_reward(item if isinstance(item, dict) else {})
+            extras.append({'kind': k, 'promo_kind': p, 'amount': a, 'count': n})
         with db():
-            db().execute("INSERT INTO advent_days(day,kind,promo_kind,amount,count,title,image_url) VALUES(?,?,?,?,?,?,?) "
-                         "ON CONFLICT(day) DO UPDATE SET kind=excluded.kind,promo_kind=excluded.promo_kind,amount=excluded.amount,count=excluded.count,title=excluded.title,image_url=excluded.image_url",
-                         (day, kind, promo if kind == 'PROMO' else '', amount, count if eff in ('PACK', 'STAR') else 1, title, image))
+            db().execute("INSERT INTO advent_days(day,kind,promo_kind,amount,count,title,image_url,shape,extra,position) VALUES(?,?,?,?,?,?,?,?,?,?) "
+                         "ON CONFLICT(day) DO UPDATE SET kind=excluded.kind,promo_kind=excluded.promo_kind,amount=excluded.amount,count=excluded.count,title=excluded.title,image_url=excluded.image_url,shape=excluded.shape,extra=excluded.extra",
+                         (day, kind, promo, amount, count, title, image, shape, json.dumps(extras) if extras else '', day))
         audit('Advent day %d saved' % day)
+        return {'ok': True}
+
+    @app.post('/api/admin/new-year/advent/days/<int:day>/move')
+    @auth(admin=True)
+    def admin_advent_move(day):
+        direction = (request.get_json(silent=True) or {}).get('direction')
+        if direction not in ('up', 'down'):
+            abort(400, description='direction: up или down')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            ids = [r['day'] for r in db().execute("SELECT day FROM advent_days ORDER BY COALESCE(position, day), day").fetchall()]
+            if day not in ids:
+                abort(404)
+            at = ids.index(day)
+            to = at - 1 if direction == 'up' else at + 1
+            if 0 <= to < len(ids):
+                ids[at], ids[to] = ids[to], ids[at]
+            for number, item in enumerate(ids, 1):
+                db().execute("UPDATE advent_days SET position=? WHERE day=?", (number, item))
         return {'ok': True}

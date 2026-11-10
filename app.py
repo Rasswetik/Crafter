@@ -379,7 +379,7 @@ def create_app(config=None):
                 volume += price
         balance = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (g.user['id'],)).fetchone()[0]
         referral_data=referral_snapshot(g.user['id'])
-        return dict(user=g.user, is_admin=g.is_admin, is_primary_admin=g.is_primary_admin,
+        return dict(user=g.user, is_admin=g.is_admin, admin_hidden=bool(g.is_admin and app.extensions.get('crafter_admin_hidden', lambda: False)()), is_primary_admin=g.is_primary_admin,
                     admin_permissions=g.admin_permissions, demo=app.config['DEMO_MODE'],
                     inventory_count=len(inventory), balance=balance, inventory_value_ton=str(valuation['TON']),
                     inventory_value=str(valuation['GRAM']), bought=bought, sold=sold, volume=str(volume),
@@ -1495,6 +1495,8 @@ def create_app(config=None):
     install_launch_readiness(app, db, auth, audit)
     from portals_partner import install_portals_partner
     install_portals_partner(app, db, auth, record, audit)
+    from ny_extras import install_ny_extras
+    install_ny_extras(app, db, auth, audit)
     from thermos_market import install_thermos_market
     install_thermos_market(app, db, auth, record, audit, dict(public_catalog=public_catalog))
     from star_gifts import install_star_gifts

@@ -69,13 +69,13 @@ def test_cells_open_daily_for_subscribers_only(client, tg, monkeypatch):
     tg.status = 'member'
     monkeypatch.setattr(advent, 'now', lambda: datetime(2026, 12, 1, 10, 1, tzinfo=MSK).timestamp() + 60)   # skip the membership cache
     opened = client.post('/api/advent/open', headers=player, json={'day': 1})
-    assert opened.status_code == 200 and opened.json['reward']['kind'] == 'BALL' and opened.json['reward']['balls'] == 50
+    assert opened.status_code == 200 and opened.json['reward']['kind'] == 'BALL' and opened.json['reward']['balls'] == 20
     assert client.post('/api/advent/open', headers=player, json={'day': 1}).json['repeat'] is True            # no second reward
     assert client.get('/api/new-year', headers=signed(42)).status_code in (200, 404)
     assert client.post('/api/advent/open', headers=player, json={'day': 2}).status_code == 409
-    at(monkeypatch, 2026, 12, 2, 10, 5)
+    at(monkeypatch, 2026, 12, 3, 10, 5)
     tg.status = 'member'
-    promo = client.post('/api/advent/open', headers=player, json={'day': 2}).json['reward']
+    promo = client.post('/api/advent/open', headers=player, json={'day': 3}).json['reward']
     assert promo['kind'] == 'PROMO' and promo['code'].startswith('NY-')
     assert client.post('/api/promocodes/redeem', headers=signed(44), json={'code': promo['code']}).status_code in (401, 403, 404)
     assert client.post('/api/promocodes/redeem', headers=player, json={'code': promo['code']}).status_code == 200
@@ -84,9 +84,9 @@ def test_cells_open_daily_for_subscribers_only(client, tg, monkeypatch):
 def test_free_calendar_without_channel_pack_and_edits(client, tg, monkeypatch):
     admin, player = setup_calendar(client), signed(43)
     client.get('/api/me', headers=player)
-    at(monkeypatch, 2026, 12, 6, 12)
-    # no channel is bound: everybody can open; the day-6 cell gives a pack
-    reward = client.post('/api/advent/open', headers=player, json={'day': 6}).json['reward']
+    at(monkeypatch, 2026, 12, 12, 12)
+    # no channel is bound: everybody can open; the day-12 cell gives a pack
+    reward = client.post('/api/advent/open', headers=player, json={'day': 12}).json['reward']
     assert reward['kind'] == 'PACK' and len(reward['pack_ids']) == 1
     assert len(client.get('/api/packs', headers=player).json['mine']) == 1
     # admin edits a cell
@@ -117,4 +117,4 @@ def test_admin_can_reset_the_calendar(client, tg, monkeypatch):
     assert client.post('/api/advent/open', headers=player, json={'day': 1}).json.get('repeat') is None          # can be opened again
     assert next(d for d in client.get('/api/admin/new-year/advent', headers=admin).json['days'] if d['day'] == 2)['amount'] == '777'   # rewards stay
     client.post('/api/admin/new-year/advent/reset', headers=admin, json={'confirm': 'RESET_ADVENT', 'rewards': True})
-    assert next(d for d in client.get('/api/admin/new-year/advent', headers=admin).json['days'] if d['day'] == 2)['kind'] == 'PROMO'   # defaults are back
+    assert next(d for d in client.get('/api/admin/new-year/advent', headers=admin).json['days'] if d['day'] == 3)['kind'] == 'PROMO'   # defaults are back

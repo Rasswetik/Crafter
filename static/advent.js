@@ -6,6 +6,7 @@ const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleSt
 const ICON = {GRAM: '/static/assets/gram.svg', BALL: '/static/assets/new-year-ornament.svg', PACK: '/static/assets/packs/new-year-pack.webp', STAR: '/static/assets/stargifts/bear.svg', PROMO: '/static/assets/community-reward.svg'};
 const KIND_NAME = {GRAM: 'GRAM на баланс', BALL: 'Новогодние шары', PACK: 'Карточный пак', STAR: 'Подарок Telegram', PROMO: 'Промокод'};
 let STARS = [];
+const SHAPE_NAME = {sq: 'Квадрат', wide: 'Широкая', tall: 'Высокая', big: 'Большая'};
 const rimg = r => r.image_url || r.image || ICON[r.kind] || ICON.BALL;
 const plural = (n, one, few, many) => (n % 10 === 1 && n % 100 !== 11) ? one : (n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20)) ? few : many;
 /* More than a day away: "1 день 3 ч 25 мин"; under a day: "03:25:10". */
@@ -47,7 +48,7 @@ function fmtDate(ts) {
     return d.toLocaleDateString('ru-RU', {day: 'numeric', month: 'short'}) + ' · ' + d.toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
 }
 function cell(d, nowTs) {
-    const cls = 'c' + (d.day % 5);
+    const cls = 'c' + (d.day % 5) + ' sh-' + (d.shape || 'sq');
     if (d.state === 'opened') {
         return '<button type="button" class="adv-cell is-opened ' + cls + '" data-day="' + d.day + '" aria-label="День ' + d.day + ', открыто"><img class="adv-prize" src="' + e(rimg(d.reward)) + '" alt="">' +
             '<span class="adv-ptitle">' + e(d.reward.title) + '</span><i class="adv-day">' + d.day + '</i><i class="adv-check">✓</i></button>';
@@ -116,18 +117,21 @@ async function openCell(day, state, button, nav) {
 }
 function state_me_balance(v) { try { window.state.me.balance = v; if (typeof updateBalance === 'function') updateBalance(); } catch (_) {} }
 function reward(r, day, after) {
-    const head = '<div class="adv-reward"><div class="adv-reward-pic"><img src="' + e(rimg(r)) + '" alt=""></div><small>День ' + day + '</small><h3>' + e(r.title) + '</h3>';
+    const extras = r.extras || [];
+    const more = extras.length ? '<ul class="adv-more">' + extras.map(x => '<li><img src="' + e(rimg(x)) + '" alt=""><span>' + e(x.title) + (x.code ? ' · <code>' + e(x.code) + '</code>' : '') + '</span></li>').join('') + '</ul>' : '';
+    const packIds = [].concat(r.pack_ids || [], ...extras.map(x => x.pack_ids || []));
+    const head = '<div class="adv-reward"><div class="adv-reward-pic"><img src="' + e(rimg(r)) + '" alt=""></div><small>День ' + day + '</small><h3>' + e(r.title) + '</h3>' + (more ? '<p class="cm-sheet-note" style="text-align:center">И ещё в этой ячейке:</p>' + more : '');
     if (r.code) {
         sheet('Награда дня', head + window.crafterCommunity.codeBlock(r.code) + '</div>');
         window.crafterCommunity.bindCode(document.querySelector('#sheet-body'), r.code);
         return after && after();
     }
-    if (r.pack_ids) {
-        sheet('Награда дня', head + '<p class="cm-sheet-note" style="text-align:center">Добавлено в инвентарь: ' + r.pack_ids.length + ' ' + (r.pack_ids.length === 1 ? 'пак' : 'пака(ов)') + '.</p>' +
-            '<button type="button" class="ny-action" id="adv-open-packs">' + (r.pack_ids.length > 1 ? 'Открыть все' : 'Открыть сейчас') + '</button><button type="button" class="secondary" id="adv-later" style="width:100%;margin-top:8px">Позже</button></div>');
+    if (packIds.length) {
+        sheet('Награда дня', head + '<p class="cm-sheet-note" style="text-align:center">Добавлено в инвентарь: ' + packIds.length + ' ' + (packIds.length === 1 ? 'пак' : 'пака(ов)') + '.</p>' +
+            '<button type="button" class="ny-action" id="adv-open-packs">' + (packIds.length > 1 ? 'Открыть все' : 'Открыть сейчас') + '</button><button type="button" class="secondary" id="adv-later" style="width:100%;margin-top:8px">Позже</button></div>');
         const body = document.querySelector('#sheet-body');
         body.querySelector('#adv-later').addEventListener('click', () => { closeSheet(); after && after(); });
-        body.querySelector('#adv-open-packs').addEventListener('click', async () => { closeSheet(); await window.crafterPacks.openMany(r.pack_ids, after); });
+        body.querySelector('#adv-open-packs').addEventListener('click', async () => { closeSheet(); await window.crafterPacks.openMany(packIds, after); });
         return;
     }
     sheet('Награда дня', head + '<p class="cm-sheet-note" style="text-align:center">' + (r.gram_balance !== undefined ? 'Зачислено на ваш баланс.' : 'Зачислено на баланс шаров.') + '</p><button type="button" class="ny-action" id="adv-ok">Отлично</button></div>');
@@ -161,7 +165,7 @@ async function admin(content) {
         '<p class="sub">Сначала добавьте бота администратором канала, затем нажмите «Проверить и привязать».</p></form>' +
         '<h3 style="margin-top:24px">Сброс</h3><p class="sub">Начать календарь заново: все ячейки снова закрыты для игроков. Уже выданные награды не отзываются.</p>' +
         '<div class="adv-channel-actions"><button type="button" class="secondary" id="adv-reset">Сбросить прогресс игроков</button><button type="button" class="secondary" id="adv-reset-all">Сбросить прогресс и награды</button></div>' +
-        '<h3 style="margin-top:24px">Награды по дням</h3><div class="adv-days">' + r.days.map(d => '<button type="button" class="adv-dayrow" data-day="' + d.day + '"><b>' + d.day + '</b><img src="' + e(rimg({kind: d.kind === 'PROMO' ? 'PROMO' : d.kind, image_url: d.image_url})) + '" alt=""><span>' + e(d.title || d.auto_title) + '</span></button>').join('') + '</div>';
+        '<h3 style="margin-top:24px">Награды по дням</h3><div class="adv-days">' + r.days.map(d => '<div class="adv-dayline"><button type="button" class="adv-dayrow" data-day="' + d.day + '"><b>' + d.day + '</b><img src="' + e(rimg({kind: d.kind === 'PROMO' ? 'PROMO' : d.kind, image_url: d.image_url})) + '" alt=""><span>' + e(d.title || d.auto_title) + (d.extra && d.extra.length ? ' <em>+' + d.extra.length + '</em>' : '') + '</span><small>' + (SHAPE_NAME[d.shape] || '') + '</small></button><span class="adv-move"><button type="button" data-adv-up="' + d.day + '" aria-label="Выше">↑</button><button type="button" data-adv-down="' + d.day + '" aria-label="Ниже">↓</button></span></div>').join('') + '</div>';
     content.appendChild(sec);
     const run = async (fn, ok) => { try { await fn(); toast(ok); content.innerHTML = ''; window.renderAdminNewYear?.(content); } catch (err) { toast(err.message); } };
     sec.querySelector('#adv-settings').addEventListener('submit', ev => {
@@ -173,10 +177,11 @@ async function admin(content) {
     sec.querySelector('#adv-reset').addEventListener('click', () => reset(false, 'Сбросить прогресс всех игроков? Ячейки снова станут закрытыми.'));
     sec.querySelector('#adv-reset-all').addEventListener('click', () => reset(true, 'Сбросить прогресс игроков и вернуть стандартные награды во все ячейки?'));
     sec.querySelector('#adv-unbind')?.addEventListener('click', () => run(() => api('admin/new-year/advent/channel/clear', {}), 'Канал отвязан'));
+    sec.querySelectorAll('[data-adv-up],[data-adv-down]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/advent/days/' + (b.dataset.advUp || b.dataset.advDown) + '/move', {direction: b.dataset.advUp ? 'up' : 'down'}), 'Порядок изменён')));
     sec.querySelectorAll('.adv-dayrow').forEach(b => b.addEventListener('click', () => editDay(r.days.find(d => d.day === Number(b.dataset.day)), packs, () => run(async () => {}, 'Сохранено'))));
 }
 function editDay(d, packs, done) {
-    const f = {kind: d.kind, promo: d.promo_kind || 'GRAM', amount: d.amount, count: d.count || 1, title: d.title, image: d.image_url};
+    const f = {kind: d.kind, promo: d.promo_kind || 'GRAM', amount: d.amount, count: d.count || 1, title: d.title, image: d.image_url, shape: d.shape || 'sq', extra: (d.extra || []).map(x => ({kind: x.kind, amount: x.amount, count: x.count || 1}))};
     const box = document.createElement('div');
     box.className = 'adm-pick adv-edit';
     document.body.appendChild(box);
@@ -191,15 +196,23 @@ function editDay(d, packs, done) {
         box.innerHTML = '<div class="adm-pick-win"><div class="adm-pick-head"><b>День ' + d.day + '</b><button type="button" class="adm-pick-x" aria-label="Закрыть">×</button></div><div class="adm-pick-grid adv-edit-body" style="display:block">' +
             '<div class="adm-step"><h4>Награда</h4><div class="adm-tiles">' + ['GRAM', 'BALL', 'PACK', 'STAR', 'PROMO'].filter(k => (k !== 'PACK' || packs.length) && (k !== 'STAR' || STARS.length)).map(k => tile(f.kind === k, 'data-kind="' + k + '"', ICON[k], KIND_NAME[k])).join('') + '</div></div>' +
             (f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + ['GRAM', 'BALL', 'PACK', 'STAR'].filter(k => (k !== 'PACK' || packs.length) && (k !== 'STAR' || STARS.length)).map(k => tile(f.promo === k, 'data-promo="' + k + '"', ICON[k], k === 'GRAM' ? 'GRAM' : k === 'BALL' ? 'Шары' : k === 'STAR' ? 'Подарок' : 'Пак')).join('') + '</div></div>' : '') + what +
+            '<div class="adm-step"><h4>Форма ячейки в календаре</h4><div class="adv-shapes">' + Object.keys(SHAPE_NAME).map(k => '<button type="button" class="adv-shape sh-' + k + (f.shape === k ? ' is-on' : '') + '" data-shape="' + k + '"><i></i>' + SHAPE_NAME[k] + '</button>').join('') + '</div></div>' +
+            '<div class="adm-step"><h4>Ещё награды в этой же ячейке</h4>' + f.extra.map((x, i) => '<div class="adv-extra"><select data-x="' + i + ':kind">' + ['GRAM', 'BALL', 'PACK', 'STAR'].filter(k => (k !== 'PACK' || packs.length) && (k !== 'STAR' || STARS.length)).map(k => '<option value="' + k + '"' + (x.kind === k ? ' selected' : '') + '>' + KIND_NAME[k] + '</option>').join('') + '</select>' +
+                (x.kind === 'PACK' ? '<select data-x="' + i + ':amount">' + packs.map(p => '<option value="' + e(p.id) + '"' + (x.amount === p.id ? ' selected' : '') + '>' + e(p.title) + '</option>').join('') + '</select><input data-x="' + i + ':count" type="number" min="1" max="20" value="' + e(x.count) + '">' : x.kind === 'STAR' ? '<select data-x="' + i + ':amount">' + window.crafterStarGifts.options(STARS, x.amount) + '</select><input data-x="' + i + ':count" type="number" min="1" max="20" value="' + e(x.count) + '">' : '<input data-x="' + i + ':amount" inputmode="decimal" value="' + e(x.amount) + '" placeholder="' + (x.kind === 'BALL' ? 'шаров' : 'GRAM') + '">') +
+                '<button type="button" data-x-del="' + i + '" aria-label="Убрать">×</button></div>').join('') + '<button type="button" class="secondary" id="adv-x-add">+ Добавить награду</button></div>' +
             '<details class="adm-more"' + (f.title || f.image ? ' open' : '') + '><summary>Название и картинка</summary><div class="adm-field"><label>Название</label><input data-f="title" value="' + e(f.title) + '" placeholder="' + e(d.auto_title) + '"></div><div class="adm-field" style="margin-top:8px"><label>Картинка (ссылка)</label><input data-f="image" value="' + e(f.image) + '"></div></details>' +
             '<button type="button" class="primary" id="adv-save" style="margin-top:16px;width:100%">Сохранить день</button></div></div>';
-        const pull = () => box.querySelectorAll('[data-f]').forEach(i => { f[i.dataset.f] = i.value; });
+        const pull = () => { box.querySelectorAll('[data-f]').forEach(i => { f[i.dataset.f] = i.value; }); box.querySelectorAll('[data-x]').forEach(i => { const [n, key] = i.dataset.x.split(':'); if (f.extra[n]) f.extra[n][key] = i.value; }); };
+        box.querySelectorAll('[data-shape]').forEach(b => b.addEventListener('click', () => { pull(); f.shape = b.dataset.shape; draw(); }));
+        box.querySelector('#adv-x-add')?.addEventListener('click', () => { pull(); if (f.extra.length < 6) f.extra.push({kind: 'BALL', amount: '50', count: 1}); draw(); });
+        box.querySelectorAll('[data-x-del]').forEach(b => b.addEventListener('click', () => { pull(); f.extra.splice(Number(b.dataset.xDel), 1); draw(); }));
+        box.querySelectorAll('select[data-x$=":kind"]').forEach(sel => sel.addEventListener('change', () => { pull(); const x = f.extra[Number(sel.dataset.x.split(':')[0])]; x.amount = x.kind === 'PACK' ? (packs[0]?.id || '') : x.kind === 'STAR' ? (STARS[0]?.key || 'bear') : x.kind === 'BALL' ? '50' : '0.1'; x.count = 1; draw(); }));
         box.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'PACK' ? (packs[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         box.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'PACK' ? (packs[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         box.querySelectorAll('[data-adm-pack]').forEach(b => b.addEventListener('click', () => { pull(); f.amount = b.dataset.admPack; draw(); }));
         box.querySelector('#adv-save').addEventListener('click', async () => {
             pull();
-            try { await api('admin/new-year/advent/days/' + d.day, {kind: f.kind, promo_kind: f.promo, amount: f.amount, count: f.count, title: f.title, image_url: f.image}); box.remove(); done(); }
+            try { await api('admin/new-year/advent/days/' + d.day, {kind: f.kind, promo_kind: f.promo, amount: f.amount, count: f.count, title: f.title, image_url: f.image, shape: f.shape, extra: f.extra.map(x => ({kind: x.kind, promo_kind: '', amount: x.amount, count: x.count}))}); box.remove(); done(); }
             catch (err) { toast(err.message); }
         });
     };

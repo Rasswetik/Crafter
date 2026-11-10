@@ -220,7 +220,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
             return 'failed', 'Релейер не подключён'
         items = []
         for gift in gifts:
-            items.append({'external_id': gift['id'], 'price': to_nano(ton_of(gift, gift.get('price'))),
+            items.append({'external_id': gift['id'], 'price': str(to_nano(ton_of(gift, gift.get('price')))),
                           'market_source': str(gift.get('marketplace') or 'PORTALS').upper(),
                           'action': {'type': 'WITHDRAW_OTHER', 'recipient_telegram_id': recipient,
                                      'anonymous': True, 'keep_on_balance': False}})

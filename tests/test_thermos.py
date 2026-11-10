@@ -100,7 +100,7 @@ def test_buy_delivers_to_relayer_and_credits_inventory(wired, monkeypatch):
     sent = json.loads(next(c[2] for c in calls if c[1] == '/gifts/buy'))
     action = sent['gifts'][0]['action']
     assert action['type'] == 'WITHDRAW_OTHER' and action['recipient_telegram_id'] == 777
-    assert sent['gifts'][0]['market_source'] == 'PORTALS' and sent['gifts'][0]['price'] == 2_000_000_000
+    assert sent['gifts'][0]['market_source'] == 'PORTALS' and sent['gifts'][0]['price'] == '2000000000'
     gifts = wired.get('/api/inventory', headers=signed(43)).json['gifts']
     assert [g['origin'] for g in gifts] == ['thermos']
     assert balance(wired).startswith('80')                       # 2 TON * 10 GRAM/TON reserved

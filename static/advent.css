@@ -99,3 +99,27 @@
 .adv-lock{position:absolute;top:8px;right:8px;z-index:3;width:30px;height:30px;display:grid;place-items:center;border-radius:50%;background:radial-gradient(circle at 35% 30%,#3a3f57,#161a2b);border:1.5px solid rgba(255,226,160,.7);box-shadow:0 3px 10px rgba(0,0,0,.5)}
 .adv-lock svg{width:18px;height:18px}
 .adv-cell.is-locked .adv-state{background:rgba(10,6,24,.7)}
+
+/* ---- cells of different sizes: square, wide, tall, big; the grid fills the gaps ---- */
+.adv-grid{grid-auto-flow:dense;grid-auto-rows:minmax(92px,auto)}
+@media(min-width:760px){.adv-grid{grid-auto-rows:minmax(104px,auto)}}
+.adv-cell{aspect-ratio:auto!important;min-height:92px;height:100%}
+.adv-cell.sh-wide{grid-column:span 2}
+.adv-cell.sh-tall{grid-row:span 2}
+.adv-cell.sh-big{grid-column:span 2;grid-row:span 2}
+.adv-cell.sh-big .adv-num,.adv-cell.sh-big .adv-day{font-size:1.5em}
+.adv-cell.sh-big .adv-prize,.adv-cell.sh-tall .adv-prize{width:62%;max-height:60%}
+.adv-more{list-style:none;margin:6px 0 10px;padding:0;display:grid;gap:6px}
+.adv-more li{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:12px;background:#ffffff0d;font-size:13px;text-align:left}
+.adv-more img{width:28px;height:28px;object-fit:contain}
+.adv-more code{font-weight:800;letter-spacing:.5px}
+.adv-dayline{display:flex;gap:6px;align-items:stretch}.adv-dayline .adv-dayrow{flex:1;min-width:0}
+.adv-dayrow small{margin-left:auto;color:#9aa3ad;font-size:11px}.adv-dayrow em{font-style:normal;color:#ffd36b;font-weight:800}
+.adv-move{display:flex;flex-direction:column;gap:3px}.adv-move button{flex:1;width:30px;border-radius:9px;border:1px solid #ffffff22;background:#ffffff0c;color:#fff;cursor:pointer}
+.adv-shapes{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.adv-shape{display:grid;gap:6px;justify-items:center;padding:10px 6px;border-radius:14px;border:1px solid #ffffff22;background:#ffffff0a;color:#dfe6ee;font-size:12px;cursor:pointer}
+.adv-shape.is-on{border-color:#6aa6ff;background:#2b7be022}
+.adv-shape i{display:block;width:26px;height:26px;border-radius:6px;background:#9fb4d0}
+.adv-shape.sh-wide i{width:40px;height:22px}.adv-shape.sh-tall i{width:22px;height:40px}.adv-shape.sh-big i{width:38px;height:38px}
+.adv-extra{display:flex;gap:6px;margin-bottom:8px;align-items:center}.adv-extra select,.adv-extra input{min-width:0;flex:1}.adv-extra input[type=number]{flex:0 0 64px}
+.adv-extra button{flex:none;width:34px;height:34px;border-radius:10px;border:1px solid #ffffff22;background:#ffffff0c;color:#fff;cursor:pointer}

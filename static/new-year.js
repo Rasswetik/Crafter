@@ -84,14 +84,19 @@ function lotTile(lot){
 }
 let view='hub';
 function community(){return window.crafterCommunity||null;}
+let lockInfo={locks:{},now:0,at:0},lockTimer=null;
+function lockLeft(name){const ts=lockInfo.locks[name];if(!ts)return 0;return Math.max(0,Math.ceil(ts-(lockInfo.now+(Date.now()-lockInfo.at)/1000)));}
+function lockText(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),p=n=>String(n).padStart(2,'0');return (d?d+' д ':'')+(d||h?h+' ч ':'')+p(m)+' мин '+p(s%60)+' с';}
 async function showNewYear(next){
     if(next)view=next;
     const main=document.querySelector('#main');
     if(!main)return;
     main.innerHTML='<div class="new-year-page"><div class="ny-hero"><small>CRAFTER · WINTER EVENT</small><h1>Событие</h1><p>Загружаем праздничные разделы...</p></div></div>';
     try{
-        const [data,shared,packState,shopState,advState]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null)]);
+        const [data,shared,packState,shopState,advState,lockReply]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null),api('new-year/locks').catch(()=>null)]);
         if(state.page!=='new-year'||!main.isConnected)return;
+        lockInfo={locks:(lockReply&&lockReply.locks)||{},now:(lockReply&&lockReply.now)||0,at:Date.now()};
+        if(view!=='hub'&&lockLeft(view)){toast('Раздел откроется позже');view='hub';}
         if(!data.enabled&&!state.me?.is_admin){
             state.me.new_year_enabled=false;await go('market');return;
         }
@@ -114,9 +119,21 @@ function drawHub(main,data,shared,advState){
         '<span class="nyh-copy"><strong>Новогодний маркет</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>'+
         (community()&&shared?.event?community().card(shared):'')+
         (window.crafterAdvent&&advState?.enabled?window.crafterAdvent.card(advState):'')+'</div>';
-    main.querySelector('[data-nyh="market"]')?.addEventListener('click',()=>showNewYear('market'));
-    main.querySelector('[data-nyh="community"]')?.addEventListener('click',()=>showNewYear('community'));
-    main.querySelector('[data-nyh="advent"]')?.addEventListener('click',()=>showNewYear('advent'));
+    ['market','community','advent'].forEach(name=>{
+        const card=main.querySelector('[data-nyh="'+name+'"]');if(!card)return;
+        if(lockLeft(name)){
+            card.classList.add('is-soon');card.setAttribute('aria-disabled','true');
+            card.insertAdjacentHTML('beforeend','<span class="nyh-soon"><small>Откроется через</small><b data-soon="'+name+'">'+lockText(lockLeft(name))+'</b></span>');
+            card.addEventListener('click',()=>toast('Откроется через '+lockText(lockLeft(name))));
+        }else card.addEventListener('click',()=>showNewYear(name));
+    });
+    clearInterval(lockTimer);
+    if(main.querySelector('[data-soon]'))lockTimer=setInterval(()=>{
+        if(!main.isConnected||state.page!=='new-year'){clearInterval(lockTimer);return;}
+        let opened=false;
+        main.querySelectorAll('[data-soon]').forEach(el=>{const s=lockLeft(el.dataset.soon);if(s<=0)opened=true;else el.textContent=lockText(s);});
+        if(opened){clearInterval(lockTimer);showNewYear('hub');}
+    },1000);
 }
 const SEASON_GIFTS=['candycane','cookieheart','gingercookie','holidaydrink','jinglebells','partysparkler','santahat','sleighbell','snowglobe','snowmittens','spicedwine','winterwreath','xmasstocking'];
 function marketHero(){
@@ -324,6 +341,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     window.crafterPacks?.admin?.(content);
     window.crafterShopItems?.admin?.(content);
     window.crafterAdvent?.admin?.(content);
+    window.crafterNyLocks?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{
         button.addEventListener('click',async()=>{
             const lot=result.lots.find(l=>l.id===button.dataset.nyAdminLot);

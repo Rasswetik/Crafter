@@ -82,7 +82,8 @@ function cardArt(data) {
     const stars = Array.from({length: 22}, (_, i) => '<circle class="nyh-star" style="--i:' + i + '" cx="' + ((i * 61 + 11) % 400) + '" cy="' + ((i * 37 + 9) % 160) + '" r="' + (i % 3 ? .9 : 1.6) + '" fill="#fff"/>').join('');
     const prizes = pos.map(p => {
         const on = p.m.reached;
-        return '<rect x="' + (X - 4) + '" y="' + (p.ty - 1.4).toFixed(1) + '" width="' + (W + 8) + '" height="2.8" rx="1.4" fill="' + (on ? '#ffe9a8' : '#c8d9f2') + '" opacity=".85"/>' +
+        return '<circle cx="' + (X + W) + '" cy="' + p.ty.toFixed(1) + '" r="3.2" fill="' + (on ? '#ffe9a8' : '#c8d9f2') + '" opacity=".9"/>' +
+            '<path d="M' + (X + W + 3) + ' ' + p.ty.toFixed(1) + 'L' + (X + W + 11) + ' ' + p.cy.toFixed(1) + '" stroke="' + (on ? '#ffd36b' : 'rgba(200,220,255,.35)') + '" stroke-width="1.2" fill="none"/>' +
             '<image href="' + e(img(p.m)) + '" x="' + (X + W + 12) + '" y="' + (p.cy - 15).toFixed(1) + '" width="30" height="30" opacity="' + (on ? 1 : .5) + '" preserveAspectRatio="xMidYMid meet"/>';
     }).join('');
     return '<svg class="nyh-art nyh-art-cm" viewBox="0 0 400 170" preserveAspectRatio="xMaxYMid meet" aria-hidden="true">' +
@@ -148,7 +149,7 @@ function page(main, data, nav, opts = {}) {
         '<div class="cm-legend">' + ms.map(m => '<button type="button" class="cm-lg' + (m.reached ? ' is-on' : '') + '" data-cm-prize="' + e(m.id) + '"><span class="cm-pic"><img src="' + e(img(m)) + '" alt=""></span>' +
             '<span class="cm-info"><b>' + e(m.title) + '</b><small>' + num(m.threshold) + ' ' + (NOUN[ev.metric] || '') + ' · ' + e(priceText(m)) + '</small></span>' +
             '<em>' + (m.code ? 'Получено' : m.reached ? (m.left ? 'Доступно' : 'Разобрано') : LOCK) + '</em></button>').join('') + '</div></div>' +
-        '<div class="cm-stage cm-stage2" style="height:' + (H + 76) + 'px"><div class="cm-glowring" aria-hidden="true"></div>' +
+        '<div class="cm-stage cm-stage2" style="height:' + (H + 104) + 'px"><div class="cm-glowring" aria-hidden="true"></div>' +
         '<svg class="cm-topper" viewBox="-30 -30 60 60" aria-hidden="true"><path d="M0-26 7-9 26-7 12 6 16 25 0 16-16 25-12 6-26-7-7-9Z" fill="#ffe9a8" stroke="#fff6cf" stroke-width="2" stroke-linejoin="round"/></svg>' +
         '<div class="cm-inner" style="height:' + H + 'px">' + bar(ev, fresh ? from : data.progress, H) +
         '<div class="cm-tickmarks">' + pos.map(x => '<i class="' + on(x) + '" style="top:' + x.ty.toFixed(1) + 'px"></i>').join('') + '</div>' +
