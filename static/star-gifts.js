@@ -4,7 +4,7 @@
 
     const originalCard = card;
     card = function (gift, action) {
-        const html = originalCard(gift, action);
+        let html = originalCard(gift, action);
         if (gift && gift.star_gift) return html.replace('<p class="number">#</p>', '<p class="number">' + esc(gift.stars) + ' ★</p>');
         if (gift && gift.pack_item && gift.model) {            // a pack: its title first, then "Pack #serial"
             html = html.replace('<b style="margin:0 auto">' + esc(gift.model) + '</b>', '<b style="margin:0 auto">Открыть</b>');
