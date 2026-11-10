@@ -96,3 +96,45 @@
     }catch(_){}
   },45000);
 })();
+/* Launch countdown: a full-page screen with days / hours / minutes / seconds; at zero the site opens by itself. */
+(function () {
+  let timer = null;
+  const pad = n => String(n).padStart(2, '0');
+  window.crafterShowLaunch = function (opensAt, serverNow) {
+    const box = document.getElementById('crafter-launch-screen');
+    if (!box || !opensAt) return;
+    const offset = (serverNow || Math.floor(Date.now() / 1000)) - Math.floor(Date.now() / 1000);
+    const cells = {};
+    box.querySelectorAll('[data-u]').forEach(b => { cells[b.dataset.u] = b; });
+    const when = document.getElementById('crafter-launch-date');
+    if (when) when.textContent = new Date(opensAt * 1000).toLocaleString('ru-RU', {day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit'});
+    if (!box.querySelector('.crafter-maintenance-snow')) {                 // the same snow as on the maintenance screen
+      const snow = document.createElement('div');
+      snow.className = 'crafter-maintenance-snow';
+      snow.setAttribute('aria-hidden', 'true');
+      for (let i = 0; i < 46; i++) {
+        const flake = document.createElement('i');
+        flake.style.setProperty('--x', ((i * 67 + 9) % 100) + '%');
+        flake.style.setProperty('--duration', (9 + (i * 7) % 16) + 's');
+        flake.style.setProperty('--delay', (-((i * 5) % 23)) + 's');
+        flake.style.setProperty('--drift', ((i * 29) % 155 - 76) + 'px');
+        flake.style.setProperty('--flake-size', (2 + (i * 13) % 5) + 'px');
+        snow.append(flake);
+      }
+      box.insertBefore(snow, box.firstChild);
+    }
+    box.classList.add('is-active'); box.setAttribute('aria-hidden', 'false'); document.body.classList.add('launch-locked');
+    clearInterval(timer);
+    const put = (key, value) => { const b = cells[key]; if (b && b.textContent !== value) { b.textContent = value; b.classList.remove('is-tick'); void b.offsetWidth; b.classList.add('is-tick'); } };
+    const tick = () => {
+      const left = Math.max(0, opensAt - (Math.floor(Date.now() / 1000) + offset));
+      put('d', pad(Math.floor(left / 86400))); put('h', pad(Math.floor(left % 86400 / 3600)));
+      put('m', pad(Math.floor(left % 3600 / 60))); put('s', pad(left % 60));
+      if (left === 0) { clearInterval(timer); setTimeout(() => location.reload(), 1200); }
+    };
+    tick();
+    timer = setInterval(tick, 1000);
+  };
+  // the screen also appears on a plain page load, before any request fails
+  fetch('/api/site/launch', {cache: 'no-store'}).then(r => r.json()).then(s => { if (s.active) window.crafterShowLaunch(s.opens_at, s.now); }).catch(() => {});
+})();

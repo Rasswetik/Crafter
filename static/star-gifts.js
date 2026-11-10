@@ -14,6 +14,15 @@
         return html;
     };
 
+    // Ordinary Telegram gifts are not for the market: never draw them there, and never offer them as collections.
+    const isStar = g => g && (g.star_gift || String(g.collection_id || '').startsWith('stargift-'));
+    const drawMarket = renderMarket;
+    renderMarket = function () {
+        if (Array.isArray(state.gifts)) state.gifts = state.gifts.filter(g => !isStar(g));
+        if (state.catalog && Array.isArray(state.catalog.collections)) state.catalog.collections = state.catalog.collections.filter(c => !String(c.id || '').startsWith('stargift-'));
+        return drawMarket.apply(this, arguments);
+    };
+
     const originalFloor = productFloor;
     productFloor = function (gift) {
         return gift && gift.star_gift ? gramText(gift.price) : originalFloor(gift);

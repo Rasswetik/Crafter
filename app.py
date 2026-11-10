@@ -513,6 +513,26 @@ def create_app(config=None):
     @app.get('/api/collections/<slug>/overview')
     @auth()
     def collection_overview(slug):
+        if canonical_name(slug) in ('pack', 'packs'):
+            # the Pack collection: its "models" are our card packs, shown by their PNG pictures
+            packs = db().execute("SELECT id,title,image_url FROM packs WHERE enabled=1 ORDER BY created").fetchall()
+            totals, cutoff = [Decimal(0), Decimal(0)], int(time.time()) - 86400
+            for row in db().execute("SELECT payload,created FROM history WHERE kind='sale'"):
+                try:
+                    entry = json.loads(row['payload'])
+                    if not (entry.get('gift') or {}).get('pack_item'):
+                        continue
+                    paid = Decimal(str(entry.get('price')))
+                except (InvalidOperation, ValueError, TypeError):
+                    continue
+                if paid.is_finite() and paid > 0:
+                    totals[1] += paid
+                    if row['created'] >= cutoff:
+                        totals[0] += paid
+            models = [{'name': p['title'], 'image': p['image_url']} for p in packs]
+            return dict(collection={'id': 'packs', 'short_name': 'packs', 'name': 'Pack', 'photo_url': models[0]['image'] if models else '',
+                                    'floor_price': None, 'price_unit': 'GRAM'},
+                        models=models, volume_24h=str(totals[0]), volume_total=str(totals[1]), pack=True)
         try:
             collection = catalog_collection(slug)
         except (OSError, ValueError):

@@ -130,51 +130,30 @@ window.openPackFromDetail = function (id) {
 };
 
 /* ---------- opening animation ---------- */
-/* The seal at the top of the bag tears open from left to right along a ragged line: the torn strip curls up and away
-   at the tear front while the rest of the bag stays intact; afterwards the strip flies off and the bag settles lower. */
+/* The bag is opened like a real foil bag: the corner of the seal strip is pulled, and the strip peels off in one even
+   motion along a straight line while the rest of the bag stays flat. The torn part curls up around the tear front. */
 const TEAR_Y = 11;
-const RAG = [0, 1.3, -1, 1.6, -1.2, .9, -1.5, 1.2, -.8, 1.5, -1.1, 1, -1.4, 1.1, 0];
 function tearPack(pack, reduce) {
-    const top = pack.querySelector('.pk-top'), body = pack.querySelector('.pk-body'), spark = pack.querySelector('.pk-spark');
-    const n = RAG.length - 1;
-    const pts = RAG.map((j, i) => [i / n * 100, TEAR_Y + j]);
-    const at = x => {                                  // ragged line height at x (percent)
-        const f = Math.min(n - 1e-9, x / 100 * n), i = Math.floor(f);
-        return pts[i][1] + (pts[i + 1][1] - pts[i][1]) * (f - i);
-    };
+    const top = pack.querySelector('.pk-top'), body = pack.querySelector('.pk-body');
     const poly = list => 'polygon(' + list.map(p => p[0].toFixed(2) + '% ' + p[1].toFixed(2) + '%').join(',') + ')';
     const frame = p => {
-        const x = p * 100, y = at(x);
-        const done = pts.filter(q => q[0] < x);
-        const line = [...done, [x, y]];
-        top.style.clipPath = poly([[0, 0], [x, 0], [x, y], ...line.slice().reverse().slice(1)]);
-        body.style.clipPath = poly([...line, [x, 0], [100, 0], [100, 100], [0, 100]]);
-        top.style.transformOrigin = x + '% ' + y + '%';
-        top.style.transform = 'rotate(' + (-26 * p * p).toFixed(2) + 'deg) translateY(' + (-9 * p).toFixed(2) + '%)';
-        if (spark) { spark.style.left = x + '%'; spark.style.top = y + '%'; spark.style.opacity = p > 0 && p < 1 ? 1 : 0; }
+        const x = 100 * (1 - p);                                   // the tear front travels from the pulled corner to the far side
+        top.style.clipPath = poly([[x, 0], [100, 0], [100, TEAR_Y], [x, TEAR_Y]]);
+        body.style.clipPath = poly([[0, 0], [x, 0], [x, TEAR_Y], [100, TEAR_Y], [100, 100], [0, 100]]);
+        top.style.transformOrigin = x + '% ' + TEAR_Y + '%';
+        const lift = Math.min(1, p * 4);                           // the pulled corner leaves the bag at once, then the curl grows
+        top.style.transform = 'rotate(' + (-(30 * lift + 34 * p * p)).toFixed(2) + 'deg) translate(' + (6 * p).toFixed(2) + '%,' + (-16 * lift).toFixed(2) + '%)';
     };
     const total = reduce ? 350 : 1500;
     return new Promise(resolve => {
         const t0 = performance.now();
         const step = now => {
             const k = Math.min(1, (now - t0) / total);
-            frame(.5 - .5 * Math.cos(Math.PI * k));        // slow start, quick middle, soft end
-            if (k < 1) requestAnimationFrame(step);
-            else { if (spark) spark.style.opacity = 0; resolve(); }
+            frame(k < .5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k));     // quick pull, steady tear, soft end
+            if (k < 1) requestAnimationFrame(step); else resolve();
         };
         requestAnimationFrame(step);
     });
-}
-function cardMarkup(c, i) {
-    let face;
-    if (c.kind === 'GRAM') {
-        const a = Number(c.amount), tier = a >= 3 ? 't3' : a >= 1 ? 't2' : 't1';
-        face = '<div class="pk-face is-gram ' + tier + '"><span class="pk-gem">' + GEM + '</span><b>+' + num(c.amount) + '</b><em>GRAM</em></div>';
-    } else {
-        face = '<div class="pk-face is-nft"><img src="' + e(c.image) + '" alt=""><b>' + e(c.title) + '</b>' +
-            '<button type="button" class="pk-sell" data-pk-sell="' + e(c.nft_id) + '">Продать ' + GEM + ' ' + num(c.value) + '</button></div>';
-    }
-    return '<div class="pk-card" data-i="' + i + '"><div class="pk-in"><div class="pk-back"><span class="pk-flake">' + FLAKE + '</span><i>?</i><small>CRAFTER</small></div>' + face + '</div></div>';
 }
 async function open(upid, refresh, meta) {
     if (playing) return;
@@ -190,7 +169,7 @@ async function open(upid, refresh, meta) {
     box.innerHTML = '<div class="pk-snow" aria-hidden="true">' + Array.from({length: 22}, (_, i) =>
         '<i style="--x:' + ((i * 47 + 5) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (6 + i % 7) + 's;--d:' + (-(i * 2) % 9) + 's"></i>').join('') + '</div>' +
         '<div class="pk-stage"><div class="pk-pack"><div class="pk-part pk-body" style="background-image:url(' + e(res.pack.image) + ')"></div>' +
-        '<div class="pk-part pk-top" style="background-image:url(' + e(res.pack.image) + ')"></div><div class="pk-spark"></div><div class="pk-burst"></div></div>' +
+        '<div class="pk-part pk-top" style="background-image:url(' + e(res.pack.image) + ')"></div></div>' +
         '<div class="pk-cards n' + cards.length + '">' + cards.map(cardMarkup).join('') + '</div></div>' +
         '<div class="pk-actions"></div>';
     if (meta && meta.total > 1) box.insertAdjacentHTML('afterbegin', '<div class="pk-counter">Пак ' + meta.index + ' из ' + meta.total + '</div>');
@@ -242,24 +221,33 @@ async function open(upid, refresh, meta) {
     await t(60); box.classList.add('is-on');
     pack.classList.add('is-in'); await t(1000);
     pack.classList.add('is-shake'); await t(650);
-    await tearPack(pack, reduce);
-    pack.classList.add('is-open'); await t(300);
-    // cards fly out of the pack and settle into a layout (FLIP)
-    const pr = pack.getBoundingClientRect(), cx = pr.left + pr.width / 2, cy = pr.top + pr.height * .35;
+    pack.classList.remove('is-shake');
+    await tearPack(pack, reduce);                         // the seal tears open left to right
+    pack.classList.add('is-open'); await t(420);          // the torn strip flies off
+    // the bag sinks to the bottom of the stage and gets smaller, leaving room for the cards above it
+    const stage = box.querySelector('.pk-stage');
+    const before = pack.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+    const scale = reduce ? .6 : .56;
+    const lowCenter = sr.bottom - before.height * scale / 2 - 4;
+    pack.style.setProperty('--low-y', (lowCenter - (before.top + before.height / 2)).toFixed(1) + 'px');
+    pack.style.setProperty('--low-s', String(scale));
+    pack.classList.add('is-low'); await t(950);
+    // the cards come out of the opening one after another: straight up out of the bag, then spread to their places
+    const pr = pack.getBoundingClientRect(), px = pr.left + pr.width / 2;
     wrap.classList.add('is-ready');
-    [...wrap.children].forEach((el, i) => {
-        const r = el.getBoundingClientRect();
-        el.style.setProperty('--dx', (cx - (r.left + r.width / 2)) + 'px');
-        el.style.setProperty('--dy', (cy - (r.top + r.height / 2)) + 'px');
-        el.style.setProperty('--r', ((i - (cards.length - 1) / 2) * 9) + 'deg');
-        el.style.setProperty('--w', (i * 90) + 'ms');
-        el.classList.add('is-fly');
+    const kids = [...wrap.children];
+    const order = kids.map((_, i) => i);
+    const animations = order.map(i => {
+        const el = kids[i], r = el.getBoundingClientRect();
+        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const inside = 'translate(' + (px - cx) + 'px,' + (pr.top + pr.height * .55 - cy) + 'px) scale(.62)';
+        const out = 'translate(' + (px - cx) + 'px,' + (pr.top - r.height * .42 - cy) + 'px) scale(.9) rotate(' + ((i - (kids.length - 1) / 2) * 2.5) + 'deg)';
+        return el.animate([{transform: inside}, {transform: out, offset: .5}, {transform: 'none'}],
+            {duration: reduce ? 300 : 1250, delay: reduce ? 0 : i * 330, easing: 'cubic-bezier(.3,.7,.25,1)', fill: 'both'});
     });
-    await t(40);
-    [...wrap.children].forEach(el => el.classList.remove('is-fly'));
-    await t(520);
-    pack.classList.add('is-gone');
-    await t(1000 + cards.length * 90);
+    await Promise.all(animations.map(x => x.finished.catch(() => {})));
+    animations.forEach(x => { try { x.commitStyles(); x.cancel(); } catch (_) {} });
+    pack.classList.add('is-gone'); await t(500);
     for (const el of wrap.children) {                       // flip one by one
         el.classList.add('is-flip');
         await t(760);

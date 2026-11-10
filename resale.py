@@ -151,6 +151,8 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
         attributes = {key: {} for key in traits}
         for row in active_lots():
             price = Decimal(row['price'])
+            if '"star_gift": true' in row['payload']:
+                continue
             gift = public_lot(row, uid)
             key = canonical_name(gift.get('name', ''))
             floors[key] = min(price, floors.get(key, price))

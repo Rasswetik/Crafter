@@ -39,6 +39,9 @@ async function api(path, body) {
         });
         const data = await response.json();
         if (!response.ok) {
+            if (response.status === 503 && data.launch && typeof window.crafterShowLaunch === 'function') {
+                window.crafterShowLaunch(data.opens_at, data.now);
+            }
             if (response.status === 503 && data.maintenance &&
                 typeof window.crafterShowMaintenance === 'function') {
                 window.crafterShowMaintenance(data.message || '');

@@ -1,8 +1,10 @@
+const isPackCollection = c => !!c && (['pack', 'packs'].includes(String(c.id)) || c.name === 'Pack');
 const baseCollectionMarket = renderMarket;
 renderMarket = function () {
     baseCollectionMarket();
     const page = state.collectionPage;
     if (!page) return;
+    if (isPackCollection(page)) document.querySelector('.resale-market-tabs')?.remove();     // packs exist only in Craft Market
     const template = document.querySelector('#collection-screen');
     const section = template.content.firstElementChild.cloneNode(true);
     section.querySelector('h1').textContent = page.name;
@@ -84,6 +86,7 @@ async function openGiftCollection(gift = state.detailGift, fromSheet = true) {
 }
 
 async function openCollectionPage(collection, updateUrl = true) {
+    if (isPackCollection(collection)) state.marketSource = 'crafter';
     restoreViews();
     if (state.page === 'market' && viewHydrated) saveView();
     const marketView = state.collectionPage?.marketView || {
@@ -127,7 +130,7 @@ async function openCollectionFromUrl() {
     try { slug = decodeURIComponent(match[1]); } catch { return false; }
     await state.catalogReady;
     const collection = state.catalog.collections.find(item =>
-        String(item.id) === slug || giftCollectionSlug(item.name) === slug);
+        String(item.id) === slug || giftCollectionSlug(item.name) === slug) || (['pack', 'packs'].includes(slug.toLowerCase()) ? {id: 'packs', name: 'Pack'} : null);
     if (!collection) return false;
     await openCollectionPage(collection, false);
     return true;

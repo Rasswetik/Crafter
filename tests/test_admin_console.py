@@ -147,3 +147,36 @@ def test_bot_webhook_still_answers_during_maintenance(client):
     # ... but the bot webhook is not: it answers on its own terms (403 for a wrong secret), never 503
     r = client.post('/api/telegram/webhook/123', json={'update_id': 1})
     assert r.status_code == 403
+
+
+def test_launch_countdown_is_separate_and_wins_over_maintenance(client, monkeypatch):
+    import time as _time
+    import admin_console
+    admin, player = signed(), signed(43)
+    client.get('/api/me', headers=player)
+    soon = int(_time.time()) + 5 * 86400 + 3 * 3600
+    route = '/api/admin/maintenance/launch'
+    assert client.get('/api/site/launch').json['active'] is False
+    assert client.post(route, headers=player, json={'opens_at': soon}).status_code == 403
+    assert client.post(route, headers=admin, json={'opens_at': 5}).status_code == 400          # in the past
+    assert client.post(route, headers=admin, json={'opens_at': 'abc'}).status_code == 400
+    on = client.post(route, headers=admin, json={'opens_at': soon})
+    assert on.status_code == 200 and on.json['active'] and on.json['opens_at'] == soon
+    public = client.get('/api/site/launch').json
+    assert public['active'] and public['opens_at'] == soon and abs(public['now'] - _time.time()) < 5
+    assert client.get('/api/site/maintenance').json['enabled'] is False                         # maintenance itself stays off
+    blocked = client.get('/api/me', headers=player)
+    assert blocked.status_code == 503 and blocked.json['launch'] and blocked.json['opens_at'] == soon
+    assert client.get('/api/me', headers=admin).status_code == 200                              # administrators pass
+    # both screens on: the countdown has priority
+    client.post('/api/admin/maintenance', headers=admin, json={'enabled': True, 'confirm': 'ENABLE_MAINTENANCE', 'message': 'x'})
+    both = client.get('/api/me', headers=player).json
+    assert both.get('launch') and not both.get('maintenance')
+    client.post('/api/admin/maintenance', headers=admin, json={'enabled': False, 'confirm': 'DISABLE_MAINTENANCE'})
+    real = _time.time
+    monkeypatch.setattr(admin_console.time, 'time', lambda: real() + 6 * 86400)                 # the time has come: the site opens itself
+    assert client.get('/api/site/launch').json['active'] is False
+    assert client.get('/api/me', headers=signed(43)).status_code == 200                         # fresh signature: the clock moved
+    monkeypatch.setattr(admin_console.time, 'time', real)
+    client.post(route, headers=admin, json={'opens_at': soon})
+    assert client.post(route, headers=admin, json={'opens_at': None}).json['active'] is False   # cleared by hand

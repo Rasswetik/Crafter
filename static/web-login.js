@@ -180,13 +180,19 @@ boot = async function () {
     if (!inTelegram()) {
         await claimFromReturnLink();
         const headers = crafterWebSession() ? {'X-Crafter-Web-Session': crafterWebSession()} : {};
-        let status = 200, maintenance = false;
+        let status = 200, maintenance = false, launch = false;
         try {
             const answer = await fetch('/api/me', {headers});
             status = answer.status;
-            if (status === 503) maintenance = Boolean((await answer.json().catch(() => ({}))).maintenance);
+            if (status === 503) {
+                const info = await answer.json().catch(() => ({}));
+                maintenance = Boolean(info.maintenance);
+                launch = Boolean(info.launch);
+                if (launch && typeof window.crafterShowLaunch === 'function') window.crafterShowLaunch(info.opens_at, info.now);
+            }
         } catch (_) { /* offline: let the normal error show */ }
         // During maintenance a visitor without a session signs in first: administrators are let through afterwards.
+        if (launch) return;                                   // the countdown screen is shown: nothing else to do until the opening
         if (status === 401 || (maintenance && !crafterWebSession())) {
             const pending = readPending();
             if (pending && Date.now() < pending.until) { waitingScreen(pending.link, pending.appLink); poll(pending); }

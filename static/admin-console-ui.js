@@ -135,7 +135,34 @@ async function renderAdminMaintenance(content=document.querySelector('#admin-con
         '<button type="button" class="'+(d.enabled?'admin-button-secondary':'admin-button-primary')+
         '" onclick="adminToggleMaintenance('+(!d.enabled)+')">'+
         (d.enabled?'Отключить технические работы':'Включить технические работы')+'</button>'+
-        '<small>Все действия фиксируются в журнале администраторов.</small></div>';
+        '<small>Все действия фиксируются в журнале администраторов.</small></div>'+
+        '<div class="admin-glass-panel admin-maintenance-controls" id="admin-launch-box"></div>';
+    adminRenderLaunch();
+}
+function adminLocalInput(ts){const d=new Date(ts*1000),p=n=>String(n).padStart(2,'0');return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+'T'+p(d.getHours())+':'+p(d.getMinutes());}
+async function adminRenderLaunch(){
+    const box=document.getElementById('admin-launch-box');
+    if(!box)return;
+    let d;try{d=await api('admin/maintenance/launch');}catch(e){return;}
+    if(!box.isConnected)return;
+    box.innerHTML='<h3>Запуск сайта · отсчёт</h3>'+
+        '<p class="admin-small-warning">Отдельный экран «Crafter · До запуска осталось» на всю страницу. Он работает независимо от технических работ и главнее их. Пока время не наступило, сайт закрыт для всех, кроме администраторов; в назначенный момент он откроется сам.</p>'+
+        '<label for="admin-launch-at">Дата и время запуска (ваше местное время)</label>'+
+        '<input id="admin-launch-at" type="datetime-local" value="'+(d.opens_at?adminLocalInput(d.opens_at):'')+'">'+
+        '<div class="admin-launch-row"><small>'+(d.active?'Отсчёт идёт: запуск '+new Date(d.opens_at*1000).toLocaleString('ru-RU'):'Отсчёта нет, сайт открыт.')+'</small>'+
+        '<button type="button" class="admin-button-primary" onclick="adminSaveLaunch()">'+(d.active?'Изменить время':'Включить отсчёт')+'</button>'+
+        (d.active?'<button type="button" class="admin-button-secondary" onclick="adminClearLaunch()">Убрать отсчёт</button>':'')+'</div>';
+}
+async function adminSaveLaunch(){
+    const v=document.getElementById('admin-launch-at')?.value;
+    if(!v)return toast('Укажите дату и время запуска');
+    try{await api('admin/maintenance/launch',{opens_at:Math.floor(new Date(v).getTime()/1000)});toast('Отсчёт до запуска включён');await adminRenderLaunch();}
+    catch(error){toast(error.message);}
+}
+async function adminClearLaunch(){
+    if(!confirm('Убрать отсчёт и открыть сайт сейчас?'))return;
+    try{await api('admin/maintenance/launch',{opens_at:null});toast('Отсчёт убран');await adminRenderLaunch();}
+    catch(error){toast(error.message);}
 }
 async function adminToggleMaintenance(enabled){
     if(!confirm(enabled?'Включить технические работы для обычных пользователей?':

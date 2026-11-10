@@ -13,6 +13,7 @@ from zoneinfo import ZoneInfo
 from flask import abort, g, jsonify, request
 
 MAINTENANCE_KEY = "site_maintenance_v2"
+LAUNCH_KEY = "site_launch_v1"
 BERLIN = ZoneInfo("Europe/Berlin")
 
 
@@ -32,6 +33,18 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
             "message": str(value.get("message") or "")[:180],
             "changed_at": value.get("changed_at"),
         }
+
+    def launch():
+        """The planned opening of the site. While it lies in the future the site is closed for everyone but administrators."""
+        row = db().execute("SELECT payload FROM settings WHERE key=?", (LAUNCH_KEY,)).fetchone()
+        try:
+            value = json.loads(row["payload"]) if row else {}
+        except (ValueError, TypeError):
+            value = {}
+        now = int(time.time())
+        opens_at = value.get("opens_at") if isinstance(value.get("opens_at"), int) else None
+        active = bool(opens_at and now < opens_at)
+        return {"active": active, "opens_at": opens_at if active else None, "now": now}
 
     def valid_admin_request():
         raw = request.headers.get("X-Telegram-Init-Data", "")
@@ -106,7 +119,7 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
         if not path.startswith("/api/"):
             return None
         # Status and authenticated admin check are always available for retry.
-        if path in ("/api/site/maintenance", "/api/site/maintenance/access", "/api/site/modes", "/api/site/snow"):
+        if path in ("/api/site/maintenance", "/api/site/maintenance/access", "/api/site/modes", "/api/site/snow", "/api/site/launch"):
             return None
         # The Telegram bot webhook must keep answering during maintenance, otherwise Telegram queues /start updates (503).
         if path.startswith("/api/telegram/webhook/"):
@@ -114,6 +127,14 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
         # Signing in must work during maintenance: an administrator logs in first and is then let through.
         if path.startswith("/api/web-login/"):
             return None
+        # The countdown screen comes first: it can run together with maintenance and has priority over it.
+        countdown = launch()
+        if countdown["active"] and not valid_admin_request():
+            response = jsonify({"error": "До запуска осталось совсем немного", "launch": True,
+                                "opens_at": countdown["opens_at"], "now": countdown["now"]})
+            response.status_code = 503
+            response.headers["Cache-Control"] = "no-store"
+            return response
         state = maintenance()
         if state["enabled"] and not valid_admin_request():
             response = jsonify({
@@ -142,6 +163,36 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
         response = jsonify(state)
         response.headers["Cache-Control"] = "no-store"
         return response
+
+    @app.get("/api/site/launch")
+    def public_launch():
+        response = jsonify(launch())
+        response.headers["Cache-Control"] = "no-store"
+        return response
+
+    @app.get("/api/admin/maintenance/launch")
+    @auth(admin=True)
+    def admin_launch():
+        return launch()
+
+    @app.post("/api/admin/maintenance/launch")
+    @auth(admin=True)
+    def admin_set_launch():
+        raw = (request.get_json(silent=True) or {}).get("opens_at")
+        opens_at = None
+        if raw not in (None, "", 0):
+            try:
+                opens_at = int(raw)
+            except (TypeError, ValueError):
+                abort(400, description="Неверная дата запуска")
+            now = int(time.time())
+            if not now < opens_at <= now + 366 * 86400:
+                abort(400, description="Дата запуска должна быть в будущем, но не дальше года")
+        with db():
+            db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
+                         (LAUNCH_KEY, json.dumps({"opens_at": opens_at, "changed_by": g.user["id"]})))
+        audit("Launch countdown " + ("set" if opens_at else "cleared"))
+        return {"ok": True, **launch()}
 
     @app.get("/api/site/maintenance/access")
     @auth()

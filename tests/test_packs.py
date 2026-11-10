@@ -334,3 +334,15 @@ def test_winter_pack_is_rare_cheap_and_listed_lots_know_their_pack(client):
     assert 0.3 <= 100 * mean * sum(p['weight'] for p in gifts) / total <= 0.9               # about one gift per 200 openings
     assert len([p for p in winter['prizes'] if p['kind'] == 'GRAM']) >= 10                  # lots of balance prizes
     assert 'pack_id' in __import__('inspect').getsource(__import__('resale'))
+
+
+def test_pack_collection_page_shows_all_three_packs_as_png_models(client):
+    player = signed(43)
+    client.get('/api/me', headers=player)
+    for key in ('pack', 'packs', 'Pack'):
+        info = client.get('/api/collections/' + key + '/overview', headers=player)
+        assert info.status_code == 200 and info.json['pack'] and info.json['collection']['name'] == 'Pack'
+    models = info.json['models']
+    assert {m['name'] for m in models} >= {'New Year', 'Snowman', 'Winter'}
+    assert all(m['image'].startswith('/static/assets/packs/') for m in models)
+    assert info.json['collection']['photo_url'] == models[0]['image']

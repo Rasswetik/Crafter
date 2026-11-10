@@ -204,3 +204,20 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 .pk-pack.is-open .pk-body{transform:translateY(7%) scaleY(.955);transform-origin:50% 100%;transition:transform .5s cubic-bezier(.2,.9,.3,1)}
 .pk-pack.is-gone{transform:translate(-50%,-30%) scale(.9);transition:transform .9s ease-in,opacity .8s ease-in .1s}
 .pk-card.is-fly{transition-duration:1.15s}
+
+/* ---- Opening v3: a real ragged tear, the bag sinks, the cards come straight out of its mouth ---- */
+.pk-stage{height:clamp(450px,72vh,580px)}
+.pk-cards{inset:0 0 27% 0;align-content:center}
+.pk-burst,.pk-spark{display:none !important}
+.pk-tearline{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible;z-index:4}
+.pk-tearline polyline{stroke:#fff;stroke-width:1.4;stroke-linejoin:miter;vector-effect:non-scaling-stroke;filter:drop-shadow(0 0 5px rgba(190,230,255,.95)) drop-shadow(0 0 12px rgba(90,170,255,.7))}
+.pk-pack.is-open .pk-tearline{opacity:0;transition:opacity .35s}
+.pk-pack.is-low{transform:translate(-50%,-50%) translateY(var(--low-y)) scale(var(--low-s));filter:drop-shadow(0 6px 22px rgba(60,140,255,.45));transition:transform .95s cubic-bezier(.45,.05,.2,1),filter .6s}
+.pk-pack.is-open .pk-body{transform:none}
+.pk-pack.is-gone{opacity:0;transform:translate(-50%,-50%) translateY(calc(var(--low-y) + 70px)) scale(var(--low-s));transition:transform .6s ease-in,opacity .5s ease-in}
+.pk-card.is-fly{transform:none}
+.pk-cards .pk-card{will-change:transform}
+
+/* Pulled corner: the strip leaves up and to the right, no light line */
+.pk-tearline{display:none !important}
+.pk-pack.is-open .pk-top{transform:translate(34%,-250%) rotate(-52deg) !important;opacity:0;transition:transform .9s cubic-bezier(.4,0,.7,.3),opacity .9s}
