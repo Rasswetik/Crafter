@@ -233,3 +233,13 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 
 /* Fully torn: the strip, still turning about its last joint, rises and leaves; it continues from where the tear ended */
 .pk-pack.is-open .pk-top{transform:translate(5%,-240%) rotate(66deg) !important;opacity:0;transition:transform 1.05s cubic-bezier(.45,0,.8,.45),opacity .85s ease-in .2s}
+
+/* The opening screen and the cards glow with the accent colour of the pack (--ac), not with one common blue */
+.pk-over{background:radial-gradient(60% 46% at 50% 38%,rgb(var(--ac) / .30),transparent 72%),radial-gradient(40% 30% at 50% 100%,rgb(var(--ac) / .10),transparent 70%),color-mix(in srgb,rgb(var(--ac)) 7%,#05060a)}
+.pk-pack.is-in{filter:drop-shadow(0 0 26px rgb(var(--ac) / .55))}
+.pk-pack.is-low{filter:drop-shadow(0 6px 22px rgb(var(--ac) / .45))}
+.pk-back{background:radial-gradient(circle at 50% 36%,rgb(var(--ac)),color-mix(in srgb,rgb(var(--ac)) 62%,#000) 58%,color-mix(in srgb,rgb(var(--ac)) 28%,#000));
+  border-color:color-mix(in srgb,rgb(var(--ac)) 35%,#fff);box-shadow:0 0 22px rgb(var(--ac) / .55),inset 0 0 20px rgba(255,255,255,.2)}
+.pk-face.is-gram.t1{background:radial-gradient(circle at 50% 30%,color-mix(in srgb,rgb(var(--ac)) 52%,#14161c),color-mix(in srgb,rgb(var(--ac)) 12%,#0d0e13) 70%);border-color:rgb(var(--ac) / .72)}
+.pk-face.is-gram b{text-shadow:0 0 14px rgb(var(--ac) / .8)}
+.pk-face.is-nft{background:radial-gradient(circle at 50% 30%,color-mix(in srgb,rgb(var(--ac)) 40%,#14161c),color-mix(in srgb,rgb(var(--ac)) 10%,#0d0e13) 72%)}

@@ -86,7 +86,7 @@ function renderResaleEditor() {
                             aria-label="Цена в GRAM для ${esc(gift.name)}" data-resale-price="${esc(gift.id)}" value="${esc(draft.prices.get(gift.id) || '')}">`}
                 </div>
                 <div class="resale-reference"><span>Мин. цена</span><b>${esc(productFloor(gift))}</b></div>
-                ${[['models','model'], ['backdrops','backdrop'], ['symbols','symbol']].filter(([, key]) => gift[key]).map(([group, key]) => {
+                ${gift.pack_item ? `<div class="resale-reference"><span>Модель</span><b>${esc(gift.model || '—')}</b></div><div class="resale-reference"><span>Фон</span><b>${esc(gift.backdrop || '—')}</b></div>` : [['models','model'], ['backdrops','backdrop'], ['symbols','symbol']].filter(([, key]) => gift[key]).map(([group, key]) => {
                     const rarity = Number(gift.rarity?.[key]);
                     return `<div class="resale-trait" data-group="${group}" data-trait="${esc(gift[key])}">
                         <span>${esc(gift[key])} <small data-picker-rarity ${rarity > 0 ? '' : 'hidden'}>${rarity > 0 ? money(rarity / 10) + '%' : ''}</small></span>

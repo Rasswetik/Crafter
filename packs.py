@@ -21,7 +21,7 @@ SEASONAL = ('candycane', 'cookieheart', 'gingercookie', 'holidaydrink', 'jingleb
 DEFAULT_PACK = 'newyear'
 DEFAULT_IMAGE = '/static/assets/packs/default-pack.webp'
 NEW_YEAR_IMAGE = '/static/assets/packs/new-year-pack.webp'
-COLLECTION = ('packs', 'Pack')
+COLLECTION = ('packs', 'Lucky Pack')
 # NFT-style backdrops: (name, centre colour, edge colour)
 BACKDROPS = (('Moonstone', 0x8FC1D4, 0x3C7C93), ('Persimmon', 0xF08A4B, 0xB9501F), ('Emerald', 0x3FBF8A, 0x14684A), ('Raspberry', 0xE0557F, 0x8E1F46),
              ('Sapphire', 0x4F86E8, 0x1E3E8F), ('Amber', 0xF2B94B, 0xAE7416), ('Lavender', 0xB79CF0, 0x6A4BB5), ('Burgundy', 0xA13A4C, 0x4B1520),
@@ -70,6 +70,11 @@ PACK_BACKDROPS = {
     'christmas': ('Burgundy', 'Raspberry', 'Carmine', 'Rosewood', 'Strawberry', 'Coral Red', 'Tomato', 'Coral',
                   'Crimson', 'Ruby', 'Cherry', 'Brick Red', 'Garnet', 'Scarlet', 'Poinsettia', 'Persimmon'),                       # reds, one orange
 }
+
+
+# The accent colour of a pack (r g b): the opening screen glows with it instead of one common blue.
+PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96'}
+DEFAULT_ACCENT = '59 134 238'
 
 
 def backdrops_for(pack_id):
@@ -296,7 +301,7 @@ def install_packs(app, db, auth, record, audit):
         return db().execute("SELECT * FROM pack_prizes WHERE pack_id=? ORDER BY position", (pid,)).fetchall()
 
     def short(p):
-        return {'id': p['id'], 'title': p['title'], 'image': p['image_url']}
+        return {'id': p['id'], 'title': p['title'], 'image': p['image_url'], 'accent': PACK_ACCENTS.get(p['id'], DEFAULT_ACCENT)}
 
     # One card in a pack is an NFT with a chance of about 0.34%: roughly one gift per 200 opened packs.
     NFT_CARD_SHARE = 0.0034
@@ -330,11 +335,11 @@ def install_packs(app, db, auth, record, audit):
 
     # Every pack uses the same stingy balance table: a card is almost always 0.1 GRAM, big sums are very rare.
     STANDARD_GRAM = (('0.1', 840), ('0.2', 100), ('0.3', 35), ('0.5', 14), ('0.75', 6), ('1', 3), ('1.5', 1.2), ('2', .5), ('3', .2), ('5', .08), ('10', .02), ('20', .006))
-    CARD_WEIGHTS = {'1': 88, '2': 10, '3': 2}              # 88% of packs hold one card, 10% two, 2% three
+    CARD_WEIGHTS = {'1': 60, '2': 24, '3': 10, '4': 4, '5': 1.5, '6': .5}      # 60% of packs hold one card, up to six
     CHRISTMAS_IMAGE = '/static/assets/packs/christmas-pack.webp'
     CHRISTMAS_GIFTS = (('snowglobe', 'Crimson Cabin'), ('hangingstar', 'Christmas'), ('snowmittens', 'Rudolph'), ('gingercookie', 'Cookie Claus'),
-                       ('jinglebells', 'Nutcracker'), ('eternalcandle', 'Red Melter'), ('toybear', 'Red Velvet'), ('xmasstocking', 'Caramel Fest'),
-                       ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein'))
+                       ('jinglebells', 'Nutcracker'), ('eternalcandle', 'Red Melter'), ('xmasstocking', 'Caramel Fest'),
+                       ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein'))      # no Toy Bear
     WINTER_IMAGE = '/static/assets/packs/winter-pack.webp'
     # (collection, model, value in GRAM): winter gifts up to 15 inclusive. The first group is the model list of the reference pack, the second
     # one is the cheap new-year gifts of the Snowman pack.
@@ -467,6 +472,46 @@ def install_packs(app, db, auth, record, audit):
                                 db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * wanted / nft, 6), r['id']))
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v5','1') ON CONFLICT(key) DO NOTHING")
 
+    def rename_pack_items():
+        """Once: packs already in inventories belong to the collection "Lucky Pack"."""
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_renamed_v1'").fetchone():
+            return
+        with db():
+            for row in db().execute("SELECT user_id,nft_id,payload FROM inventory WHERE payload LIKE ?", ('%"pack_item": true%',)).fetchall():
+                try:
+                    gift = json.loads(row['payload'])
+                except ValueError:
+                    continue
+                if gift.get('pack_item') and gift.get('name') != COLLECTION[1]:
+                    gift['name'], gift['collection_name'] = COLLECTION[1], COLLECTION[1]
+                    db().execute("UPDATE inventory SET payload=? WHERE user_id=? AND nft_id=?", (json.dumps(gift, ensure_ascii=False), row['user_id'], row['nft_id']))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_renamed_v1','1') ON CONFLICT(key) DO NOTHING")
+
+    def tune_card_counts():
+        """Once: the stock packs hold one card in 60% of openings and up to six."""
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_tuned_v6'").fetchone():
+            return
+        with db():
+            for pack_id in PACK_BACKDROPS:
+                db().execute("UPDATE packs SET card_weights=? WHERE id=?", (json.dumps(CARD_WEIGHTS), pack_id))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v6','1') ON CONFLICT(key) DO NOTHING")
+
+    def drop_christmas_bear():
+        """Once: the 169-value Toy Bear leaves Christmas Carol; the other gifts share its chance."""
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_christmas_v2'").fetchone():
+            return
+        with db():
+            if db().execute("DELETE FROM pack_prizes WHERE pack_id='christmas' AND collection_id='toybear'").rowcount:
+                rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id='christmas'").fetchall()
+                gram = sum(float(r['weight']) for r in rows if r['kind'] == 'GRAM')
+                nft = [r for r in rows if r['kind'] == 'NFT']
+                have = sum(float(r['weight']) for r in nft)
+                if gram > 0 and have > 0:
+                    wanted = NFT_CARD_SHARE_V4 / (1 - NFT_CARD_SHARE_V4) * gram
+                    for r in nft:
+                        db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * wanted / have, 6), r['id']))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_christmas_v2','1') ON CONFLICT(key) DO NOTHING")
+
     with app.app_context():
         tune_default_pack()
         seed_snowman_pack()
@@ -476,6 +521,9 @@ def install_packs(app, db, auth, record, audit):
         seed_christmas_pack()
         tune_packs_final()
         fix_pack_backdrops()
+        rename_pack_items()
+        tune_card_counts()
+        drop_christmas_bear()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""
@@ -550,7 +598,7 @@ def install_packs(app, db, auth, record, audit):
                 continue
             v = live_value(p)
             items.append({'kind': p['kind'], 'amount': p['amount'], 'name': p['name'], 'model': p['model'], 'image': p['image'], 'value': plain(v),
-                          'chance': round(float(p['weight']) / total * 100, 2)})
+                          'chance': round(float(p['weight']) / total * 100, 5)})
         items.sort(key=lambda x: (Decimal(x['value'] or '0'), x['kind']))
         values = [Decimal(x['value'] or '0') for x in items] or [Decimal('0')]
         return {'pack': short(pack), 'prizes': items, 'min': plain(min(values)), 'max': plain(max(values)),
@@ -691,7 +739,7 @@ def install_packs(app, db, auth, record, audit):
             prizes = [p for p in prizes_of(row['pack_id']) if float(p['weight']) > 0]
             if not pack or not prizes:
                 abort(409, description='Пак ещё не настроен')
-            counts = [(int(k), float(v)) for k, v in json.loads(pack['card_weights']).items() if float(v) > 0 and 1 <= int(k) <= 5]
+            counts = [(int(k), float(v)) for k, v in json.loads(pack['card_weights']).items() if float(v) > 0 and 1 <= int(k) <= 6]
             if not counts:
                 abort(409, description='В паке не заданы шансы количества карточек')
             n = pick(counts)
@@ -843,7 +891,7 @@ def install_packs(app, db, auth, record, audit):
             abort(400, description='Картинка: ссылка https:// или файл из /static/')
         raw = body.get('card_weights')
         weights = {}
-        for k in '12345':
+        for k in '123456':
             try:
                 v = float((raw or {}).get(k, 0) or 0)
             except (TypeError, ValueError):

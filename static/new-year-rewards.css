@@ -29,3 +29,10 @@
 .forge-season-earned strong{color:#cbd7df;font-weight:700;font-variant-numeric:tabular-nums}
 @keyframes forge-season-earned-in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
 @media(prefers-reduced-motion:reduce){.forge-season-earned{animation:none}}
+
+/* Reward for the sale: one calm line, "Награда за продажу — 38 [шар]" */
+.crafter-season-reward{margin:10px 0 12px;padding:9px 13px;border-radius:14px;background:#ffffff0a;border-color:#ffffff1f;box-shadow:none}
+.crafter-season-reward>div>span{font-size:13px;color:#cfd3d8;font-weight:600}
+.crafter-season-reward>div>small{display:none}
+.crafter-season-reward>strong{font-size:15px;font-weight:700;color:#fff;gap:5px}
+.crafter-season-reward>strong>img{width:17px;height:17px}

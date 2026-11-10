@@ -48,7 +48,7 @@ def test_buy_open_and_sell(client):
     upid = got.json['user_pack_id']
     inv = client.get('/api/inventory', headers=player).json['gifts']
     item = next(x for x in inv if x['id'] == 'packitem-' + upid)
-    assert item['name'] == 'Pack' and item['model'] == 'New Year' and item['pack_item'] and item['status'] == 'unlisted'
+    assert item['name'] == 'Lucky Pack' and item['model'] == 'New Year' and item['pack_item'] and item['status'] == 'unlisted'
     assert item['backdrop'] and item['background']['center_color'] and item['number'] >= 1
     assert client.get('/api/packs', headers=player).json['mine'][0]['id'] == upid
     before = balance(client, player)
@@ -341,7 +341,7 @@ def test_pack_collection_page_shows_all_three_packs_as_png_models(client):
     client.get('/api/me', headers=player)
     for key in ('pack', 'packs', 'Pack'):
         info = client.get('/api/collections/' + key + '/overview', headers=player)
-        assert info.status_code == 200 and info.json['pack'] and info.json['collection']['name'] == 'Pack'
+        assert info.status_code == 200 and info.json['pack'] and info.json['collection']['name'] == 'Lucky Pack'
     models = info.json['models']
     assert {m['name'] for m in models} >= {'New Year', 'Snowman', 'Winter'}
     assert all(m['image'].startswith('/static/assets/packs/') for m in models)
@@ -427,11 +427,72 @@ def test_christmas_carol_pack_and_one_stingy_table(client):
     gifts = [p for p in xmas['prizes'] if p['kind'] == 'NFT']
     assert [(g['collection_id'], g['model']) for g in gifts] == [
         ('snowglobe', 'Crimson Cabin'), ('hangingstar', 'Christmas'), ('snowmittens', 'Rudolph'), ('gingercookie', 'Cookie Claus'), ('jinglebells', 'Nutcracker'),
-        ('eternalcandle', 'Red Melter'), ('toybear', 'Red Velvet'), ('xmasstocking', 'Caramel Fest'), ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein')]
+        ('eternalcandle', 'Red Melter'), ('xmasstocking', 'Caramel Fest'), ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein')]
     for pack in all_packs.values():                                              # the same balance table and card counts everywhere
-        assert {int(k): v for k, v in pack['card_weights'].items()} == {1: 88, 2: 10, 3: 2}
+        assert {int(k): v for k, v in pack['card_weights'].items()} == {1: 60, 2: 24, 3: 10, 4: 4, 5: 1.5, 6: .5}
         table = {p['amount']: p['weight'] for p in pack['prizes'] if p['kind'] == 'GRAM' and p['amount'] in STANDARD}
         assert table == {k: float(v) for k, v in STANDARD.items() if k in table} and '0.1' in table
     for pack in all_packs.values():
         total = sum(p['weight'] for p in pack['prizes'])
         assert sum(p['weight'] for p in pack['prizes'] if p['kind'] == 'NFT') / total < 0.0025          # a gift per card: at most 0.25%
+
+
+def test_packs_are_a_collection_called_lucky_pack_with_a_floor(client):
+    import json
+    import sqlite3
+    from app import create_app
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': 'winter'})
+    pack, = [g for g in client.get('/api/inventory', headers=player).json['gifts'] if g.get('pack_item')]
+    assert pack['name'] == 'Lucky Pack' and pack['model'] == 'Winter' and 'crafter_floor_gram' not in pack        # nothing for sale yet: no floor
+    assert client.post('/api/resale/listings', headers=player, json={'action': 'sell', 'items': [{'id': pack['id'], 'price': '7.5'}]}).status_code == 200
+    client.post('/api/admin/users/42/packs', headers=admin, json={'pack_id': 'newyear'})
+    mine = [g for g in client.get('/api/inventory', headers=admin).json['gifts'] if g.get('pack_item')]
+    assert mine[0]['crafter_floor_gram'] == '7.50'                                                                  # the cheapest pack lot of the market
+    # packs already in inventories are renamed once
+    path = client.application.config['DATABASE']
+    with sqlite3.connect(path) as db:
+        row = db.execute("SELECT user_id,nft_id,payload FROM inventory WHERE nft_id=?", (mine[0]['id'],)).fetchone()
+        gift = json.loads(row[2]); gift['name'] = 'Pack'
+        db.execute("UPDATE inventory SET payload=? WHERE nft_id=?", (json.dumps(gift), mine[0]['id']))
+        db.execute("DELETE FROM settings WHERE key='packs_renamed_v1'")
+    create_app({'TESTING': True, 'DATABASE': path, 'BOT_TOKEN': 'test-token', 'ADMIN_IDS': {42}, 'DEMO_MODE': False})
+    with sqlite3.connect(path) as db:
+        assert json.loads(db.execute("SELECT payload FROM inventory WHERE nft_id=?", (mine[0]['id'],)).fetchone()[0])['name'] == 'Lucky Pack'
+
+
+def test_packs_hold_one_card_in_60_percent_of_openings_and_carry_an_accent(client):
+    import packs
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    for pack in client.get('/api/admin/new-year/packs', headers=admin).json['packs']:
+        weights = {int(k): v for k, v in pack['card_weights'].items()}
+        assert abs(weights[1] / sum(weights.values()) - .6) < 1e-9 and max(weights) == 6
+    client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': 'christmas'})
+    pack, = [g for g in client.get('/api/inventory', headers=player).json['gifts'] if g.get('pack_item')]
+    opened = client.post('/api/packs/open', headers=player, json={'user_pack_id': pack['user_pack_id']})
+    assert opened.status_code == 200 and opened.json['pack']['accent'] == packs.PACK_ACCENTS['christmas']
+    assert 1 <= len(opened.json['cards']) <= 6
+
+
+def test_christmas_carol_has_no_bear_and_tiny_chances_are_not_shown_as_zero(client):
+    import sqlite3
+    import uuid
+    from app import create_app
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    path = client.application.config['DATABASE']
+    with sqlite3.connect(path) as db:                       # a server that still has the bear
+        db.execute("INSERT INTO pack_prizes(id,pack_id,kind,amount,collection_id,name,image,value,weight,position,model) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                   (uuid.uuid4().hex, 'christmas', 'NFT', '', 'toybear', 'Toy Bear', '', '169', .0006, 99, 'Red Velvet'))
+        db.execute("DELETE FROM settings WHERE key='packs_christmas_v2'")
+    create_app({'TESTING': True, 'DATABASE': path, 'BOT_TOKEN': 'test-token', 'ADMIN_IDS': {42}, 'DEMO_MODE': False})
+    xmas = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}['christmas']
+    gifts = [p for p in xmas['prizes'] if p['kind'] == 'NFT']
+    assert 'toybear' not in {g['collection_id'] for g in gifts} and len(gifts) == 9
+    total = sum(p['weight'] for p in xmas['prizes'])
+    assert abs(sum(g['weight'] for g in gifts) / total - 0.0017) < 0.0001                      # the share stays the same
+    info = client.get('/api/packs/christmas/contents', headers=player).json
+    cookie = next(p for p in info['prizes'] if p.get('model') == 'Cookie Claus')
+    assert 0 < cookie['chance'] < 0.01                                                          # shown with enough digits, never a flat 0

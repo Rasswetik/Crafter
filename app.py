@@ -516,7 +516,7 @@ def create_app(config=None):
     @app.get('/api/collections/<slug>/overview')
     @auth()
     def collection_overview(slug):
-        if canonical_name(slug) in ('pack', 'packs'):
+        if canonical_name(slug) in ('pack', 'packs', 'luckypack'):
             # the Pack collection: its "models" are our card packs, shown by their PNG pictures
             packs = db().execute("SELECT id,title,image_url FROM packs WHERE enabled=1 ORDER BY created").fetchall()
             totals, cutoff = [Decimal(0), Decimal(0)], int(time.time()) - 86400
@@ -533,7 +533,7 @@ def create_app(config=None):
                     if row['created'] >= cutoff:
                         totals[0] += paid
             models = [{'name': p['title'], 'image': p['image_url']} for p in packs]
-            return dict(collection={'id': 'packs', 'short_name': 'packs', 'name': 'Pack', 'photo_url': models[0]['image'] if models else '',
+            return dict(collection={'id': 'packs', 'short_name': 'packs', 'name': 'Lucky Pack', 'photo_url': models[0]['image'] if models else '',
                                     'floor_price': None, 'price_unit': 'GRAM'},
                         models=models, volume_24h=str(totals[0]), volume_total=str(totals[1]), pack=True)
         try:
@@ -762,6 +762,10 @@ def create_app(config=None):
             if symbols:
                 index = int(hashlib.sha256(gift['id'].encode()).hexdigest(), 16) % len(symbols)
                 gift['symbol'] = symbols[index]
+        floor = app.extensions.get('crafter_pack_floor', lambda: None)()
+        for gift in gifts:
+            if gift.get('pack_item') and floor is not None:
+                gift['crafter_floor_gram'] = str(floor)          # the cheapest pack lot on the Craft Market
         return {'gifts': gifts, 'demo': app.config['DEMO_MODE']}
     @app.get('/api/craft/targets')
     @auth()

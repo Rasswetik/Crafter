@@ -12,7 +12,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 let playing = false;
 
 /* ---------- contents and chances ---------- */
-const pct = v => (Number(v) >= 10 ? Number(v).toFixed(1) : Number(v).toFixed(2)).replace(/\.?0+$/, '') + '%';
+const pct = v => { const n = Number(v); return (n >= 10 ? n.toFixed(1) : n >= 0.1 ? n.toFixed(2) : n >= 0.01 ? n.toFixed(3) : n > 0 ? n.toFixed(4) : '0').replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '') + '%'; };
 const CUBE = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 2.5 20.5 7v10L12 21.5 3.5 17V7Z" fill="none" stroke="#4fd37a" stroke-width="2" stroke-linejoin="round"/><path d="M3.5 7 12 11.8 20.5 7M12 11.8v9.7" fill="none" stroke="#4fd37a" stroke-width="2" stroke-linejoin="round"/></svg>';
 const gem = n => '<span class="pk-amt">' + GEM + '<b>' + num(n) + '</b></span>';
 async function contentsGrid(pid) {
@@ -176,6 +176,7 @@ async function open(upid, refresh, meta) {
     const cards = res.cards || [];
     const box = document.createElement('div');
     box.className = 'pk-over';
+    box.style.setProperty('--ac', (res.pack && res.pack.accent) || '59 134 238');
     let finish;
     const closed = new Promise(r => { finish = r; });
     box.innerHTML = '<div class="pk-snow" aria-hidden="true">' + Array.from({length: 22}, (_, i) =>
@@ -342,7 +343,7 @@ async function admin(content) {
     content.appendChild(sec);
     const editor = sec.querySelector('#pk-editor');
     const edit = pack => {
-        const p = pack || {id: '', title: 'Новый пак', image: '/static/assets/packs/new-year-pack.webp', card_weights: {1: 30, 2: 30, 3: 20, 4: 12, 5: 8}, for_sale: false, price_balls: 0, enabled: true, prizes: [{kind: 'GRAM', amount: '1', weight: 10}]};
+        const p = pack || {id: '', title: 'Новый пак', image: '/static/assets/packs/new-year-pack.webp', card_weights: {1: 60, 2: 24, 3: 10, 4: 4, 5: 1.5, 6: .5}, for_sale: false, price_balls: 0, enabled: true, prizes: [{kind: 'GRAM', amount: '1', weight: 10}]};
         let prizes = p.prizes.map(x => ({...x}));
         const draw = () => {
             const total = prizes.reduce((s, x) => s + (Number(x.weight) || 0), 0) || 1;
@@ -352,7 +353,7 @@ async function admin(content) {
                 '<label class="ny-admin-switch full"><span><b>Продавать в маркете</b></span><input type="checkbox" name="for_sale"' + (p.for_sale ? ' checked' : '') + '></label>' +
                 '<label>Цена в шарах<input name="price_balls" type="number" min="0" step="1" value="' + e(p.price_balls) + '"><small class="sub">0 — бесплатно</small></label>' +
                 '<label class="ny-admin-switch full"><span><b>Пак включён</b></span><input type="checkbox" name="enabled"' + (p.enabled ? ' checked' : '') + '></label></div>' +
-                '<h4>Шанс количества карточек</h4><div class="pk-w5">' + [1, 2, 3, 4, 5].map(k => '<label>' + k + '<input name="w' + k + '" type="number" min="0" step="any" value="' + e(p.card_weights[k] ?? 0) + '"></label>').join('') + '</div>' +
+                '<h4>Шанс количества карточек</h4><div class="pk-w5">' + [1, 2, 3, 4, 5, 6].map(k => '<label>' + k + '<input name="w' + k + '" type="number" min="0" step="any" value="' + e(p.card_weights[k] ?? 0) + '"></label>').join('') + '</div>' +
                 '<h4>Призы</h4><div class="pk-prizes">' + prizes.map((x, i) =>
                     '<div class="pk-prize" data-i="' + i + '"><select data-f="kind"><option value="GRAM"' + (x.kind === 'GRAM' ? ' selected' : '') + '>GRAM</option><option value="NFT"' + (x.kind === 'NFT' ? ' selected' : '') + '>Подарок</option></select>' +
                     (x.kind === 'GRAM' ? '<input data-f="amount" inputmode="decimal" placeholder="Сумма" value="' + e(x.amount) + '">' :
@@ -392,7 +393,7 @@ async function admin(content) {
                 try {
                     await api('admin/new-year/packs', {id: p.id, title: f.get('title'), image_url: f.get('image_url'), for_sale: f.get('for_sale') === 'on',
                         price_balls: f.get('price_balls'), enabled: f.get('enabled') === 'on',
-                        card_weights: Object.fromEntries([1, 2, 3, 4, 5].map(k => [String(k), f.get('w' + k)])),
+                        card_weights: Object.fromEntries([1, 2, 3, 4, 5, 6].map(k => [String(k), f.get('w' + k)])),
                         prizes: prizes.map(x => ({kind: x.kind, amount: x.amount, collection_id: x.collection_id, model: x.model, value: x.value, weight: x.weight}))});
                     toast('Пак сохранён'); content.innerHTML = ''; window.renderAdminNewYear?.(content);
                 } catch (err) { toast(err.message); }

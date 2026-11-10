@@ -1,4 +1,4 @@
-const isPackCollection = c => !!c && (['pack', 'packs'].includes(String(c.id)) || c.name === 'Pack');
+const isPackCollection = c => !!c && (['pack', 'packs'].includes(String(c.id)) || ['Pack', 'Lucky Pack'].includes(c.name));
 const baseCollectionMarket = renderMarket;
 renderMarket = function () {
     baseCollectionMarket();
@@ -130,7 +130,7 @@ async function openCollectionFromUrl() {
     try { slug = decodeURIComponent(match[1]); } catch { return false; }
     await state.catalogReady;
     const collection = state.catalog.collections.find(item =>
-        String(item.id) === slug || giftCollectionSlug(item.name) === slug) || (['pack', 'packs'].includes(slug.toLowerCase()) ? {id: 'packs', name: 'Pack'} : null);
+        String(item.id) === slug || giftCollectionSlug(item.name) === slug) || (['pack', 'packs'].includes(slug.toLowerCase()) ? {id: 'packs', name: 'Lucky Pack'} : null);
     if (!collection) return false;
     await openCollectionPage(collection, false);
     return true;

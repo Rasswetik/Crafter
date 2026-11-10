@@ -65,6 +65,12 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
         return {**public, 'id': row['id'], 'price': row['price'], 'price_unit': 'GRAM',
                 'resale': True, 'own_listing': row['seller_id'] == uid, 'listed_at': row['listed_at']}
 
+    def pack_floor():
+        """The cheapest card-pack lot of the Craft Market, or None."""
+        prices = [Decimal(row['price']) for row in active_lots() if '"pack_item": true' in row['payload']]
+        return min(prices) if prices else None
+    app.extensions['crafter_pack_floor'] = pack_floor
+
     def active_lots():
         return db().execute("""SELECT l.*,i.payload FROM crafter_listings l
             JOIN inventory i ON i.user_id=l.seller_id AND i.nft_id=l.gift_id AND i.status='listed'

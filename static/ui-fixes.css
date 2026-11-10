@@ -7,3 +7,12 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulati
 body{max-width:100vw;overflow-x:hidden;overscroll-behavior-x:none;touch-action:manipulation}
 #app{max-width:100vw;overflow-x:clip}
 @media(max-width:700px){input,select,textarea{font-size:max(16px,1em)}}
+
+/* the price line of a tile never grows out from under its button */
+.gift-bottom .price{min-width:0;overflow:hidden}
+.gift-bottom .price small{min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gift-bottom .price b{flex:none;white-space:nowrap}
+
+/* A pack picture is always shown whole, never cropped to a square */
+img[src*="/static/assets/packs/"]{object-fit:contain!important}
+dialog#sheet.catalog-sheet .catalog-row .catalog-thumb img[src*="/static/assets/packs/"]{padding:2px;background:transparent}
