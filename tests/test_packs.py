@@ -606,3 +606,20 @@ def test_shop_set_of_mixed_packs(client):
     assert item['bundle'] == 3 and [c['count'] for c in item['contents']] == [2, 1] and '+' in item['title']
     bought = client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'mixed-set-0001'}).json
     assert len(bought['pack_ids']) == 3
+
+
+def test_shop_bundle_with_packs_gram_and_balls(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    packs = [p['id'] for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']]
+    mk = lambda spec: client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BUNDLE', 'price_balls': 0, 'contents': spec})
+    assert mk({'packs': [], 'gram': '', 'balls': ''}).status_code == 400            # an empty bundle
+    assert mk({'packs': [{'pack_id': 'nope', 'count': 1}]}).status_code == 400
+    assert mk({'packs': [{'pack_id': packs[0], 'count': 2}, {'pack_id': packs[1], 'count': 1}], 'gram': '2.5', 'balls': '100'}).status_code == 200
+    item = client.get('/api/shop-items', headers=player).json['items'][0]
+    assert item['kind'] == 'BUNDLE' and item['gram'] == '2.5' and item['balls'] == 100 and [c['count'] for c in item['contents']] == [2, 1]
+    before = balance(client, player)
+    bought = client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'bundle-buy-0001'})
+    assert bought.status_code == 200, bought.json
+    assert len(bought.json['pack_ids']) == 3 and bought.json['balls_gain'] == 100 and bought.json['balance']['balls'] == 100
+    assert balance(client, player) == before + Decimal('2.5')

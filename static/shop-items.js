@@ -4,11 +4,11 @@
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? ''));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
 const ORN = '<img src="/static/assets/new-year-ornament.svg" alt="" aria-hidden="true">';
-const LABEL = {GRAM: 'Баланс GRAM', BALL: 'Новогодние шары', PACK: 'Карточный пак', STAR: 'Подарок Telegram', PROMO: 'Промокод'};
+const LABEL = {GRAM: 'Баланс GRAM', BALL: 'Новогодние шары', PACK: 'Карточный пак', BUNDLE: 'Бандл', STAR: 'Подарок Telegram', PROMO: 'Промокод'};
 let STARS = [];
 const KIND_NAME = [['GRAM', 'GRAM'], ['BALL', 'Шары'], ['PACK', 'Пак'], ['STAR', 'Подарок'], ['PROMO', 'Промокод']];
 /* Packs in a bundle stand one behind another: the first one straight in front, the others behind it, each a bit more turned. */
-function packOf(it) { return it.kind === 'PACK' || (it.kind === 'PROMO' && it.promo_kind === 'PACK'); }
+function packOf(it) { return it.kind === 'PACK' || (it.kind === 'BUNDLE' && it.contents && it.contents.length) || (it.kind === 'PROMO' && it.promo_kind === 'PACK'); }
 function artHTML(it, cls) {
     const src = art(it);
     if (packOf(it) && Number(it.bundle) > 1) {
@@ -27,6 +27,7 @@ function art(it) {
     if (it.image_url) return it.image_url;
     if (it.kind === 'GRAM') return '/static/assets/gram.svg';
     if (it.kind === 'BALL') return '/static/assets/new-year-ornament.svg';
+    if (it.kind === 'BUNDLE') return (it.contents && it.contents[0] && it.contents[0].pack.image) || (it.gram ? '/static/assets/gram.svg' : '/static/assets/new-year-ornament.svg');
     if (it.kind === 'PACK') return it.pack?.image || '/static/assets/packs/new-year-pack.webp';
     if (it.kind === 'STAR') return it.star?.image || '/static/assets/stargifts/bear.svg';
     return '/static/assets/community-reward.svg';
@@ -35,6 +36,7 @@ const unavailable = it => (it.left !== null && it.left <= 0) || (it.per_user !==
 function describe(it) {
     if (it.kind === 'GRAM') return 'На ваш баланс будет зачислено ' + num(it.amount) + ' GRAM.';
     if (it.kind === 'BALL') return 'На баланс добавится ' + num(it.amount) + ' новогодних шаров.';
+    if (it.kind === 'BUNDLE') return 'В бандле: ' + [].concat((it.contents || []).map(c => c.pack.title + (c.count > 1 ? ' ×' + c.count : '')), it.gram ? [num(it.gram) + ' GRAM'] : [], it.balls ? [num(it.balls) + ' новогодних шаров'] : []).join(' + ') + '. Всё сразу за одну покупку.';
     if (it.kind === 'PACK' && it.contents && it.contents.length > 1) return 'В наборе: ' + it.contents.map(c => c.pack.title + (c.count > 1 ? ' ×' + c.count : '')).join(' + ') + '.';
     if (it.kind === 'PACK') return it.bundle > 1 ? 'Вы получите ' + it.bundle + ' карточных паков.' : 'Карточный пак с GRAM и подарками.';
     if (it.kind === 'STAR') return 'Подарок Telegram' + (it.bundle > 1 ? ' ×' + it.bundle : '') + ' попадёт в «Мои подарки»: его можно продать сайту за GRAM, вывести в Telegram или использовать в апгрейде и крафте.';
@@ -87,6 +89,7 @@ const KIND_TILES = [
     ['GRAM', 'GRAM на баланс', 'Игрок сразу получает GRAM', '/static/assets/gram.svg'],
     ['BALL', 'Новогодние шары', 'Игрок получает шары', '/static/assets/new-year-ornament.svg'],
     ['PACK', 'Карточный пак', 'Пак попадает в инвентарь', '/static/assets/packs/new-year-pack.webp'],
+    ['BUNDLE', 'Бандл', 'Несколько паков, GRAM и шары сразу', '/static/assets/community-reward.svg'],
     ['PROMO', 'Промокод', 'Уникальный код для покупателя', '/static/assets/community-reward.svg'],
 ];
 const PROMO_TILES = [['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg'], ['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp']];
@@ -100,7 +103,7 @@ async function admin(content) {
     sec.className = 'ny-admin-section si-admin';
     sec.dataset.pane = 'shop';
     content.appendChild(sec);
-    const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}};
+    const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: ''};
     const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
     const range = (key, label, min, max, val, fmt) => '<div class="adm-range"><div class="adm-range-top"><label>' + label + '</label><b data-out="' + key + '">' + fmt(Number(val)) + '</b></div>' +
         '<input type="range" data-f="' + key + '" data-fmt="' + (key === 'per' ? 'per' : 'bundle') + '" min="' + min + '" max="' + max + '" step="1" value="' + val + '" style="--p:' + ((val - min) / (max - min) * 100) + '%"></div>';
@@ -108,12 +111,13 @@ async function admin(content) {
     const fmtBundle = v => v === 1 ? '1 пак' : v < 5 ? v + ' пака' : v + ' паков';
     const tile = (on, attr, img, title, hint) => '<button type="button" class="adm-tile' + (on ? ' is-on' : '') + '" ' + attr + '><img src="' + e(img) + '" alt=""><b>' + title + '</b>' + (hint ? '<small>' + hint + '</small>' : '') + '</button>';
     const preview = () => {
-        const mixList = f.kind === 'PACK' ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => ({pack: packs.find(p => p.id === id), count: n})).filter(c => c.pack) : [];
-        const it = {contents: mixList.length ? mixList : null, kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: mixList.length ? mixList.reduce((x, c) => x + c.count, 0) : (Number(f.bundle) || 1), per_user: Number(f.per) || null, mine: 0, old_price_balls: Number(f.old) > Number(f.price) ? Number(f.old) : null, discount_percent: Number(f.old) > Number(f.price) ? Math.round((1 - Number(f.price) / Number(f.old)) * 100) : null, title: f.title || autoTitle(), image_url: f.image,
+        const mixList = f.kind === 'BUNDLE' ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => ({pack: packs.find(p => p.id === id), count: n})).filter(c => c.pack) : [];
+        const it = {contents: mixList.length ? mixList : null, gram: f.kind === 'BUNDLE' && Number(f.bgram) > 0 ? f.bgram : null, balls: f.kind === 'BUNDLE' && Number(f.bballs) > 0 ? f.bballs : null, kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: mixList.length ? mixList.reduce((x, c) => x + c.count, 0) : (Number(f.bundle) || 1), per_user: Number(f.per) || null, mine: 0, old_price_balls: Number(f.old) > Number(f.price) ? Number(f.old) : null, discount_percent: Number(f.old) > Number(f.price) ? Math.round((1 - Number(f.price) / Number(f.old)) * 100) : null, title: f.title || autoTitle(), image_url: f.image,
             pack: packs.find(p => p.id === f.pack) ? {image: packs.find(p => p.id === f.pack).image} : null, price_balls: Number(f.price) || 0, left: f.stock ? Number(f.stock) : null};
         return tiles([it])[0] || '';
     };
     const autoTitle = () => {
+        if (f.kind === 'BUNDLE') return 'Бандл: ' + ([].concat(Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => (packs.find(p => p.id === id)?.title || 'Пак') + (n > 1 ? ' ×' + n : '')), Number(f.bgram) > 0 ? [num(f.bgram) + ' GRAM'] : [], Number(f.bballs) > 0 ? [num(f.bballs) + ' шаров'] : []).join(' + ') || '…');
         const w = eff() === 'STAR' ? (STARS.find(x => x.key === f.amount)?.name || 'Подарок') + (Number(f.bundle) > 1 ? ' ×' + f.bundle : '') : eff() === 'PACK' ? 'Pack ' + (packs.find(p => p.id === f.pack)?.title || '') + (Number(f.bundle) > 1 ? ' ×' + f.bundle : '') : eff() === 'BALL' ? num(f.amount) + ' шаров' : num(f.amount) + ' GRAM';
         return f.kind === 'PROMO' ? 'Промокод: ' + w : w;
     };
@@ -124,8 +128,8 @@ async function admin(content) {
         const kinds = KIND_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length));
         const step2 = f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + PROMO_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length)).map(k => tile(f.promo === k[0], 'data-promo="' + k[0] + '"', k[2], k[1])).join('') + '</div></div>' : '';
         const mixTotal = Object.values(f.mix).reduce((x, n) => x + n, 0);
-        const what = f.kind === 'PACK'
-            ? '<div class="adm-step"><h4>Состав набора</h4><p class="sub">Добавляйте любые паки вместе: например New Year + Winter + Snowman. Всего в наборе до 20 паков, сейчас: <b>' + mixTotal + '</b>.</p><div class="si-mix">' + packs.map(p => '<div class="si-mix-row' + ((f.mix[p.id] || 0) > 0 ? ' is-on' : '') + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.title) + '</b><span class="si-mix-step"><button type="button" data-mix-dec="' + e(p.id) + '" aria-label="Меньше">−</button><output>' + (f.mix[p.id] || 0) + '</output><button type="button" data-mix-inc="' + e(p.id) + '" aria-label="Больше">+</button></span></div>').join('') + '</div></div>'
+        const what = f.kind === 'BUNDLE'
+            ? '<div class="adm-step"><h4>Состав бандла</h4><p class="sub">Игрок получит всё сразу за одну покупку: любые паки (до 20), GRAM на баланс и шары. Паков сейчас: <b>' + mixTotal + '</b>.</p><div class="si-mix">' + packs.map(p => '<div class="si-mix-row' + ((f.mix[p.id] || 0) > 0 ? ' is-on' : '') + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.title) + '</b><span class="si-mix-step"><button type="button" data-mix-dec="' + e(p.id) + '" aria-label="Меньше">−</button><output>' + (f.mix[p.id] || 0) + '</output><button type="button" data-mix-inc="' + e(p.id) + '" aria-label="Больше">+</button></span></div>').join('') + '</div><div class="adm-row3" style="margin-top:12px"><div class="adm-field"><label>GRAM на баланс</label><input data-f="bgram" inputmode="decimal" value="' + e(f.bgram) + '" placeholder="Без GRAM"></div><div class="adm-field"><label>Новогодние шары</label><input data-f="bballs" inputmode="numeric" value="' + e(f.bballs) + '" placeholder="Без шаров"></div></div></div>'
             : eff() === 'PACK'
             ? '<div class="adm-step"><h4>Какой пак</h4>' + window.crafterPacks.packTiles(packs, f.pack) + '</div>'
             : eff() === 'STAR'
@@ -139,7 +143,7 @@ async function admin(content) {
             '<div class="adm-field"><label>Цена в шарах</label><input data-f="price" type="number" min="0" step="1" value="' + e(f.price) + '"><div class="adm-chips"><button type="button" data-chip="price" data-v="0">Бесплатно</button><button type="button" data-chip="price" data-v="50">50</button><button type="button" data-chip="price" data-v="100">100</button></div></div>' +
             '<div class="adm-field"><label>Старая цена (скидка)</label><input data-f="old" type="number" min="0" step="1" value="' + e(f.old) + '" placeholder="Без скидки"><small class="sub">' + (Number(f.old) > Number(f.price) ? 'Скидка ' + Math.round((1 - Number(f.price) / Number(f.old)) * 100) + '%' : 'Больше текущей цены') + '</small></div>' +
             '<div class="adm-field"><label>Сколько всего</label><input data-f="stock" type="number" min="1" step="1" value="' + e(f.stock) + '" placeholder="Без ограничений"></div>' +
-            '</div>' + ((eff() === 'PACK' && f.kind !== 'PACK') || eff() === 'STAR' ? range('bundle', eff() === 'STAR' ? 'Подарков за одну покупку' : 'Паков за одну покупку', 1, 20, f.bundle, fmtBundle) : '') +
+            '</div>' + ((eff() === 'PACK') || eff() === 'STAR' ? range('bundle', eff() === 'STAR' ? 'Подарков за одну покупку' : 'Паков за одну покупку', 1, 20, f.bundle, fmtBundle) : '') +
             range('per', 'Сколько раз может купить один игрок', 0, 20, f.per, fmtPer) + '</div>' +
             '<details class="adm-more"' + (f.image || f.title ? ' open' : '') + '><summary>Название и картинка</summary><div class="adm-row3">' +
             '<div class="adm-field"><label>Название</label><input data-f="title" maxlength="80" value="' + e(f.title) + '" placeholder="' + e(autoTitle()) + '"></div>' +
@@ -167,7 +171,7 @@ async function admin(content) {
         }));
         sec.querySelector('#si-add').addEventListener('click', () => {
             pull();
-            run(() => api('admin/new-year/shop', {contents: f.kind === 'PACK' ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([pack_id, count]) => ({pack_id, count})) : undefined, kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' ? f.bundle : 1, image_url: f.image, title: f.title}), 'Товар добавлен');
+            run(() => api('admin/new-year/shop', {contents: f.kind === 'BUNDLE' ? {packs: Object.entries(f.mix).filter(([, n]) => n > 0).map(([pack_id, count]) => ({pack_id, count})), gram: f.bgram, balls: f.bballs} : undefined, kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' ? f.bundle : 1, image_url: f.image, title: f.title}), 'Товар добавлен');
         });
         sec.querySelectorAll('[data-si-st]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siSt + '/status', {status: b.dataset.next}), 'Готово')));
         sec.querySelectorAll('[data-si-del]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siDel + '/delete', {}), 'Товар удалён')));

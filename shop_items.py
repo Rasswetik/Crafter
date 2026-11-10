@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from flask import abort, g, request
 
-KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO')
+KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO', 'BUNDLE')
 PROMO_KINDS = ('GRAM', 'BALL', 'PACK', 'STAR')
 ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 _LIMIT = 10**9
@@ -63,11 +63,15 @@ def install_shop_items(app, db, auth, record, audit):
         pid = row['amount'] if row['kind'] == 'PACK' or (row['kind'] == 'PROMO' and row['promo_kind'] == 'PACK') else None
         if pid and app.extensions.get('crafter_pack_short'):
             pack = app.extensions['crafter_pack_short'](pid)
-        mix = None
+        mix, parts = None, {}
         if row['contents']:
             try:
-                mix = [{'pack': app.extensions['crafter_pack_short'](c['pack_id']), 'count': int(c['count'])} for c in json.loads(row['contents'])]
-                mix = [c for c in mix if c['pack']]
+                raw = json.loads(row['contents'])
+                if isinstance(raw, dict):
+                    parts = {'gram': raw.get('gram') or None, 'balls': int(raw.get('balls') or 0) or None}
+                    raw = raw.get('packs') or []
+                mix = [{'pack': app.extensions['crafter_pack_short'](c['pack_id']), 'count': int(c['count'])} for c in raw]
+                mix = [c for c in mix if c['pack']] or None
             except (ValueError, KeyError, TypeError):
                 mix = None
         star = None
@@ -75,7 +79,7 @@ def install_shop_items(app, db, auth, record, audit):
             star = app.extensions['crafter_star_gift_short'](row['amount'])
         left = None if row['stock'] is None else max(0, int(row['stock']) - int(row['sold']))
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
-                'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else '') or (star['image'] if star else ''), 'pack': pack, 'star': star, 'contents': mix,
+                'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else '') or (star['image'] if star else ''), 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'),
                 'price_balls': int(row['price_balls']), 'old_price_balls': (int(row['old_price_balls']) if row['old_price_balls'] else None),
                 'discount_percent': (round((1 - int(row['price_balls']) / int(row['old_price_balls'])) * 100) if row['old_price_balls'] and int(row['old_price_balls']) > int(row['price_balls']) else None),
                 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
@@ -133,6 +137,24 @@ def install_shop_items(app, db, auth, record, audit):
                 db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (balls + gain, uid))
                 balls += gain
                 result.update(balls_gain=gain, balance={'balls': balls})
+            elif row['kind'] == 'BUNDLE':
+                spec = json.loads(row['contents'] or '{}')
+                ids = [app.extensions['crafter_grant_pack'](uid, c['pack_id'], 'shop:' + iid) for c in spec.get('packs', []) for _ in range(int(c['count']))]
+                if spec.get('gram'):
+                    acc = db().execute("SELECT balance FROM demo_accounts WHERE user_id=?", (uid,)).fetchone()
+                    after = (Decimal(str(acc['balance'])) if acc else Decimal('0')) + Decimal(spec['gram'])
+                    db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance", (uid, str(after)))
+                    result.update(gram=spec['gram'], gram_balance=str(after))
+                if spec.get('balls'):
+                    gain = int(spec['balls'])
+                    if balls + gain > _LIMIT:
+                        abort(409, description='Баланс шаров превысит максимум')
+                    db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
+                    db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (balls + gain, uid))
+                    balls += gain
+                    result.update(balls_gain=gain, balance={'balls': balls})
+                if ids:
+                    result.update(pack_id=ids[0], pack_ids=ids)
             elif row['kind'] == 'PACK':
                 if row['contents']:                                  # a mixed set: every pack of the set is given
                     ids = [app.extensions['crafter_grant_pack'](uid, c['pack_id'], 'shop:' + iid) for c in json.loads(row['contents']) for _ in range(int(c['count']))]
@@ -187,9 +209,20 @@ def install_shop_items(app, db, auth, record, audit):
             abort(400, description='Тип промокода: GRAM, шары или пак')
         eff = promo if kind == 'PROMO' else kind
         mix, mix_title = None, ''
-        if kind == 'PACK' and isinstance(body.get('contents'), list) and body['contents']:
+        bundle_spec = None
+        packs_in = body.get('contents')
+        if kind == 'BUNDLE':
+            spec_in = packs_in if isinstance(packs_in, dict) else {}
+            packs_in = spec_in.get('packs') if isinstance(spec_in.get('packs'), list) else []
+            from packs import money
+            gram_in = str(spec_in.get('gram') or '').strip()
+            gram = plain(money(gram_in)) if gram_in not in ('', '0') else ''
+            balls_in = str(spec_in.get('balls') or '').strip()
+            balls_n = whole(balls_in, 1, _LIMIT, 'Шары') if balls_in not in ('', '0') else 0
+            bundle_spec = {'gram': gram, 'balls': balls_n}
+        if (kind == 'PACK' or kind == 'BUNDLE') and isinstance(packs_in, list) and packs_in:
             merged = {}
-            for entry in body['contents']:
+            for entry in packs_in:
                 pid = str((entry or {}).get('pack_id') or '')
                 try:
                     n = int((entry or {}).get('count') or 0)
@@ -203,9 +236,23 @@ def install_shop_items(app, db, auth, record, audit):
             if not merged or sum(merged.values()) > 20:
                 abort(400, description='В наборе от 1 до 20 паков')
             mix = json.dumps([{'pack_id': k, 'count': v} for k, v in merged.items()])
+            if bundle_spec is not None:
+                bundle_spec['packs'] = json.loads(mix)
             mix_title = ' + '.join(((app.extensions['crafter_pack_short'](k) or {}).get('title', 'Пак')) + (' ×' + str(v) if v > 1 else '') for k, v in merged.items())
             body = {**body, 'amount': next(iter(merged)), 'bundle': sum(merged.values())}
-        if eff == 'PACK':
+        if eff == 'BUNDLE':
+            if not (bundle_spec.get('packs') or bundle_spec['gram'] or bundle_spec['balls']):
+                abort(400, description='Добавьте в бандл хотя бы один пак, GRAM или шары')
+            bundle_spec.setdefault('packs', [])
+            mix = json.dumps(bundle_spec)
+            amount = bundle_spec['packs'][0]['pack_id'] if bundle_spec['packs'] else ''
+            parts_t = [mix_title] if mix_title else []
+            if bundle_spec['gram']:
+                parts_t.append(bundle_spec['gram'] + ' GRAM')
+            if bundle_spec['balls']:
+                parts_t.append(str(bundle_spec['balls']) + ' шаров')
+            mix_title = 'Бандл: ' + ' + '.join(parts_t)
+        elif eff == 'PACK':
             amount = str(body.get('amount') or '')
             if not app.extensions['crafter_pack_exists'](amount):
                 abort(400, description='Выберите существующий пак')
@@ -227,14 +274,16 @@ def install_shop_items(app, db, auth, record, audit):
         stock = None if str(body.get('stock') or '').strip() == '' else whole(body.get('stock'), 1, 1000000, 'Количество')
         per_user = None if str(body.get('per_user') or '').strip() == '' else whole(body.get('per_user'), 1, 1000, 'Лимит на игрока')
         bundle = 1
-        if eff in ('PACK', 'STAR'):
+        if eff == 'BUNDLE':
+            bundle = max(1, sum(c['count'] for c in bundle_spec['packs']))
+        elif eff in ('PACK', 'STAR'):
             bundle = whole(body.get('bundle') or 1, 1, 20, 'Штук за одну покупку')
         image = str(body.get('image_url') or '').strip()
         if image and not (image.startswith('https://') or re.fullmatch(r'/static/[A-Za-z0-9_./-]+', image)):
             abort(400, description='Картинка: ссылка https:// или файл из /static/')
         title = str(body.get('title') or '').strip()[:80]
         if not title:
-            if eff == 'PACK' and mix_title:
+            if eff in ('PACK', 'BUNDLE') and mix_title:
                 title = mix_title[:80]
             elif eff == 'PACK':
                 title = (app.extensions['crafter_pack_short'](amount) or {}).get('title', 'Пак') + (' ×' + str(bundle) if bundle > 1 else '')
