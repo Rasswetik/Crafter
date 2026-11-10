@@ -83,4 +83,5 @@ def test_paid_reward_debits_balls(client):
     assert got.status_code == 200 and got.json['balance']['balls'] == 5
     assert client.get('/api/community', headers=player).json['milestones'][1]['code'] == got.json['code']
     mid = ids[10]
-    assert client.post('/api/admin/new-year/community/milestones/' + mid + '/delete', headers=signed(42)).status_code == 409
+    assert client.post('/api/admin/new-year/community/milestones/' + mid + '/delete', headers=signed(42)).status_code == 200       # even a claimed reward can be removed
+    assert all(m['id'] != mid for m in client.get('/api/community', headers=player).json['milestones'])

@@ -579,6 +579,13 @@ def create_app(config=None):
     @app.get('/api/collections/<slug>/attributes')
     @auth()
     def attributes(slug):
+        if canonical_name(slug) in ('luckypack', 'pack', 'packs'):
+            # packs: the models are the packs themselves, the backdrops are the ones of the pack sets
+            import packs as pack_module
+            rows = db().execute("SELECT title,image_url FROM packs WHERE enabled=1 ORDER BY created").fetchall()
+            names = {n for v in pack_module.PACK_BACKDROPS.values() for n in v}
+            return {'models': [{'name': r['title'], 'image_url': r['image_url']} for r in rows],
+                    'backdrops': [{'name': b[0], 'center_color': b[1], 'edge_color': b[2]} for b in pack_module.BACKDROPS if b[0] in names], 'symbols': []}
         if request.args.get('source') != 'portals':
             return collection_attributes(slug)
         try:
@@ -1423,11 +1430,15 @@ def create_app(config=None):
     close_lot_offers, expire_offers, register_offers = install_trading_offers(
         app, db, auth, record, canonical_name, notify_crafter_sale,
         notify_crafter_offer, notify_crafter_purchase)
+    app.extensions['crafter_close_lot_offers'] = close_lot_offers
     resale_market, resale_activity_lots, available_crafter_lot, settle_crafter_lot = install_resale(
         app, db, auth, record, canonical_name, market_collection_keys,
         notify_crafter_sale, close_lot_offers, notify_crafter_purchase)
 
     def offer_collection(value):
+        if canonical_name(value) in ('luckypack', 'pack', 'packs'):
+            first = db().execute("SELECT image_url FROM packs WHERE enabled=1 ORDER BY created LIMIT 1").fetchone()
+            return {'id': 'packs', 'short_name': 'packs', 'name': 'Lucky Pack', 'photo_url': first['image_url'] if first else ''}
         for key in ('thermos:collections', 'collections'):
             for item in cached(key, [])[0]:
                 if value == str(item.get('id')) or canonical_name(value) == canonical_name(item.get('name') or ''):

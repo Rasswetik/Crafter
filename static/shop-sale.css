@@ -1,0 +1,45 @@
+/* ---- Shop: discounts and bundles of packs ---- */
+.si-tile .ny-lot-art{position:relative;display:grid;place-items:center;overflow:visible}
+.si-off{position:absolute;top:6px;left:6px;z-index:3;padding:3px 8px;border-radius:999px;font-size:12px;font-weight:800;color:#2a0a0d;background:linear-gradient(135deg,#ffd0d4,#ff7a86);box-shadow:0 3px 10px rgba(255,90,110,.45)}
+.si-off.inline{position:static;display:inline-block;margin-right:8px}
+.si-old{margin-right:6px;font-size:.82em;font-weight:600;color:#ffffffa8;text-decoration:line-through;text-decoration-thickness:1.5px}
+.si-sale{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:10px 0 4px;padding:10px 12px;border-radius:14px;background:#ffffff0a;border:1px solid #ffffff1c;font-size:15px}
+.si-sale s{color:#aab0b8;text-decoration-thickness:1.5px}.si-sale b{color:#fff;font-size:17px}.si-sale img{width:17px;height:17px}
+.si-sale small{flex:1 0 100%;color:#9aa3ad;font-size:11px}
+/* a fan of packs: the first one stands straight in front, the others stand behind it, each one turned a bit more */
+.si-fan{position:relative;display:block;width:100%;height:100%}
+.si-fan img{position:absolute;left:50%;bottom:6%;width:62%!important;height:auto!important;max-height:88%;object-fit:contain;transform-origin:50% 100%;
+  transform:translateX(-50%) translateX(calc(var(--side,1) * var(--i) * 15%)) rotate(calc(var(--side,1) * var(--i) * 7deg));z-index:calc(10 - var(--i));filter:drop-shadow(0 4px 8px rgba(0,0,0,.45))}
+.si-fan img:nth-child(even){--side:-1}
+.si-fan.n2 img{width:68%!important}.si-fan.n3 img{width:60%!important}.si-fan.n4 img,.si-fan.n5 img{width:52%!important}
+.si-fan-count{position:absolute;right:4px;bottom:4px;z-index:12;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:800;color:#fff;background:#0009;border:1px solid #ffffff40}
+.cm-pic.big .si-fan{width:92px;height:92px}
+.cm-pic.big{overflow:visible}
+
+/* ---- The shop item window: a big living card ---- */
+.si-hero{--ac:90 150 240;position:relative;display:grid;justify-items:center;gap:6px;margin:2px 0 12px;padding:22px 14px 16px;border-radius:26px;overflow:hidden;isolation:isolate;
+  border:1px solid rgb(var(--ac) / .42);background:linear-gradient(160deg,rgb(var(--ac) / .22),rgb(var(--ac) / .05) 55%,#0c0d11),#0c0d11;box-shadow:inset 0 1px #ffffff2e,0 18px 44px rgb(var(--ac) / .22);
+  animation:si-card-in .55s cubic-bezier(.2,1.1,.3,1) both}
+.si-glow{position:absolute;left:50%;top:44%;width:78%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;z-index:-1;
+  background:radial-gradient(circle,rgb(var(--ac) / .55),rgb(var(--ac) / .12) 55%,transparent 70%);animation:si-glow 3.6s ease-in-out infinite}
+.si-shine{position:absolute;top:-30%;bottom:-30%;width:34%;left:-50%;z-index:1;pointer-events:none;transform:skewX(-18deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.22),transparent);animation:si-shine 4.6s ease-in-out 1s infinite}
+.si-spark{position:absolute;z-index:0;width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 10px 3px rgb(var(--ac) / .8);opacity:0;animation:si-twinkle 2.8s ease-in-out infinite}
+.si-stage{position:relative;width:100%;height:clamp(180px,34vh,250px);display:grid;place-items:center;animation:si-pop .9s cubic-bezier(.2,1.25,.3,1) .1s both,si-float 4.2s ease-in-out 1s infinite}
+.si-stage .si-solo{max-height:100%;width:auto!important;max-width:62%;height:100%!important;object-fit:contain;filter:drop-shadow(0 12px 22px rgba(0,0,0,.55)) drop-shadow(0 0 22px rgb(var(--ac) / .45));padding:0!important}
+.si-stage .si-fan{width:min(100%,300px);height:100%}
+.si-stage .si-fan img{bottom:2%;filter:drop-shadow(0 10px 16px rgba(0,0,0,.55)) drop-shadow(0 0 16px rgb(var(--ac) / .35));animation:si-spread .85s cubic-bezier(.2,1.1,.3,1) calc(.25s + var(--i) * .13s) backwards}
+.si-stage .si-fan.n1 img,.si-stage .si-fan.n2 img{width:48%!important}.si-stage .si-fan.n3 img{width:44%!important}.si-stage .si-fan.n4 img,.si-stage .si-fan.n5 img{width:40%!important}
+.si-stage .si-fan img{max-height:96%}
+.si-hero .si-off{top:14px;left:14px;font-size:14px;padding:5px 11px;animation:si-pop .7s cubic-bezier(.2,1.4,.3,1) .5s both}
+.si-hero-text{display:grid;gap:3px;text-align:center}
+.si-hero-text b{font-size:22px;letter-spacing:-.4px;color:#fff;text-shadow:0 2px 14px rgb(var(--ac) / .55)}
+.si-hero-text small{font-size:13px;color:#c3cad3;line-height:1.35}
+@keyframes si-card-in{from{opacity:0;transform:translateY(18px) scale(.96)}to{opacity:1;transform:none}}
+@keyframes si-pop{from{opacity:0;transform:scale(.55) rotate(-6deg)}to{opacity:1;transform:none}}
+@keyframes si-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+@keyframes si-glow{0%,100%{opacity:.75;transform:translate(-50%,-50%) scale(.94)}50%{opacity:1;transform:translate(-50%,-50%) scale(1.06)}}
+@keyframes si-shine{0%,70%,100%{left:-50%}35%{left:130%}}
+@keyframes si-twinkle{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:.95;transform:scale(1)}}
+@keyframes si-spread{from{opacity:0;transform:translateX(-50%) translateY(46px) scale(.6) rotate(0)}}
+@media(prefers-reduced-motion:reduce){.si-hero,.si-stage,.si-glow,.si-shine,.si-spark,.si-stage .si-fan img,.si-hero .si-off{animation:none!important}.si-spark{opacity:.6}}

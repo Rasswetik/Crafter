@@ -97,3 +97,21 @@ def install_nft_grant(app, db, auth, record, audit):
             ids = [app.extensions['crafter_grant_pack'](uid, pack_id, 'admin') for _ in range(count)]
         audit('Pack %s x%d granted to %d' % (pack_id, count, uid))
         return {'ok': True, 'pack_ids': ids}
+
+    @app.post('/api/admin/users/<int:uid>/inventory/clear')
+    @auth(admin=True)
+    def clear_inventory(uid):
+        if (request.get_json(silent=True) or {}).get('confirm') != 'CLEAR_INVENTORY':
+            abort(400, description='Подтвердите очистку инвентаря')
+        player(uid)
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            close = app.extensions.get('crafter_close_lot_offers')
+            if close:
+                for lot in db().execute("SELECT id FROM crafter_listings WHERE seller_id=?", (uid,)).fetchall():
+                    close(lot['id'])                                             # offers on those lots are refunded
+            db().execute("DELETE FROM crafter_listings WHERE seller_id=?", (uid,))
+            removed = db().execute("DELETE FROM inventory WHERE user_id=? AND status IN ('unlisted','listed')", (uid,)).rowcount
+            kept = db().execute("SELECT COUNT(*) AS n FROM inventory WHERE user_id=?", (uid,)).fetchone()['n']      # gifts in staking, arena or withdrawal
+        audit('Inventory of %d cleared: %d removed, %d kept' % (uid, removed, kept))
+        return {'ok': True, 'removed': int(removed), 'kept': int(kept)}

@@ -312,9 +312,8 @@ def install_community_events(app, db, auth, record, audit):
     @auth(admin=True)
     def admin_community_milestone_delete(mid):
         with db():
-            if db().execute("SELECT 1 FROM community_claims WHERE milestone_id=? LIMIT 1", (mid,)).fetchone():
-                abort(409, description='Награду уже получали — удалить нельзя')
-            if not db().execute("DELETE FROM community_milestones WHERE id=?", (mid,)).rowcount:
+            if not db().execute("DELETE FROM community_milestones WHERE id=?", (mid,)).rowcount:     # already claimed rewards stay with the players
                 abort(404, description='Награда не найдена')
+            db().execute("DELETE FROM community_claims WHERE milestone_id=?", (mid,))
         audit('Community milestone deleted ' + mid)
         return {'ok': True}

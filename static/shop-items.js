@@ -7,6 +7,21 @@ const ORN = '<img src="/static/assets/new-year-ornament.svg" alt="" aria-hidden=
 const LABEL = {GRAM: 'Баланс GRAM', BALL: 'Новогодние шары', PACK: 'Карточный пак', STAR: 'Подарок Telegram', PROMO: 'Промокод'};
 let STARS = [];
 const KIND_NAME = [['GRAM', 'GRAM'], ['BALL', 'Шары'], ['PACK', 'Пак'], ['STAR', 'Подарок'], ['PROMO', 'Промокод']];
+/* Packs in a bundle stand one behind another: the first one straight in front, the others behind it, each a bit more turned. */
+function packOf(it) { return it.kind === 'PACK' || (it.kind === 'PROMO' && it.promo_kind === 'PACK'); }
+function artHTML(it, cls) {
+    const src = art(it);
+    if (packOf(it) && Number(it.bundle) > 1) {
+        const shown = Math.min(5, Number(it.bundle));
+        const imgs = Array.from({length: shown}, (_, i) => '<img src="' + e(src) + '" alt="" style="--i:' + i + ';--n:' + shown + '">').join('');
+        return '<span class="si-fan n' + shown + (cls ? ' ' + cls : '') + '">' + imgs + (Number(it.bundle) > shown ? '<b class="si-fan-count">×' + it.bundle + '</b>' : '') + '</span>';
+    }
+    return '<img class="si-solo" src="' + e(src) + '" alt="">';
+}
+const accentOf = it => (it.pack && it.pack.accent) || (it.kind === 'GRAM' ? '255 196 84' : it.kind === 'BALL' ? '238 84 84' : it.kind === 'PROMO' ? '255 190 90' : '90 150 240');
+const SPARKS = [[8, 18, 0], [86, 12, .5], [14, 70, 1.1], [90, 62, .3], [50, 6, .8], [72, 86, 1.4], [28, 90, .6]].map(([x, y, d]) => '<i class="si-spark" style="left:' + x + '%;top:' + y + '%;animation-delay:' + d + 's"></i>').join('');
+const priceHTML = it => it.price_balls ? (it.old_price_balls > it.price_balls ? '<s class="si-old">' + num(it.old_price_balls) + '</s>' : '') + ORN + num(it.price_balls) : 'Бесплатно';
+const offHTML = it => it.discount_percent > 0 ? '<span class="si-off">−' + it.discount_percent + '%</span>' : '';
 function art(it) {
     if (it.image_url) return it.image_url;
     if (it.kind === 'GRAM') return '/static/assets/gram.svg';
@@ -27,17 +42,20 @@ function describe(it) {
 
 function tiles(items) {
     return (items || []).filter(it => !unavailable(it)).map(it =>
-        '<button type="button" class="ny-lot cm-tile si-tile" data-si="' + e(it.id) + '"><div class="ny-lot-art"><img src="' + e(art(it)) + '" alt=""></div>' +
+        '<button type="button" class="ny-lot cm-tile si-tile" data-si="' + e(it.id) + '"><div class="ny-lot-art">' + artHTML(it) + offHTML(it) + '</div>' +
         '<div class="ny-lot-name">' + e(it.title) + '</div>' +
         '<div class="ny-lot-id">' + (it.left !== null ? 'Осталось ' + num(it.left) : (it.kind === 'PACK' || it.kind === 'STAR') && it.bundle > 1 ? it.bundle + ' шт. в наборе' : LABEL[it.kind]) + '</div>' +
-        '<div class="ny-lot-price">' + (it.price_balls ? ORN + num(it.price_balls) : 'Бесплатно') + '</div></button>');
+        '<div class="ny-lot-price">' + priceHTML(it) + '</div></button>');
 }
 function bind(main, items, refresh) {
     main.querySelectorAll('[data-si]').forEach(b => b.addEventListener('click', () => sheetFor((items || []).find(i => i.id === b.dataset.si), refresh)));
 }
 async function sheetFor(it, refresh) {
     if (!it) return;
-    sheet(LABEL[it.kind], '<div class="cm-sheet-head"><span class="cm-pic big"><img src="' + e(art(it)) + '" alt=""></span><div><b>' + e(it.title) + '</b><small>' + e(describe(it)) + '</small></div></div>' +
+    sheet(LABEL[it.kind], '<div class="si-hero" style="--ac:' + accentOf(it) + '"><span class="si-glow"></span><span class="si-shine"></span>' + SPARKS +
+        '<div class="si-stage">' + artHTML(it, 'is-hero') + '</div>' + offHTML(it) +
+        '<div class="si-hero-text"><b>' + e(it.title) + '</b><small>' + e(describe(it)) + '</small></div></div>' +
+        (it.discount_percent > 0 ? '<div class="si-sale"><span class="si-off inline">−' + it.discount_percent + '%</span><s>' + num(it.old_price_balls) + '</s> ' + ORN + '<b>' + num(it.price_balls) + '</b><small>Скидка · вы экономите ' + num(it.old_price_balls - it.price_balls) + ' шаров</small></div>' : '') +
         (it.left !== null ? '<p class="cm-sheet-note">Осталось: ' + num(it.left) + '</p>' : '') + (it.per_user !== null ? '<p class="cm-sheet-note">Лимит: до ' + it.per_user + ' на игрока (куплено ' + it.mine + ')</p>' : '') +
         '<div id="si-extra"></div><button type="button" class="ny-action" id="si-buy">' + (it.price_balls ? 'Купить за ' + num(it.price_balls) + ' шаров' : 'Получить бесплатно') + '</button>' +
         '<p class="purchase-error si-err" role="alert"></p>');
@@ -67,10 +85,9 @@ const KIND_TILES = [
     ['GRAM', 'GRAM на баланс', 'Игрок сразу получает GRAM', '/static/assets/gram.svg'],
     ['BALL', 'Новогодние шары', 'Игрок получает шары', '/static/assets/new-year-ornament.svg'],
     ['PACK', 'Карточный пак', 'Пак попадает в инвентарь', '/static/assets/packs/new-year-pack.webp'],
-    ['STAR', 'Подарок Telegram', 'Bear, Rose… попадает в инвентарь', '/static/assets/stargifts/bear.svg'],
     ['PROMO', 'Промокод', 'Уникальный код для покупателя', '/static/assets/community-reward.svg'],
 ];
-const PROMO_TILES = [['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg'], ['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['STAR', 'Подарок', '/static/assets/stargifts/bear.svg']];
+const PROMO_TILES = [['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg'], ['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp']];
 async function admin(content) {
     let r, packs = [];
     try { r = await api('admin/new-year/shop'); } catch (_) { return; }
@@ -81,7 +98,7 @@ async function admin(content) {
     sec.className = 'ny-admin-section si-admin';
     sec.dataset.pane = 'shop';
     content.appendChild(sec);
-    const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', stock: '', per: '0', bundle: '1', image: '', title: ''};
+    const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: ''};
     const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
     const range = (key, label, min, max, val, fmt) => '<div class="adm-range"><div class="adm-range-top"><label>' + label + '</label><b data-out="' + key + '">' + fmt(Number(val)) + '</b></div>' +
         '<input type="range" data-f="' + key + '" data-fmt="' + (key === 'per' ? 'per' : 'bundle') + '" min="' + min + '" max="' + max + '" step="1" value="' + val + '" style="--p:' + ((val - min) / (max - min) * 100) + '%"></div>';
@@ -89,7 +106,7 @@ async function admin(content) {
     const fmtBundle = v => v === 1 ? '1 пак' : v < 5 ? v + ' пака' : v + ' паков';
     const tile = (on, attr, img, title, hint) => '<button type="button" class="adm-tile' + (on ? ' is-on' : '') + '" ' + attr + '><img src="' + e(img) + '" alt=""><b>' + title + '</b>' + (hint ? '<small>' + hint + '</small>' : '') + '</button>';
     const preview = () => {
-        const it = {kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: Number(f.bundle) || 1, per_user: Number(f.per) || null, mine: 0, title: f.title || autoTitle(), image_url: f.image,
+        const it = {kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: Number(f.bundle) || 1, per_user: Number(f.per) || null, mine: 0, old_price_balls: Number(f.old) > Number(f.price) ? Number(f.old) : null, discount_percent: Number(f.old) > Number(f.price) ? Math.round((1 - Number(f.price) / Number(f.old)) * 100) : null, title: f.title || autoTitle(), image_url: f.image,
             pack: packs.find(p => p.id === f.pack) ? {image: packs.find(p => p.id === f.pack).image} : null, price_balls: Number(f.price) || 0, left: f.stock ? Number(f.stock) : null};
         return tiles([it])[0] || '';
     };
@@ -98,7 +115,7 @@ async function admin(content) {
         return f.kind === 'PROMO' ? 'Промокод: ' + w : w;
     };
     const list = () => r.items.map(it => '<div class="ny-admin-row"><div class="cm-admin-pic"><img src="' + e(art(it)) + '" alt=""></div><div><b>' + e(it.title) + '</b><small>' + e(LABEL[it.kind]) + ' · ' +
-        (it.price_balls ? num(it.price_balls) + ' шаров' : 'бесплатно') + ' · продано ' + it.sold + (it.stock !== null ? '/' + it.stock : '') + (it.bundle > 1 ? ' · ' + it.bundle + ' пака за покупку' : '') + (it.per_user !== null ? ' · лимит ' + it.per_user : '') + (it.status === 'hidden' ? ' · скрыт' : '') + '</small></div>' +
+        (it.price_balls ? num(it.price_balls) + ' шаров' + (it.discount_percent > 0 ? ' (скидка −' + it.discount_percent + '%, было ' + num(it.old_price_balls) + ')' : '') : 'бесплатно') + ' · продано ' + it.sold + (it.stock !== null ? '/' + it.stock : '') + (it.bundle > 1 ? ' · ' + it.bundle + ' пака за покупку' : '') + (it.per_user !== null ? ' · лимит ' + it.per_user : '') + (it.status === 'hidden' ? ' · скрыт' : '') + '</small></div>' +
         '<span><button type="button" data-si-st="' + e(it.id) + '" data-next="' + (it.status === 'active' ? 'hidden' : 'active') + '">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button> <button type="button" data-si-del="' + e(it.id) + '">Удалить</button></span></div>').join('');
     const draw = () => {
         const kinds = KIND_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length));
@@ -114,6 +131,7 @@ async function admin(content) {
             step2 + what +
             '<div class="adm-step"><h4>Условия</h4><div class="adm-row3">' +
             '<div class="adm-field"><label>Цена в шарах</label><input data-f="price" type="number" min="0" step="1" value="' + e(f.price) + '"><div class="adm-chips"><button type="button" data-chip="price" data-v="0">Бесплатно</button><button type="button" data-chip="price" data-v="50">50</button><button type="button" data-chip="price" data-v="100">100</button></div></div>' +
+            '<div class="adm-field"><label>Старая цена (скидка)</label><input data-f="old" type="number" min="0" step="1" value="' + e(f.old) + '" placeholder="Без скидки"><small class="sub">' + (Number(f.old) > Number(f.price) ? 'Скидка ' + Math.round((1 - Number(f.price) / Number(f.old)) * 100) + '%' : 'Больше текущей цены') + '</small></div>' +
             '<div class="adm-field"><label>Сколько всего</label><input data-f="stock" type="number" min="1" step="1" value="' + e(f.stock) + '" placeholder="Без ограничений"></div>' +
             '</div>' + (eff() === 'PACK' || eff() === 'STAR' ? range('bundle', eff() === 'STAR' ? 'Подарков за одну покупку' : 'Паков за одну покупку', 1, 20, f.bundle, fmtBundle) : '') +
             range('per', 'Сколько раз может купить один игрок', 0, 20, f.per, fmtPer) + '</div>' +
@@ -141,7 +159,7 @@ async function admin(content) {
         }));
         sec.querySelector('#si-add').addEventListener('click', () => {
             pull();
-            run(() => api('admin/new-year/shop', {kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' ? f.bundle : 1, image_url: f.image, title: f.title}), 'Товар добавлен');
+            run(() => api('admin/new-year/shop', {kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' ? f.bundle : 1, image_url: f.image, title: f.title}), 'Товар добавлен');
         });
         sec.querySelectorAll('[data-si-st]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siSt + '/status', {status: b.dataset.next}), 'Готово')));
         sec.querySelectorAll('[data-si-del]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siDel + '/delete', {}), 'Товар удалён')));

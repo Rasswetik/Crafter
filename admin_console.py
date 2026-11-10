@@ -360,7 +360,8 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
             "SELECT u.id,u.name,u.username,u.referrer,u.created,"
             "COALESCE(d.balance,'0') balance,"
             "(SELECT count(*) FROM inventory i WHERE i.user_id=u.id) gifts,"
-            "EXISTS(SELECT 1 FROM user_bans b WHERE b.user_id=u.id) banned "
+            "EXISTS(SELECT 1 FROM user_bans b WHERE b.user_id=u.id) banned,"
+            "(SELECT a.photo_url FROM user_avatars a WHERE a.user_id=u.id) photo_url "
             "FROM users u LEFT JOIN demo_accounts d ON d.user_id=u.id "
             "WHERE u.id=?", (uid,),
         ).fetchone()

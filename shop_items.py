@@ -38,10 +38,13 @@ def install_shop_items(app, db, auth, record, audit):
         database = db()
         if hasattr(database, 'connection') and database.connection is not None:
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS bundle BIGINT NOT NULL DEFAULT 1")
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS old_price_balls BIGINT")
         else:
             cols = [r['name'] for r in database.execute("PRAGMA table_info(shop_items)").fetchall()]
             if 'bundle' not in cols:
                 database.execute("ALTER TABLE shop_items ADD COLUMN bundle BIGINT NOT NULL DEFAULT 1")
+            if 'old_price_balls' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN old_price_balls BIGINT")
 
     import json
 
@@ -63,7 +66,9 @@ def install_shop_items(app, db, auth, record, audit):
         left = None if row['stock'] is None else max(0, int(row['stock']) - int(row['sold']))
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
                 'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else '') or (star['image'] if star else ''), 'pack': pack, 'star': star,
-                'price_balls': int(row['price_balls']), 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
+                'price_balls': int(row['price_balls']), 'old_price_balls': (int(row['old_price_balls']) if row['old_price_balls'] else None),
+                'discount_percent': (round((1 - int(row['price_balls']) / int(row['old_price_balls'])) * 100) if row['old_price_balls'] and int(row['old_price_balls']) > int(row['price_balls']) else None),
+                'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
                 'per_user': row['per_user'], 'bundle': int(row['bundle'] or 1), 'mine': mine, 'status': row['status']}
 
     @app.get('/api/shop-items')
@@ -182,6 +187,11 @@ def install_shop_items(app, db, auth, record, audit):
             from packs import money
             amount = plain(money(body.get('amount')))
         price = whole(body.get('price_balls', 0), 0, _LIMIT, 'Цена')
+        old_price = None
+        if str(body.get('old_price_balls') or '').strip() not in ('', '0'):
+            old_price = whole(body.get('old_price_balls'), 1, _LIMIT, 'Старая цена')
+            if old_price <= price:
+                abort(400, description='Старая цена должна быть больше текущей: иначе скидки нет')
         stock = None if str(body.get('stock') or '').strip() == '' else whole(body.get('stock'), 1, 1000000, 'Количество')
         per_user = None if str(body.get('per_user') or '').strip() == '' else whole(body.get('per_user'), 1, 1000, 'Лимит на игрока')
         bundle = 1
@@ -204,8 +214,8 @@ def install_shop_items(app, db, auth, record, audit):
                 title = 'Промокод: ' + title
         iid = uuid.uuid4().hex
         with db():
-            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,stock,per_user,bundle,created) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                         (iid, kind, promo if kind == 'PROMO' else '', amount, title, image, price, stock, per_user, bundle, int(time.time())))
+            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,old_price_balls,stock,per_user,bundle,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                         (iid, kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, int(time.time())))
         audit('Shop item created: ' + title)
         return {'ok': True, 'id': iid}
 
@@ -225,9 +235,8 @@ def install_shop_items(app, db, auth, record, audit):
     @auth(admin=True)
     def admin_shop_delete(iid):
         with db():
-            if db().execute("SELECT 1 FROM shop_item_buys WHERE item_id=? LIMIT 1", (iid,)).fetchone():
-                abort(409, description='Товар уже покупали — скройте его вместо удаления')
-            if not db().execute("DELETE FROM shop_items WHERE id=?", (iid,)).rowcount:
+            if not db().execute("DELETE FROM shop_items WHERE id=?", (iid,)).rowcount:         # it may have been bought: what players already got stays theirs
                 abort(404, description='Товар не найден')
+            db().execute("DELETE FROM shop_item_buys WHERE item_id=?", (iid,))
         audit('Shop item deleted ' + iid)
         return {'ok': True}

@@ -455,7 +455,7 @@ async function renderAdminUserDetail(uid){
             '<div class="admin-user-page-top"><button class="admin-back" onclick="openAdminSection(\'users\')">'+
             '‹ Пользователи</button><span class="admin-small-label">/admin/user/'+Number(uid)+'</span></div>'+
             '<div class="admin-user-profile admin-glass-panel"><span class="admin-user-avatar">'+
-            esc(String(u.name||'U').slice(0,1).toUpperCase())+'</span>'+
+            (u.photo_url&&/^https:\/\//.test(u.photo_url)?'<img src="'+esc(u.photo_url)+'" alt="" referrerpolicy="no-referrer" onerror="this.replaceWith(document.createTextNode(this.dataset.l))" data-l="'+esc(String(u.name||'U').slice(0,1).toUpperCase())+'">':esc(String(u.name||'U').slice(0,1).toUpperCase()))+'</span>'+
             '<div><small>КАРТОЧКА ПОЛЬЗОВАТЕЛЯ</small><h2>'+esc(u.name||'Пользователь')+'</h2>'+
             '<p>@'+esc(u.username||'—')+' · ID '+Number(uid)+'</p></div>'+
             '<span class="admin-pill '+(u.banned?'is-alert':'is-good')+'">'+

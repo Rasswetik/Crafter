@@ -37,28 +37,33 @@ function offerRequest(collection) {
 function paintCollectionMarketFeatures(grid) {
     const collection = collectionMarketContext();
     const previous = grid.previousElementSibling;
-    if (!collection || ['Pack', 'Lucky Pack'].includes(collection.name) || ['pack', 'packs'].includes(String(collection.id))) {
+    if (!collection) {
         if (previous?.classList.contains('collection-craft-cta')) previous.remove();
         return;
     }
-    const artwork = [...new Set([
-        fragmentCollectionImage(giftCollectionSlug(collection.name)),
-        directFragmentCollectionImage(giftCollectionSlug(collection.name)),
-        imageURL(collection.photo_url),
-    ].filter(Boolean))];
-    const image = artwork.shift() || '';
-    const cta = document.createElement('div');
-    cta.className = 'collection-craft-cta';
-    cta.innerHTML = `${image ? `<img src="${esc(image)}" data-gift-fallback="${esc(JSON.stringify(artwork))}" onerror="nextGiftPicture(this)" alt="">` : anvilArt('craft-icon')}
+    const isPack = ['Pack', 'Lucky Pack'].includes(collection.name) || ['pack', 'packs'].includes(String(collection.id));
+    if (isPack) {
+        if (previous?.classList.contains('collection-craft-cta')) previous.remove();          // packs cannot be crafted, but they can get offers
+    } else {
+        const artwork = [...new Set([
+            fragmentCollectionImage(giftCollectionSlug(collection.name)),
+            directFragmentCollectionImage(giftCollectionSlug(collection.name)),
+            imageURL(collection.photo_url),
+        ].filter(Boolean))];
+        const image = artwork.shift() || '';
+        const cta = document.createElement('div');
+        cta.className = 'collection-craft-cta';
+        cta.innerHTML = `${image ? `<img src="${esc(image)}" data-gift-fallback="${esc(JSON.stringify(artwork))}" onerror="nextGiftPicture(this)" alt="">` : anvilArt('craft-icon')}
         <strong>Скрафтить ${esc(collection.name)}</strong>
         <button type="button">${icon('hammer')} Крафт</button>`;
-    cta.querySelector('button').onclick = () => {
-        state.target = {id:collection.id, name:collection.name, image};
-        state.quote = null;
-        go('craft');
-    };
-    if (previous?.classList.contains('collection-craft-cta')) previous.replaceWith(cta);
-    else grid.before(cta);
+        cta.querySelector('button').onclick = () => {
+            state.target = {id:collection.id, name:collection.name, image};
+            state.quote = null;
+            go('craft');
+        };
+        if (previous?.classList.contains('collection-craft-cta')) previous.replaceWith(cta);
+        else grid.before(cta);
+    }
 
     const offer = document.createElement('article');
     offer.className = 'collection-offer-card';

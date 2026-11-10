@@ -152,7 +152,7 @@ def test_pack_contents_and_shop_items(client):
     code = buy('PROMO', 'shop-req-0005').json['code']
     assert client.post('/api/promocodes/redeem', headers=signed(44), json={'code': code}).status_code in (401, 403, 404)
     assert client.post('/api/promocodes/redeem', headers=player, json={'code': code}).status_code == 200
-    assert client.post('/api/admin/new-year/shop/' + items['GRAM']['id'] + '/delete', headers=admin).status_code == 409
+    assert client.post('/api/admin/new-year/shop/' + items['GRAM']['id'] + '/delete', headers=admin).status_code == 200            # bought items can be deleted too
     assert client.post('/api/admin/new-year/shop/' + items['BALL']['id'] + '/status', headers=admin, json={'status': 'hidden'}).status_code == 200
     assert 'BALL' not in {i['kind'] for i in client.get('/api/shop-items', headers=player).json['items']}
 
@@ -533,3 +533,61 @@ def test_silverfrost_pack(client):
     total = sum(p['weight'] for p in pack['prizes'])
     assert abs(sum(p['weight'] for p in pack['prizes'] if p['kind'] == 'NFT') / total - 0.0017) < 0.0001
     assert packs.PACK_ACCENTS['silverfrost']
+
+
+def test_admin_clears_a_players_inventory_and_sees_the_avatar(client):
+    import sqlite3
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=signed(43, username='gosha', photo_url='https://t.me/i/userpic/320/gosha.jpg'))
+    for pack in ('winter', 'newyear'):
+        client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': pack})
+    client.post('/api/admin/star-gifts/grant', headers=admin, json={'user_id': 43, 'key': 'bear', 'count': 2})
+    mine = [g for g in client.get('/api/inventory', headers=player).json['gifts']]
+    assert len(mine) == 4
+    client.post('/api/resale/listings', headers=player, json={'action': 'sell', 'items': [{'id': next(g['id'] for g in mine if g.get('pack_item')), 'price': '3'}]})
+    with sqlite3.connect(client.application.config['DATABASE']) as db:          # one gift is in staking: it must stay
+        db.execute("UPDATE inventory SET status='staked' WHERE nft_id=?", (next(g['id'] for g in mine if g.get('star_gift')),))
+    route = '/api/admin/users/43/inventory/clear'
+    assert client.post(route, headers=player, json={'confirm': 'CLEAR_INVENTORY'}).status_code == 403
+    assert client.post(route, headers=admin, json={}).status_code == 400
+    done = client.post(route, headers=admin, json={'confirm': 'CLEAR_INVENTORY'})
+    assert done.status_code == 200 and done.json == {'ok': True, 'removed': 3, 'kept': 1}
+    assert client.get('/api/market?source=crafter', headers=signed(44)).json['gifts'] == []        # its lot is gone
+    profile = client.get('/api/admin/user/43', headers=admin).json['user']
+    assert profile['photo_url'].startswith('https://') and profile['gifts'] == 1
+
+
+def test_shop_discount_and_bundle(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    mk = lambda **kw: client.post('/api/admin/new-year/shop', headers=admin, json=kw)
+    assert mk(kind='PACK', amount='winter', price_balls=100, old_price_balls=100, bundle=4).status_code == 400       # not cheaper than before: no discount
+    assert mk(kind='PACK', amount='winter', price_balls=100, old_price_balls=50, bundle=4).status_code == 400
+    made = mk(kind='PACK', amount='winter', price_balls=130, old_price_balls=200, bundle=4)
+    assert made.status_code == 200
+    plain = mk(kind='GRAM', amount='1', price_balls=10)
+    assert plain.status_code == 200
+    items = {i['kind']: i for i in client.get('/api/shop-items', headers=player).json['items']}
+    pack = items['PACK']
+    assert pack['bundle'] == 4 and pack['old_price_balls'] == 200 and pack['price_balls'] == 130 and pack['discount_percent'] == 35
+    assert items['GRAM']['old_price_balls'] is None and items['GRAM']['discount_percent'] is None
+    client.post('/api/admin/new-year/wallet', headers=admin, json={'user_id': 43, 'balls': '500'})
+    bought = client.post('/api/shop-items/buy', headers=player, json={'item_id': pack['id'], 'request_id': 'sale-req-00001'})
+    assert bought.status_code == 200 and len(bought.json['pack_ids']) == 4 and bought.json['balance']['balls'] == 500 - 130          # the new price is charged
+
+
+def test_offers_can_be_made_on_the_lucky_pack_collection(client):
+    admin, buyer = signed(42), signed(43)
+    client.get('/api/me', headers=buyer)
+    client.post('/api/admin/new-year/wallet', headers=admin, json={'user_id': 43, 'balls': '0'})
+    import sqlite3
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("UPDATE demo_accounts SET balance='50' WHERE user_id=43") if db.execute("SELECT 1 FROM demo_accounts WHERE user_id=43").fetchone() else db.execute("INSERT INTO demo_accounts VALUES(43,'50')")
+    for name in ('Lucky Pack', 'packs'):
+        made = client.post('/api/offers', headers=buyer, json={'collection': name, 'model': 'Winter', 'price': '2', 'request_id': 'lucky-offer-' + name.replace(' ', ''), 'quantity': 1, 'expiry': 'none'})
+        assert made.status_code == 200, made.json
+        assert made.json['offer']['model'] == 'Winter'
+    attrs = client.get('/api/collections/packs/attributes', headers=buyer).json
+    assert {m['name'] for m in attrs['models']} >= {'New Year', 'Winter', 'Silverfrost', 'Christmas Carol'} and attrs['backdrops']
+    shown = client.get('/api/offers?collection=Lucky%20Pack', headers=buyer)
+    assert shown.status_code == 200

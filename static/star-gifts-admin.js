@@ -115,19 +115,31 @@ window.adminRenderGrant = async function (uid) {
     const done = async (fn, ok) => { try { await fn(); toast(ok); } catch (error) { toast(error.message); } };
     box.innerHTML = `<h3>Выдача</h3>
         <p class="admin-small-warning">Обычные подарки и паки выдаются сразу. NFT выдаётся только по ссылке и только если он лежит на релейере или в инвентаре Thermos; иначе выдача отклоняется.</p>
-        <div class="admin-grant-block"><b>Обычный подарок Telegram</b>
-            <div class="admin-user-form"><select class="field" id="grant-star">${(stars || []).map(i => '<option value="' + esc(i.key) + '">' + esc(i.emoji + ' ' + i.name + ' — ' + i.stars + '★ = ' + i.price + ' GRAM') + '</option>').join('')}</select>
-            <input class="field" id="grant-star-count" type="number" min="1" max="50" value="1" aria-label="Количество">
-            <button type="button" id="grant-star-go">Выдать подарок</button></div></div>
-        <div class="admin-grant-block"><b>Карточный пак</b>
-            <div class="admin-user-form"><select class="field" id="grant-pack">${packs.map(p => '<option value="' + esc(p.id) + '">' + esc(p.title) + '</option>').join('')}</select>
-            <input class="field" id="grant-pack-count" type="number" min="1" max="50" value="1" aria-label="Количество">
-            <button type="button" id="grant-pack-go">Выдать пак</button></div></div>
-        <div class="admin-grant-block"><b>NFT по ссылке</b>
-            <div class="admin-user-form"><input class="field" id="grant-link" placeholder="https://t.me/nft/PlushPepe-1234" autocomplete="off">
-            <button type="button" id="grant-link-go">Выдать NFT</button></div></div>`;
+        <div class="grant-block"><b>Обычный подарок Telegram</b>
+            <div class="grant-row"><select class="field" id="grant-star">${(stars || []).map(i => '<option value="' + esc(i.key) + '">' + esc(i.emoji + ' ' + i.name + ' — ' + i.stars + '★ = ' + i.price + ' GRAM') + '</option>').join('')}</select>
+            <input class="field grant-count" id="grant-star-count" type="number" min="1" max="50" value="1" aria-label="Количество">
+            <button type="button" id="grant-star-go">Выдать</button></div></div>
+        <div class="grant-block"><b>Карточный пак</b>
+            <div class="grant-row"><select class="field" id="grant-pack">${packs.map(p => '<option value="' + esc(p.id) + '">' + esc(p.title) + '</option>').join('')}</select>
+            <input class="field grant-count" id="grant-pack-count" type="number" min="1" max="50" value="1" aria-label="Количество">
+            <button type="button" id="grant-pack-go">Выдать</button></div></div>
+        <div class="grant-block"><b>NFT по ссылке</b>
+            <div class="grant-row is-link"><input class="field" id="grant-link" placeholder="https://t.me/nft/PlushPepe-1234" autocomplete="off">
+            <button type="button" id="grant-link-go">Выдать</button></div></div>
+        <div class="grant-block is-danger"><b>Очистка инвентаря</b>
+            <p class="admin-small-warning">Удалит все подарки и паки игрока, снимет его лоты с продажи. Подарки в стейкинге, арене и выводе останутся.</p>
+            <div class="grant-row is-link"><span></span><button type="button" class="grant-danger" id="grant-clear-go">Очистить инвентарь</button></div></div>`;
     box.querySelector('#grant-star-go').onclick = () => done(() => api('admin/star-gifts/grant', {user_id: uid, key: box.querySelector('#grant-star').value, count: box.querySelector('#grant-star-count').value}), 'Подарок выдан');
     box.querySelector('#grant-pack-go').onclick = () => done(() => api('admin/users/' + uid + '/packs', {pack_id: box.querySelector('#grant-pack').value, count: box.querySelector('#grant-pack-count').value}), 'Пак выдан');
+    box.querySelector('#grant-clear-go').onclick = async () => {
+        if (!confirm('Удалить ВЕСЬ инвентарь игрока ' + uid + '? Это нельзя отменить.')) return;
+        if (prompt('Для подтверждения введите: ОЧИСТИТЬ') !== 'ОЧИСТИТЬ') return;
+        try {
+            const r = await api('admin/users/' + uid + '/inventory/clear', {confirm: 'CLEAR_INVENTORY'});
+            toast('Удалено: ' + r.removed + (r.kept ? ', осталось в работе: ' + r.kept : ''));
+            if (typeof renderAdminUserDetail === 'function') renderAdminUserDetail(uid);
+        } catch (error) { toast(error.message); }
+    };
     box.querySelector('#grant-link-go').onclick = () => done(async () => {
         const r = await api('admin/users/' + uid + '/nft-gift', {link: box.querySelector('#grant-link').value.trim()});
         box.querySelector('#grant-link').value = '';
