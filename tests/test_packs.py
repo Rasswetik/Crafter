@@ -661,8 +661,9 @@ def test_thermos_auto_withdraw_pays_from_thermos_balance(client, monkeypatch):
     monkeypatch.setitem(app.extensions, 'crafter_thermos_call', fake)
     monkeypatch.setitem(app.extensions, 'crafter_thermos_balance', lambda: Decimal('10'))
     once = app.extensions['crafter_thermos_withdraw_once']
+    assert client.post('/api/admin/thermos/auto-withdraw', headers=admin, json={'enabled': False}).status_code == 200
     with app.app_context():
-        assert once() == {'sent': 0, 'settled': 0} and calls == []               # off until the switch is on
+        assert once() == {'sent': 0, 'settled': 0} and calls == []               # the switch turns it off
     assert client.post('/api/admin/thermos/auto-withdraw', headers=admin, json={'enabled': True}).status_code == 200
     with app.app_context():
         assert once()['sent'] == 1

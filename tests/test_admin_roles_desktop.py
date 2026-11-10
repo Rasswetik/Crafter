@@ -90,13 +90,11 @@ def test_desktop_and_maintenance_are_real_code_not_static_mockups():
     root=Path(__file__).resolve().parent.parent
     desktop=(root/'static/desktop-nav.js').read_text(encoding='utf-8')
     css=(root/'static/desktop-nav.css').read_text(encoding='utf-8')
-    splash=(root/'static/desktop-splash.css').read_text(encoding='utf-8')
     overlay=(root/'static/site-maintenance.css').read_text(encoding='utf-8')
     page=(root/'templates/index.html').read_text(encoding='utf-8')
     admin=(root/'static/admin-page.js').read_text(encoding='utf-8')
     assert 'crafterDesktopNavRefresh' in desktop and 'desktop-sidebar-account' in desktop
     assert 'crafter-desktop-sidebar' in css and 'repeat(11,minmax(0,1fr))' in css
-    assert 'min-aspect-ratio:16/9' in splash and 'max-height:680px' in splash
     assert 'crafter-maintenance-snow' in overlay and 'crafter-top-canopy.svg' in overlay
     assert 'desktop-nav.js' in page and 'skeleton-responsive.css' in page
     assert "window.scrollTo({top:0" not in admin

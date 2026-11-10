@@ -109,6 +109,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         except (URLError, TimeoutError, ValueError):
             abort(503, description='Thermos недоступен')
         jwt.update(token=data.get('token', ''), exp=time.time() + 23 * 3600)
+        jwt['account'], jwt['account_at'] = data, time.time()
         return data
 
     def remember_error(method, path, error):
@@ -154,12 +155,14 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
 
     def wait_task(task_id, limit=40):
         end = time.time() + limit
+        pause = 0.35
         while time.time() < end:
             state = call('GET', '/tasks/' + str(task_id))
             combined = state.get('combined_state') or state.get('state')
             if combined in ('SUCCESS', 'FAILURE'):
                 return state
-            time.sleep(1.5)
+            time.sleep(pause)
+            pause = min(1.0, pause + 0.2)             # quick first looks: most purchases finish within a second or two
         return None
 
     # ---- checks ------------------------------------------------------------------------------------
@@ -286,8 +289,10 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
 
     def auto_withdraw_enabled():
         row = db().execute("SELECT payload FROM settings WHERE key='thermos_auto_withdraw_v1'").fetchone()
+        if not row:
+            return True                                    # on by default as soon as the Thermos token is saved; the switch turns it off
         try:
-            return bool(row and json.loads(row[0]).get('enabled') is True)
+            return bool(json.loads(row[0]).get('enabled') is True)
         except (ValueError, TypeError, AttributeError):
             return False
 

@@ -9,6 +9,7 @@ async function admin(content) {
     if (!content.isConnected) return;
     const sec = document.createElement('section');
     sec.className = 'ny-admin-section';
+    sec.dataset.pane = 'main';
     sec.innerHTML = '<h3>Закрыть разделы до времени</h3><p class="sub">Пока время не наступило, кнопка раздела на странице «Новый год» серая и пишет «Откроется через …» с обратным отсчётом. Пустое поле — раздел открыт.</p>' +
         r.sections.map(k => '<div class="adm-field" style="margin-bottom:10px"><label>' + NAMES[k] + '</label><div style="display:flex;gap:8px"><input type="datetime-local" data-lock="' + k + '" value="' + local(r.locks[k]) + '" style="flex:1"><button type="button" class="secondary" data-lock-clear="' + k + '">Открыть сейчас</button></div></div>').join('') +
         '<button type="button" class="primary" id="ny-locks-save">Сохранить</button>';

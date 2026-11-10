@@ -152,6 +152,7 @@ async function admin(content) {
             '<div class="adm-step"><h4>Как будет выглядеть</h4><div class="adm-preview"><div class="ny-grid">' + preview() + '</div></div></div>' +
             '<button class="primary" type="button" id="si-add">' + (editing ? 'Сохранить изменения' : 'Добавить товар') + '</button>' + (editing ? ' <button type="button" id="si-cancel">Отмена</button>' : '') +
             '<h3 style="margin-top:26px">Товары</h3><p class="sub">Порядок на маркете: ' + (r.order === 'manual' ? 'как вы расставили (стрелки ↑ ↓). <button type="button" id="si-order">Вернуть: по возрастанию цены</button>' : 'по возрастанию цены (по умолчанию). Стрелки ↑ ↓ переключат на ручной порядок.') + '</p><div class="ny-admin-list">' + (list() || '<p class="sub">Товаров пока нет.</p>') + '</div>';
+        sec.querySelectorAll('input[data-f]').forEach(i => { i.setAttribute('autocomplete', 'off'); i.setAttribute('name', 'shop-' + i.dataset.f); });
         bind();
     };
     const pull = () => sec.querySelectorAll('[data-f]').forEach(i => { f[i.dataset.f] = i.value; });

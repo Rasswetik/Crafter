@@ -2,7 +2,7 @@
   function splashPhase(amount){
     // Keep progress synchronized across portrait and responsive sprite layouts.
     const n=Math.max(0,Math.min(100,Number(amount)||0));
-    document.querySelectorAll('#splash.splash-final .splash-progress').forEach(node=>{
+    document.querySelectorAll('#splash .splash-progress').forEach(node=>{
       node.setAttribute('aria-valuenow',String(n));
       const fill=node.querySelector('.splash-progress-fill');
       if(fill)fill.style.width=n+'%';

@@ -55,7 +55,7 @@ function cell(d, nowTs) {
     }
     const ready = d.state === 'ready';
     return '<button type="button" class="adv-cell ' + cls + (ready ? ' is-ready' : ' is-locked') + '" data-day="' + d.day + '" ' + (ready ? '' : 'aria-disabled="true"') + ' aria-label="День ' + d.day + '">' +
-        '<span class="adv-rib v"></span><span class="adv-rib h"></span>' + BOW + '<span class="adv-snow">' + SNOW + '</span><b class="adv-num">' + d.day + '</b>' + (ready ? '' : '<i class="adv-lock" aria-hidden="true">' + LOCKBIG + '</i>') +
+        '<span class="adv-rib v"></span><span class="adv-rib h"></span><span class="adv-lid"></span>' + BOW + '<span class="adv-snow">' + SNOW + '</span><b class="adv-num">' + d.day + '</b>' +
         (ready ? '<small class="adv-state">Открыть</small>' : '<small class="adv-state">' + fmtDate(d.unlock_at) + '</small>') + '</button>';
 }
 function page(main, state, nav) {
@@ -97,23 +97,47 @@ function cellNode(d, nowTs) {
 async function openCell(day, state, button, nav) {
     const d = state.days.find(x => x.day === day);
     if (d.state === 'opened') return reward(d.reward, day);
-    if (d.state === 'locked') return toast('Откроется ' + fmtDate(d.unlock_at));
+    if (d.state === 'locked') {                                            // not yet: the gift just shakes, like a locked box
+        button.classList.remove('is-shake'); void button.offsetWidth; button.classList.add('is-shake');
+        setTimeout(() => button.classList.remove('is-shake'), 600);
+        return toast('Откроется ' + fmtDate(d.unlock_at));
+    }
     if (state.require_sub && state.subscribed === false) return toast('Сначала подпишитесь на канал');
-    if (button.classList.contains('is-flip-out')) return;
-    button.classList.add('is-flip-out');                                   // the gift turns away ...
+    if (button.classList.contains('is-unwrapping')) return;
+    button.classList.add('is-unwrapping');                                 // the number flies away, the bow unties, the ribbons slide off, the lid lifts
     try {
-        const [r] = await Promise.all([api('advent/open', {day}), wait(300)]);
+        const [r] = await Promise.all([api('advent/open', {day}), wait(1500)]);
         d.state = 'opened'; d.reward = r.reward;
-        const fresh = cellNode(d, state.now);                              // ... and the reward is on its back
-        fresh.classList.add('is-flip-in');
-        fresh.addEventListener('click', () => reward(d.reward, day, () => nav.reload()));
-        button.replaceWith(fresh);
         if (r.reward.balls !== undefined && typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance({balls: r.reward.balls});
         if (r.reward.gram_balance !== undefined && window.state?.me) state_me_balance(r.reward.gram_balance);
-        await wait(650);
-        if (r.reward.code || r.reward.pack_ids) reward(r.reward, day);
-        else toast('Награда: ' + r.reward.title);
-    } catch (err) { button.classList.remove('is-flip-out'); toast(err.message); if (/подпиш/i.test(err.message)) nav.reload(); }
+        const gem = document.createElement('button');                        // the prize lies inside and glows until it is taken
+        gem.type = 'button'; gem.className = 'adv-gem'; gem.setAttribute('aria-label', 'Забрать награду');
+        gem.innerHTML = '<img src="' + e(rimg(r.reward)) + '" alt="">';
+        button.appendChild(gem);
+        button.classList.add('is-prize');
+        gem.addEventListener('click', ev => {
+            ev.stopPropagation();
+            if (gem.dataset.taken) return; gem.dataset.taken = '1';
+            const from = gem.getBoundingClientRect(), img = gem.querySelector('img').cloneNode();
+            img.className = 'adv-fly';
+            Object.assign(img.style, {left: from.left + 'px', top: from.top + 'px', width: from.width + 'px', height: from.height + 'px'});
+            document.body.appendChild(img);
+            gem.style.visibility = 'hidden';
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                const dx = innerWidth / 2 - (from.left + from.width / 2), dy = innerHeight / 2 - (from.top + from.height / 2);
+                img.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(2.4)';
+                img.classList.add('is-going');
+            }));
+            setTimeout(() => {
+                img.remove();
+                const fresh = cellNode(d, state.now);
+                fresh.classList.add('is-flip-in');
+                fresh.addEventListener('click', () => reward(d.reward, day, () => nav.reload()));
+                button.replaceWith(fresh);
+                reward(r.reward, day, () => nav.reload());
+            }, 800);
+        });
+    } catch (err) { button.classList.remove('is-unwrapping'); toast(err.message); if (/подпиш/i.test(err.message)) nav.reload(); }
 }
 function state_me_balance(v) { try { window.state.me.balance = v; if (typeof updateBalance === 'function') updateBalance(); } catch (_) {} }
 function reward(r, day, after) {
