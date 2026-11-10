@@ -239,7 +239,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                 record('gift_withdraw_failed', {'gift': gift, 'reason': note}, uid=owner)
             db().execute('UPDATE gift_withdrawals SET status=?,updated=?,note=? WHERE id=?',
                          (decision, int(time.time()), note, wid))
-            audit('NFT withdrawal ' + wid + ' marked ' + decision)
+        audit('NFT withdrawal ' + wid + ' marked ' + decision)      # outside the transaction: audit() commits, which PostgreSQL forbids inside it
         tell = app.extensions.get('crafter_notify_withdrawal')
         if tell:
             tell(owner, gift, decision == 'confirmed', '' if decision == 'confirmed' else note)

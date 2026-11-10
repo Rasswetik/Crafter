@@ -866,7 +866,8 @@ def install_packs(app, db, auth, record, audit):
                         result['balance'] = str(credit(uid, price))
                     else:
                         card.update(pending=True, nft_id=None, note='Подарок появится в инвентаре после проверки')
-                        audit('Pack gift purchase needs review: ' + str(shown.get('name')) + ' for ' + str(uid))
+                        db().execute('INSERT INTO audit(actor,action,created) VALUES(?,?,?)',        # audit() commits: not allowed inside a transaction on PostgreSQL
+                                     (uid, 'Pack gift purchase needs review: ' + str(shown.get('name')) + ' for ' + str(uid), int(time.time())))
                     result['credited'] = plain(total) if total else '0'
                     db().execute("UPDATE user_packs SET result=? WHERE id=?", (json.dumps(result, ensure_ascii=False), upid))
         record('pack_open', {'pack': pack['id'], 'cards': cards, 'credited': result['credited']}, uid=uid)

@@ -476,7 +476,8 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
         if not tx:return {'status':'processing'}
         with db():
             db().execute('INSERT INTO ton_transactions VALUES(?,?) ON CONFLICT DO NOTHING',(p['network'],tx))
-            db().execute("UPDATE ton_withdrawals SET status='confirmed',tx=? WHERE id=?",(tx,wid));audit('Withdrawal confirmed: '+wid)
+            db().execute("UPDATE ton_withdrawals SET status='confirmed',tx=? WHERE id=?",(tx,wid))
+        audit('Withdrawal confirmed: '+wid)
         return {'status':'confirmed'}
 
     from auto_payout import install_auto_payout
