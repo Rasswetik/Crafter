@@ -67,8 +67,22 @@ def sender_user_id(entry):
     return None
 
 
+def telegram_proxy():
+    """Optional proxy for the MTProto connection (servers in some countries cannot reach Telegram directly):
+    CRAFTER_TELEGRAM_PROXY=socks5://user:pass@host:port (also socks4:// and http://). Needs the python-socks package."""
+    import os
+    from urllib.parse import urlparse
+    url = os.getenv('CRAFTER_TELEGRAM_PROXY', '').strip()
+    if not url:
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme not in ('socks5', 'socks4', 'http') or not parsed.hostname or not parsed.port:
+        return None
+    return (parsed.scheme, parsed.hostname, parsed.port, True, parsed.username, parsed.password)
+
+
 async def with_client(api_id, api_hash, session, operation):
-    client = TelegramClient(StringSession(session), api_id, api_hash,
+    client = TelegramClient(StringSession(session), api_id, api_hash, proxy=telegram_proxy(),
                             connection_retries=1, request_retries=1, timeout=12)
     await client.connect()
     try:

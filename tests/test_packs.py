@@ -720,3 +720,12 @@ def test_player_can_cancel_a_queued_nft_withdrawal(client):
     with sqlite3.connect(path) as con:
         assert con.execute("SELECT status FROM inventory WHERE nft_id='thermos-x1'").fetchone()[0] == 'unlisted'
     assert client.post('/api/gifts/withdrawals/gw-43-a/cancel', headers=player).status_code == 409
+
+
+def test_telegram_proxy_is_read_from_the_environment(monkeypatch):
+    import telegram_deposits
+    assert telegram_deposits.telegram_proxy() is None
+    monkeypatch.setenv('CRAFTER_TELEGRAM_PROXY', 'socks5://u:p@1.2.3.4:1080')
+    assert telegram_deposits.telegram_proxy() == ('socks5', '1.2.3.4', 1080, True, 'u', 'p')
+    monkeypatch.setenv('CRAFTER_TELEGRAM_PROXY', 'ftp://x')
+    assert telegram_deposits.telegram_proxy() is None

@@ -10,3 +10,4 @@ psycopg-pool>=3.2,<4
 Pillow>=12.2,<14
 telethon>=1.42,<3
 cryptography>=43,<47
+python-socks[asyncio]>=2.4,<3
