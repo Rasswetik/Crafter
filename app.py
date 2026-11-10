@@ -1385,6 +1385,16 @@ def create_app(config=None):
         except Exception:
             app.logger.warning('Withdrawal notification was not delivered')
     app.extensions['crafter_notify_withdrawal'] = tell_withdrawal
+
+    def tell_text(uid, html):
+        try:
+            from telegram_bot import bot_api
+            token = bot_settings().get('token') or app.config['BOT_TOKEN']
+            if token:
+                bot_api(token, 'sendMessage', {'chat_id': uid, 'parse_mode': 'HTML', 'text': html, 'link_preview_options': {'is_disabled': True}})
+        except Exception:
+            app.logger.warning('Telegram message was not delivered')
+    app.extensions['crafter_notify_text'] = tell_text
     from telegram_deposits import install_telegram_deposits
     install_telegram_deposits(app, db, auth, audit, record, bot_settings)
     from wallet import install_wallet

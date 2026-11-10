@@ -6,14 +6,14 @@
 <meta name="theme-color" content="#101114">
 <title>Crafter Partner API v1</title>
 <meta name="description" content="Партнёрское API Crafter: баланс, каталог, лоты, покупка, продажа и передача подарков по одному серверному ключу.">
-<link rel="stylesheet" href="/static/partner-api.css?v=9">
+<link rel="stylesheet" href="/static/partner-api.css?v=10">
 </head>
 <body>
 <div class="page">
 <header class="head">
   <a class="logo" href="{{ site }}"><i></i>Crafter</a>
   <div class="meta"><small>Developers / API v1</small><a href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a></div>
-<details class="menu"><summary aria-label="Меню"><span></span><span></span><span></span></summary><div class="menu-box"><a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#stars">Обычные подарки</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a><a class="dl" href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a><a class="dl" href="https://t.me/crafter_support">Поддержка @crafter_support</a></div></details>
+<details class="menu"><summary aria-label="Меню"><span></span><span></span><span></span></summary><div class="menu-box"><a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#ton">Вывод TON</a><a href="#stars">Обычные подарки</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a><a class="dl" href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a><a class="dl" href="https://t.me/crafter_support">Поддержка @crafter_support</a></div></details>
 </header>
 
 <div class="cols">
@@ -21,7 +21,7 @@
 <h1>Ваш проект.<br>Подарки в Crafter.</h1>
 <p class="lead">Один серверный ключ: каталог и модели, лоты игроков и подключённого маркета, покупка, продажа и передача подарков. Баланс и подарки лежат на вашем аккаунте Crafter.</p>
 <div class="note"><b>Паки в API не участвуют.</b> Карточные паки — внутренняя механика Crafter. Подарки, выпавшие из паков и ставшие обычными подарками аккаунта, API видит как все остальные.</div>
-<nav class="jump"><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#read">Чтение</a><a href="#write">Операции</a><a href="#stars">Обычные подарки</a><a href="#idem">Idempotency-Key</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#security">Безопасность</a></nav>
+<nav class="jump"><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#read">Чтение</a><a href="#write">Операции</a><a href="#ton">Вывод TON</a><a href="#stars">Обычные подарки</a><a href="#idem">Idempotency-Key</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#security">Безопасность</a></nav>
 <section id="about">
   <h2><span>01</span>Что даёт API</h2>
   <div class="grid">
@@ -403,11 +403,74 @@ console.log(r.status, await r.json());</pre>
   </div>
   <p class="fine">Crafter · Partner API v1 · <a href="{{ site }}">Открыть Crafter</a> · <a href="/partner-api.openapi.json">OpenAPI JSON</a></p>
 </footer>
+<section id="ton">
+  <h2><span>08</span>Вывод TON</h2>
+  <p>GRAM с баланса ключа можно вывести в TON. Деньги уходят только на кошелёк, который владелец аккаунта подключил в приложении (Профиль → Кошелёк): адрес в запросе передать нельзя, поэтому ключ не может отправить деньги «на чужой адрес».</p>
+  <table>
+    <tr><th>Путь</th><th>Метод</th><th>Что делает</th></tr>
+    <tr><td><code>/ton/wallet</code></td><td>GET</td><td>Подключённый кошелёк и сеть</td></tr>
+    <tr><td><code>/ton/withdraw</code></td><td>POST</td><td>Создать заявку на вывод, нужен <code>Idempotency-Key</code>, право <code>withdraw</code></td></tr>
+    <tr><td><code>/ton/withdrawals</code></td><td>GET</td><td>Последние 30 заявок</td></tr>
+    <tr><td><code>/ton/withdrawals/{id}</code></td><td>GET</td><td>Статус одной заявки</td></tr>
+  </table>
+  <div class="ep" id="ton-withdraw"><span class="m post">POST</span><code>/ton/withdraw</code><em>право withdraw</em></div>
+  <p>Тело: <code>gram</code> — сумма в GRAM строкой, не меньше 0,01, с точностью до сотых (или <code>gram_nano</code>). Курс, минимум, максимум и суточный лимит такие же, как в приложении.</p>
+<pre>curl -X POST {{ base }}/ton/withdraw \
+  -H "Authorization: Bearer CRT/ваш_ключ" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: ton-2026-12-01-0001" \
+  -d '{"gram":"25.00"}'</pre>
+<pre>{
+  "ok": true,
+  "operation_id": "ton-2026-12-01-0001",
+  "status": "done",
+  "result": {
+    "withdrawal_id": "w-123456789-ton-2026-12-01-0001",
+    "status": "queued",
+    "gram": "25",
+    "ton": "4.116980002",
+    "address": "UQ…",
+    "network": "mainnet",
+    "tx_url": null,
+    "balance": "75.5",
+    "note": "Заявка принята…"
+  }
+}</pre>
+  <h3>Статусы заявки</h3>
+  <table>
+    <tr><th>status</th><th>Что значит</th></tr>
+    <tr><td><code>queued</code></td><td>Принята, GRAM уже списаны, ждёт отправки (обычно до 20 секунд)</td></tr>
+    <tr><td><code>processing</code></td><td>TON отправляются, транзакция ещё не подтверждена</td></tr>
+    <tr><td><code>done</code></td><td>TON на кошельке; в <code>tx_url</code> ссылка на транзакцию в tonscan (когда хеш уже известен)</td></tr>
+    <tr><td><code>cancelled</code></td><td>Не отправлено, GRAM вернулись на баланс</td></tr>
+  </table>
+  <h3>Ошибки</h3>
+  <ul>
+    <li><code>409</code> — нет подключённого кошелька, не хватает GRAM, превышен лимит одной операции или суточный лимит, вывод отключён.</li>
+    <li><code>400</code> — неверная сумма (нужна точность 0,01).</li>
+    <li><code>503</code> с <code>code: review</code> — результат неизвестен: прочитайте <code>GET /operations/{Idempotency-Key}</code> и не повторяйте запрос с новым ключом.</li>
+  </ul>
+  <p>Повтор запроса с тем же <code>Idempotency-Key</code> и тем же телом возвращает сохранённый результат и никогда не создаёт второй вывод.</p>
+</section>
+
 </main>
 <aside class="toc"><small>Содержание</small>
-<a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#stars">Обычные подарки</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a></aside>
+<a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#ton">Вывод TON</a><a href="#stars">Обычные подарки</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a></aside>
 </div>
 </div>
 <script>document.querySelectorAll(".menu-box a").forEach(function(a){a.addEventListener("click",function(){document.querySelector(".menu").removeAttribute("open")})});document.addEventListener("click",function(e){var m=document.querySelector(".menu");if(m&&!m.contains(e.target))m.removeAttribute("open")});</script>
+<script>(function(){
+var secs=[].slice.call(document.querySelectorAll("main section[id]"));
+var links=[].slice.call(document.querySelectorAll(".toc a,.menu-box a"));
+secs.forEach(function(s){s.classList.add("rv")});
+function mark(id){links.forEach(function(a){a.classList.toggle("is-active",a.getAttribute("href")==="#"+id)})}
+if("IntersectionObserver" in window){
+ var reveal=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");reveal.unobserve(e.target)}})},{threshold:.05});
+ secs.forEach(function(s){reveal.observe(s)});
+ var vis={};var spy=new IntersectionObserver(function(es){es.forEach(function(e){vis[e.target.id]=e.isIntersecting?e.boundingClientRect.top:null});
+  var best=null,bt=1e9;Object.keys(vis).forEach(function(k){if(vis[k]!==null&&Math.abs(vis[k])<bt){bt=Math.abs(vis[k]);best=k}});if(best)mark(best)},{rootMargin:"-20% 0px -55% 0px",threshold:[0,1]});
+ secs.forEach(function(s){spy.observe(s)});
+}else{secs.forEach(function(s){s.classList.add("in")})}
+})();</script>
 </body>
 </html>

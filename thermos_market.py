@@ -254,31 +254,26 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
     UUID = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
 
     def find_owned_id(slug, name, number):
-        """owned_gift_id of one gift in GET /gifts/me. The answer's layout is not documented, so every object of it is
-        inspected, and a gift is accepted only when its link name (slug) matches exactly, or the collection name AND the number
-        both match. Anything unclear -> None (nothing is sent)."""
+        """owned_gift_id of one gift in GET /gifts/me, whose answer is a list of
+        {"id": <owned_gift_id>, "ownership_status": "RECEIVED", "meta": {"name", "number", "unique_name": "LolPop-168447", ...}}.
+        The gift is taken only when its unique_name equals the link name, or the collection name AND the number both match,
+        and only when exactly one gift fits. Anything unclear -> None (nothing is sent)."""
         data = call('GET', '/gifts/me')
-        want_slug = re.sub(r'[^a-z0-9]', '', str(slug or '').lower())
-        want_name = re.sub(r'[^a-z0-9]', '', str(name or '').lower())
+        items = data if isinstance(data, list) else (data.get('items') or data.get('gifts') or [] if isinstance(data, dict) else [])
+        norm = lambda v: re.sub(r'[^a-z0-9]', '', str(v or '').lower())
+        want_slug, want_name = norm(slug), norm(name)
         found = []
-
-        def walk(node):
-            if isinstance(node, dict):
-                values = [(k, v) for k, v in node.items() if not isinstance(v, (dict, list))]
-                ident = next((str(v) for k, v in values if k in ('owned_gift_id', 'ownedGiftId', 'id', 'uuid') and UUID.match(str(v))), None)
-                if ident:
-                    text = [re.sub(r'[^a-z0-9]', '', str(v).lower()) for _, v in values]
-                    nums = [str(v) for k, v in values if 'number' in k.lower() or k.lower() in ('num', 'serial')]
-                    by_slug = bool(want_slug) and want_slug in text
-                    by_pair = bool(want_name) and str(number) in nums and (want_name in text or any(want_name in t for t in text))
-                    if by_slug or by_pair:
-                        found.append(ident)
-                for v in node.values():
-                    walk(v)
-            elif isinstance(node, list):
-                for v in node:
-                    walk(v)
-        walk(data)
+        for item in items:
+            meta = item.get('meta') if isinstance(item, dict) else None
+            ident = str(item.get('id') or '') if isinstance(item, dict) else ''
+            if not isinstance(meta, dict) or not UUID.match(ident):
+                continue
+            if item.get('ownership_status') not in (None, 'RECEIVED'):
+                continue                                   # not in the inventory right now (on sale, withdrawing ...)
+            by_slug = bool(want_slug) and norm(meta.get('unique_name')) == want_slug
+            by_pair = bool(want_name) and str(meta.get('number')) == str(number) and norm(meta.get('name')) == want_name
+            if by_slug or by_pair:
+                found.append(ident)
         unique = list(dict.fromkeys(found))
         return unique[0] if len(unique) == 1 else None
 
@@ -402,6 +397,61 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                          (uid, str(current + Decimal(payload['gram']))))
         system_audit('Thermos TON withdrawal refused, GRAM returned: ' + wid)
 
+    def tx_hash(answer):
+        """The transaction hash, if Thermos' answer carries one (the field name is not documented, so the usual ones are tried)."""
+        for key in ('tx_hash', 'txHash', 'transaction_hash', 'transactionHash', 'hash', 'tx'):
+            value = answer.get(key) if isinstance(answer, dict) else None
+            if isinstance(value, str) and re.fullmatch(r'[0-9a-fA-F]{64}', value.strip()):
+                return value.strip().lower()
+        return None
+
+    def tell_done(wid, uid, p, tx):
+        """🎉 message to the player when the TON has reached the wallet; sent once. The word «вывод» is the link to the transaction."""
+        if p.get('thermos', {}).get('notified'):
+            return
+        url = 'https://tonscan.org/tx/' + tx if re.fullmatch(r'[0-9a-f]{64}', str(tx)) else 'https://tonscan.org/address/' + str(p.get('receiver') or '')
+        text = '\U0001F389 Ваш <a href="' + url + '">вывод</a> на ' + str(Decimal(p['ton']).normalize()) + ' TON (' + str(Decimal(p['gram']).normalize()) + ' GRAM) успешно выполнен — наслаждайтесь!'
+        send = app.extensions.get('crafter_notify_text')
+        if send:
+            send(uid, text)
+        p = {**p, 'thermos': {**p.get('thermos', {}), 'notified': True}}
+        with db():
+            db().execute("UPDATE ton_withdrawals SET payload=? WHERE id=?", (json.dumps(p), wid))
+
+    RECHECK_SECONDS = 10
+    recheck = {'at': 0.0}
+
+    def recheck_withdrawals():
+        """Every 10 minutes: look again at the withdrawals of the last 3 days. A hash that appeared later replaces the placeholder
+        (so the link works); one that Thermos now reports as failed is flagged for a manual check, never refunded blindly."""
+        if time.time() - recheck['at'] < RECHECK_SECONDS:
+            return 0
+        recheck['at'] = time.time()
+        call_ = app.extensions['crafter_thermos_call']
+        fixed = 0
+        since = int(time.time()) - 3 * 86400
+        for row in db().execute("SELECT id,user_id,payload,status,tx FROM ton_withdrawals WHERE created>? AND (status='processing' OR (status='confirmed' AND tx LIKE 'thermos:%' AND created>?)) ORDER BY created DESC LIMIT 6", (since, int(time.time()) - 3600)).fetchall():
+            p = json.loads(row['payload'])
+            ref = (p.get('thermos') or {}).get('id')
+            if ref is None:
+                continue
+            try:
+                answer = call_('GET', '/balance/withdraw/status/' + str(ref))
+            except HTTPException:
+                continue
+            state = str(answer.get('status') or '').upper()
+            if row['status'] == 'confirmed':
+                h = tx_hash(answer)
+                if state == 'FAILED':
+                    system_audit('Thermos TON withdrawal reported FAILED after being confirmed: ' + row['id'])
+                elif h and h != row['tx']:
+                    with db():
+                        db().execute("UPDATE ton_withdrawals SET tx=? WHERE id=?", (h, row['id']))
+                    fixed += 1
+            elif state == 'PROCESSING' and time.time() - int(p.get('thermos', {}).get('at') or 0) > 3600:
+                system_audit('Thermos TON withdrawal is still processing after an hour: ' + row['id'])
+        return fixed
+
     def auto_withdraw_once():
         """One pass: settle the withdrawals already sent, then send the queued ones. A send whose result is unknown is never repeated."""
         if not auto_withdraw_enabled() or not api_token() or cron_wallet_enabled():
@@ -414,13 +464,16 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
             if ref is None:
                 continue
             try:
-                state = str(call_('GET', '/balance/withdraw/status/' + str(ref)).get('status') or '').upper()
+                answer = call_('GET', '/balance/withdraw/status/' + str(ref))
+                state = str(answer.get('status') or '').upper()
             except HTTPException:
                 continue
             if state == 'PROCESSED':
+                tx = tx_hash(answer) or ('thermos:' + str(ref))
                 with db():
-                    db().execute("UPDATE ton_withdrawals SET status='confirmed',tx=? WHERE id=? AND status='processing'", ('thermos:' + str(ref), row['id']))
+                    db().execute("UPDATE ton_withdrawals SET status='confirmed',tx=? WHERE id=? AND status='processing'", (tx, row['id']))
                 system_audit('Thermos TON withdrawal confirmed: ' + row['id'])
+                tell_done(row['id'], row['user_id'], p, tx)
                 settled += 1
             elif state == 'FAILED':
                 refund_withdrawal(row['id'], row['user_id'], p, 'Thermos не смог отправить вывод')
@@ -468,12 +521,45 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 try:
                     with app.app_context():
                         app.extensions['crafter_thermos_withdraw_once']()
+                        if auto_withdraw_enabled() and api_token():
+                            recheck_withdrawals()
                 except Exception:
                     app.logger.exception('Thermos auto-withdraw pass failed')
-                time.sleep(20)
+                time.sleep(10)
         threading.Thread(target=loop, name='thermos-auto-withdraw', daemon=True).start()
     if not app.config.get('TESTING') and os.getenv('CRAFTER_NO_WORKERS') != '1':
         start_withdraw_worker()
+
+    def withdraw_report():
+        """Why TON withdrawals do (not) leave: every blocker in plain words, and the queue with the Thermos balance."""
+        reasons = []
+        if not api_token():
+            reasons.append('Не сохранён токен Thermos')
+        if not auto_withdraw_enabled():
+            reasons.append('Автовывод TON выключен: нажмите «Включить автовывод TON»')
+        if cron_wallet_enabled():
+            reasons.append('Включены старые автовыплаты через отдельный кошелёк (раздел «Автовывод TON» в меню): этот автовывод стоит, пока они включены. Отключите их там')
+        balance = None
+        try:
+            balance = app.extensions['crafter_thermos_balance']()
+        except HTTPException as error:
+            reasons.append('Баланс Thermos не получен: ' + str(error.description))
+        rows = db().execute("SELECT id,status,payload FROM ton_withdrawals WHERE status IN ('queued','processing') ORDER BY created LIMIT 30").fetchall()
+        queue = []
+        for row in rows:
+            p = json.loads(row['payload'])
+            need = Decimal(p['nano']) / NANO + WITHDRAW_FEE_TON
+            state = (p.get('thermos') or {}).get('state') or ('ждёт' if row['status'] == 'queued' else row['status'])
+            if row['status'] == 'queued' and balance is not None and balance < need:
+                state = 'не хватает TON на Thermos: нужно %s, есть %s' % (need.normalize(), balance.normalize())
+            queue.append({'id': row['id'], 'ton': str(p['ton']), 'receiver': p['receiver'], 'state': state})
+        return {'enabled': auto_withdraw_enabled(), 'balance': (str(balance) if balance is not None else None), 'reasons': reasons, 'queue': queue}
+
+    @app.post('/api/admin/thermos/withdraw-run')
+    @auth(admin=True)
+    def thermos_withdraw_run():
+        done = app.extensions['crafter_thermos_withdraw_once']()
+        return {**done, **withdraw_report()}
 
     @app.post('/api/admin/thermos/auto-withdraw')
     @auth(admin=True)

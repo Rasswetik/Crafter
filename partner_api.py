@@ -25,7 +25,7 @@ BASE = '/api/partner/v1'
 RATE_LIMIT, RATE_WINDOW = 30, 10.0
 OP_ID = re.compile(r'^[A-Za-z0-9_-]{16,80}$')
 CRAFTER_LOT = re.compile(r'^crafter-[0-9a-f]{32}$')
-RIGHTS = ['read', 'buy', 'sell', 'transfer']
+RIGHTS = ['read', 'buy', 'sell', 'transfer', 'withdraw']
 NANO = Decimal(10) ** 9
 
 
@@ -530,7 +530,48 @@ def install_partner_api(app, db, auth, record, audit):
             relay_error(status, reply)
         return {'gift_id': gift['gift_id'], 'state': 'done', 'telegram_id': str(recipient), 'fee': '0'}
 
-    for route, name, handler in (('/star-gifts/sell', 'star_sell', do_star_sell), ('/star-gifts/withdraw', 'star_withdraw', do_star_withdraw), ('/star-gifts/transfer', 'star_transfer', do_star_transfer), ('/buy', 'buy', do_buy), ('/sell', 'sell', do_sell), ('/unlist', 'unlist', do_unlist), ('/transfer', 'transfer', do_transfer)):
+    # ---------------- TON withdrawal: GRAM -> TON on the wallet linked in the app ----------------
+    def ton_view(row):
+        data = json.loads(row['payload'])
+        tx = row['tx'] if 'tx' in row.keys() else None
+        link = ('https://tonscan.org/tx/' + tx) if tx and re.fullmatch(r'[0-9a-f]{64}', str(tx)) else None
+        status = {'queued': 'queued', 'processing': 'processing', 'confirmed': 'done', 'cancelled': 'cancelled'}.get(row['status'], row['status'])
+        return {'withdrawal_id': row['id'], 'status': status, 'gram': plain(data.get('gram', '0')), 'gram_nano': nano(data.get('gram', '0')),
+                'ton': plain(data.get('ton', '0')), 'address': data.get('receiver'), 'network': data.get('network'),
+                'created': int(row['created']), 'tx_hash': tx if link else None, 'tx_url': link}
+
+    @app.get(BASE + '/ton/wallet')
+    @partner
+    def p_ton_wallet():
+        row = db().execute("SELECT address,network FROM connected_wallets WHERE user_id=?", (g.partner['id'],)).fetchone()
+        return jsonify({'ok': True, 'connected': bool(row), 'address': row['address'] if row else None, 'network': row['network'] if row else None,
+                        'note': 'TON уходит только на кошелёк, подключённый в приложении (Профиль → Кошелёк). Адрес в запросе передать нельзя.'})
+
+    @app.get(BASE + '/ton/withdrawals')
+    @partner
+    def p_ton_withdrawals():
+        rows = db().execute("SELECT * FROM ton_withdrawals WHERE user_id=? ORDER BY created DESC LIMIT 30", (g.partner['id'],)).fetchall()
+        return jsonify({'ok': True, 'withdrawals': [ton_view(r) for r in rows]})
+
+    @app.get(BASE + '/ton/withdrawals/<wid>')
+    @partner
+    def p_ton_withdrawal(wid):
+        row = db().execute("SELECT * FROM ton_withdrawals WHERE user_id=? AND id=?", (g.partner['id'], wid)).fetchone()
+        if not row:
+            raise PartnerError(404, 'withdrawal_not_found', 'Заявки на вывод с таким номером нет')
+        return jsonify({'ok': True, 'withdrawal': ton_view(row)})
+
+    def do_ton_withdraw(body, op_id):
+        value = parse_money(body, 'gram')
+        status, reply = internal('POST', '/api/wallet/withdraw', {'gram': plain(value), 'request_id': op_id})
+        if status != 200:
+            relay_error(status, reply)
+        row = db().execute("SELECT * FROM ton_withdrawals WHERE user_id=? AND id=?", (g.partner['id'], reply.get('id'))).fetchone()
+        view = ton_view(row) if row else {'withdrawal_id': reply.get('id'), 'status': reply.get('status', 'queued')}
+        return {**view, 'balance': plain(balance_of(g.partner['id'])),
+                'note': 'Заявка принята. Статус: GET /ton/withdrawals/{withdrawal_id}. Когда TON придёт на кошелёк, в статусе появится tx_url.'}
+
+    for route, name, handler in (('/star-gifts/sell', 'star_sell', do_star_sell), ('/star-gifts/withdraw', 'star_withdraw', do_star_withdraw), ('/star-gifts/transfer', 'star_transfer', do_star_transfer), ('/buy', 'buy', do_buy), ('/sell', 'sell', do_sell), ('/unlist', 'unlist', do_unlist), ('/transfer', 'transfer', do_transfer), ('/ton/withdraw', 'ton_withdraw', do_ton_withdraw)):
         def make(name=name, handler=handler):
             def view():
                 authorize()

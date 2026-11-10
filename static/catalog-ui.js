@@ -591,7 +591,7 @@ async function requestGiftWithdrawal(id) {
         '<div class="crafter-withdraw-dialog">'+
         '<p>Вывести <strong>'+name+'</strong> в Telegram?</p>'+
         '<div class="crafter-withdraw-conditions"><span>Комиссия за вывод</span><strong>0,4 GRAM</strong></div>'+
-        '<p class="crafter-withdraw-description">Сначала проверяется подтверждённое хранение NFT. Если автоматическая передача через Portals недоступна, заявка перейдёт в ручную обработку.</p>'+
+        '<p class="crafter-withdraw-description">Сначала проверяется подтверждённое хранение NFT. Подарок передаётся автоматически; если автоматика недоступна, заявка перейдёт в ручную обработку.</p>'+
         '<button class="primary" type="button" id="crafter-withdraw-confirm">Отправить заявку</button>'+
         '<div class="crafter-withdraw-result" id="crafter-withdraw-result" role="status"></div>'+
         '</div>');
@@ -608,7 +608,7 @@ async function requestGiftWithdrawal(id) {
             if(status) {
                 status.classList.add('is-success');
                 status.innerHTML='<strong>Заявка принята</strong><p>'+
-                    (result.mode==='manual'?'Передано на ручную обработку.':'Передано на проверку Portals.')+
+                    (result.mode==='manual'?'Передано на ручную обработку.':result.mode==='auto'?'Подарок передаётся автоматически, обычно это занимает до минуты.':'Передано на проверку Portals.')+
                     ' Подарок зарезервирован до подтверждения вывода. Комиссия: 0,4 GRAM. Статус заявки виден в карточке подарка; если вывод не выполнится, подарок и комиссия вернутся, а причину вы увидите в истории и получите от бота.</p>';
             }
             if(result.balance!==undefined&&state.me){

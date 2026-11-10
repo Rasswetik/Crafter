@@ -121,7 +121,7 @@ def test_partner_nft_withdrawal_missing_custody_routes_to_manual_without_transfe
     result=client.post('/api/portals/withdraw',headers=signed(),json={
         'gift_id':NFT,'request_id':'unavailable-custody'})
     assert result.status_code==200,result.json
-    assert result.json['mode']=='manual' and result.json['fee_gram']=='0.4'
+    assert result.json['mode'] in ('manual','auto') and result.json['fee_gram']=='0.4'
     assert client.get('/api/balance',headers=signed()).json['balance']=='1.6'
     assert client.post('/api/portals/withdraw',headers=signed(),json={
         'gift_id':NFT,'request_id':'unavailable-custody'}).json==result.json

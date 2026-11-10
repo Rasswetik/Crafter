@@ -763,14 +763,7 @@ def install_packs(app, db, auth, record, audit):
                 return [m for m in c.get('models', []) if m.get('image')]
         return []
 
-    @app.post('/api/packs/open')
-    @auth()
-    def packs_open():
-        body = request.get_json(silent=True) or {}
-        upid = body.get('user_pack_id')
-        if not isinstance(upid, str) or not re.fullmatch(r'[a-f0-9]{32}', upid):
-            abort(400, description='Неверный пак')
-        uid = g.user['id']
+    def open_one(uid, upid):
         real = work_mode()
         early = db().execute("SELECT pack_id,opened_at FROM user_packs WHERE id=?", (upid,)).fetchone()
         lots_by_prize = availability(prizes_of(early['pack_id'])) if (real and early and not early['opened_at']) else {}
@@ -873,6 +866,33 @@ def install_packs(app, db, auth, record, audit):
                     db().execute("UPDATE user_packs SET result=? WHERE id=?", (json.dumps(result, ensure_ascii=False), upid))
         record('pack_open', {'pack': pack['id'], 'cards': cards, 'credited': result['credited']}, uid=uid)
         return result
+
+    @app.post('/api/packs/open')
+    @auth()
+    def packs_open():
+        body = request.get_json(silent=True) or {}
+        upid = body.get('user_pack_id')
+        if not isinstance(upid, str) or not re.fullmatch(r'[a-f0-9]{32}', upid):
+            abort(400, description='Неверный пак')
+        return open_one(g.user['id'], upid)
+
+    @app.post('/api/packs/open-many')
+    @auth()
+    def packs_open_many():
+        """Opens a pile of packs in one request (the client shows only the total). One broken pack never stops the rest."""
+        from werkzeug.exceptions import HTTPException
+        ids = (request.get_json(silent=True) or {}).get('user_pack_ids')
+        if (not isinstance(ids, list) or not 1 <= len(ids) <= 500 or len(set(map(str, ids))) != len(ids)
+                or any(not isinstance(x, str) or not re.fullmatch(r'[a-f0-9]{32}', x) for x in ids)):
+            abort(400, description='Неверный список паков')
+        results, failed = [], []
+        for upid in ids:
+            try:
+                results.append(open_one(g.user['id'], upid))
+            except HTTPException as error:
+                failed.append({'id': upid, 'error': str(error.description)})
+            db().commit()                      # finish this pack's last writes before the next one starts its transaction
+        return {'results': results, 'failed': failed}
 
     @app.post('/api/packs/sell')
     @auth()

@@ -247,8 +247,10 @@ def test_assign_hands_the_exact_gift_to_the_player(wired, monkeypatch):
         if '/auth/api-token' in url:
             return Resp(json.dumps({'account': {'effective_balance': 10 * 10**9}, 'token': 'jwt'}).encode())
         if url.endswith('/gifts/me'):
-            return Resp(json.dumps({'items': [{'id': UUID_A, 'slug': 'LolPop-168447', 'number': 168447, 'collection': 'Lol Pop'},
-                                              {'id': UUID_B, 'slug': 'LolPop-5', 'number': 5, 'collection': 'Lol Pop'}]}).encode())
+            return Resp(json.dumps([
+                {'id': UUID_A, 'ownership_status': 'RECEIVED', 'meta': {'id': 'f334386e-475d-4237-8016-b95f93c4e13d', 'name': 'Lol Pop', 'number': 168447, 'unique_name': 'LolPop-168447'}},
+                {'id': UUID_B, 'ownership_status': 'RECEIVED', 'meta': {'id': 'f334386e-475d-4237-8016-b95f93c4e13d', 'name': 'Lol Pop', 'number': 5, 'unique_name': 'LolPop-5'}},
+            ]).encode())
         if url.endswith('/gifts/assign'):
             return Resp(json.dumps({'task_id': 't9'}).encode())
         if '/tasks/' in url:

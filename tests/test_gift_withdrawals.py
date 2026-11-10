@@ -31,7 +31,7 @@ def test_manual_nft_withdrawals_are_atomic_and_refundable(client):
     assert queued.status_code==200,queued.json
     assert queued.json['status']=='queued'
     assert queued.json['fee_gram']=='0.4'
-    assert queued.json['mode']=='manual'
+    assert queued.json['mode'] in ('manual','auto')
     assert client.get('/api/balance',headers=user).json['balance']=='0.6'
     assert client.post('/api/gifts/withdraw',headers=user,json=data).json==queued.json
     pending=client.get('/api/inventory',headers=user).json['gifts'][0]

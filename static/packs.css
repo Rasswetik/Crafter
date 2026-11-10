@@ -266,3 +266,15 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 .pk-hold.is-gone i{opacity:0}
 .pk-hold span,.pk-hold i{transition:opacity .4s}
 .pk-over.is-holding .pk-hold.is-gone i{opacity:1}
+
+/* the "you won" screen and the wait screen use the pack background */
+.pk-winover{align-items:center;justify-content:center;text-align:center}
+.pk-winover .pk-win{position:relative;z-index:3;display:grid;gap:18px;justify-items:center;width:min(92vw,460px);max-height:92vh}
+.pk-win h1{margin:0;font-size:clamp(38px,9vw,60px);font-weight:900;letter-spacing:-1.5px;color:#fff;text-shadow:0 4px 30px rgb(var(--ac) / .9)}
+.pk-winover .pk-win-gram{font-size:clamp(44px,11vw,68px);filter:drop-shadow(0 0 22px rgb(var(--ac) / .7))}
+.pk-winover .pk-win-gram .pk-gram{width:clamp(46px,11vw,64px);height:clamp(46px,11vw,64px)}
+.pk-winover .pk-win-list{max-height:34vh}
+.pk-winover .pk-win .ny-action{min-width:220px;width:auto}
+.pk-busy{position:relative;z-index:3;display:grid;gap:18px;justify-items:center;color:#fff;font-size:20px}
+.pk-spin{width:54px;height:54px;border-radius:50%;border:4px solid #ffffff2a;border-top-color:rgb(var(--ac));animation:pk-spin .9s linear infinite;box-shadow:0 0 24px rgb(var(--ac) / .6)}
+@keyframes pk-spin{to{transform:rotate(360deg)}}

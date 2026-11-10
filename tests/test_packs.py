@@ -729,3 +729,58 @@ def test_telegram_proxy_is_read_from_the_environment(monkeypatch):
     assert telegram_deposits.telegram_proxy() == ('socks5', '1.2.3.4', 1080, True, 'u', 'p')
     monkeypatch.setenv('CRAFTER_TELEGRAM_PROXY', 'ftp://x')
     assert telegram_deposits.telegram_proxy() is None
+
+
+def test_open_many_packs_in_one_request(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    ids = [_grant_pack(client, admin, player, 'many-req-%03d' % i) for i in range(5)]
+    assert client.post('/api/packs/open-many', headers=player, json={'user_pack_ids': ['x']}).status_code == 400
+    r = client.post('/api/packs/open-many', headers=player, json={'user_pack_ids': ids + ['f' * 32]})
+    assert r.status_code == 200 and len(r.json['results']) == 5 and len(r.json['failed']) == 1   # an unknown pack never stops the rest
+    assert all(x['cards'] for x in r.json['results'])
+    again = client.post('/api/packs/open-many', headers=player, json={'user_pack_ids': ids})
+    assert all(x.get('repeat') for x in again.json['results'])                                    # opened twice = the same result, no second reward
+
+
+def test_ton_withdraw_report_names_the_blockers(client, monkeypatch):
+    import json
+    admin, app = signed(42), client.application
+    monkeypatch.setenv('THERMOS_API_TOKEN', 'x' * 20)
+    p = {'receiver': 'UQ-test', 'sender': 'UQ-from', 'network': 'mainnet', 'gram': '5', 'nano': '2000000000', 'ton': '2', 'memo': 'm'}
+    with sqlite3.connect(app.config['DATABASE']) as con:
+        con.execute('INSERT INTO ton_withdrawals VALUES(?,?,?,?,?,NULL)', ('w-1-z', 1, json.dumps(p), 'queued', int(time.time())))
+        con.execute("INSERT INTO settings VALUES('crafter_auto_payout_policy',?)", (json.dumps({'enabled': True}),))
+    monkeypatch.setitem(app.extensions, 'crafter_thermos_balance', lambda: Decimal('0.39'))
+    r = client.post('/api/admin/thermos/withdraw-run', headers=admin, json={}).json
+    assert any('старые автовыплаты' in x for x in r['reasons']) and r['queue'][0]['state'].startswith('не хватает TON')
+    assert r['sent'] == 0
+
+
+def test_ton_withdrawal_done_message_with_link_and_recheck(client, monkeypatch):
+    import json, thermos_market
+    admin, app = signed(42), client.application
+    monkeypatch.setenv('THERMOS_API_TOKEN', 'x' * 20)
+    p = {'receiver': 'UQ-test', 'sender': 'UQ-from', 'network': 'mainnet', 'gram': '5', 'nano': '2000000000', 'ton': '2', 'memo': 'm'}
+    with sqlite3.connect(app.config['DATABASE']) as con:
+        con.execute('INSERT INTO ton_withdrawals VALUES(?,?,?,?,?,NULL)', ('w-43-z', 43, json.dumps(p), 'queued', int(time.time())))
+    HASH = 'c5' * 32
+    state = {'calls': 0}
+
+    def fake(method, route, body=None, query=None):
+        if method == 'POST':
+            return {'id': 5}
+        state['calls'] += 1
+        return {'status': 'PROCESSED', **({'tx_hash': HASH} if state['calls'] >= 2 else {})}
+    sent = []
+    monkeypatch.setitem(app.extensions, 'crafter_thermos_call', fake)
+    monkeypatch.setitem(app.extensions, 'crafter_thermos_balance', lambda: Decimal('10'))
+    monkeypatch.setitem(app.extensions, 'crafter_notify_text', lambda uid, html: sent.append((uid, html)))
+    with app.app_context():
+        once = app.extensions['crafter_thermos_withdraw_once']
+        assert once()['sent'] == 1
+        assert once()['settled'] == 1                                              # PROCESSED -> confirmed -> the message
+    assert len(sent) == 1 and sent[0][0] == 43 and 'вывод</a>' in sent[0][1] and 'успешно выполнен' in sent[0][1] and '2 TON' in sent[0][1]
+    with app.app_context():
+        once()
+    assert len(sent) == 1                                                          # never twice

@@ -48,7 +48,46 @@ async function renderThermosAdmin(content) {
         <p>Показывает, что именно отвечает Thermos (названия полей). Только чтение: ничего не отправляется и не покупается.</p>
         <div class="th-actions"><button type="button" onclick="thermosProbe('/gifts/me')">Мои подарки в Thermos</button><button type="button" onclick="thermosProbe('/gifts/me/on-sale')">Выставленные на продажу</button></div>
         <pre id="thermos-probe" class="th-info" style="white-space:pre-wrap;word-break:break-all;max-height:320px;overflow:auto"></pre></section>`);
+    content.insertAdjacentHTML('beforeend', `<section class="admin-glass-panel th-card"><h3>Очередь автовывода NFT</h3><p>Что делает автовывод с каждой заявкой и почему. Он сам проверяет очередь раз в полминуты; кнопка запускает проверку сразу.</p>
+        <div class="th-actions"><button type="button" onclick="autoNftRun()">Запустить сейчас</button><button type="button" onclick="autoNftJobs()">Обновить список</button></div>
+        <div id="auto-nft-jobs" class="th-info" style="white-space:pre-wrap"></div></section>`);
+    content.insertAdjacentHTML('beforeend', `<section class="admin-glass-panel th-card"><h3>Очередь вывода TON</h3><p>Почему вывод TON уходит или стоит. Автовывод сам проверяет очередь раз в 20 секунд; кнопка проверяет сразу.</p>
+        <div class="th-actions"><button type="button" onclick="tonWithdrawRun()">Проверить и отправить сейчас</button></div>
+        <div id="ton-withdraw-state" class="th-info" style="white-space:pre-wrap"></div></section>`);
+    tonWithdrawRun();
+    autoNftJobs();
     renderHouseMarket(content);
+}
+async function tonWithdrawRun() {
+    const box = document.querySelector('#ton-withdraw-state');
+    try {
+        const r = await api('admin/thermos/withdraw-run', {});
+        box.textContent = (r.reasons.length ? 'ПРЕПЯТСТВИЯ:
+- ' + r.reasons.join('
+- ') + '
+
+' : 'Препятствий нет
+') +
+            'Баланс Thermos: ' + (r.balance ?? '—') + ' TON · отправлено сейчас: ' + (r.sent || 0) + ' · завершено: ' + (r.settled || 0) + '
+' +
+            (r.queue.length ? r.queue.map(q => q.ton + ' TON → ' + q.receiver.slice(0, 10) + '… · ' + q.state).join('
+') : 'Заявок на вывод TON в очереди нет');
+    } catch (error) { if (box) box.textContent = error.message; }
+}
+async function autoNftJobs(extra) {
+    const box = document.querySelector('#auto-nft-jobs');
+    try {
+        const a = await api('admin/auto-nft');
+        box.textContent = (extra ? extra + '
+' : '') + (a.enabled ? 'Автовывод включён' : 'Автовывод ВЫКЛЮЧЕН') + (a.relayer_connected ? ' · релейер подключён' : ' · релейер не подключён') + '
+' +
+            (a.jobs.length ? a.jobs.map(j => new Date(j.updated * 1000).toLocaleTimeString('ru-RU') + ' · ' + j.source + ' · ' + j.stage + (j.note ? ' · ' + j.note : '')).join('
+') : 'Заявок пока нет');
+    } catch (error) { if (box) box.textContent = error.message; }
+}
+async function autoNftRun() {
+    try { const r = await api('admin/auto-nft/run', {}); await autoNftJobs('Проверено заявок: ' + (r.processed ?? 0)); }
+    catch (error) { await autoNftJobs(error.message); }
 }
 async function thermosProbe(path) {
     const box = document.querySelector('#thermos-probe');

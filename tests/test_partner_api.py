@@ -164,3 +164,18 @@ def test_ordinary_gifts_have_their_own_requests(client):
     assert moved.status_code == 200 and moved.json['result']['telegram_id'] == '44'
     assert client.get('/partner-api').status_code == 200
     assert '/star-gifts/withdraw' in client.get('/partner-api.openapi.json').json['paths']
+
+
+def test_ton_withdrawal_through_the_api(client):
+    key = key_for(client, 42)
+    wallet = client.get(BASE + '/ton/wallet', headers=bearer(key)).json
+    assert wallet['ok'] and wallet['connected'] is False
+    assert client.get(BASE + '/ton/withdrawals', headers=bearer(key)).json['withdrawals'] == []
+    assert client.get(BASE + '/ton/withdrawals/nope', headers=bearer(key)).status_code == 404
+    assert client.post(BASE + '/ton/withdraw', headers=bearer(key), json={'gram': '5'}).status_code == 400          # no Idempotency-Key
+    r = client.post(BASE + '/ton/withdraw', headers=bearer(key, 'ton-test-000000001'), json={'gram': '5.00'})
+    assert r.status_code in (409, 503) and r.json['ok'] is False                                                    # no wallet / no TON Connect here
+    spec = client.get('/partner-api.openapi.json').json
+    assert '/ton/withdraw' in spec['paths'] and '/ton/withdrawals/{withdrawal_id}' in spec['paths']
+    page = client.get('/partner-api').get_data(as_text=True)
+    assert 'id="ton"' in page and 'href="#ton"' in page and 'IntersectionObserver' in page

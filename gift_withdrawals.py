@@ -69,6 +69,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
     # after a custody lookup, and shares the same transaction/idempotency guard.
     def queue_manual(uid,gift_id,rid,allow_partner=False,reason=''):
         wid='gw-'+str(uid)+'-'+rid
+        auto_now=bool(app.extensions.get('crafter_auto_nft_enabled') and app.extensions['crafter_auto_nft_enabled']())
         with db():
             db().execute('BEGIN IMMEDIATE')
             old=db().execute('SELECT gift_id,status,payload FROM gift_withdrawals '
@@ -76,7 +77,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             if old:
                 if old['gift_id']!=gift_id:
                     abort(409,description='Этот номер заявки уже использован')
-                return {'id':wid,'status':old['status'],'mode':'manual','fee_gram':str(FEE_GRAM),
+                return {'id':wid,'status':old['status'],'mode':'auto' if auto_now else 'manual','fee_gram':str(FEE_GRAM),
                         'balance':json.loads(old['payload']).get('balance_after')}
             row=db().execute('SELECT payload,status FROM inventory WHERE user_id=? AND nft_id=?',
                              (uid,gift_id)).fetchone()
@@ -103,7 +104,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             db().execute("UPDATE inventory SET status='withdrawing' "
                          "WHERE user_id=? AND nft_id=? AND status='unlisted'",(uid,gift_id))
             record('gift_withdraw_requested',payload)
-        return {'id':wid,'status':'queued','mode':'manual','fee_gram':str(FEE_GRAM),
+        return {'id':wid,'status':'queued','mode':'auto' if auto_now else 'manual','fee_gram':str(FEE_GRAM),
                 'balance':str(after)}
 
     app.extensions['crafter_nft_queue_manual']=queue_manual

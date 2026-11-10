@@ -107,10 +107,16 @@ async function openMany(ids, refresh) {
     const batch = {skip: false, results: []};
     for (let i = 0; i < ids.length && !batch.skip; i++) {
         await open(ids[i], null, {index: i + 1, total: ids.length, batch});
-        if (batch.skip) {                                         // held for 5 seconds: everything that is left opens at once
+        if (batch.skip) {                                         // held for 5 seconds: everything that is left opens at once, in ONE request
             const left = ids.slice(i + 1);
-            for (const id of left) {
-                try { batch.results.push(await api('packs/open', {user_pack_id: id})); } catch (err) { toast(err.message); break; }
+            if (left.length) {
+                const loading = busyOverlay(batch.results[0] && batch.results[0].pack, 'Открываем паки…');
+                try {
+                    const r = await api('packs/open-many', {user_pack_ids: left});
+                    r.results.forEach(x => batch.results.push(x));
+                    if (r.failed && r.failed.length) toast('Не открылось паков: ' + r.failed.length);
+                } catch (err) { toast(err.message); }
+                loading.remove();
             }
             const last = batch.results[batch.results.length - 1];
             if (last && last.balance !== undefined && state?.me) { state.me.balance = last.balance; if (typeof updateBalance === 'function') updateBalance(); }
@@ -119,6 +125,19 @@ async function openMany(ids, refresh) {
     await winSummary(batch.results, refresh);
 }
 /* After two or more packs: what was won in total: the GRAM added up, every NFT with its picture, name and number. */
+function snowHTML() {
+    return '<div class="pk-snow" aria-hidden="true">' + Array.from({length: 22}, (_, i) =>
+        '<i style="--x:' + ((i * 47 + 5) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (6 + i % 7) + 's;--d:' + (-(i * 2) % 9) + 's"></i>').join('') + '</div>';
+}
+/* A full-screen wait while a pile of packs opens: the same background as the pack opening. */
+function busyOverlay(pack, text) {
+    const box = document.createElement('div');
+    box.className = 'pk-over is-on';
+    box.style.setProperty('--ac', (pack && pack.accent) || '59 134 238');
+    box.innerHTML = snowHTML() + '<div class="pk-busy"><span class="pk-spin"></span><b>' + e(text) + '</b></div>';
+    document.body.appendChild(box);
+    return box;
+}
 function winSummary(results, refresh) {
     return new Promise(resolve => {
         let gram = 0; const gifts = [];
@@ -127,15 +146,24 @@ function winSummary(results, refresh) {
             else gifts.push(c);
         }));
         const nfts = gifts.map(c => '<div class="pk-win-nft"><img src="' + e(c.image) + '" alt=""><div><b>' + e(c.name || c.title) + '</b>' + (c.number ? '<small>#' + e(c.number) + '</small>' : '') + '</div></div>').join('');
-        sheet('Вы выиграли:', '<div class="pk-win">' +
+        const box = document.createElement('div');
+        box.className = 'pk-over pk-winover';
+        box.style.setProperty('--ac', (results[0] && results[0].pack && results[0].pack.accent) || '59 134 238');
+        box.innerHTML = snowHTML() + '<div class="pk-win">' +
+            '<h1>Вы выиграли</h1>' +
             (gram > 0 ? '<div class="pk-win-gram"><span class="pk-gem">' + GEM + '</span><b>' + num(Math.round(gram * 1e6) / 1e6) + '</b><em>GRAM</em></div>' : '') +
             (nfts ? '<div class="pk-win-list">' + nfts + '</div>' : '') +
-            (!gram && !nfts ? '<p class="cm-sheet-note" style="text-align:center">В этих паках ничего не выпало.</p>' : '') +
+            (!gram && !nfts ? '<p class="pk-win-note">В этих паках ничего не выпало.</p>' : '') +
             '<small class="pk-win-note">Паков открыто: ' + results.length + '. GRAM уже на балансе, подарки в «Мои подарки».</small>' +
-            '<button type="button" class="ny-action" id="pk-win-ok">Отлично</button></div>');
-        const done = () => { try { closeSheet(); } catch (_) {} refresh?.(); resolve(); };
-        document.querySelector('#pk-win-ok')?.addEventListener('click', done);
-        document.querySelector('#sheet')?.addEventListener('close', () => resolve(), {once: true});
+            '<button type="button" class="ny-action" id="pk-win-ok">Забрать</button></div>';
+        document.body.appendChild(box);
+        requestAnimationFrame(() => box.classList.add('is-on'));
+        box.querySelector('#pk-win-ok').addEventListener('click', () => {
+            box.classList.add('is-out');
+            setTimeout(() => box.remove(), 350);
+            refresh?.();
+            resolve();
+        });
     });
 }
 async function granted(input, refresh) {
