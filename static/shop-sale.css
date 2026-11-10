@@ -43,3 +43,12 @@
 @keyframes si-twinkle{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:.95;transform:scale(1)}}
 @keyframes si-spread{from{opacity:0;transform:translateX(-50%) translateY(46px) scale(.6) rotate(0)}}
 @media(prefers-reduced-motion:reduce){.si-hero,.si-stage,.si-glow,.si-shine,.si-spark,.si-stage .si-fan img,.si-hero .si-off{animation:none!important}.si-spark{opacity:.6}}
+
+/* Packs of a bundle stand right behind the first one: same place, each one a little more turned, alternating sides */
+.si-fan img{width:68%!important;bottom:3%;transform-origin:50% 100%;
+  transform:translateX(-50%) translateX(calc(var(--s,1) * var(--st,0) * 4.5%)) rotate(calc(var(--s,1) * var(--st,0) * 6deg));
+  z-index:calc(10 - var(--i));filter:brightness(calc(1 - var(--i) * .07)) drop-shadow(0 4px 8px rgba(0,0,0,.5))}
+.si-fan img:nth-child(even){--side:1}
+.si-fan.n2 img,.si-fan.n3 img,.si-fan.n4 img,.si-fan.n5 img{width:68%!important}
+.si-stage .si-fan img,.si-stage .si-fan.n1 img,.si-stage .si-fan.n2 img,.si-stage .si-fan.n3 img,.si-stage .si-fan.n4 img,.si-stage .si-fan.n5 img{width:44%!important;bottom:2%;
+  filter:brightness(calc(1 - var(--i) * .07)) drop-shadow(0 10px 16px rgba(0,0,0,.55)) drop-shadow(0 0 16px rgb(var(--ac) / .35))}

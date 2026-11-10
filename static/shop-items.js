@@ -13,7 +13,7 @@ function artHTML(it, cls) {
     const src = art(it);
     if (packOf(it) && Number(it.bundle) > 1) {
         const shown = Math.min(5, Number(it.bundle));
-        const imgs = Array.from({length: shown}, (_, i) => '<img src="' + e(src) + '" alt="" style="--i:' + i + ';--n:' + shown + '">').join('');
+        const imgs = Array.from({length: shown}, (_, i) => '<img src="' + e(src) + '" alt="" style="--i:' + i + ';--st:' + Math.ceil(i / 2) + ';--s:' + (i % 2 ? 1 : -1) + '">').join('');
         return '<span class="si-fan n' + shown + (cls ? ' ' + cls : '') + '">' + imgs + (Number(it.bundle) > shown ? '<b class="si-fan-count">×' + it.bundle + '</b>' : '') + '</span>';
     }
     return '<img class="si-solo" src="' + e(src) + '" alt="">';
