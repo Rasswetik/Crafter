@@ -128,3 +128,8 @@
 .upg-gram-field img{position:absolute;left:18px;top:50%;width:26px;height:26px;transform:translateY(-50%);pointer-events:none}
 .upg-gram-field input{height:64px;padding:0 18px 0 56px;font-size:28px;text-align:left}
 .upg-gram-field input.is-err{outline:2px solid #ff6b7a}
+/* the search row stays on top as one solid strip: nothing scrolls visibly above or beside it */
+.upg-sheet-body{padding:0 2px 2px}
+.upg-tools{margin:0 -2px 8px;padding:0 2px 10px;background:#1b1c20;box-sizing:border-box;width:calc(100% + 4px)}
+.upg-tools::before{content:"";position:absolute;left:0;right:0;top:-6px;height:6px;background:#1b1c20}
+.upg-search,.upg-sort{box-sizing:border-box}

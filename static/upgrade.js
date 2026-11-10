@@ -294,7 +294,8 @@ function showResult(result) {
     if (!wheelEl) return;
     ui.done = true;
     wheelEl.classList.add(result.success ? 'is-win' : 'is-lose');
-    if (label) label.textContent = result.success ? 'Победа' : 'Проигрыш';
+    if (label) label.textContent = result.success ? 'Победа' : result.refunded ? 'Не выкуплено' : result.review ? 'Проверяем' : 'Проигрыш';
+    if (result.note && typeof toast === 'function') toast(result.note);
     const go = document.querySelector('#upg-go');
     if (go) { go.classList.remove('is-busy'); go.textContent = 'Ещё раз'; go.disabled = false; }
 }

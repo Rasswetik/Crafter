@@ -623,3 +623,51 @@ def test_shop_bundle_with_packs_gram_and_balls(client):
     assert bought.status_code == 200, bought.json
     assert len(bought.json['pack_ids']) == 3 and bought.json['balls_gain'] == 100 and bought.json['balance']['balls'] == 100
     assert balance(client, player) == before + Decimal('2.5')
+
+
+def test_shop_items_edit_and_order(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    pack = client.get('/api/admin/new-year/packs', headers=admin).json['packs'][0]['id']
+    mk = lambda price, **kw: client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BALL', 'amount': '10', 'price_balls': price, **kw}).json['id']
+    dear, cheap = mk(300, title='Dear'), mk(100, title='Cheap')
+    titles = lambda: [i['title'] for i in client.get('/api/shop-items', headers=player).json['items']]
+    assert titles() == ['Cheap', 'Dear']                                      # by price, ascending, by default
+    assert client.post('/api/admin/new-year/shop/' + dear + '/move', headers=admin, json={'direction': 'up'}).status_code == 200
+    assert titles() == ['Dear', 'Cheap'] and client.get('/api/admin/new-year/shop', headers=admin).json['order'] == 'manual'
+    late = mk(50, title='Late')
+    assert titles() == ['Dear', 'Cheap', 'Late']                              # new items go to the end in manual order
+    assert client.post('/api/admin/new-year/shop-order', headers=admin, json={'mode': 'price'}).status_code == 200
+    assert titles() == ['Late', 'Cheap', 'Dear']
+    edited = client.post('/api/admin/new-year/shop/' + cheap + '/edit', headers=admin, json={'kind': 'BUNDLE', 'price_balls': 120, 'title': 'Mix', 'contents': {'packs': [{'pack_id': pack, 'count': 40}], 'gram': '1', 'balls': ''}})
+    assert edited.status_code == 200, edited.json
+    item = next(i for i in client.get('/api/shop-items', headers=player).json['items'] if i['id'] == cheap)
+    assert item['title'] == 'Mix' and item['kind'] == 'BUNDLE' and item['bundle'] == 40 and item['gram'] == '1'
+    assert client.post('/api/admin/new-year/shop/nope/edit', headers=admin, json={'kind': 'BALL', 'amount': '1'}).status_code == 404
+
+
+def test_thermos_auto_withdraw_pays_from_thermos_balance(client, monkeypatch):
+    import json
+    admin, app = signed(42), client.application
+    monkeypatch.setenv('THERMOS_API_TOKEN', 'x' * 20)
+    now, path = int(time.time()), app.config['DATABASE']
+    p = {'receiver': 'UQ-test', 'sender': 'UQ-from', 'network': 'mainnet', 'gram': '5', 'nano': '2000000000', 'ton': '2', 'memo': 'm'}
+    with sqlite3.connect(path) as con:
+        con.execute('INSERT INTO ton_withdrawals VALUES(?,?,?,?,?,NULL)', ('w-1-a', 1, json.dumps(p), 'queued', now))
+    calls = []
+    def fake(method, route, body=None, query=None):
+        calls.append((method, route, body))
+        return {'id': 77} if method == 'POST' else {'status': 'PROCESSED'}
+    monkeypatch.setitem(app.extensions, 'crafter_thermos_call', fake)
+    monkeypatch.setitem(app.extensions, 'crafter_thermos_balance', lambda: Decimal('10'))
+    once = app.extensions['crafter_thermos_withdraw_once']
+    with app.app_context():
+        assert once() == {'sent': 0, 'settled': 0} and calls == []               # off until the switch is on
+    assert client.post('/api/admin/thermos/auto-withdraw', headers=admin, json={'enabled': True}).status_code == 200
+    with app.app_context():
+        assert once()['sent'] == 1
+        assert calls[0] == ('POST', '/balance/withdraw', {'amount': 2000000000, 'destination': 'UQ-test'})
+        assert once() == {'sent': 0, 'settled': 1}                                # next pass: PROCESSED -> confirmed
+        assert once() == {'sent': 0, 'settled': 0}                                # never sent twice
+    with sqlite3.connect(path) as con:
+        assert con.execute("SELECT status,tx FROM ton_withdrawals").fetchone() == ('confirmed', 'thermos:77')

@@ -111,6 +111,26 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         jwt.update(token=data.get('token', ''), exp=time.time() + 23 * 3600)
         return data
 
+    def remember_error(method, path, error):
+        try:
+            text = error.read().decode('utf-8', 'replace')[:300]
+        except Exception:
+            text = ''
+        note = {'at': int(time.time()), 'where': method + ' ' + path.split('?')[0], 'code': error.code, 'answer': re.sub(r'[\r\n]+', ' ', text)}
+        app.logger.warning('Thermos refused %s: %s %s', note['where'], error.code, note['answer'])
+        try:
+            with db():
+                db().execute("INSERT INTO settings(key,payload) VALUES('thermos_last_error_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps(note, ensure_ascii=False),))
+        except Exception:
+            pass
+
+    def last_error():
+        try:
+            row = db().execute("SELECT payload FROM settings WHERE key='thermos_last_error_v1'").fetchone()
+            return json.loads(row[0]) if row else None
+        except Exception:
+            return None
+
     def call(method, path, body=None, query=None):
         """Authenticated call. Re-logins once on 401. Errors are sanitised; never retry an ambiguous POST."""
         if not jwt['token'] or jwt['exp'] < time.time():
@@ -122,6 +142,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 if error.code == 401 and attempt == 0:
                     login()
                     continue
+                remember_error(method, path, error)
                 if error.code == 429:
                     abort(503, description='Thermos: лимит запросов, повторите позже')
                 if error.code in (400, 404, 409, 422):
@@ -155,7 +176,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         import thermos
         catalog = ctx['public_catalog']()
         params = {'collection_id': str(gift.get('collection_id') or ''), 'search': str(gift.get('number') or ''),
-                  'sort_by': 'price asc'}
+                  'sort_by': 'price asc', 'markets': str(gift.get('marketplace') or 'PORTALS').upper()}
         try:
             live = thermos.gifts(params, catalog)['gifts']
         except (OSError, ValueError, KeyError, StopIteration):
@@ -208,6 +229,8 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         except HTTPException as error:
             # 4xx/409 means Thermos refused before charging; 5xx/network may have been processed.
             return ('failed', 'Thermos отклонил покупку') if error.code == 409 else ('unknown', 'Результат покупки неизвестен')
+        except Exception:
+            return 'unknown', 'Результат покупки неизвестен'
         task = response.get('task_id')
         if not task:
             return 'unknown', 'Thermos не вернул задачу'
@@ -258,10 +281,132 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         return missing
     app.extensions['crafter_work_blockers'] = work_blockers
 
+    # ---- automatic TON withdrawals: paid straight from the Thermos balance (POST /balance/withdraw, fee 0.1 TON) ----
+    WITHDRAW_FEE_TON = Decimal('0.1')
+
+    def auto_withdraw_enabled():
+        row = db().execute("SELECT payload FROM settings WHERE key='thermos_auto_withdraw_v1'").fetchone()
+        try:
+            return bool(row and json.loads(row[0]).get('enabled') is True)
+        except (ValueError, TypeError, AttributeError):
+            return False
+
+    def cron_wallet_enabled():
+        row = db().execute("SELECT payload FROM settings WHERE key='crafter_auto_payout_policy'").fetchone()
+        try:
+            return bool(row and json.loads(row[0]).get('enabled') is True)
+        except (ValueError, TypeError, AttributeError):
+            return False
+
+    def system_audit(message):
+        with db():
+            db().execute('INSERT INTO audit(actor,action,created) VALUES(?,?,?)', (0, message, int(time.time())))
+
+    def refund_withdrawal(wid, uid, payload, why):
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            row = db().execute('SELECT status FROM ton_withdrawals WHERE id=?', (wid,)).fetchone()
+            if not row or row['status'] != 'processing':
+                return
+            payload = {**payload, 'thermos': {**payload.get('thermos', {}), 'state': 'refused', 'why': why[:200]}}
+            db().execute("UPDATE ton_withdrawals SET status='cancelled',payload=? WHERE id=?", (json.dumps(payload), wid))
+            account = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (uid,)).fetchone()
+            current = Decimal(str(account['balance'])) if account else Decimal(0)
+            db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance",
+                         (uid, str(current + Decimal(payload['gram']))))
+        system_audit('Thermos TON withdrawal refused, GRAM returned: ' + wid)
+
+    def auto_withdraw_once():
+        """One pass: settle the withdrawals already sent, then send the queued ones. A send whose result is unknown is never repeated."""
+        if not auto_withdraw_enabled() or not api_token() or cron_wallet_enabled():
+            return {'sent': 0, 'settled': 0}
+        call_ = app.extensions['crafter_thermos_call']
+        sent = settled = 0
+        for row in db().execute("SELECT id,user_id,payload FROM ton_withdrawals WHERE status='processing'").fetchall():
+            p = json.loads(row['payload'])
+            ref = (p.get('thermos') or {}).get('id')
+            if ref is None:
+                continue
+            try:
+                state = str(call_('GET', '/balance/withdraw/status/' + str(ref)).get('status') or '').upper()
+            except HTTPException:
+                continue
+            if state == 'PROCESSED':
+                with db():
+                    db().execute("UPDATE ton_withdrawals SET status='confirmed',tx=? WHERE id=? AND status='processing'", ('thermos:' + str(ref), row['id']))
+                system_audit('Thermos TON withdrawal confirmed: ' + row['id'])
+                settled += 1
+            elif state == 'FAILED':
+                refund_withdrawal(row['id'], row['user_id'], p, 'Thermos не смог отправить вывод')
+                settled += 1
+        queued = db().execute("SELECT id,user_id,payload FROM ton_withdrawals WHERE status='queued' ORDER BY created LIMIT 5").fetchall()
+        if queued:
+            try:
+                free = app.extensions['crafter_thermos_balance']()
+            except HTTPException:
+                return {'sent': sent, 'settled': settled}
+        for row in queued:
+            p = json.loads(row['payload'])
+            need = Decimal(p['nano']) / NANO + WITHDRAW_FEE_TON
+            if free < need:
+                break                                      # not enough TON on Thermos yet: stays queued, tried again later
+            with db():
+                db().execute('BEGIN IMMEDIATE')
+                claimed = db().execute("UPDATE ton_withdrawals SET status='processing',payload=? WHERE id=? AND status='queued'",
+                                       (json.dumps({**p, 'thermos': {'state': 'sending', 'at': int(time.time())}}), row['id'])).rowcount
+            if not claimed:
+                continue
+            free -= need
+            try:
+                answer = call_('POST', '/balance/withdraw', {'amount': int(p['nano']), 'destination': p['receiver']})
+            except HTTPException as error:
+                if error.code == 409:                      # Thermos refused before sending anything
+                    refund_withdrawal(row['id'], row['user_id'], p, 'Thermos отклонил вывод')
+                else:                                      # unknown outcome: do NOT repeat, leave it for a manual check
+                    with db():
+                        db().execute("UPDATE ton_withdrawals SET payload=? WHERE id=?", (json.dumps({**p, 'thermos': {'state': 'unknown', 'at': int(time.time())}}), row['id']))
+                    system_audit('Thermos TON withdrawal needs a manual check: ' + row['id'])
+                continue
+            ref = answer.get('id') if isinstance(answer, dict) else None
+            with db():
+                db().execute("UPDATE ton_withdrawals SET payload=? WHERE id=?", (json.dumps({**p, 'thermos': {'state': 'sent', 'id': ref, 'at': int(time.time())}}), row['id']))
+            system_audit('Thermos TON withdrawal sent: ' + row['id'])
+            sent += 1
+        return {'sent': sent, 'settled': settled}
+    app.extensions['crafter_thermos_balance'] = balance_ton
+    app.extensions['crafter_thermos_withdraw_once'] = auto_withdraw_once
+
+    def start_withdraw_worker():
+        def loop():
+            while True:
+                try:
+                    with app.app_context():
+                        app.extensions['crafter_thermos_withdraw_once']()
+                except Exception:
+                    app.logger.exception('Thermos auto-withdraw pass failed')
+                time.sleep(20)
+        threading.Thread(target=loop, name='thermos-auto-withdraw', daemon=True).start()
+    if not app.config.get('TESTING') and os.getenv('CRAFTER_NO_WORKERS') != '1':
+        start_withdraw_worker()
+
+    @app.post('/api/admin/thermos/auto-withdraw')
+    @auth(admin=True)
+    def thermos_auto_withdraw_toggle():
+        flag = (request.get_json(silent=True) or {}).get('enabled')
+        if not isinstance(flag, bool):
+            abort(400, description='enabled: true или false')
+        if flag and not api_token():
+            abort(409, description='Сначала сохраните токен Thermos')
+        with db():
+            db().execute("INSERT INTO settings(key,payload) VALUES('thermos_auto_withdraw_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
+                         (json.dumps({'enabled': flag}),))
+        audit('Thermos TON auto-withdraw ' + ('on' if flag else 'off'))
+        return overview()
+
     # ---- admin -------------------------------------------------------------------------------------
     def overview():
         return {'backend': backend(), 'token_configured': bool(api_token()), 'encryption_ready': bool(cipher()),
-                'markets': list(MARKETS)}
+                'markets': list(MARKETS), 'auto_withdraw': auto_withdraw_enabled(), 'last_error': last_error()}
 
     @app.get('/api/admin/thermos')
     @auth(admin=True)
@@ -313,7 +458,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
     # ---- shop purchase (WORK mode) ---------------------------------------------------------------
     def public_rows(ids):
         found = {}
-        for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=?",
+        for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",
                                 (int(time.time()) - 90,)):
             try:
                 data = json.loads(row['payload'])

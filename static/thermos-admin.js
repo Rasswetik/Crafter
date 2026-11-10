@@ -32,6 +32,9 @@ async function renderThermosAdmin(content) {
             <button type="button" class="${live ? 'is-active' : ''}" onclick="thermosAdmin('${live ? 'portals' : 'thermos'}')">
                 ${live ? 'Вернуть Portals' : 'Включить Thermos'}</button>
         </div>
+        <div class="th-actions"><button type="button" class="${th.auto_withdraw ? 'is-active' : ''}" onclick="thermosAdmin('${th.auto_withdraw ? 'withdraw-off' : 'withdraw-on'}')">${th.auto_withdraw ? 'Автовывод TON включён — выключить' : 'Включить автовывод TON'}</button></div>
+        <p class="th-note">Автовывод: заявки игроков на вывод TON уходят сами прямо с баланса Thermos на их кошельки (комиссия Thermos 0,1 TON за вывод). Никаких Render-кошельков и ручных подтверждений. На балансе Thermos должно хватать TON; если не хватает, заявка ждёт.</p>
+        ${th.last_error ? `<p class="th-note">Последний отказ Thermos: <code>${esc(th.last_error.where)} → ${esc(th.last_error.code)} ${esc(th.last_error.answer)}</code></p>` : ''}
         <div id="thermos-info" class="th-info" role="status"></div>
         <p class="th-note">Комиссии Thermos: покупка 0,1 TON (0,2 TON при выводе на релейер), вывод подарка 0,1 TON. Лимит API — 2 запроса в секунду.</p>
     </section>`;
@@ -46,6 +49,9 @@ async function thermosAdmin(action, quiet = false) {
             await api('admin/thermos/token', {token: input.value.trim()});
             input.value = '';
             toast('Токен сохранён');
+        } else if (action === 'withdraw-on' || action === 'withdraw-off') {
+            await api('admin/thermos/auto-withdraw', {enabled: action === 'withdraw-on'});
+            toast(action === 'withdraw-on' ? 'Автовывод TON включён' : 'Автовывод TON выключен');
         } else if (action === 'check') {
             if (box && !quiet) box.textContent = 'Проверяем…';
             const r = await api('admin/thermos/check', {});

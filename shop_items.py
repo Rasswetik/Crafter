@@ -40,6 +40,7 @@ def install_shop_items(app, db, auth, record, audit):
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS bundle BIGINT NOT NULL DEFAULT 1")
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS old_price_balls BIGINT")
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS contents TEXT")
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS position INTEGER")
         else:
             cols = [r['name'] for r in database.execute("PRAGMA table_info(shop_items)").fetchall()]
             if 'bundle' not in cols:
@@ -48,6 +49,8 @@ def install_shop_items(app, db, auth, record, audit):
                 database.execute("ALTER TABLE shop_items ADD COLUMN old_price_balls BIGINT")
             if 'contents' not in cols:
                 database.execute("ALTER TABLE shop_items ADD COLUMN contents TEXT")
+            if 'position' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN position INTEGER")
 
     import json
 
@@ -85,10 +88,22 @@ def install_shop_items(app, db, auth, record, audit):
                 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
                 'per_user': row['per_user'], 'bundle': int(row['bundle'] or 1), 'mine': mine, 'status': row['status']}
 
+    def order_mode():
+        row = db().execute("SELECT payload FROM settings WHERE key='shop_items_order_v1'").fetchone()
+        try:
+            return 'manual' if row and json.loads(row['payload']).get('mode') == 'manual' else 'price'
+        except (ValueError, TypeError, AttributeError):
+            return 'price'
+
+    def ordered(rows):
+        if order_mode() == 'manual':
+            return sorted(rows, key=lambda r: (r['position'] is None, r['position'] or 0, int(r['price_balls']), r['created']))
+        return sorted(rows, key=lambda r: (int(r['price_balls']), r['created']))
+
     @app.get('/api/shop-items')
     @auth()
     def shop_items():
-        rows = db().execute("SELECT * FROM shop_items WHERE status='active' ORDER BY created").fetchall()
+        rows = ordered(db().execute("SELECT * FROM shop_items WHERE status='active'").fetchall())
         return {'items': [view(r, g.user['id']) for r in rows]}
 
     @app.post('/api/shop-items/buy')
@@ -186,8 +201,8 @@ def install_shop_items(app, db, auth, record, audit):
     @app.get('/api/admin/new-year/shop')
     @auth(admin=True)
     def admin_shop():
-        rows = db().execute("SELECT * FROM shop_items ORDER BY created DESC LIMIT 200").fetchall()
-        return {'items': [view(r) for r in rows]}
+        rows = ordered(db().execute("SELECT * FROM shop_items").fetchall())[:300]
+        return {'items': [view(r) for r in rows], 'order': order_mode()}
 
     def whole(value, low, high, name):
         try:
@@ -198,10 +213,7 @@ def install_shop_items(app, db, auth, record, audit):
             abort(400, description=name + ': от ' + str(low) + ' до ' + str(high))
         return n
 
-    @app.post('/api/admin/new-year/shop')
-    @auth(admin=True)
-    def admin_shop_create():
-        body = request.get_json(silent=True) or {}
+    def parse_item(body):
         kind, promo = body.get('kind'), body.get('promo_kind') or ''
         if kind not in KINDS:
             abort(400, description='Неизвестный тип товара')
@@ -233,8 +245,8 @@ def install_shop_items(app, db, auth, record, audit):
                 if not app.extensions['crafter_pack_exists'](pid):
                     abort(400, description='В наборе есть несуществующий пак')
                 merged[pid] = merged.get(pid, 0) + n
-            if not merged or sum(merged.values()) > 20:
-                abort(400, description='В наборе от 1 до 20 паков')
+            if not merged or sum(merged.values()) > 500:
+                abort(400, description='В наборе от 1 до 500 паков')
             mix = json.dumps([{'pack_id': k, 'count': v} for k, v in merged.items()])
             if bundle_spec is not None:
                 bundle_spec['packs'] = json.loads(mix)
@@ -295,12 +307,62 @@ def install_shop_items(app, db, auth, record, audit):
                 title = amount + ' GRAM'
             if kind == 'PROMO':
                 title = 'Промокод: ' + title
+        return (kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, mix)
+
+    @app.post('/api/admin/new-year/shop')
+    @auth(admin=True)
+    def admin_shop_create():
+        vals = parse_item(request.get_json(silent=True) or {})
         iid = uuid.uuid4().hex
         with db():
-            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,old_price_balls,stock,per_user,bundle,contents,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
-                         (iid, kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, mix, int(time.time())))
-        audit('Shop item created: ' + title)
+            position = None
+            if order_mode() == 'manual':
+                position = int(db().execute("SELECT COALESCE(MAX(position),0)+1 AS n FROM shop_items").fetchone()['n'])
+            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,old_price_balls,stock,per_user,bundle,contents,position,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                         (iid,) + vals + (position, int(time.time())))
+        audit('Shop item created: ' + vals[3])
         return {'ok': True, 'id': iid}
+
+    @app.post('/api/admin/new-year/shop/<iid>/edit')
+    @auth(admin=True)
+    def admin_shop_edit(iid):
+        vals = parse_item(request.get_json(silent=True) or {})
+        with db():
+            if not db().execute("UPDATE shop_items SET kind=?,promo_kind=?,amount=?,title=?,image_url=?,price_balls=?,old_price_balls=?,stock=?,per_user=?,bundle=?,contents=? WHERE id=?",
+                                vals + (iid,)).rowcount:
+                abort(404, description='Товар не найден')
+        audit('Shop item edited: ' + vals[3])
+        return {'ok': True}
+
+    @app.post('/api/admin/new-year/shop/<iid>/move')
+    @auth(admin=True)
+    def admin_shop_move(iid):
+        direction = (request.get_json(silent=True) or {}).get('direction')
+        if direction not in ('up', 'down'):
+            abort(400, description='direction: up или down')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            rows = ordered(db().execute("SELECT * FROM shop_items").fetchall())
+            ids = [r['id'] for r in rows]
+            if iid not in ids:
+                abort(404, description='Товар не найден')
+            at = ids.index(iid)
+            to = at - 1 if direction == 'up' else at + 1
+            if 0 <= to < len(ids):
+                ids[at], ids[to] = ids[to], ids[at]
+            for number, item in enumerate(ids, 1):
+                db().execute("UPDATE shop_items SET position=? WHERE id=?", (number, item))
+            db().execute("INSERT INTO settings(key,payload) VALUES('shop_items_order_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps({'mode': 'manual'}),))
+        return {'ok': True}
+
+    @app.post('/api/admin/new-year/shop-order')
+    @auth(admin=True)
+    def admin_shop_order():
+        if (request.get_json(silent=True) or {}).get('mode') != 'price':
+            abort(400, description='mode: price')
+        with db():
+            db().execute("INSERT INTO settings(key,payload) VALUES('shop_items_order_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps({'mode': 'price'}),))
+        return {'ok': True}
 
     @app.post('/api/admin/new-year/shop/<iid>/status')
     @auth(admin=True)

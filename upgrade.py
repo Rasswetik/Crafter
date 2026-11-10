@@ -188,6 +188,13 @@ def install_upgrade(app, db, auth, record, ctx):
             price = positive_price(lot['price'])
             if price is not None:
                 out.append((view(lot, price, 'crafter'), price))
+        seen, unique = set(), []                      # the same lot may sit in several market snapshots: show it once
+        for item in sorted(out, key=lambda item: item[1]):
+            key = (item[0]['source'], item[0]['id'])
+            if key not in seen:
+                seen.add(key)
+                unique.append(item)
+        out = unique
         # Crafter market lots come first, then Portals; cheapest first inside each group.
         out.sort(key=lambda item: (item[0]['source'] != 'crafter', item[1], item[0]['id']))
         return out

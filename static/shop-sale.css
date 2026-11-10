@@ -54,6 +54,7 @@
   filter:brightness(calc(1 - var(--i) * .07)) drop-shadow(0 10px 16px rgba(0,0,0,.55)) drop-shadow(0 0 16px rgb(var(--ac) / .35))}
 
 /* Admin: the mixer of a pack set */
+.si-mix-n{width:64px;height:34px;text-align:center;font-weight:800;border-radius:10px;border:1px solid #ffffff2a;background:#ffffff0d;color:#fff}
 .si-mix{display:grid;gap:8px}
 .si-mix-row{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 12px;border-radius:16px;border:1px solid #ffffff1c;background:#ffffff08}
 .si-mix-row.is-on{border-color:#6aa6ff88;background:#2b7be01c}
@@ -62,3 +63,6 @@
 .si-mix-step{display:flex;align-items:center;gap:8px}
 .si-mix-step button{width:34px;height:34px;border-radius:12px;border:1px solid #ffffff2a;background:#ffffff12;color:#fff;font-size:20px;line-height:1;cursor:pointer}
 .si-mix-step output{min-width:26px;text-align:center;font-weight:800;font-size:16px;color:#fff}
+/* a single pack never grows past its stage, so the title below is always visible */
+.si-stage .si-solo{position:absolute!important;top:0;bottom:0;left:0;right:0;margin:auto!important;height:100%!important;width:auto!important;max-width:62%!important;max-height:100%!important}
+.si-hero-text{position:relative;z-index:4;margin-top:6px}
