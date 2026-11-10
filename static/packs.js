@@ -141,9 +141,9 @@ function tearPack(pack, reduce) {
         top.style.clipPath = poly([[0, 0], [x, 0], [x, TEAR_Y], [0, TEAR_Y]]);
         body.style.clipPath = poly([[0, TEAR_Y], [x, TEAR_Y], [x, 0], [100, 0], [100, 100], [0, 100]]);
         top.style.transformOrigin = x + '% ' + TEAR_Y + '%';
-        // the torn part simply lifts up from the pulled corner and bends away a little; nothing flips over
-        const ease = 1 - Math.pow(1 - Math.min(1, p * 2.2), 2);
-        top.style.transform = 'translate(' + (-1.5 * p).toFixed(2) + '%,' + (-26 * ease).toFixed(2) + '%) rotate(' + (7 * ease + 5 * p).toFixed(2) + 'deg)';
+        // The torn part stays joined to the bag at the tear front and only turns about it, so the pulled corner rises
+        // while the strip is still attached to the part that has not come off yet.
+        top.style.transform = 'translate(0%,0%) rotate(' + (8 + 34 * p).toFixed(2) + 'deg)';
     };
     const total = reduce ? 350 : 1900;
     return new Promise(resolve => {

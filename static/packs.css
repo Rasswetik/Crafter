@@ -230,3 +230,6 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 
 /* The torn strip is lifted straight up and away */
 .pk-pack.is-open .pk-top{transform:translate(-2%,-360%) rotate(10deg) !important;opacity:0;transition:transform 1s cubic-bezier(.3,.05,.6,.35),opacity .9s ease-in .1s}
+
+/* Fully torn: the strip, still turning about its last joint, rises and leaves; it continues from where the tear ended */
+.pk-pack.is-open .pk-top{transform:translate(5%,-240%) rotate(66deg) !important;opacity:0;transition:transform 1.05s cubic-bezier(.45,0,.8,.45),opacity .85s ease-in .2s}
