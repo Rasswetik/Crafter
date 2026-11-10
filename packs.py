@@ -258,7 +258,11 @@ def install_packs(app, db, auth, record, audit):
             for pack in db().execute("SELECT id FROM packs").fetchall():
                 rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id=?", (pack['id'],)).fetchall()
                 for r in rows:
-                    if r['kind'] == 'GRAM' and Decimal(r['amount'] or '0') >= 2:
+                    try:
+                        big = r['kind'] == 'GRAM' and Decimal(r['amount'] or '0') >= 2
+                    except Exception:
+                        big = False
+                    if big:
                         db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * 0.4, 4), r['id']))
                 rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id=?", (pack['id'],)).fetchall()
                 gram = sum(float(r['weight']) for r in rows if r['kind'] == 'GRAM')

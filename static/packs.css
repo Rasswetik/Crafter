@@ -185,3 +185,10 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 
 .pk-pc small{font-size:10.5px;color:#8fa0ba;margin-top:-4px}
 .adm-pick-any{align-self:flex-start;width:auto}
+
+/* iPhone / Safari: children with their own stacking (the "?" and the flake) used to show through the flipped card. */
+.pk-in{-webkit-transform-style:preserve-3d;transform-style:preserve-3d}
+.pk-back,.pk-face,.pk-back *,.pk-face *,.pk-back::before,.pk-back::after{-webkit-backface-visibility:hidden;backface-visibility:hidden}
+.pk-back{transform:rotateY(0deg) translateZ(1px);-webkit-transform:rotateY(0deg) translateZ(1px)}
+.pk-face{transform:rotateY(180deg) translateZ(1px);-webkit-transform:rotateY(180deg) translateZ(1px)}
+.pk-card.is-flip .pk-back{visibility:hidden;transition:visibility 0s linear .38s}

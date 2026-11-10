@@ -61,7 +61,7 @@ def install_star_gifts(app, db, auth, record, audit):
             CREATE INDEX IF NOT EXISTS star_gift_withdrawals_open ON star_gift_withdrawals(status,created);
             CREATE TABLE IF NOT EXISTS star_gift_lease (id INTEGER PRIMARY KEY, until BIGINT NOT NULL);
             CREATE TABLE IF NOT EXISTS star_gift_assets (
-                key TEXT PRIMARY KEY, tg_id BIGINT, stars INTEGER NOT NULL, png BLOB, updated BIGINT NOT NULL);
+                key TEXT PRIMARY KEY, tg_id BIGINT, stars INTEGER NOT NULL, png BYTEA, updated BIGINT NOT NULL);
         """)
         db().execute("INSERT INTO star_gift_lease VALUES(1,0) ON CONFLICT(id) DO NOTHING")
 

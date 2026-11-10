@@ -134,9 +134,10 @@ def install_gift_withdrawals(app, db, auth, record, audit):
     }
 
     def auto_state(wid):
-        if not db().execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='auto_nft_jobs'").fetchone():
+        try:
+            row = db().execute('SELECT stage,note,retry_at FROM auto_nft_jobs WHERE withdrawal_id=?', (wid,)).fetchone()
+        except Exception:
             return None
-        row = db().execute('SELECT stage,note,retry_at FROM auto_nft_jobs WHERE withdrawal_id=?', (wid,)).fetchone()
         if not row:
             return None
         return {'stage': row['stage'], 'stage_label': STAGES.get(row['stage'], row['stage']), 'note': row['note'], 'retry_at': row['retry_at']}
