@@ -17,9 +17,9 @@ from resale import cap_funded_balance
 RESULT_MS = 8_000
 PLAY_MS = 11_000
 WAIT_MS = 300_000
-AIM_MS = 3_000
+AIM_MS = 3_600
 FLIGHT_MS = 4_000
-FINISH_MS = 4_000
+FINISH_MS = 5_500
 FEE_BPS = 800
 MAX_GIFTS = 20
 MAX_REQUESTS = 80
@@ -537,7 +537,7 @@ def install_private_arena(app, db, auth, record, tools):
         result = []
         for row in rows:
             gift = json.loads(row['payload'])
-            if gift.get('catalog_only') or gift.get('pack_item'):
+            if gift.get('catalog_only') or gift.get('pack_item') or gift.get('star_gift'):
                 continue
             evaluated = priced.get(row['nft_id'])
             result.append({
@@ -598,7 +598,7 @@ def install_private_arena(app, db, auth, record, tools):
             for row in selected:
                 if row['status'] != 'unlisted':
                     abort(409, description='Подарок участвует в игре или уже выставлен')
-                if json.loads(row['payload']).get('catalog_only') or json.loads(row['payload']).get('pack_item'):
+                if json.loads(row['payload']).get('catalog_only') or json.loads(row['payload']).get('pack_item') or json.loads(row['payload']).get('star_gift'):
                     abort(409, description='Этот подарок нельзя передать боту')
             collision = db().execute(
                 "SELECT 1 FROM inventory WHERE user_id=? "

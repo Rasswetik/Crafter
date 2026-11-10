@@ -156,3 +156,13 @@ def test_gram_stake_wins_and_loses_from_balance(client, setup, monkeypatch):
     assert won.json['success'] is True and money_of(client, 43) == Decimal('14') and won.json['gift']
     assert client.post('/api/upgrade', headers=signed(43), json={'quote_id': q['quote_id'], 'request_id': 'g-2'}).json == won.json
     assert money_of(client, 43) == Decimal('14')                       # repeat does not charge again
+
+
+def test_collections_without_any_possible_lot_in_the_price_range_are_hidden(client, setup, monkeypatch):
+    import thermos
+    monkeypatch.setattr(thermos, 'collections', lambda: [
+        {'id': 'snoop', 'name': 'Snoop Dogg', 'floor_price': '10', 'photo_url': '/static/assets/snoop.webp'},
+        {'id': 'pricey', 'name': 'Pricey Gift', 'floor_price': '5000', 'photo_url': '/static/assets/snoop.webp'},
+        {'id': 'cheap', 'name': 'Cheap Gift', 'floor_price': '1', 'photo_url': '/static/assets/snoop.webp'}])
+    names = [c['name'] for c in client.get('/api/upgrade/collections?stake_id=stake-1', headers=signed(43)).json['collections']]
+    assert 'Pricey Gift' not in names and 'Snoop Dogg' in names and 'Cheap Gift' in names

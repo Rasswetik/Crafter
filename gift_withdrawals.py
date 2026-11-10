@@ -126,6 +126,49 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             abort(409,description='Вывод демоподарков недоступен')
         return queue_manual(g.user['id'],gift_id,rid)
 
+    STAGES = {
+        'portal_withdraw': 'Запрос на вывод с Portals', 'portal_sending': 'Запрос на вывод с Portals',
+        'portal_wait': 'Ждём, пока Portals переведёт подарок на релейер',
+        'relay_wait': 'Ждём подарок на релейере', 'transfer': 'Готов к отправке игроку',
+        'transfer_sending': 'Отправка игроку в Telegram', 'review': 'Нужна ручная проверка', 'done': 'Выполнено', 'failed': 'Не выполнено',
+    }
+
+    def auto_state(wid):
+        if not db().execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='auto_nft_jobs'").fetchone():
+            return None
+        row = db().execute('SELECT stage,note,retry_at FROM auto_nft_jobs WHERE withdrawal_id=?', (wid,)).fetchone()
+        if not row:
+            return None
+        return {'stage': row['stage'], 'stage_label': STAGES.get(row['stage'], row['stage']), 'note': row['note'], 'retry_at': row['retry_at']}
+
+    @app.get('/api/gifts/withdrawals')
+    @auth()
+    def my_withdrawals():
+        # The player's own withdrawal requests (NFT and ordinary gifts) with a clear status and reason.
+        uid = g.user['id']
+        auto_on = bool(app.extensions.get('crafter_auto_nft_enabled') and app.extensions['crafter_auto_nft_enabled']())
+        out = []
+        for row in db().execute('SELECT id,gift_id,payload,status,note,created,updated FROM gift_withdrawals WHERE user_id=? ORDER BY created DESC LIMIT 30', (uid,)):
+            gift = json.loads(row['payload']).get('gift', {})
+            auto = auto_state(row['id'])
+            if row['status'] == 'queued':
+                if auto and auto['stage'] == 'review':
+                    text = 'Заявка передана администратору на проверку'
+                elif auto:
+                    text = auto['stage_label']
+                else:
+                    text = 'Заявка принята и ждёт автоматической обработки' if auto_on else 'Заявка принята и ждёт обработки администратором'
+            else:
+                text = {'confirmed': 'Подарок отправлен вам в Telegram', 'failed': 'Вывод не выполнен, подарок возвращён в инвентарь'}.get(row['status'], row['status'])
+            out.append({'id': row['id'], 'kind': 'nft', 'gift_id': row['gift_id'], 'name': gift.get('name'), 'number': gift.get('number'),
+                        'status': row['status'], 'text': text,
+                        'reason': row['note'] if row['status'] == 'failed' else '', 'created': row['created'], 'updated': row['updated']})
+        star = app.extensions.get('crafter_star_withdrawals')
+        if star:
+            out += star(uid)
+        out.sort(key=lambda item: -int(item['created']))
+        return {'items': out[:30]}
+
     @app.get('/api/admin/withdrawals')
     @app.get('/api/admin/withdrawals/nft')
     @app.get('/api/admin/withdrawals/ton')
@@ -154,6 +197,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                           'status': row['status'], 'created': row['created'],
                           'note': row['note'],
                           'mode':'manual', 'fee_gram':entry.get('fee_gram','0'),
+                          'auto': auto_state(row['id']),
                           'gift': entry.get('gift', {}),
                           'receiver_user_id': entry.get('receiver_user_id'),
                           'receiver_username': entry.get('receiver_username')})
@@ -193,6 +237,9 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             db().execute('UPDATE gift_withdrawals SET status=?,updated=?,note=? WHERE id=?',
                          (decision, int(time.time()), note, wid))
             audit('NFT withdrawal ' + wid + ' marked ' + decision)
+        tell = app.extensions.get('crafter_notify_withdrawal')
+        if tell:
+            tell(owner, gift, decision == 'confirmed', '' if decision == 'confirmed' else note)
 
     app.extensions['crafter_gift_withdrawal_finalize'] = finalize_withdrawal
 
@@ -206,6 +253,8 @@ def install_gift_withdrawals(app, db, auth, record, audit):
         if len(note) > 500:
             abort(400, description='Комментарий слишком длинный')
         decision = data['decision']
+        if decision == 'failed' and len(note) < 3:
+            abort(400, description='Укажите причину возврата: её увидит игрок')
         if decision == 'confirmed' and len(note) < 8:
             abort(400, description='Укажите ссылку на перевод NFT или идентификатор подтверждения (не менее 8 символов)')
         finalize_withdrawal(wid, decision, note)

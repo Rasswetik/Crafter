@@ -15,7 +15,10 @@ function selectResaleMarket(source) {
     state.marketSource = source;
     state.order = source === 'crafter' ? 'price asc' : 'listed_at desc';
     state.marketUnit = 'GRAM';
-    if (state.collectionPage) return openCollectionPage(state.collectionPage, false);
+    // Filters picked on one market (for example the Pack collection, which exists only in Craft Market) do not carry over.
+    state.query = ''; state.collection = ''; state.model = ''; state.backdrop = ''; state.symbol = '';
+    state.minPrice = ''; state.maxPrice = '';
+    state.collectionPage = null;
     go('market');
 }
 

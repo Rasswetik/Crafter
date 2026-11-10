@@ -15,7 +15,7 @@ from flask import abort, g, request
 
 from resale import cap_funded_balance
 
-STAKE_ORIGINS = ('admin-grant', 'application-craft', 'local-purchase', 'portals-partner', 'telegram-deposit', 'thermos')
+STAKE_ORIGINS = ('admin-grant', 'application-craft', 'local-purchase', 'portals-partner', 'star-gift', 'telegram-deposit', 'thermos')
 TEST_ORIGINS = ('market-test', 'demo-craft')
 MIN_BPS, MAX_BPS = 100, 9499      # 1% .. 94.99%; the 5% house edge is built into the ratio
 EDGE_BPS = 9500
@@ -220,6 +220,8 @@ def install_upgrade(app, db, auth, record, ctx):
                     floor = floor * Decimal(str(ctx['gram_per_ton']()))
                 except Exception:
                     floor = None
+            if floor is not None and floor > high and not found.get(ctx['canonical_name'](c['name']), 0):
+                continue        # even the cheapest lot costs more than any stake here could win: do not show the collection
             out.append({'id': c['id'], 'name': c['name'], 'photo_url': c.get('photo_url', ''),
                         'floor': str(floor.quantize(Decimal('0.01'))) if floor else '',
                         'crafter': found.get(ctx['canonical_name'](c['name']), 0), '_i': index})

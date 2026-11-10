@@ -155,6 +155,21 @@ def notify_advent(config, user_id, day, default_token, url=''):
     return True
 
 
+def notify_withdrawal(config, recipient, gift, ok, reason, default_token):
+    """Tell a player how their gift withdrawal ended (delivered, or returned with the reason)."""
+    token = config.get('token') or default_token
+    if not token:
+        return
+    name = escape(str(gift.get('name') or 'Подарок') + (' #' + str(gift['number']) if gift.get('number') else ''))
+    if ok:
+        text = '✅ <b>Вывод выполнен</b>' + chr(10) + name + ' отправлен вам в Telegram.'
+    else:
+        text = ('❌ <b>Вывод не выполнен</b>' + chr(10) + name + ' возвращён в «Мои подарки».' +
+                (chr(10) + chr(10) + 'Причина: ' + escape(str(reason)) if reason else ''))
+    bot_api(token, 'sendMessage', {'chat_id': recipient, 'parse_mode': 'HTML', 'text': text,
+                                   'link_preview_options': {'is_disabled': True}})
+
+
 def notify_gift_transfer(config, recipient, gifts, sender, origin, default_token, personal_message=''):
     token = config.get('token') or default_token
     if not token:

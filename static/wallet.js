@@ -9,7 +9,7 @@ let walletHistoryCursor;
 const walletHistoryFiltersState = {};
 const walletGroups = {
     balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment','stake_claim','event_award_paid','arena_stake','arena_refund','arena_result','arena_bot_fund']},
-    gifts: {label:'Подарки', kinds:['buy','sale','sell','listing_price','unlist','withdraw','transfer','craft','gift_granted','gift_received','gift_withdraw_requested','gift_withdraw_failed']},
+    gifts: {label:'Подарки', kinds:['buy','sale','sell','listing_price','unlist','withdraw','transfer','craft','gift_granted','gift_received','gift_withdraw_requested','gift_withdraw_failed','star_gift_sold','star_gift_withdraw_requested','star_gift_withdraw','star_gift_withdraw_failed']},
     offers: {label:'Офферы', kinds:['offer_received','offer_created','offer_cancelled','offer_withdrawn','offer_accepted']},
 };
 const walletEventNames = {
@@ -17,7 +17,7 @@ const walletEventNames = {
     arena_stake:'Ставка Arena', arena_refund:'Возврат ставки Arena', arena_result:'Результат Arena', arena_bot_fund:'Пополнение банка бота Arena',
     buy:'Покупка подарка', sale:'Продажа подарка', sell:'Выставление на продажу', listing_price:'Изменение цены',
     unlist:'Снятие с продажи', withdraw:'Вывод подарка', gift_withdraw_requested:'Заявка на вывод NFT',
-    gift_withdraw_failed:'Вывод NFT не выполнен', transfer:'Отправка подарка',
+    gift_withdraw_failed:'Вывод NFT не выполнен', star_gift_sold:'Продажа подарка Telegram', star_gift_withdraw_requested:'Заявка на вывод подарка Telegram', star_gift_withdraw:'Подарок Telegram отправлен', star_gift_withdraw_failed:'Вывод подарка Telegram не выполнен', transfer:'Отправка подарка',
     gift_granted:'Получен подарок', gift_received:'Подарок получен', craft:'Крафт', offer_received:'Получен оффер',
     offer_created:'Оффер создан', offer_cancelled:'Оффер отменён', offer_withdrawn:'Оффер отозван', offer_accepted:'Оффер принят',
 };
@@ -403,6 +403,7 @@ function walletHistoryRow(item) {
         kind === 'craft' && (data.success ? 'Успешно' : 'Не удалось'),
         kind === 'arena_result' && (data.success ? 'Победа' : 'Раунд завершён'),
         kind === 'arena_result' && Number(data.fee_gram) > 0 && 'Комиссия ' + money(data.fee_gram) + ' GRAM',
+        ['gift_withdraw_failed', 'star_gift_withdraw_failed'].includes(kind) && (data.reason ? 'Причина: ' + data.reason : 'Подарок возвращён в инвентарь'),
         walletStatuses[status], time].filter(Boolean).join(' · ');
     const balanceDetail = data.balance_after != null ? 'Баланс: ' + money(data.balance_after) + ' GRAM' : '';
     return `<div class="wallet-history-row">

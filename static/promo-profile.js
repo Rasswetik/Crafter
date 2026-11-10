@@ -35,6 +35,11 @@ async function submitPromo(form){
             if(window.crafterPacks)window.crafterPacks.granted(result.pack_ids||[result.pack_id]);
             return;
         }
+        if(result.currency==='STAR'){
+            feedback(form,true,'Получено: подарки Telegram ×'+(result.count||1)+' — они в «Мои подарки»');
+            form.reset();
+            return;
+        }
         const balls=result.currency==='BALL';
         feedback(form,true,'Получено: '+liveAmount(result.reward)+(balls?' шаров':' GRAM'));
         if(state.me){state.me.balance=result.balance;updateBalance();}

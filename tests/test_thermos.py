@@ -219,3 +219,19 @@ def test_lots_priced_far_below_the_floor_are_dropped(monkeypatch):
     ids = [g['id'] for g in thermos.gifts({'collection_id': '1'}, catalog)['gifts']]
     assert ids == ['good', 'edge'] or ids == ['good', 'edge', 'low'][:len(ids)] and 'bad' not in ids      # 3.16 is not a real price
     assert 'bad' not in ids and 'good' in ids
+
+
+def test_a_broken_collection_floor_is_repaired_from_real_lots(monkeypatch):
+    import thermos
+    lot = lambda ext, price: {'external_id': ext, 'collection': 'Snow Mittens', 'model': {'name': 'Frost Fingers'}, 'backdrop': {'name': 'Black'},
+                              'symbol': {'name': 'Star'}, 'price': str(int(price * 10**9)), 'number': 1, 'image_url': 'https://i/x.png', 'marketplace': 'TONNEL'}
+
+    def request(path, body=None):
+        if path == 'collections':
+            return [{'id': 'snowmittens', 'name': 'Snow Mittens', 'image_url': 'x', 'stats': {'floor': str(int(3.16 * 10**9))}},
+                    {'id': 'other', 'name': 'Some Other Gift', 'image_url': 'x', 'stats': {'floor': str(int(2 * 10**9))}}]
+        return {'items': [lot('bad', 3.16), lot('real', 9.2), lot('more', 11)], 'count': 3}
+    monkeypatch.setattr(thermos, 'request', request)
+    floors = {c['id']: c['floor_price'] for c in thermos.collections()}
+    assert float(floors['snowmittens']) == 9.2          # not 3.16
+    assert float(floors['other']) == 2                  # unknown collections keep what Thermos reports

@@ -96,3 +96,23 @@ def test_admin_can_read_service_wallet_balance_without_its_private_key(client,mo
     result=client.get(path,headers=admin)
     assert result.status_code==200
     assert result.json['balance_ton']=='6.500000000'
+
+
+def test_player_sees_status_reason_and_gets_a_message(client, monkeypatch):
+    sent = []
+    monkeypatch.setattr('telegram_bot.bot_api', lambda token, method, payload, sticker=None: sent.append((method, payload)) or True)
+    gift = _deposit_gift(client)
+    user, admin = signed(43), signed()
+    wid = client.post('/api/gifts/withdraw', headers=user, json={'gift_id': gift['id'], 'request_id': 'request-9'}).json['id']
+    mine, = client.get('/api/gifts/withdrawals', headers=user).json['items']
+    assert mine['gift_id'] == gift['id'] and mine['status'] == 'queued' and 'администратором' in mine['text'] and mine['reason'] == ''
+    assert client.get('/api/admin/withdrawals', headers=admin).json['gifts'][0]['auto'] is None
+    route = '/api/admin/withdrawals/gift/' + wid + '/resolve'
+    assert client.post(route, headers=admin, json={'decision': 'failed', 'note': ''}).status_code == 400       # the reason is required
+    assert client.post(route, headers=admin, json={'decision': 'failed', 'note': 'Подарок недоступен на релейере'}).status_code == 200
+    mine, = client.get('/api/gifts/withdrawals', headers=user).json['items']
+    assert mine['status'] == 'failed' and mine['reason'] == 'Подарок недоступен на релейере' and 'возвращён' in mine['text']
+    message = [p for m, p in sent if m == 'sendMessage' and p['chat_id'] == 43]
+    assert message and 'Причина: Подарок недоступен на релейере' in message[-1]['text']
+    history = client.get('/api/wallet/history?types=gift_withdraw_failed', headers=user).json['items'][0]
+    assert history['data']['reason'] == 'Подарок недоступен на релейере'

@@ -37,7 +37,7 @@ function offerRequest(collection) {
 function paintCollectionMarketFeatures(grid) {
     const collection = collectionMarketContext();
     const previous = grid.previousElementSibling;
-    if (!collection) {
+    if (!collection || collection.name === 'Pack' || ['pack', 'packs'].includes(String(collection.id))) {
         if (previous?.classList.contains('collection-craft-cta')) previous.remove();
         return;
     }

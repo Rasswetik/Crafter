@@ -72,8 +72,8 @@ def install_promocodes(app, db, auth, record, audit):
         if str(body.get('limit',0))!=str(limit) or not 1<=limit<=1000000:
             abort(400,description='Количество активаций: 1–1000000')
         currency=body.get('currency','GRAM')
-        if currency not in ('GRAM','BALL','PACK'):
-            abort(400,description='Тип награды: основной баланс, новогодние шары или пак')
+        if currency not in ('GRAM','BALL','PACK','STAR'):
+            abort(400,description='Тип награды: основной баланс, новогодние шары, пак или подарок Telegram')
         if currency=='PACK':
             reward=str(body.get('reward') or '')
             if not app.extensions['crafter_pack_exists'](reward):
@@ -81,6 +81,14 @@ def install_promocodes(app, db, auth, record, audit):
             try:count=int(body.get('pack_count') or 1)
             except (TypeError,ValueError):abort(400,description='Количество паков — целое число')
             if not 1<=count<=20:abort(400,description='Паков за одну активацию: от 1 до 20')
+            reward=reward+':'+str(count)
+        elif currency=='STAR':
+            reward=str(body.get('reward') or '')
+            if not app.extensions['crafter_star_gift_exists'](reward):
+                abort(400,description='Выберите подарок Telegram')
+            try:count=int(body.get('pack_count') or 1)
+            except (TypeError,ValueError):abort(400,description='Количество подарков — целое число')
+            if not 1<=count<=20:abort(400,description='Подарков за одну активацию: от 1 до 20')
             reward=reward+':'+str(count)
         elif currency=='GRAM':
             reward=str(to_amount(body.get('reward')))
@@ -156,6 +164,14 @@ def install_promocodes(app, db, auth, record, audit):
                              (code,uid,int(time.time()),row['reward']))
                 record('promo_redeem',{'code':code,'reward':row['reward'],'currency':'PACK','packs':count},uid=uid)
                 return {'ok':True,'reward':row['reward'],'currency':'PACK','pack_id':ids[0],'pack_ids':ids,'balance':None,'new_year_balance':None}
+            if currency=='STAR':
+                key,_,amount=str(row['reward']).partition(':')
+                count=int(amount) if amount.isdigit() else 1
+                ids=[app.extensions['crafter_grant_star_gift'](uid,key,'promo:'+code) for _ in range(count)]
+                db().execute("INSERT INTO promo_claims(code,user_id,claimed_at,reward) VALUES(?,?,?,?)",
+                             (code,uid,int(time.time()),row['reward']))
+                record('promo_redeem',{'code':code,'reward':row['reward'],'currency':'STAR','gifts':count},uid=uid)
+                return {'ok':True,'reward':row['reward'],'currency':'STAR','star_gift':key,'count':count,'gift_ids':ids,'balance':None,'new_year_balance':None}
             account=db().execute("SELECT balance FROM demo_accounts WHERE user_id=?",(uid,)).fetchone()
             before=Decimal(str(account['balance'])) if account else Decimal('0')
             after=before

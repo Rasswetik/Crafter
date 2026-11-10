@@ -60,7 +60,7 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
         gift = json.loads(row['payload'])
         public = {k: v for k, v in gift.items() if k in {
             'name', 'number', 'model', 'image', 'background', 'backdrop', 'symbol', 'source_number',
-            'collection_id', 'floor_price', 'rarity', 'telegram_url', 'telegram_slug', 'source_price_unit',
+            'collection_id', 'floor_price', 'rarity', 'telegram_url', 'telegram_slug', 'source_price_unit', 'pack_item',
         }}
         return {**public, 'id': row['id'], 'price': row['price'], 'price_unit': 'GRAM',
                 'resale': True, 'own_listing': row['seller_id'] == uid, 'listed_at': row['listed_at']}
@@ -220,8 +220,8 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
                 if not row or row['status'] != ('unlisted' if action == 'sell' else 'listed'):
                     abort(409, description='Один из подарков уже недоступен для этого действия')
                 gift = json.loads(row['payload'])
-                if gift.get('catalog_only'):
-                    abort(409, description='Модель из каталога нельзя выставить')
+                if gift.get('catalog_only') or gift.get('star_gift'):
+                    abort(409, description='Эти подарки нельзя выставить на маркет: их можно продать сайту или вывести' if gift.get('star_gift') else 'Модель из каталога нельзя выставить')
                 lot_id = None
                 if action == 'unlist':
                     active = db().execute('SELECT id FROM crafter_listings WHERE seller_id=? AND gift_id=?', (uid, gift_id)).fetchone()

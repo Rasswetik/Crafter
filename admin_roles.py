@@ -99,7 +99,7 @@ def required_section(path):
         return "tonconnect"
     if p.startswith("tonconnect"):
         return "ton_withdraw"
-    if p.startswith("telegram-deposits"):
+    if p.startswith("telegram-deposits") or p.startswith("star-gifts"):
         return "relayer"
     if p.startswith("selection") or p.startswith("crafts"):
         return "crafts"

@@ -14,9 +14,9 @@ from staking import decimal_amount
 
 UNIT = Decimal('0.000001')
 BET_MS = 15_000
-AIM_MS = 3_000
+AIM_MS = 3_600
 FLIGHT_MS = 4_000
-FINISH_MS = 4_000
+FINISH_MS = 5_500
 PLAY_MS = AIM_MS + FLIGHT_MS + FINISH_MS
 RESULT_MS = 8_000
 WAIT_MS = 300_000
@@ -293,7 +293,7 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         result = {}
         for row in db().execute(query, params):
             gift = json.loads(row['payload'])
-            if gift.get('catalog_only') or gift.get('pack_item'):
+            if gift.get('catalog_only') or gift.get('pack_item') or gift.get('star_gift'):
                 continue
             price = (floors.get(canonical_name(gift.get('name') or '')) or
                      decimal_amount(demo_prices.get(row['nft_id'])))

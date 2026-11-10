@@ -2,11 +2,12 @@
 async function renderAdminPromocodes(content=document.querySelector('#admin-content')){
     const data=await api('admin/promocodes');
     if(!content?.isConnected)return;
-    const unit=currency=>currency==='BALL'?'шаров':currency==='PACK'?'(пак)':'GRAM';
+    const unit=currency=>currency==='BALL'?'шаров':currency==='PACK'?'(пак)':currency==='STAR'?'(подарок Telegram)':'GRAM';
+    const stars=window.crafterStarGifts?await window.crafterStarGifts.catalog():[];
     let packs=[];try{packs=(await api('admin/new-year/packs')).packs||[];}catch(_){}
     const list=data.codes.length?data.codes.map(row=>
         '<div class="ny-admin-row"><div><b>'+esc(row.code)+'</b><small>'+
-        (row.currency==='PACK'?esc(((packs.find(p=>p.id===String(row.reward).split(':')[0])||{}).title)||'Пак')+' ×'+esc(String(row.reward).split(':')[1]||'1'):esc(String(row.reward))+' '+unit(row.currency))+' · '+row.used+' / '+row.uses_limit+
+        (row.currency==='STAR'?esc(((stars.find(p=>p.key===String(row.reward).split(':')[0])||{}).name)||'Подарок')+' ×'+esc(String(row.reward).split(':')[1]||'1'):row.currency==='PACK'?esc(((packs.find(p=>p.id===String(row.reward).split(':')[0])||{}).title)||'Пак')+' ×'+esc(String(row.reward).split(':')[1]||'1'):esc(String(row.reward))+' '+unit(row.currency))+' · '+row.used+' / '+row.uses_limit+
         ' активаций</small></div><button type="button" data-promo-code="'+esc(row.code)+
         '" data-next="'+(row.active?'0':'1')+'">'+(row.active?'Выключить':'Включить')+
         '</button></div>').join(''):'<p class="sub">Промокодов пока нет.</p>';
@@ -17,7 +18,8 @@ async function renderAdminPromocodes(content=document.querySelector('#admin-cont
       '<label class="full">Название (необязательно)<input name="code" maxlength="32" autocomplete="off" placeholder="Случайный 8-значный код"></label>'+
       '<label class="full">Тип награды<select name="currency" id="crafter-promo-currency" class="field">'+
       '<option value="GRAM">TON / GRAM — основной баланс</option>'+
-      '<option value="BALL">Новогодние шары</option>'+(packs.length?'<option value="PACK">Карточный пак</option>':'')+'</select></label>'+
+      '<option value="BALL">Новогодние шары</option>'+(packs.length?'<option value="PACK">Карточный пак</option>':'')+(stars.length?'<option value="STAR">Подарок Telegram (Bear, Rose…)</option>':'')+'</select></label>'+
+      '<label id="crafter-promo-star-label" class="full" hidden>Какой подарок<select name="reward_star" class="field">'+(window.crafterStarGifts?window.crafterStarGifts.options(stars):'')+'</select></label>'+
       '<div id="crafter-promo-pack-label" class="full" hidden><span class="adm-lbl">Какой пак</span>'+(window.crafterPacks?window.crafterPacks.packTiles(packs,packs[0]?.id):'')+'<input type="hidden" name="reward_pack" value="'+esc(packs[0]?.id||'')+'"></div>'+
       '<label id="crafter-promo-count-label" hidden>Сколько паков за одну активацию<input name="pack_count" type="number" min="1" max="20" step="1" value="1"></label>'+
       '<label id="crafter-promo-amount-label">Сумма награды<input name="reward" id="crafter-promo-amount" type="number" min="0.000001" max="100000" step="0.000001" required placeholder="0.1"></label>'+
@@ -29,11 +31,12 @@ async function renderAdminPromocodes(content=document.querySelector('#admin-cont
     form.querySelectorAll('[data-adm-pack]').forEach(b=>b.addEventListener('click',()=>{form.elements.reward_pack.value=b.dataset.admPack;form.querySelectorAll('[data-adm-pack]').forEach(x=>x.classList.toggle('is-on',x===b));}));
     const type=form.elements.currency,amount=form.elements.reward;
     type.addEventListener('change',()=>{
-        const isPack=type.value==='PACK';
+        const isPack=type.value==='PACK',isStar=type.value==='STAR';
         form.querySelector('#crafter-promo-pack-label').hidden=!isPack;
-        form.querySelector('#crafter-promo-count-label').hidden=!isPack;
-        form.querySelector('#crafter-promo-amount-label').hidden=isPack;
-        amount.required=!isPack;
+        form.querySelector('#crafter-promo-star-label').hidden=!isStar;
+        form.querySelector('#crafter-promo-count-label').hidden=!(isPack||isStar);
+        form.querySelector('#crafter-promo-amount-label').hidden=isPack||isStar;
+        amount.required=!(isPack||isStar);
         const ball=type.value==='BALL';
         amount.min=ball?'1':'0.000001';
         amount.max=ball?'1000000000':'100000';
@@ -49,6 +52,7 @@ async function renderAdminPromocodes(content=document.querySelector('#admin-cont
         try{
             const payload=Object.fromEntries(new FormData(form));
             if(payload.currency==='PACK')payload.reward=payload.reward_pack;
+            if(payload.currency==='STAR')payload.reward=payload.reward_star;
             const result=await api('admin/promocodes',payload);
             await renderAdminPromocodes(content);
             const status=content.querySelector('#crafter-promo-created');

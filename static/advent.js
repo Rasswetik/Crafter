@@ -3,8 +3,9 @@
 'use strict';
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? ''));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
-const ICON = {GRAM: '/static/assets/gram.svg', BALL: '/static/assets/new-year-ornament.svg', PACK: '/static/assets/packs/new-year-pack.webp', PROMO: '/static/assets/community-reward.svg'};
-const KIND_NAME = {GRAM: 'GRAM на баланс', BALL: 'Новогодние шары', PACK: 'Карточный пак', PROMO: 'Промокод'};
+const ICON = {GRAM: '/static/assets/gram.svg', BALL: '/static/assets/new-year-ornament.svg', PACK: '/static/assets/packs/new-year-pack.webp', STAR: '/static/assets/stargifts/bear.svg', PROMO: '/static/assets/community-reward.svg'};
+const KIND_NAME = {GRAM: 'GRAM на баланс', BALL: 'Новогодние шары', PACK: 'Карточный пак', STAR: 'Подарок Telegram', PROMO: 'Промокод'};
+let STARS = [];
 const rimg = r => r.image_url || r.image || ICON[r.kind] || ICON.BALL;
 const LOCK = '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.6" fill="currentColor"/><path d="M8.2 10.5V8a3.8 3.8 0 0 1 7.6 0v2.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
 const LOCKBIG = '<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="lk-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9a8"/><stop offset="1" stop-color="#e0911c"/></linearGradient></defs><path d="M7.6 10.4V7.8a4.4 4.4 0 0 1 8.8 0v2.6" fill="none" stroke="#eaf1ff" stroke-width="2.3" stroke-linecap="round"/><rect x="4.6" y="10" width="14.8" height="11" rx="3.2" fill="url(#lk-g)"/><circle cx="12" cy="14.8" r="1.7" fill="#6b3d08"/><rect x="11.2" y="15.4" width="1.6" height="3.2" rx=".8" fill="#6b3d08"/></svg>';
@@ -131,6 +132,7 @@ async function admin(content) {
     let r, packs = [];
     try { r = await api('admin/new-year/advent'); } catch (_) { return; }
     try { packs = (await api('admin/new-year/packs')).packs || []; } catch (_) {}
+    try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) { STARS = []; }
     if (!content?.isConnected) return;
     const c = r.settings, ch = r.channel;
     const sec = document.createElement('section');
@@ -176,15 +178,17 @@ function editDay(d, packs, done) {
     const draw = () => {
         const what = eff() === 'PACK'
             ? '<div class="adm-step"><h4>Какой пак</h4>' + window.crafterPacks.packTiles(packs, f.amount) + '</div><div class="adm-step"><div class="adm-field"><label>Сколько паков</label><input data-f="count" type="number" min="1" max="20" value="' + e(f.count) + '"></div></div>'
+            : eff() === 'STAR'
+            ? '<div class="adm-step"><h4>Какой подарок</h4><div class="adm-field"><select data-f="amount">' + window.crafterStarGifts.options(STARS, f.amount) + '</select></div></div><div class="adm-step"><div class="adm-field"><label>Сколько подарков</label><input data-f="count" type="number" min="1" max="20" value="' + e(f.count) + '"></div></div>'
             : '<div class="adm-step"><h4>' + (eff() === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM') + '</h4><div class="adm-field"><input data-f="amount" inputmode="decimal" value="' + e(f.amount) + '"></div></div>';
         box.innerHTML = '<div class="adm-pick-win"><div class="adm-pick-head"><b>День ' + d.day + '</b><button type="button" class="adm-pick-x" aria-label="Закрыть">×</button></div><div class="adm-pick-grid adv-edit-body" style="display:block">' +
-            '<div class="adm-step"><h4>Награда</h4><div class="adm-tiles">' + ['GRAM', 'BALL', 'PACK', 'PROMO'].filter(k => k !== 'PACK' || packs.length).map(k => tile(f.kind === k, 'data-kind="' + k + '"', ICON[k], KIND_NAME[k])).join('') + '</div></div>' +
-            (f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + ['GRAM', 'BALL', 'PACK'].filter(k => k !== 'PACK' || packs.length).map(k => tile(f.promo === k, 'data-promo="' + k + '"', ICON[k], k === 'GRAM' ? 'GRAM' : k === 'BALL' ? 'Шары' : 'Пак')).join('') + '</div></div>' : '') + what +
+            '<div class="adm-step"><h4>Награда</h4><div class="adm-tiles">' + ['GRAM', 'BALL', 'PACK', 'STAR', 'PROMO'].filter(k => (k !== 'PACK' || packs.length) && (k !== 'STAR' || STARS.length)).map(k => tile(f.kind === k, 'data-kind="' + k + '"', ICON[k], KIND_NAME[k])).join('') + '</div></div>' +
+            (f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + ['GRAM', 'BALL', 'PACK', 'STAR'].filter(k => (k !== 'PACK' || packs.length) && (k !== 'STAR' || STARS.length)).map(k => tile(f.promo === k, 'data-promo="' + k + '"', ICON[k], k === 'GRAM' ? 'GRAM' : k === 'BALL' ? 'Шары' : k === 'STAR' ? 'Подарок' : 'Пак')).join('') + '</div></div>' : '') + what +
             '<details class="adm-more"' + (f.title || f.image ? ' open' : '') + '><summary>Название и картинка</summary><div class="adm-field"><label>Название</label><input data-f="title" value="' + e(f.title) + '" placeholder="' + e(d.auto_title) + '"></div><div class="adm-field" style="margin-top:8px"><label>Картинка (ссылка)</label><input data-f="image" value="' + e(f.image) + '"></div></details>' +
             '<button type="button" class="primary" id="adv-save" style="margin-top:16px;width:100%">Сохранить день</button></div></div>';
         const pull = () => box.querySelectorAll('[data-f]').forEach(i => { f[i.dataset.f] = i.value; });
-        box.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'PACK' ? (packs[0]?.id || '') : eff() === 'BALL' ? '100' : '1'; draw(); }));
-        box.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'PACK' ? (packs[0]?.id || '') : eff() === 'BALL' ? '100' : '1'; draw(); }));
+        box.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'PACK' ? (packs[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
+        box.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'PACK' ? (packs[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         box.querySelectorAll('[data-adm-pack]').forEach(b => b.addEventListener('click', () => { pull(); f.amount = b.dataset.admPack; draw(); }));
         box.querySelector('#adv-save').addEventListener('click', async () => {
             pull();

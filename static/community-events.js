@@ -7,8 +7,8 @@ const METRIC_NAME = {craft: 'Крафты', upgrade: 'Апгрейды', buy: '�
 const DEFAULT_IMG = '/static/assets/community-reward.svg';
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? ''));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
-const img = m => (m.image_url && /^(https:\/\/|\/static\/)/.test(m.image_url)) ? m.image_url : (m.pack?.image || DEFAULT_IMG);
-const rewardText = m => m.reward_kind === 'PACK' ? 'Пак «' + (m.pack?.title || '') + '»: 1–5 карточек' : m.reward_kind === 'BALL' ? 'Промокод на ' + num(m.reward_amount) + ' шаров' : 'Промокод на ' + num(m.reward_amount) + ' GRAM';
+const img = m => (m.image_url && /^(https:\/\/|\/static\/)/.test(m.image_url)) ? m.image_url : (m.pack?.image || m.star?.image || DEFAULT_IMG);
+const rewardText = m => m.reward_kind === 'STAR' ? 'Подарок Telegram «' + (m.star?.title || '') + '» · ' + num(m.star?.price || 0) + ' GRAM' : m.reward_kind === 'PACK' ? 'Пак «' + (m.pack?.title || '') + '»: 1–5 карточек' : m.reward_kind === 'BALL' ? 'Промокод на ' + num(m.reward_amount) + ' шаров' : 'Промокод на ' + num(m.reward_amount) + ' GRAM';
 const priceText = m => m.price_balls ? num(m.price_balls) + ' шаров' : 'Бесплатно';
 const pct = (a, b) => b > 0 ? Math.max(0, Math.min(100, a / b * 100)) : 0;
 const uid = () => state?.me?.id || state?.me?.user_id || 'me';
@@ -230,9 +230,10 @@ function claimSheet(m, refresh) {
     const head = '<div class="cm-sheet-head"><span class="cm-pic big"><img src="' + e(img(m)) + '" alt=""></span><div><b>' + e(m.title) + '</b><small>' + e(rewardText(m)) + '</small></div></div>';
     if (!m.reached) { sheet('Награда сообщества', head + '<p class="cm-sheet-note">Откроется, когда сообщество соберёт ' + num(m.threshold) + '. Цена: ' + e(priceText(m)) + '. Тираж: ' + num(m.supply) + '.</p>'); return; }
     if (m.reward_kind === 'PACK' && m.code) { sheet('Награда сообщества', head + '<p class="cm-sheet-note">' + (m.redeemed ? 'Вы уже открыли этот пак.' : 'Пак уже у вас — откройте его в разделе «Новогодний маркет».') + '</p>'); return; }
+    if (m.reward_kind === 'STAR' && m.code) { sheet('Награда сообщества', head + '<p class="cm-sheet-note">Подарок уже у вас — он в разделе «Мои подарки».</p>'); return; }
     if (m.code) { sheet('Награда сообщества', head + codeBlock(m.code)); bindCode(document.querySelector('#sheet-body'), m.code); return; }
     sheet('Награда сообщества', head +
-        '<p class="cm-sheet-note">Тираж: осталось ' + num(m.left) + ' из ' + num(m.supply) + '. Вы получите уникальный промокод, который сможете активировать только вы.</p>' +
+        '<p class="cm-sheet-note">Тираж: осталось ' + num(m.left) + ' из ' + num(m.supply) + '. ' + (m.reward_kind === 'STAR' ? 'Подарок Telegram сразу появится в «Мои подарки».' : 'Вы получите уникальный промокод, который сможете активировать только вы.') + '</p>' +
         '<button type="button" class="ny-action" id="cm-claim">' + (m.price_balls ? 'Получить за ' + num(m.price_balls) + ' шаров' : 'Получить бесплатно') + '</button>' +
         '<p class="purchase-error cm-claim-err" role="alert"></p>');
     const body = document.querySelector('#sheet-body'), btn = body.querySelector('#cm-claim');
@@ -241,6 +242,7 @@ function claimSheet(m, refresh) {
         try {
             const r = await api('community/claim', {milestone_id: m.id, request_id: rid});
             if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(r.balance);
+            if (r.gift_id) { m.code = 'STAR:' + r.gift_id; closeSheet(); toast('Подарок получен — он в «Мои подарки»'); refresh?.(); return; }
             if (r.pack_id) { m.code = 'PACK:' + r.pack_id; closeSheet(); await window.crafterPacks?.granted(r.pack_id, refresh); return; }
             m.code = r.code;
             body.innerHTML = head + codeBlock(r.code);
@@ -254,12 +256,14 @@ function claimSheet(m, refresh) {
 function checkCeremony() {}
 
 /* ---------- administrator ---------- */
-const KINDS = [['GRAM', 'Промокод GRAM'], ['BALL', 'Шары'], ['PACK', 'Карточный пак']];
+const KINDS = [['GRAM', 'Промокод GRAM'], ['BALL', 'Шары'], ['PACK', 'Карточный пак'], ['STAR', 'Подарок Telegram']];
+let STARS = [];
 const sw = (name, label, on, hint) => '<label class="ny-admin-switch full"><span><b>' + label + '</b>' + (hint ? '<small class="sub" style="display:block;margin-top:4px">' + hint + '</small>' : '') + '</span><input type="checkbox" name="' + name + '"' + (on ? ' checked' : '') + '></label>';
 async function admin(content) {
     let r, packs = [];
     try { r = await api('admin/new-year/community'); } catch (_) { return; }
     try { packs = (await api('admin/new-year/packs')).packs || []; } catch (_) {}
+    try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) { STARS = []; }
     if (!content?.isConnected) return;
     const ev = r.event || {title: 'Крафтим вместе', description: '', metric: 'craft', target: 10000, enabled: false};
     const sec = document.createElement('section');
@@ -278,12 +282,13 @@ async function admin(content) {
         '<button class="primary" type="submit">Сохранить событие</button></form>' +
         (r.event ? '<h3 style="margin-top:22px">Награды за этапы</h3><div class="ny-admin-list">' + (rows || '<p class="sub">Наград пока нет — добавьте первую ниже.</p>') + '</div>' +
         '<h3 style="margin-top:22px">Новая награда</h3><form id="cm-ms-form">' +
-        '<div class="cm-seg" role="radiogroup">' + KINDS.filter(k => k[0] !== 'PACK' || packs.length).map((k, i) => '<button type="button" data-kind="' + k[0] + '" class="' + (i === 0 ? 'is-on' : '') + '">' + k[1] + '</button>').join('') + '</div>' +
+        '<div class="cm-seg" role="radiogroup">' + KINDS.filter(k => (k[0] !== 'PACK' || packs.length) && (k[0] !== 'STAR' || STARS.length)).map((k, i) => '<button type="button" data-kind="' + k[0] + '" class="' + (i === 0 ? 'is-on' : '') + '">' + k[1] + '</button>').join('') + '</div>' +
         '<div class="ny-admin-fields">' +
         '<label>Когда открывается<input name="threshold" type="number" min="1" step="1" required placeholder="например 1000"><small class="sub">Сколько должно быть собрано</small></label>' +
         '<label>Тираж<input name="supply" type="number" min="1" step="1" required value="100"><small class="sub">Сколько игроков получат</small></label>' +
         '<label id="cm-amount-label">Размер награды<input name="reward_amount" inputmode="decimal" value="1"></label>' +
         '<div id="cm-pack-label" class="full" hidden><span class="adm-lbl">Какой пак</span>' + (window.crafterPacks ? window.crafterPacks.packTiles(packs, packs[0]?.id) : '') + '<input type="hidden" name="reward_pack" value="' + e(packs[0]?.id || '') + '"></div>' +
+        '<label id="cm-star-label" class="full" hidden>Какой подарок<select name="reward_star">' + (window.crafterStarGifts ? window.crafterStarGifts.options(STARS) : '') + '</select></label>' +
         '<label>Цена в шарах<input name="price_balls" type="number" min="0" step="1" value="0"><small class="sub">0 — бесплатно</small></label>' +
         '<label class="full">Картинка (необязательно)<input name="image_url" placeholder="Для пака берётся его картинка"></label>' +
         '<label class="full">Название (необязательно)<input name="title" maxlength="80" placeholder="Создастся автоматически"></label></div>' +
@@ -302,7 +307,8 @@ async function admin(content) {
         kind = b.dataset.kind;
         form.querySelectorAll('.cm-seg [data-kind]').forEach(x => x.classList.toggle('is-on', x === b));
         form.querySelector('#cm-pack-label').hidden = kind !== 'PACK';
-        form.querySelector('#cm-amount-label').hidden = kind === 'PACK';
+        form.querySelector('#cm-amount-label').hidden = kind === 'PACK' || kind === 'STAR';
+        form.querySelector('#cm-star-label').hidden = kind !== 'STAR';
         const amt = form.querySelector('[name=reward_amount]');
         amt.value = kind === 'BALL' ? '100' : '1';
         form.querySelector('#cm-amount-label').firstChild.textContent = kind === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM';
@@ -316,6 +322,7 @@ async function admin(content) {
         const body = Object.fromEntries(new FormData(ev2.target));
         body.reward_kind = kind;
         if (kind === 'PACK') body.reward_amount = body.reward_pack;
+        if (kind === 'STAR') body.reward_amount = body.reward_star;
         run(() => api('admin/new-year/community/milestones', body), 'Награда добавлена');
     });
     sec.querySelectorAll('[data-cm-del]').forEach(b => b.addEventListener('click', () =>

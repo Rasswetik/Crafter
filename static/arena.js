@@ -97,6 +97,7 @@ function enterArena(main, privateToken = null) {
                         <circle r="2.5" fill="#27351e" fill-opacity=".58" stroke="#fff" stroke-width=".34"/>
                         <path d="M-1.8 0h3.6M0-1.8v3.6" stroke="#fff" stroke-width=".3"/>
                         <g id="arena-aim" fill="none" stroke="#fff" stroke-width=".55">
+                            <circle r="8.6" stroke-width=".28" stroke-dasharray=".9 1.5" stroke-linecap="round" opacity=".7"/>
                             <path d="M.2-6.1A6.1 6.1 0 0 1 6.1 0h4.1m-1.8-1.6 1.8 1.6-1.8 1.6" stroke-linecap="round" stroke-linejoin="round"/>
                         </g>
                         <text id="arena-puck-name" x="0" y="-5.5"></text>
@@ -494,15 +495,23 @@ function arenaBrakePosition(plan, elapsed) {
     const t = arenaClamp(elapsed / plan.duration, 0, 1);
     const u = 1 - t;
     const position = axis => {
-        // Cubic Hermite path: starts at flight velocity and ends at rest.
+        // Quintic Hermite path: leaves at the flight speed and glides to rest with zero acceleration,
+        // so the puck keeps sliding for a long moment before it stops.
         const velocity = plan.direction[axis] * arenaSpeed;
-        const path = u * u * (1 + 2*t) * plan.start[axis] + u * u * t * velocity * plan.duration +
-            t * t * (3 - 2*t) * plan.end[axis];
+        const distance = plan.end[axis] - plan.start[axis];
+        let path;
+        if (Math.abs(distance) < .5) {
+            path = plan.start[axis] + distance * t * t * (3 - 2*t);
+        } else {
+            const a = arenaClamp(velocity * plan.duration / distance, .4, 4);
+            const glide = a * t + (10 - 6*a) * t ** 3 + (8*a - 15) * t ** 4 + (6 - 3*a) * t ** 5;
+            path = plan.start[axis] + distance * glide;
+        }
         const stop = arenaClamp(plan.target[axis], arenaWall, 100 - arenaWall);
         const edge = arenaClamp((t - .8) / .2, 0, 1);
         return arenaReflect(path) + (plan.target[axis] - stop) * edge * edge * (3 - 2*edge);
     };
-    return {x: position('x'), y: position('y'), zoom: 1 + .75 * t * t * (3 - 2*t)};
+    return {x: position('x'), y: position('y'), zoom: 1 + .75 * t * t * t * (t * (6*t - 15) + 10)};
 }
 
 /* Pick a point inside the winner's polygon, outside their centered avatar.
@@ -583,8 +592,15 @@ function arenaPuckFrame(data, now) {
     }
     const aiming = elapsed < data.aim_ms;
     if (aiming) {
+        // Hunt for the target: a fast sweep that slows down, a damped pendulum around the final
+        // direction, then the sight tightens and locks on. Everything is zero at turn = 1.
         const turn = elapsed / data.aim_ms;
-        return {x:50, y:50, zoom:1, aiming, angle:angle - 2 * Math.PI * (1 - turn) ** 2};
+        const settle = 1 - (1 - turn) ** 3;
+        const sweep = 2 * Math.PI * 1.4 * (1 - settle);
+        const hunt = .55 * Math.sin(turn * Math.PI * 7.5) * (1 - turn) ** 2.2;
+        const lock = arenaClamp((turn - .72) / .28, 0, 1);
+        return {x:50, y:50, zoom:1, aiming, angle:angle - sweep + hunt,
+                scale: 1.45 - .45 * settle - .12 * Math.sin(lock * Math.PI), lock};
     }
     play.hasMoved = true;
     play.travel = travel;
@@ -634,7 +650,8 @@ function arenaFrame(now) {
             zoom = motion.zoom;
             aim = motion.aiming;
             label = aim ? 'Прицеливание' : '● LIVE';
-            document.querySelector('#arena-aim').setAttribute('transform', `rotate(${motion.angle * 180 / Math.PI})`);
+            document.querySelector('#arena-aim').setAttribute('transform', `rotate(${motion.angle * 180 / Math.PI}) scale(${motion.scale || 1})`);
+            document.querySelector('#arena-aim').setAttribute('opacity', aim ? .55 + .45 * (motion.lock || 0) : 1);
             player = aim ? null : arena.cells.find(cell => arenaInside(position, cell.points))?.player;
             if (data.phase === 'result') label = 'Раунд завершён';
         }

@@ -15,8 +15,8 @@ from flask import abort, g, request
 
 from telegram_bot import bot_api
 
-KINDS = ('GRAM', 'BALL', 'PACK', 'PROMO')
-PROMO_KINDS = ('GRAM', 'BALL', 'PACK')
+KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO')
+PROMO_KINDS = ('GRAM', 'BALL', 'PACK', 'STAR')
 CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 SETTINGS_KEY = 'advent_v1'
 CHANNEL_KEY = 'advent_channel_v1'
@@ -134,6 +134,10 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         pack = short(row['amount']) if short and row['amount'] else None
         if row['kind'] == 'PACK':
             return ('Пак ' + (pack['title'] if pack else '')).strip() + (' ×' + str(row['count']) if row['count'] > 1 else '')
+        if row['kind'] == 'STAR' or row['promo_kind'] == 'STAR':
+            star = app.extensions['crafter_star_gift_short'](row['amount']) if row['amount'] else None
+            label = (star['title'] if star else 'Подарок Telegram') + (' ×' + str(row['count']) if row['count'] > 1 else '')
+            return label if row['kind'] == 'STAR' else 'Промокод: ' + label
         what = {'GRAM': row['amount'] + ' GRAM', 'BALL': row['amount'] + ' шаров'}.get(row['promo_kind'], 'пак ×' + str(row['count']))
         return 'Промокод: ' + what
 
@@ -218,7 +222,7 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         for _ in range(30):
             cand = 'NY-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(4)) + '-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(4))
             if not db().execute("SELECT 1 FROM promo_codes WHERE code=?", (cand,)).fetchone():
-                reward = amount + ':' + str(count) if kind == 'PACK' else amount
+                reward = amount + ':' + str(count) if kind in ('PACK', 'STAR') else amount
                 db().execute("INSERT INTO promo_codes(code,reward,currency,uses_limit,used,active,created_by,created,owner_id) VALUES(?,?,?,?,0,1,?,?,?)",
                              (cand, reward, kind, 1, uid, int(now()), uid))
                 return cand
@@ -260,6 +264,12 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
                 after = (int(wal['balls']) if wal else 0) + int(row['amount'])
                 db().execute("INSERT INTO new_year_wallets(user_id,balls) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balls=excluded.balls", (uid, after))
                 reward.update(amount=row['amount'], balls=after)
+            elif row['kind'] == 'STAR':
+                star = app.extensions['crafter_star_gift_short'](row['amount'])
+                if not star:
+                    abort(409, description='Подарок дня недоступен')
+                ids = [app.extensions['crafter_grant_star_gift'](uid, row['amount'], 'advent:' + str(day)) for _ in range(int(row['count']))]
+                reward.update(gift_ids=ids, count=int(row['count']), image=star['image'])
             elif row['kind'] == 'PACK':
                 ids = [app.extensions['crafter_grant_pack'](uid, row['amount'], 'advent:' + str(day)) for _ in range(int(row['count']))]
                 reward.update(pack_ids=ids, count=int(row['count']))
@@ -369,6 +379,10 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
                 amount = str(b.get('amount') or '')
                 if not app.extensions['crafter_pack_exists'](amount):
                     abort(400, description='Выберите существующий пак')
+            elif eff == 'STAR':
+                amount = str(b.get('amount') or '')
+                if not app.extensions['crafter_star_gift_exists'](amount):
+                    abort(400, description='Выберите подарок Telegram')
             elif eff == 'BALL':
                 n = int(b.get('amount'))
                 if not 1 <= n <= _LIMIT:
@@ -391,6 +405,6 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
         with db():
             db().execute("INSERT INTO advent_days(day,kind,promo_kind,amount,count,title,image_url) VALUES(?,?,?,?,?,?,?) "
                          "ON CONFLICT(day) DO UPDATE SET kind=excluded.kind,promo_kind=excluded.promo_kind,amount=excluded.amount,count=excluded.count,title=excluded.title,image_url=excluded.image_url",
-                         (day, kind, promo if kind == 'PROMO' else '', amount, count if eff == 'PACK' else 1, title, image))
+                         (day, kind, promo if kind == 'PROMO' else '', amount, count if eff in ('PACK', 'STAR') else 1, title, image))
         audit('Advent day %d saved' % day)
         return {'ok': True}

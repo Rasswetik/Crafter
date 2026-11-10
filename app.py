@@ -792,7 +792,7 @@ def create_app(config=None):
                         target_value=str(target_ton),input_value=str(total_ton),
                         price_unit='TON',mode='preview',scope='application',
                         chance_bps=min(9500,int(total_ton/target_ton*Decimal(9500))))
-        if any(x.get('origin') not in ('admin-grant','application-craft','local-purchase') for x in chosen):abort(409,description='Доступны подарки внутреннего инвентаря Crafter')
+        if any(x.get('origin') not in ('admin-grant','application-craft','local-purchase','star-gift') for x in chosen):abort(409,description='Доступны подарки внутреннего инвентаря Crafter')
         listing_id = data.get('listing_id')
         if isinstance(listing_id, str) and listing_id.startswith('crafter-'):
             lot = available_crafter_lot(listing_id, g.user['id'])
@@ -814,8 +814,13 @@ def create_app(config=None):
         catalog=public_catalog();target=next((c for c in catalog if c['id']==data.get('target_id')),None)
         if not target:abort(400,description='Выберите коллекцию результата')
         floors={canonical_name(c['name']):Decimal(c['floor_price']) for c in catalog}
-        if any(canonical_name(x['name']) not in floors for x in chosen):abort(409,description='Не удалось оценить коллекцию')
-        value=sum(floors[canonical_name(x['name'])] for x in chosen);cost=Decimal(target['floor_price'])
+        if any(canonical_name(x['name']) not in floors and not x.get('star_gift') for x in chosen):abort(409,description='Не удалось оценить коллекцию')
+        def craft_value(x):
+            if x.get('star_gift'):                      # ordinary Telegram gift: its GRAM value, in the catalogue's unit
+                gram=Decimal(str(x.get('price') or 0))
+                return gram/Decimal(str(app.extensions['crafter_new_year_trade_conversion']())) if target.get('price_unit')=='TON' else gram
+            return floors[canonical_name(x['name'])]
+        value=sum(craft_value(x) for x in chosen);cost=Decimal(target['floor_price'])
         if value<=0 or cost<=0:abort(409,description='Нет актуальной оценки подарков')
         listing_id = data.get('listing_id')
         mode = 'lucky' if listing_id is not None else 'collection'
@@ -1343,6 +1348,14 @@ def create_app(config=None):
     from telegram_bot import (https_url, install_telegram_bot, notify_gift_sale,
                               notify_gift_transfer, notify_offer_event, notify_gift_purchase)
     bot_settings = install_telegram_bot(app, db, auth, audit)
+    from telegram_bot import notify_withdrawal
+
+    def tell_withdrawal(uid, gift, ok, reason=''):
+        try:
+            notify_withdrawal(bot_settings(), uid, gift, ok, reason, app.config['BOT_TOKEN'])
+        except Exception:
+            app.logger.warning('Withdrawal notification was not delivered')
+    app.extensions['crafter_notify_withdrawal'] = tell_withdrawal
     from telegram_deposits import install_telegram_deposits
     install_telegram_deposits(app, db, auth, audit, record, bot_settings)
     from wallet import install_wallet
@@ -1457,6 +1470,8 @@ def create_app(config=None):
     install_portals_partner(app, db, auth, record, audit)
     from thermos_market import install_thermos_market
     install_thermos_market(app, db, auth, record, audit, dict(public_catalog=public_catalog))
+    from star_gifts import install_star_gifts
+    install_star_gifts(app, db, auth, record, audit)
     from auto_nft import install_auto_nft
     install_auto_nft(app, db, auth, audit)
     from game_type import install_game_type

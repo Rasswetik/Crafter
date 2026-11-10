@@ -52,7 +52,11 @@ function drawGiftWithdrawal(w){
         const a=document.createElement('a');a.href=link;a.target='_blank';a.rel='noopener noreferrer';
         a.textContent='Посмотреть именно этот NFT в Telegram';el.append(a);
     }
-    if(w.note){const p=document.createElement('p');p.className='withdrawals-meta';p.textContent=w.note;el.append(p);}
+    if(w.auto){const p=document.createElement('p');p.className='withdrawals-meta';
+        p.textContent='Автовывод: '+w.auto.stage_label+(w.auto.note?' · '+w.auto.note:'');el.append(p);}
+    else if(w.status==='queued'){const p=document.createElement('p');p.className='withdrawals-meta';
+        p.textContent='Автовывод ещё не брал заявку: он выключен или заявка не подходит для автоматической передачи. Передайте NFT вручную.';el.append(p);}
+    if(w.note){const p=document.createElement('p');p.className='withdrawals-meta';p.textContent=(w.status==='failed'?'Причина для игрока: ':'')+w.note;el.append(p);}
     if(w.status==='queued'){
         const buttons=document.createElement('div');buttons.className='withdrawals-actions';
         for(const [decision,label] of [['confirmed','Передан вручную'],['failed','Ошибка · вернуть']]){
@@ -130,8 +134,9 @@ async function resolveAdminGiftWithdrawal(id,decision){
     const confirmed=decision==='confirmed';
     const note=prompt(confirmed?
         'Укажите ссылку/номер реального перевода NFT в Telegram. Он должен быть уже отправлен.':
-        'Почему NFT возвращается в инвентарь?');
+        'Причина возврата NFT в инвентарь (её увидит игрок и получит в Telegram):');
     if(note===null)return;
+    if(!confirmed&&note.trim().length<3)return toast('Напишите причину: её увидит игрок');
     if(confirmed&&note.trim().length<8)return toast('Введите подтверждение перевода NFT (8 символов)');
     if(!confirm(confirmed?'Этот конкретный NFT уже передан получателю?':'Вернуть NFT в инвентарь?'))return;
     try{await api('admin/withdrawals/gift/'+encodeURIComponent(id)+'/resolve',{decision,note:note.trim()});

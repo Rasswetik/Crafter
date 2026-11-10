@@ -138,3 +138,29 @@ def test_rotation_replaces_key_and_bot_command(client, monkeypatch):
     texts = [p['text'] for m, p in calls if m == 'sendMessage']
     assert new in texts[0] and 'tg-spoiler' in texts[0] and '/partner-api' in texts[0]
     assert new not in texts[1] and 'хотя бы один раз' in texts[1]
+
+
+def test_ordinary_gifts_have_their_own_requests(client):
+    key, other = key_for(client, 43), key_for(client, 44)
+    client.post('/api/admin/star-gifts/grant', headers=signed(), json={'user_id': 43, 'key': 'rose', 'count': 2})
+    catalog = client.get(BASE + '/star-gifts', headers=bearer(key)).json
+    rose = next(g for g in catalog['gifts'] if g['key'] == 'rose')
+    assert catalog['stars_per_gram'] == 100 and rose['stars'] == 25 and rose['price'] == '0.25' and rose['price_nano'] == '250000000'
+    assert rose['image_url'].startswith('http') and 'telegram_gift_id' in rose
+    mine = client.get(BASE + '/star-gifts/inventory', headers=bearer(key)).json['gifts']
+    assert [g['key'] for g in mine] == ['rose', 'rose'] and mine[0]['status'] == 'available'
+    assert client.get(BASE + '/inventory', headers=bearer(key)).json['gifts'] == []          # not mixed with NFT gifts
+    sold = client.post(BASE + '/star-gifts/sell', headers=bearer(key, 'star-sell-0000000001'), json={'gift_id': mine[0]['gift_id']})
+    assert sold.status_code == 200 and sold.json['result']['amount'] == '0.25'
+    assert client.post(BASE + '/star-gifts/sell', headers=bearer(key, 'star-sell-0000000001'), json={'gift_id': mine[0]['gift_id']}).json['repeat']
+    assert client.post(BASE + '/star-gifts/sell', headers=bearer(other, 'star-sell-0000000002'), json={'gift_id': mine[1]['gift_id']}).status_code == 404
+    queued = client.post(BASE + '/star-gifts/withdraw', headers=bearer(key, 'star-wd-00000000001'), json={'gift_id': mine[1]['gift_id']})
+    assert queued.status_code == 200 and queued.json['result']['state'] == 'accepted'
+    assert client.get(BASE + '/star-gifts/inventory', headers=bearer(key)).json['gifts'][0]['status'] == 'withdrawing'
+    client.post('/api/admin/star-gifts/grant', headers=signed(), json={'user_id': 43, 'key': 'cake'})
+    cake, = [g for g in client.get(BASE + '/star-gifts/inventory', headers=bearer(key)).json['gifts'] if g['key'] == 'cake']
+    client.get('/api/me', headers=signed(44, username='bob'))
+    moved = client.post(BASE + '/star-gifts/transfer', headers=bearer(key, 'star-tr-00000000001'), json={'gift_id': cake['gift_id'], 'telegram_id': '44'})
+    assert moved.status_code == 200 and moved.json['result']['telegram_id'] == '44'
+    assert client.get('/partner-api').status_code == 200
+    assert '/star-gifts/withdraw' in client.get('/partner-api.openapi.json').json['paths']

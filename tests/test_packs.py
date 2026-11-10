@@ -295,8 +295,8 @@ def test_snowman_pack_economy_and_contents(client):
     mean_cards = sum(k * v for k, v in cards.items()) / sum(cards.values())
     ev_card = sum(float(D(p['value'] if p['kind'] == 'NFT' else p['amount'])) * p['weight'] for p in snow['prizes']) / total
     gift_share = sum(p['weight'] for p in gifts) / total
-    assert 0.3 <= ev_card * mean_cards <= 0.6                                              # an opening is worth about 0.3-0.5 GRAM
-    assert 1 <= 100 * mean_cards * gift_share <= 4                                         # a few gifts per hundred openings at most
+    assert 0.15 <= ev_card * mean_cards <= 0.4                                             # an opening is worth well under half a GRAM
+    assert 0.3 <= 100 * mean_cards * gift_share <= 0.9                                     # about one gift per 200 openings
     grams = {p['amount'] for p in snow['prizes'] if p['kind'] == 'GRAM'}
     assert {'0.1', '0.2', '0.5', '1', '2', '3', '5', '10'} <= grams
     info = client.get('/api/packs/snowman/contents', headers=player).json

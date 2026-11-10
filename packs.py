@@ -210,8 +210,8 @@ def install_packs(app, db, auth, record, audit):
                     col, m = catalog().get(cid), catalog_model(cid, model)
                     if col and m:
                         gifts.append((cid, singular(col.get('name') or cid), m['image'], value, model))
-                # gifts together are about 1.5 cards in a thousand... cheaper ones a little more often
-                total = 15.0
+                # gifts together are about 3.4 cards in a thousand (one pack in ~200)... cheaper ones a little more often
+                total = 3.4
                 inv = [1 / float(g[3]) for g in gifts]
                 for g, w in zip(gifts, inv):
                     put_prize('snowman', pos, 'NFT', '', g[0], g[1], g[2], g[3], round(total * w / (sum(inv) or 1), 3), g[4])
@@ -247,9 +247,36 @@ def install_packs(app, db, auth, record, audit):
     def short(p):
         return {'id': p['id'], 'title': p['title'], 'image': p['image_url']}
 
+    # One card in a pack is an NFT with a chance of about 0.34%: roughly one gift per 200 opened packs.
+    NFT_CARD_SHARE = 0.0034
+
+    def tune_packs_rarer():
+        """Once: make every pack stingier. NFT weights are scaled down (never up) to the target share, big GRAM prizes shrink."""
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_tuned_v3'").fetchone():
+            return
+        with db():
+            for pack in db().execute("SELECT id FROM packs").fetchall():
+                rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id=?", (pack['id'],)).fetchall()
+                for r in rows:
+                    if r['kind'] == 'GRAM' and Decimal(r['amount'] or '0') >= 2:
+                        db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * 0.4, 4), r['id']))
+                rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id=?", (pack['id'],)).fetchall()
+                gram = sum(float(r['weight']) for r in rows if r['kind'] == 'GRAM')
+                nft = sum(float(r['weight']) for r in rows if r['kind'] == 'NFT')
+                if gram <= 0 or nft <= 0:
+                    continue
+                wanted = NFT_CARD_SHARE / (1 - NFT_CARD_SHARE) * gram
+                if nft > wanted:
+                    factor = wanted / nft
+                    for r in rows:
+                        if r['kind'] == 'NFT':
+                            db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * factor, 5), r['id']))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v3','1') ON CONFLICT(key) DO NOTHING")
+
     with app.app_context():
         tune_default_pack()
         seed_snowman_pack()
+        tune_packs_rarer()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""

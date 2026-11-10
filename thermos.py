@@ -29,7 +29,30 @@ def unique_collections(rows):
             for key, row in by_id.items()]
 
 def collections():
-    return [dict(id=str(c['id']),short_name=str(c['id']),name=c['name'],photo_url=c['image_url'],floor_price=ton(c.get('stats',{}).get('floor')),price_unit='TON') for c in request('collections')]
+    rows = [dict(id=str(c['id']),short_name=str(c['id']),name=c['name'],photo_url=c['image_url'],floor_price=ton(c.get('stats',{}).get('floor')),price_unit='TON') for c in request('collections')]
+    for row in rows:
+        row['floor_price'] = repaired_floor(row, rows)
+    return rows
+
+
+def repaired_floor(row, rows):
+    """A collection floor far below the reference (wrong currency or one broken lot, e.g. Snow Mittens at 3.16 TON instead of ~9)
+    is replaced by the cheapest believable lot, or by the reference floor when no lot can be read."""
+    try:
+        floor = Decimal(str(row['floor_price'] or '0'))
+    except Exception:
+        return row['floor_price']
+    reference = seed_floors().get(canon(row['name']))
+    if not reference or (floor > 0 and floor >= reference * MIN_SHARE_OF_FLOOR):
+        return row['floor_price']
+    try:
+        lots = gifts({'collection_id': row['id'], 'sort_by': 'price asc'}, rows).get('gifts', [])
+        prices = [Decimal(str(lot['price'])) for lot in lots if Decimal(str(lot['price'])) > 0]
+        if prices:
+            return str(min(prices))
+    except Exception:
+        pass
+    return str(reference)
 
 _SEED_FLOORS = {}
 

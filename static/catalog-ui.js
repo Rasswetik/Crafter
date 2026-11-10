@@ -609,7 +609,7 @@ async function requestGiftWithdrawal(id) {
                 status.classList.add('is-success');
                 status.innerHTML='<strong>Заявка принята</strong><p>'+
                     (result.mode==='manual'?'Передано на ручную обработку.':'Передано на проверку Portals.')+
-                    ' Подарок зарезервирован до подтверждения вывода. Комиссия: 0,4 GRAM.</p>';
+                    ' Подарок зарезервирован до подтверждения вывода. Комиссия: 0,4 GRAM. Статус заявки виден в карточке подарка; если вывод не выполнится, подарок и комиссия вернутся, а причину вы увидите в истории и получите от бота.</p>';
             }
             if(result.balance!==undefined&&state.me){
                 state.me.balance=result.balance;

@@ -10,8 +10,8 @@ from decimal import Decimal
 
 from flask import abort, g, request
 
-KINDS = ('GRAM', 'BALL', 'PACK', 'PROMO')
-PROMO_KINDS = ('GRAM', 'BALL', 'PACK')
+KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO')
+PROMO_KINDS = ('GRAM', 'BALL', 'PACK', 'STAR')
 ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 _LIMIT = 10**9
 
@@ -57,9 +57,12 @@ def install_shop_items(app, db, auth, record, audit):
         pid = row['amount'] if row['kind'] == 'PACK' or (row['kind'] == 'PROMO' and row['promo_kind'] == 'PACK') else None
         if pid and app.extensions.get('crafter_pack_short'):
             pack = app.extensions['crafter_pack_short'](pid)
+        star = None
+        if row['kind'] == 'STAR' or (row['kind'] == 'PROMO' and row['promo_kind'] == 'STAR'):
+            star = app.extensions['crafter_star_gift_short'](row['amount'])
         left = None if row['stock'] is None else max(0, int(row['stock']) - int(row['sold']))
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
-                'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else ''), 'pack': pack,
+                'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else '') or (star['image'] if star else ''), 'pack': pack, 'star': star,
                 'price_balls': int(row['price_balls']), 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
                 'per_user': row['per_user'], 'bundle': int(row['bundle'] or 1), 'mine': mine, 'status': row['status']}
 
@@ -118,6 +121,9 @@ def install_shop_items(app, db, auth, record, audit):
             elif row['kind'] == 'PACK':
                 ids = [app.extensions['crafter_grant_pack'](uid, row['amount'], 'shop:' + iid) for _ in range(int(row['bundle'] or 1))]
                 result.update(pack_id=ids[0], pack_ids=ids)
+            elif row['kind'] == 'STAR':
+                ids = [app.extensions['crafter_grant_star_gift'](uid, row['amount'], 'shop:' + iid) for _ in range(int(row['bundle'] or 1))]
+                result.update(star_gift=row['amount'], gift_ids=ids, count=len(ids))
             else:
                 code = ''
                 for _ in range(30):
@@ -128,7 +134,7 @@ def install_shop_items(app, db, auth, record, audit):
                 if not code:
                     abort(503, description='Не удалось создать код, повторите')
                 db().execute("INSERT INTO promo_codes(code,reward,currency,uses_limit,used,active,created_by,created,owner_id) VALUES(?,?,?,?,0,1,?,?,?)",
-                             (code, (row['amount'] + ':' + str(int(row['bundle'] or 1))) if row['promo_kind'] == 'PACK' else row['amount'], row['promo_kind'], 1, uid, now, uid))
+                             (code, (row['amount'] + ':' + str(int(row['bundle'] or 1))) if row['promo_kind'] in ('PACK', 'STAR') else row['amount'], row['promo_kind'], 1, uid, now, uid))
                 result['code'] = code
             db().execute("UPDATE shop_items SET sold=sold+1 WHERE id=?", (iid,))
             db().execute("INSERT INTO shop_item_buys(item_id,user_id,request_id,result,created) VALUES(?,?,?,?,?)",
@@ -166,6 +172,10 @@ def install_shop_items(app, db, auth, record, audit):
             amount = str(body.get('amount') or '')
             if not app.extensions['crafter_pack_exists'](amount):
                 abort(400, description='Выберите существующий пак')
+        elif eff == 'STAR':
+            amount = str(body.get('amount') or '')
+            if not app.extensions['crafter_star_gift_exists'](amount):
+                abort(400, description='Выберите подарок Telegram')
         elif eff == 'BALL':
             amount = str(whole(body.get('amount'), 1, _LIMIT, 'Шары'))
         else:
@@ -175,8 +185,8 @@ def install_shop_items(app, db, auth, record, audit):
         stock = None if str(body.get('stock') or '').strip() == '' else whole(body.get('stock'), 1, 1000000, 'Количество')
         per_user = None if str(body.get('per_user') or '').strip() == '' else whole(body.get('per_user'), 1, 1000, 'Лимит на игрока')
         bundle = 1
-        if eff == 'PACK':
-            bundle = whole(body.get('bundle') or 1, 1, 20, 'Паков за одну покупку')
+        if eff in ('PACK', 'STAR'):
+            bundle = whole(body.get('bundle') or 1, 1, 20, 'Штук за одну покупку')
         image = str(body.get('image_url') or '').strip()
         if image and not (image.startswith('https://') or re.fullmatch(r'/static/[A-Za-z0-9_./-]+', image)):
             abort(400, description='Картинка: ссылка https:// или файл из /static/')
@@ -184,6 +194,8 @@ def install_shop_items(app, db, auth, record, audit):
         if not title:
             if eff == 'PACK':
                 title = (app.extensions['crafter_pack_short'](amount) or {}).get('title', 'Пак') + (' ×' + str(bundle) if bundle > 1 else '')
+            elif eff == 'STAR':
+                title = (app.extensions['crafter_star_gift_short'](amount) or {}).get('title', 'Подарок') + (' ×' + str(bundle) if bundle > 1 else '')
             elif eff == 'BALL':
                 title = amount + ' шаров'
             else:

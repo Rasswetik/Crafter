@@ -162,7 +162,7 @@ async function renderAdminNFTQueue(content=document.querySelector('#admin-conten
     content.innerHTML=adminQueueHeader('Вывод NFT','Подтверждайте выдачу только после фактической передачи указанного NFT.')+
         '<div class="admin-mini-summary">'+adminMetric('Заявок',list.length,'')+
         adminMetric('В очереди',list.filter(x=>x.status==='queued').length,'')+'</div>'+
-        '<div id="admin-nft-queue" class="admin-queue-list"></div>';
+        '<div id="admin-nft-queue" class="admin-queue-list admin-withdrawals"></div>';
     const node=content.querySelector('#admin-nft-queue');
     if(!list.length)node.textContent='Заявок нет.';
     else list.forEach(entry=>{
@@ -184,7 +184,7 @@ async function renderAdminTONQueue(content=document.querySelector('#admin-conten
     content.innerHTML=adminQueueHeader('Вывод TON','Перевод только после подтверждения кошелька. Никаких автоматических заявок по умолчанию.')+
         '<div class="admin-mini-summary">'+adminMetric('Заявок',list.length,'')+
         adminMetric('В обработке',list.filter(x=>['queued','processing'].includes(x.status)).length,'')+'</div>'+
-        '<div id="admin-ton-queue" class="admin-queue-list"></div>';
+        '<div id="admin-ton-queue" class="admin-queue-list admin-withdrawals"></div>';
     const node=content.querySelector('#admin-ton-queue');
     if(!list.length)node.textContent='Заявок нет.';
     else list.forEach(entry=>{

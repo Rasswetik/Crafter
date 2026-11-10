@@ -105,12 +105,13 @@ def install_community_events(app, db, auth, record, audit):
             taken = sold.get(r['id'], 0)
             code = mine.get(r['id'])
             pack = short(r['reward_amount']) if r['reward_kind'] == 'PACK' and short else None
-            redeemed = bool(code) and ((code[5:] in opened) if code.startswith('PACK:') else (code in used))
+            star = app.extensions['crafter_star_gift_short'](r['reward_amount']) if r['reward_kind'] == 'STAR' else None
+            redeemed = bool(code) and (code.startswith('STAR:') or ((code[5:] in opened) if code.startswith('PACK:') else (code in used)))
             out.append({'id': r['id'], 'threshold': int(r['threshold']), 'title': r['title'],
                         'reward_kind': r['reward_kind'], 'reward_amount': r['reward_amount'],
                         'supply': int(r['supply']), 'sold': taken, 'left': max(0, int(r['supply']) - taken),
-                        'price_balls': int(r['price_balls']), 'image_url': r['image_url'] or (pack['image'] if pack else ''),
-                        'pack': pack, 'redeemed': redeemed,
+                        'price_balls': int(r['price_balls']), 'image_url': r['image_url'] or (pack['image'] if pack else '') or (star['image'] if star else ''),
+                        'pack': pack, 'star': star, 'redeemed': redeemed,
                         'reached': int(r['threshold']) <= progress, 'reached_at': r['reached_at'],
                         'code': code})
         return progress, out
@@ -175,6 +176,12 @@ def install_community_events(app, db, auth, record, audit):
                              (mid, uid, 'PACK:' + upid, price, now, rid))
                 record('community_claim', {'milestone': mid, 'pack': row['reward_amount'], 'price_balls': price}, uid=uid)
                 return {'ok': True, 'pack_id': upid, 'balance': {'balls': balls - price}}
+            if row['reward_kind'] == 'STAR':
+                gid = app.extensions['crafter_grant_star_gift'](uid, row['reward_amount'], 'community:' + mid)
+                db().execute("INSERT INTO community_claims(milestone_id,user_id,code,price,created,request_id) VALUES(?,?,?,?,?,?)",
+                             (mid, uid, 'STAR:' + gid, price, now, rid))
+                record('community_claim', {'milestone': mid, 'star_gift': row['reward_amount'], 'price_balls': price}, uid=uid)
+                return {'ok': True, 'star_gift': row['reward_amount'], 'gift_id': gid, 'balance': {'balls': balls - price}}
             code = ''
             for _ in range(30):
                 candidate = 'NY-' + ''.join(secrets.choice(CODE_ALPHABET) for _ in range(4)) + '-' + \
@@ -263,9 +270,13 @@ def install_community_events(app, db, auth, record, audit):
         title = clean_text(body.get('title'), 80, 'название награды', required=False)
         threshold = whole(body.get('threshold'), 1, int(event['target']), 'Порог')
         kind = body.get('reward_kind')
-        if kind not in ('GRAM', 'BALL', 'PACK'):
-            abort(400, description='Награда: GRAM, шары или пак')
-        if kind == 'PACK':
+        if kind not in ('GRAM', 'BALL', 'PACK', 'STAR'):
+            abort(400, description='Награда: GRAM, шары, пак или подарок Telegram')
+        if kind == 'STAR':
+            amount = str(body.get('reward_amount') or '')
+            if not app.extensions['crafter_star_gift_exists'](amount):
+                abort(400, description='Выберите подарок Telegram')
+        elif kind == 'PACK':
             amount = str(body.get('reward_amount') or '')
             if not app.extensions['crafter_pack_exists'](amount):
                 abort(400, description='Выберите существующий пак')
@@ -275,7 +286,9 @@ def install_community_events(app, db, auth, record, audit):
             from promocodes import to_amount
             amount = str(to_amount(body.get('reward_amount')))
         if not title:
-            if kind == 'PACK':
+            if kind == 'STAR':
+                title = (app.extensions['crafter_star_gift_short'](amount) or {}).get('title', 'Подарок')
+            elif kind == 'PACK':
                 found = app.extensions['crafter_pack_short'](amount)
                 title = found['title'] if found else 'Пак'
             elif kind == 'BALL':
