@@ -141,10 +141,11 @@ function tearPack(pack, reduce) {
         top.style.clipPath = poly([[0, 0], [x, 0], [x, TEAR_Y], [0, TEAR_Y]]);
         body.style.clipPath = poly([[0, TEAR_Y], [x, TEAR_Y], [x, 0], [100, 0], [100, 100], [0, 100]]);
         top.style.transformOrigin = x + '% ' + TEAR_Y + '%';
-        const lift = Math.min(1, p * 5);                            // the corner leaves the bag at once, then the strip curls evenly
-        top.style.transform = 'rotate(' + (26 * lift + 30 * p).toFixed(2) + 'deg) translate(' + (-4 * p).toFixed(2) + '%,' + (-12 * lift).toFixed(2) + '%)';
+        // the torn part simply lifts up from the pulled corner and bends away a little; nothing flips over
+        const ease = 1 - Math.pow(1 - Math.min(1, p * 2.2), 2);
+        top.style.transform = 'translate(' + (-1.5 * p).toFixed(2) + '%,' + (-26 * ease).toFixed(2) + '%) rotate(' + (7 * ease + 5 * p).toFixed(2) + 'deg)';
     };
-    const total = reduce ? 350 : 1700;
+    const total = reduce ? 350 : 1900;
     return new Promise(resolve => {
         const t0 = performance.now();
         const step = now => {

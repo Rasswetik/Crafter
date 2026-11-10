@@ -27,11 +27,41 @@ BACKDROPS = (('Moonstone', 0x8FC1D4, 0x3C7C93), ('Persimmon', 0xF08A4B, 0xB9501F
              ('Sapphire', 0x4F86E8, 0x1E3E8F), ('Amber', 0xF2B94B, 0xAE7416), ('Lavender', 0xB79CF0, 0x6A4BB5), ('Burgundy', 0xA13A4C, 0x4B1520),
              ('Pacific Cyan', 0x3BC4D9, 0x14788C), ('Midnight Blue', 0x4A5AA8, 0x161C45), ('Coral', 0xF27B6B, 0xAA3A33), ('Mint Green', 0x7AD9A8, 0x2F8B63),
              ('Fuchsia', 0xD960C7, 0x7E1F75), ('Silver Blue', 0x9FB6CF, 0x4F6580), ('Tomato', 0xE8503E, 0x8F1C14), ('Cobalt Blue', 0x3F6BD6, 0x172E80))
-# Each pack has its own set of backdrops that suit it; the sets may share a colour but only a little.
+# More backdrops, each described by hue / saturation / lightness so that a family reads as one colour.
+_FAMILIES = {
+    # blues and cyans
+    'Navy Blue': (226, .62, .40), 'Sky Blue': (200, .78, .64), 'Steel Blue': (207, .40, .54), 'Azure Blue': (206, .85, .56),
+    'French Blue': (214, .60, .60), 'Ice Blue': (197, .55, .76), 'Indigo Dye': (238, .50, .44), 'Ultramarine': (236, .72, .52),
+    'Turquoise': (176, .62, .52), 'Mexican Pink': (335, .65, .66),
+    # greens, mint and snow whites
+    'Pine Green': (160, .55, .34), 'Hunter Green': (145, .40, .36), 'Jade Green': (150, .50, .50), 'Malachite': (142, .70, .46),
+    'Shamrock Green': (140, .55, .46), 'Pacific Green': (168, .58, .46), 'Pistachio': (88, .38, .64), 'Ivory White': (60, .20, .88),
+    'Platinum': (210, .08, .78), 'Roman Silver': (215, .10, .62), 'Tangerine': (30, .90, .58),
+    # violets, wine and berries
+    'Dark Lilac': (280, .30, .50), 'Electric Purple': (280, .80, .58), 'Royal Violet': (268, .60, .46), 'English Violet': (285, .28, .40),
+    'Grape': (285, .50, .38), 'Fandango': (318, .60, .46), 'Purple': (275, .55, .50), 'Carmine': (350, .75, .45),
+    'Rosewood': (352, .45, .40), 'Strawberry': (348, .70, .58), 'Coral Red': (5, .72, .58),
+}
+
+
+def _rgb(h, s, l):
+    import colorsys
+    r, g, b = colorsys.hls_to_rgb(h / 360, max(0, min(1, l)), s)
+    return (round(r * 255) << 16) | (round(g * 255) << 8) | round(b * 255)
+
+
+_known = {b[0] for b in BACKDROPS}
+BACKDROPS = BACKDROPS + tuple((name, _rgb(h, s, min(.9, l + .09)), _rgb(h, s, max(.12, l - .2)))
+                              for name, (h, s, l) in _FAMILIES.items() if name not in _known)
+
+# Each pack has its own family of backdrops that suit it. The families may touch, but only a little.
 PACK_BACKDROPS = {
-    'newyear': ('Sapphire', 'Cobalt Blue', 'Midnight Blue', 'Pacific Cyan', 'Silver Blue', 'Fuchsia'),       # blues, with one pink
-    'snowman': ('Mint Green', 'Emerald', 'Moonstone', 'Persimmon', 'Amber', 'Silver Blue'),                    # snow, pines, a carrot and lamp light
-    'winter': ('Lavender', 'Burgundy', 'Raspberry', 'Coral', 'Tomato', 'Midnight Blue'),                      # violet dusk and deep winter reds
+    'newyear': ('Sapphire', 'Cobalt Blue', 'Midnight Blue', 'Pacific Cyan', 'Silver Blue', 'Navy Blue', 'Sky Blue', 'Steel Blue',
+                'Azure Blue', 'French Blue', 'Ice Blue', 'Indigo Dye', 'Ultramarine', 'Turquoise', 'Fuchsia', 'Mexican Pink'),     # blues, two pinks
+    'snowman': ('Mint Green', 'Emerald', 'Pine Green', 'Hunter Green', 'Jade Green', 'Malachite', 'Shamrock Green', 'Pacific Green',
+                'Pistachio', 'Moonstone', 'Ivory White', 'Platinum', 'Roman Silver', 'Persimmon', 'Tangerine', 'Silver Blue'),    # pines and snow, a carrot
+    'winter': ('Lavender', 'Dark Lilac', 'Electric Purple', 'Royal Violet', 'English Violet', 'Grape', 'Fandango', 'Purple',
+               'Burgundy', 'Raspberry', 'Carmine', 'Rosewood', 'Strawberry', 'Coral Red', 'Midnight Blue', 'Indigo Dye'),         # violet dusk and wine
 }
 
 
@@ -329,11 +359,39 @@ def install_packs(app, db, auth, record, audit):
                     pos += 1
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_winter_v1','1') ON CONFLICT(key) DO NOTHING")
 
+    # One gift per ~400 openings, and the bigger balance prizes are cut again.
+    NFT_CARD_SHARE_V4 = 0.0017
+
+    def tune_packs_stingier():
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_tuned_v4'").fetchone():
+            return
+        with db():
+            for pack in db().execute("SELECT id FROM packs").fetchall():
+                for r in db().execute("SELECT * FROM pack_prizes WHERE pack_id=?", (pack['id'],)).fetchall():
+                    try:
+                        amount = Decimal(r['amount'] or '0') if r['kind'] == 'GRAM' else Decimal('0')
+                    except Exception:
+                        amount = Decimal('0')
+                    factor = Decimal('0.3') if amount >= 2 else Decimal('0.5') if amount >= Decimal('0.5') else Decimal('1')
+                    if factor != 1:
+                        db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * float(factor), 5), r['id']))
+                rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id=?", (pack['id'],)).fetchall()
+                gram = sum(float(r['weight']) for r in rows if r['kind'] == 'GRAM')
+                nft = sum(float(r['weight']) for r in rows if r['kind'] == 'NFT')
+                if gram > 0 and nft > 0:
+                    wanted = NFT_CARD_SHARE_V4 / (1 - NFT_CARD_SHARE_V4) * gram
+                    if nft > wanted:
+                        for r in rows:
+                            if r['kind'] == 'NFT':
+                                db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * wanted / nft, 6), r['id']))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v4','1') ON CONFLICT(key) DO NOTHING")
+
     with app.app_context():
         tune_default_pack()
         seed_snowman_pack()
         tune_packs_rarer()
         seed_winter_pack()
+        tune_packs_stingier()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""

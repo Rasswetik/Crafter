@@ -227,3 +227,6 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 .pk-stage{height:clamp(330px,calc(100vh - 210px),580px);height:clamp(330px,calc(100dvh - 210px),580px)}
 .pk-actions{position:relative;z-index:8;touch-action:manipulation}
 .pk-actions button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+
+/* The torn strip is lifted straight up and away */
+.pk-pack.is-open .pk-top{transform:translate(-2%,-360%) rotate(10deg) !important;opacity:0;transition:transform 1s cubic-bezier(.3,.05,.6,.35),opacity .9s ease-in .1s}

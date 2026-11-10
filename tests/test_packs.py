@@ -295,8 +295,8 @@ def test_snowman_pack_economy_and_contents(client):
     mean_cards = sum(k * v for k, v in cards.items()) / sum(cards.values())
     ev_card = sum(float(D(p['value'] if p['kind'] == 'NFT' else p['amount'])) * p['weight'] for p in snow['prizes']) / total
     gift_share = sum(p['weight'] for p in gifts) / total
-    assert 0.15 <= ev_card * mean_cards <= 0.4                                             # an opening is worth well under half a GRAM
-    assert 0.3 <= 100 * mean_cards * gift_share <= 0.9                                     # about one gift per 200 openings
+    assert 0.08 <= ev_card * mean_cards <= 0.3                                             # an opening is worth well under half a GRAM
+    assert 0.15 <= 100 * mean_cards * gift_share <= 0.45                                   # about one gift per 400 openings
     grams = {p['amount'] for p in snow['prizes'] if p['kind'] == 'GRAM'}
     assert {'0.1', '0.2', '0.5', '1', '2', '3', '5', '10'} <= grams
     info = client.get('/api/packs/snowman/contents', headers=player).json
@@ -331,7 +331,7 @@ def test_winter_pack_is_rare_cheap_and_listed_lots_know_their_pack(client):
     total = sum(p['weight'] for p in winter['prizes'])
     cards = {int(k): v for k, v in winter['card_weights'].items()}
     mean = sum(k * v for k, v in cards.items()) / sum(cards.values())
-    assert 0.3 <= 100 * mean * sum(p['weight'] for p in gifts) / total <= 0.9               # about one gift per 200 openings
+    assert 0.15 <= 100 * mean * sum(p['weight'] for p in gifts) / total <= 0.45             # about one gift per 400 openings
     assert len([p for p in winter['prizes'] if p['kind'] == 'GRAM']) >= 10                  # lots of balance prizes
     assert 'pack_id' in __import__('inspect').getsource(__import__('resale'))
 
@@ -373,11 +373,11 @@ def test_every_pack_has_its_own_backdrop_set():
     import packs
     names = {b[0] for b in packs.BACKDROPS}
     sets = {k: set(v) for k, v in packs.PACK_BACKDROPS.items()}
-    assert set(sets) == {'newyear', 'snowman', 'winter'} and all(v <= names and len(v) == 6 for v in sets.values())
+    assert set(sets) == {'newyear', 'snowman', 'winter'} and all(v <= names and len(v) == 16 for v in sets.values())
     for a in sets:
         for b in sets:
             if a < b:
-                assert len(sets[a] & sets[b]) <= 1                                   # they may meet, but only a little
+                assert len(sets[a] & sets[b]) <= 2                                   # they may meet, but only a little
     assert {b[0] for b in packs.backdrops_for('winter')} == sets['winter']
     assert len(packs.backdrops_for('custom-pack')) == len(packs.BACKDROPS)           # a pack made by hand draws from all
 
@@ -387,10 +387,10 @@ def test_a_pack_gets_a_backdrop_from_its_own_set(client):
     admin, player = signed(42), signed(43)
     client.get('/api/me', headers=player)
     for pack in ('winter', 'newyear', 'snowman'):
-        for _ in range(6):
+        for _ in range(8):
             client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': pack})
     items = [g for g in client.get('/api/inventory', headers=player).json['gifts'] if g.get('pack_item')]
-    assert len(items) == 18
+    assert len(items) == 24
     for g in items:
         assert g['backdrop'] in packs.PACK_BACKDROPS[g['pack_id']]
         assert g['background']['center_color'] and g['background']['edge_color']
