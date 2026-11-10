@@ -262,4 +262,7 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 .pk-win-nft img{width:54px;height:54px;object-fit:contain;border-radius:12px}.pk-win-nft b{display:block;font-size:15px;color:#fff}.pk-win-nft small{color:#9fb4d0}
 .pk-win-note{color:#8f98a6;font-size:12px}
 .pk-win .ny-action{width:100%}
-.pk-hold.is-gone{opacity:0;pointer-events:none}
+.pk-hold.is-gone span{opacity:0}
+.pk-hold.is-gone i{opacity:0}
+.pk-hold span,.pk-hold i{transition:opacity .4s}
+.pk-over.is-holding .pk-hold.is-gone i{opacity:1}

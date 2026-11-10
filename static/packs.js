@@ -218,8 +218,9 @@ async function open(upid, refresh, meta) {
         '<div class="pk-cards n' + cards.length + '">' + cards.map(cardMarkup).join('') + '</div></div>' +
         '<div class="pk-actions"></div>';
     if (meta && meta.total > 1) box.insertAdjacentHTML('afterbegin', '<div class="pk-counter">Пак ' + meta.index + ' из ' + meta.total + '</div>');
-    const holdable = Boolean(meta && meta.batch && meta.index === 1 && meta.total > 1);        // offered only in the first 5 seconds of the first pack
-    if (holdable) box.insertAdjacentHTML('beforeend', '<div class="pk-hold" aria-hidden="true"><span>Зажмите, чтобы открыть всё сразу</span><i><u></u></i></div>');
+    const holdable = Boolean(meta && meta.batch && meta.total > 1);       // holding works during the whole opening of every pack
+    const hintFirst = holdable && meta.index === 1;                       // the text about it is shown only in the first 5 seconds of the first pack
+    if (holdable) box.insertAdjacentHTML('beforeend', '<div class="pk-hold' + (hintFirst ? '' : ' is-gone') + '" aria-hidden="true"><span>Зажмите, чтобы открыть всё сразу</span><i><u></u></i></div>');
     document.body.appendChild(box);
     const pack = box.querySelector('.pk-pack'), wrap = box.querySelector('.pk-cards'), actions = box.querySelector('.pk-actions');
     let sold = 0, finished = false;
@@ -233,13 +234,12 @@ async function open(upid, refresh, meta) {
         refresh?.();
     };
     if (holdable) {                                           // hold for 5 seconds: this pack and all the rest open at once
-        let timer = null, offered = true;
+        let timer = null;
         const hint = box.querySelector('.pk-hold');
-        const stop = () => { clearTimeout(timer); timer = null; box.classList.remove('is-holding'); if (!offered) hint?.classList.add('is-gone'); };
-        setTimeout(() => { offered = false; if (!box.classList.contains('is-holding')) hint?.classList.add('is-gone'); }, 5000);
+        const stop = () => { clearTimeout(timer); timer = null; box.classList.remove('is-holding'); };
+        if (hintFirst) setTimeout(() => hint?.classList.add('is-gone'), 5000);
         box.addEventListener('pointerdown', ev => {
-            if (ev.target.closest('button') || finished || !offered && !hint?.isConnected) return;
-            if (!offered) return;
+            if (ev.target.closest('button') || finished) return;
             box.classList.remove('is-holding'); void box.offsetWidth; box.classList.add('is-holding');
             timer = setTimeout(() => { stop(); meta.batch.skip = true; close(); }, 5000);
         });
