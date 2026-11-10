@@ -358,3 +358,12 @@ def test_packs_share_one_running_number_and_cannot_be_crafted(client):
     assert {g['model'] for g in items} == {'Winter', 'New Year', 'Snowman'}
     craft = client.post('/api/craft/quote', headers=player, json={'gift_ids': [items[0]['id']], 'target_id': 'snoop'})
     assert craft.status_code == 409
+
+
+def test_pack_opening_script_keeps_every_function_it_calls():
+    import re
+    from pathlib import Path
+    code = (Path(__file__).resolve().parent.parent / 'static/packs.js').read_text(encoding='utf-8')
+    for name in ('cardMarkup', 'tearPack', 'openInside', 'open', 'granted', 'openMany'):
+        assert re.search(r'(async\s+)?function\s+' + name + r'\s*\(', code), name          # a slice edit once dropped cardMarkup and no pack could be opened
+    assert 'catch (err)' in code and 'the show failed' in code                                 # a failing animation reveals the cards instead of freezing

@@ -155,6 +155,17 @@ function tearPack(pack, reduce) {
         requestAnimationFrame(step);
     });
 }
+function cardMarkup(c, i) {
+    let face;
+    if (c.kind === 'GRAM') {
+        const a = Number(c.amount), tier = a >= 3 ? 't3' : a >= 1 ? 't2' : 't1';
+        face = '<div class="pk-face is-gram ' + tier + '"><span class="pk-gem">' + GEM + '</span><b>+' + num(c.amount) + '</b><em>GRAM</em></div>';
+    } else {
+        face = '<div class="pk-face is-nft"><img src="' + e(c.image) + '" alt=""><b>' + e(c.title) + '</b>' +
+            '<button type="button" class="pk-sell" data-pk-sell="' + e(c.nft_id) + '">Продать ' + GEM + ' ' + num(c.value) + '</button></div>';
+    }
+    return '<div class="pk-card" data-i="' + i + '"><div class="pk-in"><div class="pk-back"><span class="pk-flake">' + FLAKE + '</span><i>?</i><small>CRAFTER</small></div>' + face + '</div></div>';
+}
 async function open(upid, refresh, meta) {
     if (playing) return;
     playing = true;
@@ -218,36 +229,42 @@ async function open(upid, refresh, meta) {
 
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const t = ms => reduce ? sleep(ms / 4) : sleep(ms);
-    await t(60); box.classList.add('is-on');
-    pack.classList.add('is-in'); await t(1000);
-    pack.classList.add('is-shake'); await t(650);
-    pack.classList.remove('is-shake');
-    await tearPack(pack, reduce);                         // the seal tears open left to right
-    pack.classList.add('is-open'); await t(420);          // the torn strip flies off
-    // the bag sinks to the bottom of the stage and gets smaller, leaving room for the cards above it
-    const stage = box.querySelector('.pk-stage');
-    const before = pack.getBoundingClientRect(), sr = stage.getBoundingClientRect();
-    const scale = reduce ? .6 : .56;
-    const lowCenter = sr.bottom - before.height * scale / 2 - 4;
-    pack.style.setProperty('--low-y', (lowCenter - (before.top + before.height / 2)).toFixed(1) + 'px');
-    pack.style.setProperty('--low-s', String(scale));
-    pack.classList.add('is-low'); await t(950);
-    // the cards come out of the opening one after another: straight up out of the bag, then spread to their places
-    const pr = pack.getBoundingClientRect(), px = pr.left + pr.width / 2;
-    wrap.classList.add('is-ready');
-    const kids = [...wrap.children];
-    const order = kids.map((_, i) => i);
-    const animations = order.map(i => {
-        const el = kids[i], r = el.getBoundingClientRect();
-        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        const inside = 'translate(' + (px - cx) + 'px,' + (pr.top + pr.height * .55 - cy) + 'px) scale(.62)';
-        const out = 'translate(' + (px - cx) + 'px,' + (pr.top - r.height * .42 - cy) + 'px) scale(.9) rotate(' + ((i - (kids.length - 1) / 2) * 2.5) + 'deg)';
-        return el.animate([{transform: inside}, {transform: out, offset: .5}, {transform: 'none'}],
-            {duration: reduce ? 300 : 1250, delay: reduce ? 0 : i * 330, easing: 'cubic-bezier(.3,.7,.25,1)', fill: 'both'});
-    });
-    await Promise.all(animations.map(x => x.finished.catch(() => {})));
-    animations.forEach(x => { try { x.commitStyles(); x.cancel(); } catch (_) {} });
-    pack.classList.add('is-gone'); await t(500);
+    try {
+        await t(60); box.classList.add('is-on');
+        pack.classList.add('is-in'); await t(1000);
+        pack.classList.add('is-shake'); await t(650);
+        pack.classList.remove('is-shake');
+        await tearPack(pack, reduce);                         // the seal tears open left to right
+        pack.classList.add('is-open'); await t(420);          // the torn strip flies off
+        // the bag sinks to the bottom of the stage and gets smaller, leaving room for the cards above it
+        const stage = box.querySelector('.pk-stage');
+        const before = pack.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+        const scale = reduce ? .6 : .56;
+        const lowCenter = sr.bottom - before.height * scale / 2 - 4;
+        pack.style.setProperty('--low-y', (lowCenter - (before.top + before.height / 2)).toFixed(1) + 'px');
+        pack.style.setProperty('--low-s', String(scale));
+        pack.classList.add('is-low'); await t(950);
+        // the cards come out of the opening one after another: straight up out of the bag, then spread to their places
+        const pr = pack.getBoundingClientRect(), px = pr.left + pr.width / 2;
+        wrap.classList.add('is-ready');
+        const kids = [...wrap.children];
+        const order = kids.map((_, i) => i);
+        const animations = order.map(i => {
+            const el = kids[i], r = el.getBoundingClientRect();
+            const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+            const inside = 'translate(' + (px - cx) + 'px,' + (pr.top + pr.height * .55 - cy) + 'px) scale(.62)';
+            const out = 'translate(' + (px - cx) + 'px,' + (pr.top - r.height * .42 - cy) + 'px) scale(.9) rotate(' + ((i - (kids.length - 1) / 2) * 2.5) + 'deg)';
+            return el.animate([{transform: inside}, {transform: out, offset: .5}, {transform: 'none'}],
+                {duration: reduce ? 300 : 1250, delay: reduce ? 0 : i * 330, easing: 'cubic-bezier(.3,.7,.25,1)', fill: 'both'});
+        });
+        await Promise.all(animations.map(x => x.finished.catch(() => {})));
+        animations.forEach(x => { try { x.commitStyles(); x.cancel(); } catch (_) {} });
+        pack.classList.add('is-gone'); await t(500);
+    } catch (err) {                                          // the show failed: reveal the cards at once, nothing is lost
+        console.error(err);
+        box.classList.add('is-on'); pack.remove(); wrap.classList.add('is-ready');
+        [...wrap.children].forEach(el => { el.getAnimations?.().forEach(x => x.cancel()); el.style.transform = 'none'; });
+    }
     for (const el of wrap.children) {                       // flip one by one
         el.classList.add('is-flip');
         await t(760);
