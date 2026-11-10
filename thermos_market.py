@@ -524,6 +524,13 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 'balance_ton': str(Decimal(str(account.get('effective_balance', 0))) / NANO),
                 'deposit_address': deposit.get('address'), 'deposit_memo': deposit.get('memo')}
 
+    @app.post('/api/admin/thermos/clear-error')
+    @auth(admin=True)
+    def thermos_clear_error():
+        with db():
+            db().execute("DELETE FROM settings WHERE key='thermos_last_error_v1'")
+        return overview()
+
     @app.post('/api/admin/thermos/probe')
     @auth(admin=True)
     def thermos_probe():
