@@ -1399,6 +1399,15 @@ def create_app(config=None):
         except Exception:
             app.logger.warning('Telegram message was not delivered')
     app.extensions['crafter_notify_text'] = tell_text
+
+    def tell_withdraw_done(uid, gram, url):
+        try:
+            from telegram_bot import notify_gram_withdraw
+            return notify_gram_withdraw(bot_settings(), uid, gram, url, app.config['BOT_TOKEN'])
+        except Exception:
+            app.logger.warning('Withdrawal receipt was not delivered')
+            return False
+    app.extensions['crafter_notify_withdraw_done'] = tell_withdraw_done
     from telegram_deposits import install_telegram_deposits
     install_telegram_deposits(app, db, auth, audit, record, bot_settings)
     from wallet import install_wallet

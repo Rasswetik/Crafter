@@ -775,12 +775,26 @@ def test_ton_withdrawal_done_message_with_link_and_recheck(client, monkeypatch):
     sent = []
     monkeypatch.setitem(app.extensions, 'crafter_thermos_call', fake)
     monkeypatch.setitem(app.extensions, 'crafter_thermos_balance', lambda: Decimal('10'))
-    monkeypatch.setitem(app.extensions, 'crafter_notify_text', lambda uid, html: sent.append((uid, html)))
+    import base64
+    chain = [{'in_msg': {'value': '2000000000'}, 'utime': int(time.time()), 'transaction_id': {'hash': base64.b64encode(bytes.fromhex(HASH)).decode()}}]
+    monkeypatch.setitem(app.extensions, 'crafter_ton_rpc', lambda network, method, params, key='': chain)
+    monkeypatch.setitem(app.extensions, 'crafter_notify_withdraw_done', lambda uid, gram, url: sent.append((uid, gram, url)))
     with app.app_context():
         once = app.extensions['crafter_thermos_withdraw_once']
         assert once()['sent'] == 1
         assert once()['settled'] == 1                                              # PROCESSED -> confirmed -> the message
-    assert len(sent) == 1 and sent[0][0] == 43 and 'вывод</a>' in sent[0][1] and 'успешно выполнен' in sent[0][1] and '2 TON' in sent[0][1]
+    assert sent == [(43, '5', 'https://tonscan.org/tx/' + HASH)]               # the receipt carries the real transaction found on the chain
     with app.app_context():
         once()
     assert len(sent) == 1                                                          # never twice
+
+
+def test_withdraw_receipt_text_and_preview(monkeypatch):
+    import telegram_bot
+    sent = []
+    monkeypatch.setattr(telegram_bot, 'bot_api', lambda token, method, payload, sticker=None: sent.append(payload))
+    assert telegram_bot.notify_gram_withdraw({}, 43, '20.65', 'https://tonscan.org/tx/' + 'ab' * 32, 'tok') is True
+    payload = sent[0]
+    assert payload['text'].startswith('💸 Баланс обновлен') and '⬇️ Вывод: 20.65 GRAM успешно выполнен' in payload['text']
+    assert payload['text'].endswith('https://tonscan.org/tx/' + 'ab' * 32)
+    assert payload['link_preview_options']['url'].endswith('ab' * 32) and payload['link_preview_options'].get('is_disabled') is not True

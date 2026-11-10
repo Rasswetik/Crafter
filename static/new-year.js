@@ -28,20 +28,7 @@ function updateHeaderWallet(balance){
 }
 function navSeason(){
     if(!state?.me)return;
-    const main=document.querySelector('#nav .nav-main');
-    const current=main?.querySelector('.ny-nav-tab');
-    if(current)current.remove();
-    if(active()&&main){
-        const button=document.createElement('button');
-        button.className='ny-nav-tab'+(state.page==='new-year'?' active':'');
-        button.type='button';
-        button.dataset.gamePage='new-year';
-        button.setAttribute('aria-label','Событие');
-        button.innerHTML='<span class="stake-nav-icon">'+SEASON_ICON+'</span><span class="nav-label">Событие</span>';
-        button.addEventListener('click',()=>go('new-year'));
-        const market=main.querySelector('[data-game-page="market"]');
-        if(market)market.after(button);else main.prepend(button);
-    }
+    document.querySelector('#nav .nav-main .ny-nav-tab')?.remove();      // on the phone the event is not in the bottom bar: it lives in the Games section
     const desktop=document.querySelector('#crafter-desktop-sidebar .desktop-sidebar-menu');
     desktop?.querySelector('.ny-desktop-link')?.remove();
     if(active()&&desktop){
@@ -54,6 +41,15 @@ function navSeason(){
         const market=desktop.querySelector('button[onclick*="market"]');
         if(market)market.after(button);else desktop.prepend(button);
     }
+}
+function addSeasonTile(){
+    const wrap=document.querySelector('#main .crafter-games');
+    if(!wrap||!active()||wrap.querySelector('.ny-game-tile'))return;
+    wrap.insertAdjacentHTML('afterbegin','<button class="crafter-game-tile ny-game-tile" type="button" onclick="go(\'new-year\')"><span class="crafter-game-label"><strong>Событие</strong><span>Новогодний маркет, адвент-календарь и события сообщества</span><span class="crafter-game-open">Открыть</span></span><span class="crafter-game-emblem ny-game-emblem">'+SEASON_ICON+'</span></button>');
+}
+if(typeof renderGamesHub==='function'){
+    const hubBefore=renderGamesHub;
+    renderGamesHub=function(){hubBefore.apply(this,arguments);addSeasonTile();};
 }
 window.crafterNewYearNavRefresh=navSeason;
 window.crafterNewYearUpdateBalance=updateHeaderWallet;

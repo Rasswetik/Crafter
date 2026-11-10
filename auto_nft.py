@@ -83,7 +83,7 @@ def install_auto_nft(app, db, auth, audit):
                 source, stage, slug = 'portals', 'portal_withdraw', ''
             elif origin == 'thermos':
                 via = app.extensions.get('crafter_thermos_delivery', lambda: 'relayer')()
-                source, stage, slug = 'thermos', ('thermos_assign' if via == 'assign' else 'relay_wait'), ''   # bought on Thermos: it already is on the relayer's side
+                source, stage, slug = 'thermos', ('thermos_assign' if via == 'assign' else 'thermos_withdraw'), ''   # bought on Thermos: it already is on the relayer's side
             else:
                 continue                      # not automatable: stays in the manual queue
             now = int(time.time())
@@ -104,6 +104,13 @@ def install_auto_nft(app, db, auth, audit):
         if job['retry_at'] and job['retry_at'] > now:
             return
         age = now - job['created']
+
+        if stage == 'thermos_withdraw':           # the gift may still lie in the Thermos inventory: first take it out to the relayer's Telegram
+            set_job(wid, stage='withdraw_sending')
+            outcome, note = app.extensions['crafter_thermos_to_telegram'](gift)
+            if outcome in ('ok', 'missing'):         # out of Thermos (or never in it): the relayer sends it to the player
+                return set_job(wid, stage='relay_wait', note='')
+            return review(wid, note)
 
         if stage == 'thermos_assign':             # the gift is handed to the player inside Thermos (documented /gifts/assign, no Telegram link needed)
             set_job(wid, stage='assign_sending')

@@ -64,7 +64,7 @@ def test_telegram_receipt_has_exact_verified_amount_and_transaction(client,monke
        '⬆️Депозит: 1 GRAM успешно зачислено\n\n'
        '🔎 Посмотреть транзакцию\n\n'
        'https://testnet.tonscan.org/tx/'+digest.hex())
-    assert payload['link_preview_options']=={'is_disabled':True}
+    assert payload['link_preview_options']=={'url':'https://testnet.tonscan.org/tx/'+digest.hex(),'prefer_large_media':True,'show_above_text':False}    # the Tonscan picture under the receipt
     assert client.post(check,headers=headers,json={}).json=={'status':'confirmed'}
     assert len(send)==1
 

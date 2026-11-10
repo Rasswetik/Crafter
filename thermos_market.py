@@ -277,6 +277,34 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         unique = list(dict.fromkeys(found))
         return unique[0] if len(unique) == 1 else None
 
+    def thermos_to_telegram(gift):
+        """Withdraw an owned gift from the Thermos inventory to the Telegram account of the Thermos account (the relayer), documented
+        POST /gifts/transfer (0.1 TON). It has no recipient field: the relayer then sends the gift on to the player.
+        -> ('ok'|'missing'|'failed'|'unknown', note). 'missing' = it is not in the Thermos inventory (already in Telegram)."""
+        owned = find_owned_id(gift.get('telegram_slug') or gift.get('slug'), gift.get('name'), gift.get('number') or gift.get('source_number'))
+        if not owned:
+            return 'missing', 'Подарка нет в инвентаре Thermos'
+        try:
+            response = call('POST', '/gifts/transfer', {'owned_gift_ids': [owned]})
+        except HTTPException as error:
+            return ('failed', 'Thermos отклонил вывод') if error.code == 409 else ('unknown', 'Результат вывода неизвестен')
+        task = response.get('task_id') if isinstance(response, dict) else None
+        if not task:
+            return 'unknown', 'Thermos не вернул задачу'
+        try:
+            state = wait_task(task)
+        except HTTPException:
+            return 'unknown', 'Не удалось получить статус вывода'
+        if state is None:
+            return 'unknown', 'Вывод ещё выполняется'
+        if state.get('combined_state') == 'SUCCESS':
+            return 'ok', ''
+        subs = state.get('sub_tasks') or []
+        if subs and all(s.get('state') == 'FAILURE' for s in subs):
+            return 'failed', str(subs[0].get('error_message') or 'Вывод не выполнен')[:200]
+        return 'unknown', 'Результат вывода неясен'
+    app.extensions['crafter_thermos_to_telegram'] = thermos_to_telegram
+
     def assign_gift(gift, recipient_id):
         """Give the gift to a player inside Thermos (no fee). -> ('ok'|'missing'|'failed'|'unknown', note).
         An unknown outcome is never repeated."""
@@ -405,15 +433,38 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 return value.strip().lower()
         return None
 
+    def find_onchain(p, since):
+        """The hash of the transaction that brought this exact amount to the player's wallet (toncenter), or None."""
+        rpc, cfg = app.extensions.get('crafter_ton_rpc'), app.extensions.get('crafter_ton_config')
+        if not rpc or not cfg:
+            return None
+        try:
+            items = rpc(p['network'], 'getTransactions', {'address': p['receiver'], 'limit': 20}, cfg().get('rpc_key', '')) or []
+        except Exception:
+            return None
+        import base64
+        for item in items:
+            message = item.get('in_msg') or {}
+            try:
+                same = int(message.get('value', 0)) == int(p['nano']) and int(item.get('utime', 0)) >= int(since) - 60 and not message.get('bounced')
+            except (TypeError, ValueError):
+                continue
+            digest = (item.get('transaction_id') or {}).get('hash')
+            if same and digest:
+                try:
+                    return base64.b64decode(digest).hex()
+                except Exception:
+                    continue
+        return None
+
     def tell_done(wid, uid, p, tx):
-        """🎉 message to the player when the TON has reached the wallet; sent once. The word «вывод» is the link to the transaction."""
+        """The receipt in Telegram when the TON has reached the wallet (with the Tonscan picture); sent once."""
         if p.get('thermos', {}).get('notified'):
             return
         url = 'https://tonscan.org/tx/' + tx if re.fullmatch(r'[0-9a-f]{64}', str(tx)) else 'https://tonscan.org/address/' + str(p.get('receiver') or '')
-        text = '\U0001F389 Ваш <a href="' + url + '">вывод</a> на ' + str(Decimal(p['ton']).normalize()) + ' TON (' + str(Decimal(p['gram']).normalize()) + ' GRAM) успешно выполнен — наслаждайтесь!'
-        send = app.extensions.get('crafter_notify_text')
+        send = app.extensions.get('crafter_notify_withdraw_done')
         if send:
-            send(uid, text)
+            send(uid, p['gram'], url)
         p = {**p, 'thermos': {**p.get('thermos', {}), 'notified': True}}
         with db():
             db().execute("UPDATE ton_withdrawals SET payload=? WHERE id=?", (json.dumps(p), wid))
@@ -430,7 +481,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         call_ = app.extensions['crafter_thermos_call']
         fixed = 0
         since = int(time.time()) - 3 * 86400
-        for row in db().execute("SELECT id,user_id,payload,status,tx FROM ton_withdrawals WHERE created>? AND (status='processing' OR (status='confirmed' AND tx LIKE 'thermos:%' AND created>?)) ORDER BY created DESC LIMIT 6", (since, int(time.time()) - 3600)).fetchall():
+        for row in db().execute("SELECT id,user_id,payload,status,tx,created FROM ton_withdrawals WHERE created>? AND (status='processing' OR (status='confirmed' AND tx LIKE 'thermos:%' AND created>?)) ORDER BY created DESC LIMIT 6", (since, int(time.time()) - 3600)).fetchall():
             p = json.loads(row['payload'])
             ref = (p.get('thermos') or {}).get('id')
             if ref is None:
@@ -441,13 +492,16 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 continue
             state = str(answer.get('status') or '').upper()
             if row['status'] == 'confirmed':
-                h = tx_hash(answer)
+                h = tx_hash(answer) or find_onchain(p, row['created'])
                 if state == 'FAILED':
                     system_audit('Thermos TON withdrawal reported FAILED after being confirmed: ' + row['id'])
                 elif h and h != row['tx']:
                     with db():
                         db().execute("UPDATE ton_withdrawals SET tx=? WHERE id=?", (h, row['id']))
+                    tell_done(row['id'], row['user_id'], p, h)
                     fixed += 1
+                elif not h and time.time() - int(row['created']) > 600:
+                    tell_done(row['id'], row['user_id'], p, row['tx'])      # the chain does not show it yet: the receipt goes with the wallet link
             elif state == 'PROCESSING' and time.time() - int(p.get('thermos', {}).get('at') or 0) > 3600:
                 system_audit('Thermos TON withdrawal is still processing after an hour: ' + row['id'])
         return fixed
@@ -458,7 +512,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
             return {'sent': 0, 'settled': 0}
         call_ = app.extensions['crafter_thermos_call']
         sent = settled = 0
-        for row in db().execute("SELECT id,user_id,payload FROM ton_withdrawals WHERE status='processing'").fetchall():
+        for row in db().execute("SELECT id,user_id,payload,created FROM ton_withdrawals WHERE status='processing'").fetchall():
             p = json.loads(row['payload'])
             ref = (p.get('thermos') or {}).get('id')
             if ref is None:
@@ -469,11 +523,13 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
             except HTTPException:
                 continue
             if state == 'PROCESSED':
-                tx = tx_hash(answer) or ('thermos:' + str(ref))
+                real = tx_hash(answer) or find_onchain(p, row['created'])
+                tx = real or ('thermos:' + str(ref))
                 with db():
                     db().execute("UPDATE ton_withdrawals SET status='confirmed',tx=? WHERE id=? AND status='processing'", (tx, row['id']))
                 system_audit('Thermos TON withdrawal confirmed: ' + row['id'])
-                tell_done(row['id'], row['user_id'], p, tx)
+                if real:
+                    tell_done(row['id'], row['user_id'], p, real)
                 settled += 1
             elif state == 'FAILED':
                 refund_withdrawal(row['id'], row['user_id'], p, 'Thermos не смог отправить вывод')

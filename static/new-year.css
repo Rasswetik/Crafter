@@ -90,3 +90,7 @@
 .crafter-withdraw-result.is-success{color:#75dbaa;border:1px solid #52c89855;background:#112a255e;padding:14px;border-radius:14px}
 .crafter-withdraw-result.is-success p{color:#b2c4ce;margin:8px 0 0}
 .crafter-withdraw-result.is-error{color:#ff8791}
+
+/* the event tile in the Games section */
+.ny-game-tile{background:linear-gradient(135deg,rgba(255,92,110,.24),rgba(255,196,84,.16) 60%,transparent),#17181d}
+.ny-game-emblem img{width:74px;height:74px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.45))}

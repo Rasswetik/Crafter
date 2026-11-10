@@ -92,6 +92,8 @@ PHRASES = {
     'offer_withdrawn': {'title': 'Оффер отозван', 'text': '↩️ Offer withdrawn: {gift} — {amount} GRAM.', 'fields': ('gift', 'amount')},
     'deposit': {'title': 'Пополнение баланса', 'text': '💸Баланс обновлен\n\n⬆️Депозит: {amount} GRAM успешно зачислено\n\n🔎 Посмотреть транзакцию\n\n{link}',
                 'fields': ('amount', 'link')},
+    'withdraw': {'title': 'Вывод средств', 'text': '💸 Баланс обновлен\n\n⬇️ Вывод: {amount} GRAM успешно выполнен\n\n🔎 Посмотреть транзакцию\n{link}',
+                 'fields': ('amount', 'link')},
     'api_key': {'title': 'Команда /api: ключ партнёрского API', 'fields': ('key', 'docs'),
                 'text': '🔑 <b>Ваш API-ключ</b> (тапните, чтобы увидеть; долгое нажатие — скопировать):\n\n<tg-spoiler><code>{key}</code></tg-spoiler>\n\n⚠️ <b>Никому не передавайте этот ключ.</b>\nКлюч даёт полный доступ к вашему аккаунту Crafter — включая баланс, покупки и подарки. Любой, кто его получит, сможет тратить ваш баланс и переводить ваши подарки.\n\nНаша команда и поддержка никогда не запрашивают этот ключ. Если кто-то просит его — это мошенники.\n\nЕсли ключ утёк, немедленно напишите в поддержку @crafter_support для замены.\n\n📖 Документация по API: {docs}'},
     'api_denied': {'title': 'Команда /api: нет доступа', 'fields': (),
@@ -323,7 +325,24 @@ def notify_gram_deposit(config, recipient, gram, tx_hash, network, default_token
         'chat_id': int(recipient),
         'parse_mode': 'HTML',
         'text': render_phrase(config, 'deposit', {'amount': escape(amount), 'link': escape(url)}),
-        'link_preview_options': {'is_disabled': True},
+        'link_preview_options': {'url': url, 'prefer_large_media': True, 'show_above_text': False},     # the Tonscan picture under the text
+    })
+    return True
+
+
+def notify_gram_withdraw(config, recipient, gram, url, default_token):
+    """The receipt of a TON withdrawal; the link to the transaction opens with the Tonscan preview picture."""
+    token = config.get('token') or default_token
+    if not token or not url:
+        return False
+    value = Decimal(str(gram))
+    if not value.is_finite() or value <= 0:
+        return False
+    bot_api(token, 'sendMessage', {
+        'chat_id': int(recipient),
+        'parse_mode': 'HTML',
+        'text': render_phrase(config, 'withdraw', {'amount': escape(format(value.normalize(), 'f')), 'link': escape(url)}),
+        'link_preview_options': {'url': url, 'prefer_large_media': True, 'show_above_text': False},
     })
     return True
 

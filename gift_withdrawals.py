@@ -130,7 +130,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
     STAGES = {
         'portal_withdraw': 'Запрос на вывод с Portals', 'portal_sending': 'Запрос на вывод с Portals',
         'portal_wait': 'Ждём, пока Portals переведёт подарок на релейер',
-        'relay_wait': 'Ждём подарок на релейере', 'thermos_assign': 'Передаём подарок в ваш Thermos', 'assign_sending': 'Передаём подарок в ваш Thermos', 'transfer': 'Готов к отправке игроку',
+        'relay_wait': 'Ждём подарок на релейере', 'thermos_assign': 'Передаём подарок в ваш Thermos', 'thermos_withdraw': 'Выводим подарок из Thermos', 'withdraw_sending': 'Выводим подарок из Thermos', 'assign_sending': 'Передаём подарок в ваш Thermos', 'transfer': 'Готов к отправке игроку',
         'transfer_sending': 'Отправка игроку в Telegram', 'review': 'Нужна ручная проверка', 'done': 'Выполнено', 'failed': 'Не выполнено',
     }
 

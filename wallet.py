@@ -480,6 +480,8 @@ def install_wallet(app,db,auth,record,audit,bot_settings=None):
         audit('Withdrawal confirmed: '+wid)
         return {'status':'confirmed'}
 
+    app.extensions['crafter_ton_rpc'] = lambda network, method, params, key='': rpc(network, method, params, key)
+    app.extensions['crafter_ton_config'] = config
     from auto_payout import install_auto_payout
     install_auto_payout(app, db, auth, audit, config, storage,
                         lambda network, method, params, key: rpc(network, method, params, key),

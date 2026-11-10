@@ -265,3 +265,29 @@ def test_assign_hands_the_exact_gift_to_the_player(wired, monkeypatch):
         calls.clear()
         assert assign({'name': 'Other', 'number': 999, 'telegram_slug': 'Other-999'}, 43)[0] == 'missing'       # unclear -> nothing is sent
         assert not [c for c in calls if c[1] == '/gifts/assign']
+
+
+def test_withdraw_from_thermos_to_the_relayers_telegram(wired, monkeypatch):
+    UUID_A = '11111111-1111-1111-1111-111111111111'
+    calls = []
+
+    def opener(req, timeout=None):
+        url, method = req.full_url, req.get_method()
+        calls.append((method, url.split('/api/v1')[1].split('?')[0], req.data))
+        if '/auth/api-token' in url:
+            return Resp(json.dumps({'account': {'effective_balance': 10 * 10**9}, 'token': 'jwt'}).encode())
+        if url.endswith('/gifts/me'):
+            return Resp(json.dumps([{'id': UUID_A, 'ownership_status': 'RECEIVED', 'meta': {'name': 'Lol Pop', 'number': 168447, 'unique_name': 'LolPop-168447'}}]).encode())
+        if url.endswith('/gifts/transfer'):
+            return Resp(json.dumps({'task_id': 't7'}).encode())
+        if '/tasks/' in url:
+            return Resp(json.dumps({'combined_state': 'SUCCESS', 'sub_tasks': []}).encode())
+        raise AssertionError(url)
+    monkeypatch.setattr(thermos_market, 'urlopen', opener)
+    withdraw = wired.application.extensions['crafter_thermos_to_telegram']
+    with wired.application.app_context():
+        assert withdraw({'name': 'Lol Pop', 'number': 168447}) == ('ok', '')
+        assert json.loads(next(c[2] for c in calls if c[1] == '/gifts/transfer')) == {'owned_gift_ids': [UUID_A]}
+        calls.clear()
+        assert withdraw({'name': 'Lol Pop', 'number': 1})[0] == 'missing'                     # not in Thermos: nothing is sent
+        assert not [c for c in calls if c[1] == '/gifts/transfer']
