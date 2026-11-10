@@ -71,7 +71,8 @@ def install_auto_nft(app, db, auth, audit):
             elif origin == 'portals-partner':
                 source, stage, slug = 'portals', 'portal_withdraw', ''
             elif origin == 'thermos':
-                source, stage, slug = 'thermos', 'relay_wait', ''      # already sent to the relayer
+                via = app.extensions.get('crafter_thermos_delivery', lambda: 'relayer')()
+                source, stage, slug = 'thermos', ('thermos_assign' if via == 'assign' else 'relay_wait'), ''   # bought on Thermos: it already is on the relayer's side
             else:
                 continue                      # not automatable: stays in the manual queue
             now = int(time.time())
@@ -91,8 +92,20 @@ def install_auto_nft(app, db, auth, audit):
             return review(wid, 'Результат отправки неизвестен после сбоя — проверьте вручную, повтор запрещён')
         if job['retry_at'] and job['retry_at'] > now:
             return
-        api_id, api_hash, session, account_id = creds()
         age = now - job['created']
+
+        if stage == 'thermos_assign':             # the gift is handed to the player inside Thermos (documented /gifts/assign, no Telegram link needed)
+            set_job(wid, stage='assign_sending')
+            outcome, note = app.extensions['crafter_thermos_assign'](gift, payload['receiver_user_id'])
+            if outcome == 'ok':
+                return finish(wid, 'confirmed', 'thermos-assign: подарок передан в ваш Thermos')
+            if outcome == 'missing':                # not in the Thermos inventory (yet): look again later, nothing was sent
+                if age > RELAY_WAIT_LIMIT:
+                    return review(wid, 'Подарок не найден в Thermos — проверьте вручную')
+                return set_job(wid, stage='thermos_assign', note=note, retry_at=now + 90)
+            return review(wid, note)
+
+        api_id, api_hash, session, account_id = creds()
 
         if stage == 'portal_withdraw':
             set_job(wid, stage='portal_sending')
@@ -196,11 +209,11 @@ def install_auto_nft(app, db, auth, audit):
         body = request.get_json(silent=True) or {}
         if type(body.get('enabled')) is not bool or body.get('confirm') != 'SET_AUTO_NFT':
             abort(400, description='Подтвердите изменение')
-        if body['enabled']:
+        if body['enabled'] and app.extensions.get('crafter_thermos_delivery', lambda: 'relayer')() != 'assign':
             try:
                 creds()
             except Exception:
-                abort(409, description='Сначала подключите аккаунт Relayer')
+                abort(409, description='Сначала подключите аккаунт Relayer (или выберите выдачу через Thermos)')
         with db():
             db().execute("INSERT INTO settings(key,payload) VALUES('auto_nft_withdraw_v1',?) "
                          "ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",

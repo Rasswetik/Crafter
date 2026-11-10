@@ -251,6 +251,85 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         return 'unknown', 'Часть покупки выполнена — требуется ручная сверка'
     app.extensions['crafter_thermos_acquire'] = acquire
 
+    UUID = re.compile(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$')
+
+    def find_owned_id(slug, name, number):
+        """owned_gift_id of one gift in GET /gifts/me. The answer's layout is not documented, so every object of it is
+        inspected, and a gift is accepted only when its link name (slug) matches exactly, or the collection name AND the number
+        both match. Anything unclear -> None (nothing is sent)."""
+        data = call('GET', '/gifts/me')
+        want_slug = re.sub(r'[^a-z0-9]', '', str(slug or '').lower())
+        want_name = re.sub(r'[^a-z0-9]', '', str(name or '').lower())
+        found = []
+
+        def walk(node):
+            if isinstance(node, dict):
+                values = [(k, v) for k, v in node.items() if not isinstance(v, (dict, list))]
+                ident = next((str(v) for k, v in values if k in ('owned_gift_id', 'ownedGiftId', 'id', 'uuid') and UUID.match(str(v))), None)
+                if ident:
+                    text = [re.sub(r'[^a-z0-9]', '', str(v).lower()) for _, v in values]
+                    nums = [str(v) for k, v in values if 'number' in k.lower() or k.lower() in ('num', 'serial')]
+                    by_slug = bool(want_slug) and want_slug in text
+                    by_pair = bool(want_name) and str(number) in nums and (want_name in text or any(want_name in t for t in text))
+                    if by_slug or by_pair:
+                        found.append(ident)
+                for v in node.values():
+                    walk(v)
+            elif isinstance(node, list):
+                for v in node:
+                    walk(v)
+        walk(data)
+        unique = list(dict.fromkeys(found))
+        return unique[0] if len(unique) == 1 else None
+
+    def assign_gift(gift, recipient_id):
+        """Give the gift to a player inside Thermos (no fee). -> ('ok'|'missing'|'failed'|'unknown', note).
+        An unknown outcome is never repeated."""
+        owned = find_owned_id(gift.get('telegram_slug') or gift.get('slug'), gift.get('name'), gift.get('number') or gift.get('source_number'))
+        if not owned:
+            return 'missing', 'Подарок не найден в Thermos'
+        try:
+            response = call('POST', '/gifts/assign', {'owned_gift_ids': [owned], 'recipient_telegram_id': int(recipient_id), 'anonymous': False})
+        except HTTPException as error:
+            return ('failed', 'Thermos отклонил передачу') if error.code == 409 else ('unknown', 'Результат передачи неизвестен')
+        task = response.get('task_id') if isinstance(response, dict) else None
+        if not task:
+            return 'unknown', 'Thermos не вернул задачу'
+        try:
+            state = wait_task(task)
+        except HTTPException:
+            return 'unknown', 'Не удалось получить статус передачи'
+        if state is None:
+            return 'unknown', 'Передача ещё выполняется'
+        if state.get('combined_state') == 'SUCCESS':
+            return 'ok', ''
+        subs = state.get('sub_tasks') or []
+        if subs and all(s.get('state') == 'FAILURE' for s in subs):
+            return 'failed', str(subs[0].get('error_message') or 'Передача не выполнена')[:200]
+        return 'unknown', 'Результат передачи неясен'
+    app.extensions['crafter_thermos_assign'] = assign_gift
+
+    def delivery_mode():
+        row = db().execute("SELECT payload FROM settings WHERE key='thermos_delivery_v1'").fetchone()
+        try:
+            return 'assign' if row and json.loads(row[0]).get('mode') == 'assign' else 'relayer'
+        except (ValueError, TypeError, AttributeError):
+            return 'relayer'
+    app.extensions['crafter_thermos_delivery'] = delivery_mode
+
+    @app.post('/api/admin/thermos/delivery')
+    @auth(admin=True)
+    def thermos_delivery_set():
+        mode = (request.get_json(silent=True) or {}).get('mode')
+        if mode not in ('assign', 'relayer'):
+            abort(400, description='mode: assign или relayer')
+        if mode == 'assign' and not api_token():
+            abort(409, description='Сначала сохраните токен Thermos')
+        with db():
+            db().execute("INSERT INTO settings(key,payload) VALUES('thermos_delivery_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps({'mode': mode}),))
+        audit('Thermos gift delivery: ' + mode)
+        return overview()
+
     def owns_gift(slug):
         """True only when Thermos explicitly says the account owns this unique gift (docs: GET /gifts/me/owned/{name})."""
         if not api_token():
@@ -363,7 +442,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 continue
             free -= need
             try:
-                answer = call_('POST', '/balance/withdraw', {'amount': int(p['nano']), 'destination': p['receiver']})
+                answer = call_('POST', '/balance/withdraw', {'amount': str(int(p['nano'])), 'destination': p['receiver']})
             except HTTPException as error:
                 if error.code == 409:                      # Thermos refused before sending anything
                     refund_withdrawal(row['id'], row['user_id'], p, 'Thermos отклонил вывод')
@@ -411,7 +490,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
     # ---- admin -------------------------------------------------------------------------------------
     def overview():
         return {'backend': backend(), 'token_configured': bool(api_token()), 'encryption_ready': bool(cipher()),
-                'markets': list(MARKETS), 'auto_withdraw': auto_withdraw_enabled(), 'last_error': last_error()}
+                'markets': list(MARKETS), 'auto_withdraw': auto_withdraw_enabled(), 'last_error': last_error(), 'delivery': delivery_mode()}
 
     @app.get('/api/admin/thermos')
     @auth(admin=True)

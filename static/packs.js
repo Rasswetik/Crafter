@@ -103,9 +103,40 @@ async function packInfo(upid) {
     try { return ((await api('packs')).mine || []).find(m => m.id === upid)?.pack || null; } catch (_) { return null; }
 }
 async function openMany(ids, refresh) {
-    for (let i = 0; i < ids.length; i++) {
-        await open(ids[i], i === ids.length - 1 ? refresh : null, {index: i + 1, total: ids.length});
+    if (ids.length < 2) { await open(ids[0], refresh); return; }
+    const batch = {skip: false, results: []};
+    for (let i = 0; i < ids.length && !batch.skip; i++) {
+        await open(ids[i], null, {index: i + 1, total: ids.length, batch});
+        if (batch.skip) {                                         // held for 5 seconds: everything that is left opens at once
+            const left = ids.slice(i + 1);
+            for (const id of left) {
+                try { batch.results.push(await api('packs/open', {user_pack_id: id})); } catch (err) { toast(err.message); break; }
+            }
+            const last = batch.results[batch.results.length - 1];
+            if (last && last.balance !== undefined && state?.me) { state.me.balance = last.balance; if (typeof updateBalance === 'function') updateBalance(); }
+        }
     }
+    await winSummary(batch.results, refresh);
+}
+/* After two or more packs: what was won in total: the GRAM added up, every NFT with its picture, name and number. */
+function winSummary(results, refresh) {
+    return new Promise(resolve => {
+        let gram = 0; const gifts = [];
+        results.forEach(r => (r.cards || []).forEach(c => {
+            if (c.kind === 'GRAM') gram += Number(c.amount) || 0;
+            else gifts.push(c);
+        }));
+        const nfts = gifts.map(c => '<div class="pk-win-nft"><img src="' + e(c.image) + '" alt=""><div><b>' + e(c.name || c.title) + '</b>' + (c.number ? '<small>#' + e(c.number) + '</small>' : '') + '</div></div>').join('');
+        sheet('Вы выиграли:', '<div class="pk-win">' +
+            (gram > 0 ? '<div class="pk-win-gram"><span class="pk-gem">' + GEM + '</span><b>' + num(Math.round(gram * 1e6) / 1e6) + '</b><em>GRAM</em></div>' : '') +
+            (nfts ? '<div class="pk-win-list">' + nfts + '</div>' : '') +
+            (!gram && !nfts ? '<p class="cm-sheet-note" style="text-align:center">В этих паках ничего не выпало.</p>' : '') +
+            '<small class="pk-win-note">Паков открыто: ' + results.length + '. GRAM уже на балансе, подарки в «Мои подарки».</small>' +
+            '<button type="button" class="ny-action" id="pk-win-ok">Отлично</button></div>');
+        const done = () => { try { closeSheet(); } catch (_) {} refresh?.(); resolve(); };
+        document.querySelector('#pk-win-ok')?.addEventListener('click', done);
+        document.querySelector('#sheet')?.addEventListener('close', () => resolve(), {once: true});
+    });
 }
 async function granted(input, refresh) {
     const ids = Array.isArray(input) ? input : [input];
@@ -174,6 +205,7 @@ async function open(upid, refresh, meta) {
     try { res = await api('packs/open', {user_pack_id: upid}); }
     catch (err) { playing = false; toast(err.message); return; }
     const cards = res.cards || [];
+    if (meta && meta.batch) meta.batch.results.push(res);
     const box = document.createElement('div');
     box.className = 'pk-over';
     box.style.setProperty('--ac', (res.pack && res.pack.accent) || '59 134 238');
@@ -186,6 +218,8 @@ async function open(upid, refresh, meta) {
         '<div class="pk-cards n' + cards.length + '">' + cards.map(cardMarkup).join('') + '</div></div>' +
         '<div class="pk-actions"></div>';
     if (meta && meta.total > 1) box.insertAdjacentHTML('afterbegin', '<div class="pk-counter">Пак ' + meta.index + ' из ' + meta.total + '</div>');
+    const holdable = Boolean(meta && meta.batch && meta.index === 1 && meta.total > 1);        // offered only in the first 5 seconds of the first pack
+    if (holdable) box.insertAdjacentHTML('beforeend', '<div class="pk-hold" aria-hidden="true"><span>Зажмите, чтобы открыть всё сразу</span><i><u></u></i></div>');
     document.body.appendChild(box);
     const pack = box.querySelector('.pk-pack'), wrap = box.querySelector('.pk-cards'), actions = box.querySelector('.pk-actions');
     let sold = 0, finished = false;
@@ -198,6 +232,20 @@ async function open(upid, refresh, meta) {
         if (res.balance !== undefined && state?.me) { state.me.balance = res.balance; if (typeof updateBalance === 'function') updateBalance(); }
         refresh?.();
     };
+    if (holdable) {                                           // hold for 5 seconds: this pack and all the rest open at once
+        let timer = null, offered = true;
+        const hint = box.querySelector('.pk-hold');
+        const stop = () => { clearTimeout(timer); timer = null; box.classList.remove('is-holding'); if (!offered) hint?.classList.add('is-gone'); };
+        setTimeout(() => { offered = false; if (!box.classList.contains('is-holding')) hint?.classList.add('is-gone'); }, 5000);
+        box.addEventListener('pointerdown', ev => {
+            if (ev.target.closest('button') || finished || !offered && !hint?.isConnected) return;
+            if (!offered) return;
+            box.classList.remove('is-holding'); void box.offsetWidth; box.classList.add('is-holding');
+            timer = setTimeout(() => { stop(); meta.batch.skip = true; close(); }, 5000);
+        });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(n => box.addEventListener(n, stop));
+        box.addEventListener('contextmenu', ev => ev.preventDefault());
+    }
 
     const sellOne = async btn => {
         btn.disabled = true;
@@ -231,6 +279,7 @@ async function open(upid, refresh, meta) {
 
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const t = ms => reduce ? sleep(ms / 4) : sleep(ms);
+    const show = (async () => {
     try {
         await t(60); box.classList.add('is-on');
         pack.classList.add('is-in'); await t(1000);
@@ -273,8 +322,11 @@ async function open(upid, refresh, meta) {
     }
     await t(250);
     finished = true;
+    box.classList.add('no-hold');
     refreshActions();
     await closed;
+    })();
+    await Promise.race([show, closed]);          // closing (also: held for 5 seconds) ends the opening at once
 }
 
 /* ---------- administrator helpers ---------- */

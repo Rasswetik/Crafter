@@ -235,3 +235,31 @@ def test_a_broken_collection_floor_is_repaired_from_real_lots(monkeypatch):
     floors = {c['id']: c['floor_price'] for c in thermos.collections()}
     assert float(floors['snowmittens']) == 9.2          # not 3.16
     assert float(floors['other']) == 2                  # unknown collections keep what Thermos reports
+
+
+def test_assign_hands_the_exact_gift_to_the_player(wired, monkeypatch):
+    UUID_A, UUID_B = '11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'
+    calls = []
+
+    def opener(req, timeout=None):
+        url, method = req.full_url, req.get_method()
+        calls.append((method, url.split('/api/v1')[1].split('?')[0], req.data))
+        if '/auth/api-token' in url:
+            return Resp(json.dumps({'account': {'effective_balance': 10 * 10**9}, 'token': 'jwt'}).encode())
+        if url.endswith('/gifts/me'):
+            return Resp(json.dumps({'items': [{'id': UUID_A, 'slug': 'LolPop-168447', 'number': 168447, 'collection': 'Lol Pop'},
+                                              {'id': UUID_B, 'slug': 'LolPop-5', 'number': 5, 'collection': 'Lol Pop'}]}).encode())
+        if url.endswith('/gifts/assign'):
+            return Resp(json.dumps({'task_id': 't9'}).encode())
+        if '/tasks/' in url:
+            return Resp(json.dumps({'combined_state': 'SUCCESS', 'sub_tasks': []}).encode())
+        raise AssertionError(url)
+    monkeypatch.setattr(thermos_market, 'urlopen', opener)
+    assign = wired.application.extensions['crafter_thermos_assign']
+    with wired.application.app_context():
+        assert assign({'name': 'Lol Pop', 'number': 168447, 'telegram_slug': 'LolPop-168447'}, 43) == ('ok', '')
+        sent = json.loads(next(c[2] for c in calls if c[1] == '/gifts/assign'))
+        assert sent == {'owned_gift_ids': [UUID_A], 'recipient_telegram_id': 43, 'anonymous': False}
+        calls.clear()
+        assert assign({'name': 'Other', 'number': 999, 'telegram_slug': 'Other-999'}, 43)[0] == 'missing'       # unclear -> nothing is sent
+        assert not [c for c in calls if c[1] == '/gifts/assign']

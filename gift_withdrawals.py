@@ -129,7 +129,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
     STAGES = {
         'portal_withdraw': 'Запрос на вывод с Portals', 'portal_sending': 'Запрос на вывод с Portals',
         'portal_wait': 'Ждём, пока Portals переведёт подарок на релейер',
-        'relay_wait': 'Ждём подарок на релейере', 'transfer': 'Готов к отправке игроку',
+        'relay_wait': 'Ждём подарок на релейере', 'thermos_assign': 'Передаём подарок в ваш Thermos', 'assign_sending': 'Передаём подарок в ваш Thermos', 'transfer': 'Готов к отправке игроку',
         'transfer_sending': 'Отправка игроку в Telegram', 'review': 'Нужна ручная проверка', 'done': 'Выполнено', 'failed': 'Не выполнено',
     }
 
@@ -160,7 +160,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                 else:
                     text = 'Заявка принята и ждёт автоматической обработки' if auto_on else 'Заявка принята и ждёт обработки администратором'
             else:
-                text = {'confirmed': 'Подарок отправлен вам в Telegram', 'failed': 'Вывод не выполнен, подарок возвращён в инвентарь'}.get(row['status'], row['status'])
+                text = {'confirmed': ('Подарок передан в ваш Thermos: откройте бота @thermos → «Мои подарки» и выведите его в Telegram' if str(row['note']).startswith('thermos-assign') else 'Подарок отправлен вам в Telegram'), 'failed': 'Вывод не выполнен, подарок возвращён в инвентарь'}.get(row['status'], row['status'])
             busy = bool(auto and auto['stage'] in ('portal_sending', 'transfer_sending'))
             out.append({'id': row['id'], 'kind': 'nft', 'gift_id': row['gift_id'], 'name': gift.get('name'), 'number': gift.get('number'),
                         'can_cancel': row['status'] == 'queued' and not busy,

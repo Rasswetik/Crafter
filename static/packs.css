@@ -243,3 +243,23 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 .pk-face.is-gram.t1{background:radial-gradient(circle at 50% 30%,color-mix(in srgb,rgb(var(--ac)) 52%,#14161c),color-mix(in srgb,rgb(var(--ac)) 12%,#0d0e13) 70%);border-color:rgb(var(--ac) / .72)}
 .pk-face.is-gram b{text-shadow:0 0 14px rgb(var(--ac) / .8)}
 .pk-face.is-nft{background:radial-gradient(circle at 50% 30%,color-mix(in srgb,rgb(var(--ac)) 40%,#14161c),color-mix(in srgb,rgb(var(--ac)) 10%,#0d0e13) 72%)}
+
+/* hold to open all packs at once */
+.pk-over{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;touch-action:none}
+.pk-hold{position:absolute;left:0;right:0;bottom:max(20px,env(safe-area-inset-bottom));display:grid;justify-items:center;gap:9px;pointer-events:none;color:#8f98a6;font-size:13px;letter-spacing:.2px;z-index:6;transition:opacity .3s}
+.pk-hold i{display:block;width:min(70vw,280px);height:7px;border-radius:99px;background:#ffffff1f;overflow:hidden}
+.pk-hold u{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,rgb(var(--ac) / .75),rgb(var(--ac)));box-shadow:0 0 14px rgb(var(--ac) / .85);text-decoration:none}
+.pk-over.is-holding .pk-hold{color:#fff}
+.pk-over.is-holding .pk-hold u{animation:pk-hold-fill 5s linear forwards}
+.pk-over.no-hold .pk-hold{opacity:0}
+@keyframes pk-hold-fill{to{width:100%}}
+/* summary: "Вы выиграли:" */
+.pk-win{display:grid;gap:14px;justify-items:center;text-align:center}
+.pk-win-gram{display:flex;align-items:center;gap:10px;font-size:38px;font-weight:900;color:#fff}
+.pk-win-gram .pk-gram{width:42px;height:42px}.pk-win-gram em{font-style:normal;font-size:16px;color:#9fb4d0;letter-spacing:.1em}
+.pk-win-list{display:grid;gap:8px;width:100%;max-height:44vh;overflow:auto}
+.pk-win-nft{display:flex;align-items:center;gap:12px;padding:8px 12px;border-radius:16px;background:#ffffff0d;border:1px solid #ffffff1c;text-align:left}
+.pk-win-nft img{width:54px;height:54px;object-fit:contain;border-radius:12px}.pk-win-nft b{display:block;font-size:15px;color:#fff}.pk-win-nft small{color:#9fb4d0}
+.pk-win-note{color:#8f98a6;font-size:12px}
+.pk-win .ny-action{width:100%}
+.pk-hold.is-gone{opacity:0;pointer-events:none}

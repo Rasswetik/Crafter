@@ -667,7 +667,7 @@ def test_thermos_auto_withdraw_pays_from_thermos_balance(client, monkeypatch):
     assert client.post('/api/admin/thermos/auto-withdraw', headers=admin, json={'enabled': True}).status_code == 200
     with app.app_context():
         assert once()['sent'] == 1
-        assert calls[0] == ('POST', '/balance/withdraw', {'amount': 2000000000, 'destination': 'UQ-test'})
+        assert calls[0] == ('POST', '/balance/withdraw', {'amount': '2000000000', 'destination': 'UQ-test'})
         assert once() == {'sent': 0, 'settled': 1}                                # next pass: PROCESSED -> confirmed
         assert once() == {'sent': 0, 'settled': 0}                                # never sent twice
     with sqlite3.connect(path) as con:

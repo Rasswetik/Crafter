@@ -819,6 +819,7 @@ def install_packs(app, db, auth, record, audit):
                     shown, price = next(l for l in lots_by_prize[prize['id']] if l[0]['id'] not in used)
                     used.add(shown['id'])
                     card = {'kind': 'NFT', 'nft_id': 'thermos-' + uuid.uuid4().hex, 'title': str(shown['name']) + ' ' + str(shown['model']),
+                            'name': str(shown['name']), 'number': shown.get('number'),
                             'image': shown['image'], 'value': plain(price), 'real': True}
                     cards.append(card)
                     pending.append((card, shown, price))
@@ -837,7 +838,7 @@ def install_packs(app, db, auth, record, audit):
                     db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)",
                                  (uid, gift['id'], json.dumps(gift, ensure_ascii=False), 'unlisted'))
                     cards.append({'kind': 'NFT', 'nft_id': gift['id'], 'title': prize['name'] + (' ' + gift['model'] if gift['model'] else ''),
-                                  'image': gift['image'], 'value': worth})
+                                  'name': prize['name'], 'number': gift['number'], 'image': gift['image'], 'value': worth})
             after = credit(uid, total)
             result = {'ok': True, 'pack': short(pack), 'cards': cards, 'balance': str(after),
                       'credited': plain(total) if total else '0'}
