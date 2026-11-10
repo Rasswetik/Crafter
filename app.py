@@ -1323,18 +1323,7 @@ def create_app(config=None):
     @app.post('/api/admin/users/<int:uid>/gifts')
     @auth(admin=True)
     def user_gift(uid):
-        if not db().execute('SELECT 1 FROM users WHERE id=?',(uid,)).fetchone():abort(404)
-        data=request.get_json() or {};slug=data.get('collection_id');name=data.get('model')
-        collection=catalog_collection(slug)
-        model=next((m for m in collection_models(collection['id'] if collection else str(slug)) if canonical_name(m['name'])==canonical_name(name)),None)
-        if not collection or not model:abort(400,description='Выберите коллекцию и модель из каталога')
-        backdrop, symbol = reward_attributes(collection['id'])
-        gift=dict(id='grant-'+uuid.uuid4().hex,name=collection['name'],collection_id=collection['id'],model=model['name'],backdrop=backdrop.get('name', ''),background=backdrop,symbol=symbol,price=model['price'],image=model['image'],number=gift_number(collection['id'],data.get('number')),origin='admin-grant',source_price_unit=model.get('price_unit','TON'),price_unit='GRAM')
-        with db():
-            db().execute('INSERT INTO inventory VALUES(?,?,?,?)',(uid,gift['id'],json.dumps(gift),'unlisted'))
-            record('gift_granted', {'gift': gift}, uid=uid)
-        audit('Gift granted: '+str(uid)+' '+collection['name']+' / '+name)
-        return {'ok':True,'gift':gift}
+        abort(409, description='Модели из каталога больше не выдаются. Выдайте NFT по ссылке (он должен быть на релейере или в Thermos), обычный подарок или пак.')
     @app.get('/api/admin/selection')
     @auth(admin=True)
     def get_selection():
@@ -1472,6 +1461,8 @@ def create_app(config=None):
     install_thermos_market(app, db, auth, record, audit, dict(public_catalog=public_catalog))
     from star_gifts import install_star_gifts
     install_star_gifts(app, db, auth, record, audit)
+    from nft_grant import install_nft_grant
+    install_nft_grant(app, db, auth, record, audit)
     from auto_nft import install_auto_nft
     install_auto_nft(app, db, auth, audit)
     from game_type import install_game_type

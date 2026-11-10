@@ -60,7 +60,7 @@ def install_resale(app, db, auth, record, canonical_name, collection_keys, notif
         gift = json.loads(row['payload'])
         public = {k: v for k, v in gift.items() if k in {
             'name', 'number', 'model', 'image', 'background', 'backdrop', 'symbol', 'source_number',
-            'collection_id', 'floor_price', 'rarity', 'telegram_url', 'telegram_slug', 'source_price_unit', 'pack_item',
+            'collection_id', 'floor_price', 'rarity', 'telegram_url', 'telegram_slug', 'source_price_unit', 'pack_item', 'pack_id',
         }}
         return {**public, 'id': row['id'], 'price': row['price'], 'price_unit': 'GRAM',
                 'resale': True, 'own_listing': row['seller_id'] == uid, 'listed_at': row['listed_at']}

@@ -26,9 +26,17 @@ async function contentsGrid(pid) {
 async function contentsHtml(pid) {
     return '<button type="button" class="secondary pk-inside-btn" data-pk-inside="' + e(pid) + '">Что внутри?</button>';
 }
+const contentsCache = new Map();
+let insideBusy = false;
 async function openInside(pid) {
+    if (!pid || insideBusy) return;
+    insideBusy = true;
+    setTimeout(() => { insideBusy = false; }, 500);          // a double tap never opens two windows
     let html = '';
-    try { html = await contentsGrid(pid); } catch (err) { toast(err.message); return; }
+    try {
+        if (!contentsCache.has(pid)) contentsCache.set(pid, contentsGrid(pid));
+        html = await contentsCache.get(pid);
+    } catch (err) { contentsCache.delete(pid); toast(err.message); return; }
     document.querySelectorAll('dialog.pk-win').forEach(d => d.remove());
     // Same window as "choose a stake" in upgrades: a card at the bottom on phones, centred on desktop.
     // It is its own modal dialog, so it sits above the gift sheet and is removed completely on close.
@@ -44,9 +52,11 @@ async function openInside(pid) {
     requestAnimationFrame(() => win.classList.add('is-open'));
 }
 window.openPackContents = function (id) {
-    const g = (state?.inventory || []).find(x => x.id === id);
+    const g = [...(state?.inventory || []), ...(state?.gifts || []), state?.detailGift].find(x => x && x.id === id && x.pack_id) || (state?.detailGift?.pack_id ? state.detailGift : null);
     if (g) openInside(g.pack_id);
+    else toast('Содержимое этого пака недоступно');
 };
+window.crafterPackWarm = pid => { if (pid && !contentsCache.has(pid)) contentsCache.set(pid, contentsGrid(pid).catch(() => { contentsCache.delete(pid); return ''; })); };
 document.addEventListener('click', ev => {
     const b = ev.target.closest('[data-pk-inside]');
     if (b) { ev.preventDefault(); openInside(b.dataset.pkInside); }
@@ -120,6 +130,41 @@ window.openPackFromDetail = function (id) {
 };
 
 /* ---------- opening animation ---------- */
+/* The seal at the top of the bag tears open from left to right along a ragged line: the torn strip curls up and away
+   at the tear front while the rest of the bag stays intact; afterwards the strip flies off and the bag settles lower. */
+const TEAR_Y = 11;
+const RAG = [0, 1.3, -1, 1.6, -1.2, .9, -1.5, 1.2, -.8, 1.5, -1.1, 1, -1.4, 1.1, 0];
+function tearPack(pack, reduce) {
+    const top = pack.querySelector('.pk-top'), body = pack.querySelector('.pk-body'), spark = pack.querySelector('.pk-spark');
+    const n = RAG.length - 1;
+    const pts = RAG.map((j, i) => [i / n * 100, TEAR_Y + j]);
+    const at = x => {                                  // ragged line height at x (percent)
+        const f = Math.min(n - 1e-9, x / 100 * n), i = Math.floor(f);
+        return pts[i][1] + (pts[i + 1][1] - pts[i][1]) * (f - i);
+    };
+    const poly = list => 'polygon(' + list.map(p => p[0].toFixed(2) + '% ' + p[1].toFixed(2) + '%').join(',') + ')';
+    const frame = p => {
+        const x = p * 100, y = at(x);
+        const done = pts.filter(q => q[0] < x);
+        const line = [...done, [x, y]];
+        top.style.clipPath = poly([[0, 0], [x, 0], [x, y], ...line.slice().reverse().slice(1)]);
+        body.style.clipPath = poly([...line, [x, 0], [100, 0], [100, 100], [0, 100]]);
+        top.style.transformOrigin = x + '% ' + y + '%';
+        top.style.transform = 'rotate(' + (-26 * p * p).toFixed(2) + 'deg) translateY(' + (-9 * p).toFixed(2) + '%)';
+        if (spark) { spark.style.left = x + '%'; spark.style.top = y + '%'; spark.style.opacity = p > 0 && p < 1 ? 1 : 0; }
+    };
+    const total = reduce ? 350 : 1500;
+    return new Promise(resolve => {
+        const t0 = performance.now();
+        const step = now => {
+            const k = Math.min(1, (now - t0) / total);
+            frame(.5 - .5 * Math.cos(Math.PI * k));        // slow start, quick middle, soft end
+            if (k < 1) requestAnimationFrame(step);
+            else { if (spark) spark.style.opacity = 0; resolve(); }
+        };
+        requestAnimationFrame(step);
+    });
+}
 function cardMarkup(c, i) {
     let face;
     if (c.kind === 'GRAM') {
@@ -145,7 +190,7 @@ async function open(upid, refresh, meta) {
     box.innerHTML = '<div class="pk-snow" aria-hidden="true">' + Array.from({length: 22}, (_, i) =>
         '<i style="--x:' + ((i * 47 + 5) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (6 + i % 7) + 's;--d:' + (-(i * 2) % 9) + 's"></i>').join('') + '</div>' +
         '<div class="pk-stage"><div class="pk-pack"><div class="pk-part pk-body" style="background-image:url(' + e(res.pack.image) + ')"></div>' +
-        '<div class="pk-part pk-top" style="background-image:url(' + e(res.pack.image) + ')"></div><div class="pk-cut"></div><div class="pk-burst"></div></div>' +
+        '<div class="pk-part pk-top" style="background-image:url(' + e(res.pack.image) + ')"></div><div class="pk-spark"></div><div class="pk-burst"></div></div>' +
         '<div class="pk-cards n' + cards.length + '">' + cards.map(cardMarkup).join('') + '</div></div>' +
         '<div class="pk-actions"></div>';
     if (meta && meta.total > 1) box.insertAdjacentHTML('afterbegin', '<div class="pk-counter">Пак ' + meta.index + ' из ' + meta.total + '</div>');
@@ -197,8 +242,8 @@ async function open(upid, refresh, meta) {
     await t(60); box.classList.add('is-on');
     pack.classList.add('is-in'); await t(1000);
     pack.classList.add('is-shake'); await t(650);
-    pack.classList.add('is-cut'); await t(420);
-    pack.classList.add('is-open'); await t(260);
+    await tearPack(pack, reduce);
+    pack.classList.add('is-open'); await t(300);
     // cards fly out of the pack and settle into a layout (FLIP)
     const pr = pack.getBoundingClientRect(), cx = pr.left + pr.width / 2, cy = pr.top + pr.height * .35;
     wrap.classList.add('is-ready');
@@ -211,8 +256,9 @@ async function open(upid, refresh, meta) {
         el.classList.add('is-fly');
     });
     await t(40);
-    pack.classList.add('is-gone');
     [...wrap.children].forEach(el => el.classList.remove('is-fly'));
+    await t(520);
+    pack.classList.add('is-gone');
     await t(1000 + cards.length * 90);
     for (const el of wrap.children) {                       // flip one by one
         el.classList.add('is-flip');

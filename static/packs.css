@@ -192,3 +192,15 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 .pk-back{transform:rotateY(0deg) translateZ(1px);-webkit-transform:rotateY(0deg) translateZ(1px)}
 .pk-face{transform:rotateY(180deg) translateZ(1px);-webkit-transform:rotateY(180deg) translateZ(1px)}
 .pk-card.is-flip .pk-back{visibility:hidden;transition:visibility 0s linear .38s}
+
+/* ---- Progressive tear: ragged seal, the strip curls off, the bag settles lower and the cards come out backs first ---- */
+.pk-cards{z-index:2}
+.pk-pack{z-index:3}
+.pk-top{transform-origin:0 11%;will-change:transform,clip-path}
+.pk-body{will-change:transform,clip-path}
+.pk-spark{position:absolute;left:0;top:11%;width:22px;height:22px;margin:-11px 0 0 -11px;border-radius:50%;opacity:0;pointer-events:none;
+  background:radial-gradient(circle,#fff 0 20%,rgba(190,235,255,.95) 36%,rgba(90,170,255,.45) 62%,transparent 72%);box-shadow:0 0 18px 6px rgba(150,215,255,.8)}
+.pk-pack.is-open .pk-top{transform:translate(-18%,-230%) rotate(-22deg) !important;opacity:0;transition:transform .95s cubic-bezier(.45,0,.75,.4),opacity .95s}
+.pk-pack.is-open .pk-body{transform:translateY(7%) scaleY(.955);transform-origin:50% 100%;transition:transform .5s cubic-bezier(.2,.9,.3,1)}
+.pk-pack.is-gone{transform:translate(-50%,-30%) scale(.9);transition:transform .9s ease-in,opacity .8s ease-in .1s}
+.pk-card.is-fly{transition-duration:1.15s}

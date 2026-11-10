@@ -312,3 +312,53 @@ def test_withdrawal_sends_by_the_telegram_gift_id(client, monkeypatch):
     enable(client)
     client.post('/api/admin/star-gifts/run', headers=signed(), json={})
     assert seen['tg_id'] == 777
+
+
+def test_admin_grants_packs_directly_and_nft_only_by_link_when_backed(client, monkeypatch):
+    import relayer_transfer as rt
+    admin = signed()
+    client.get('/api/me', headers=signed(43, username='user43'))
+    assert client.post('/api/admin/users/43/gifts', headers=admin, json={'collection_id': 'snoop', 'model': 'x'}).status_code == 409       # catalogue models: closed
+    assert client.post('/api/admin/users/43/packs', headers=signed(43), json={'pack_id': 'winter'}).status_code == 403
+    assert client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': 'nope'}).status_code == 400
+    assert client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': 'winter', 'count': 2}).json['ok']
+    assert len(client.get('/api/packs', headers=signed(43)).json['mine']) == 2
+
+    link = 'https://t.me/nft/PlushPepe-1234'
+    nft = lambda who='43', body=None: client.post('/api/admin/users/%s/nft-gift' % who, headers=admin, json=body or {'link': link})
+    assert nft(body={'link': 'not a link'}).status_code == 400
+    assert nft(body={'link': 'https://t.me/nft/PlushPepe-0'}).status_code == 400
+    client.application.extensions['crafter_relayer_credentials'] = lambda: (1, 'hash', 'session', 777)
+    nobody = {}
+
+    async def entry_by_slug(api_id, api_hash, session, slug):
+        return nobody.get('entry')
+    monkeypatch.setattr(rt, 'entry_by_slug', entry_by_slug)
+    client.application.extensions['crafter_thermos_owns'] = lambda slug: nobody.get('thermos', False)
+    refused = nft()
+    assert refused.status_code == 409 and 'релейере' in refused.json['message' if 'message' in refused.json else 'error']      # neither on the relayer nor in Thermos
+    assert [g for g in client.get('/api/inventory', headers=signed(43)).json['gifts'] if g.get('telegram_slug')] == []
+    nobody['thermos'] = True
+    ok = nft()
+    assert ok.status_code == 200 and ok.json['source'] == 'thermos'
+    got, = [g for g in client.get('/api/inventory', headers=signed(43)).json['gifts'] if g.get('telegram_slug')]
+    assert got['telegram_slug'] == 'PlushPepe-1234' and got['origin'] == 'thermos' and got['number'] == 1234
+    client.get('/api/me', headers=signed(44))
+    assert nft('44').status_code == 409                          # the same gift cannot be given twice
+
+
+def test_nft_on_the_relayer_is_granted_with_its_real_attributes(client, monkeypatch):
+    import relayer_transfer as rt
+    client.get('/api/me', headers=signed(43, username='user43'))
+    client.application.extensions['crafter_relayer_credentials'] = lambda: (1, 'hash', 'session', 777)
+    attr = lambda kind, **kw: type(kind, (), kw)()
+    entry = type('E', (), {'gift': type('G', (), {'slug': 'PlushPepe-1234', 'title': 'Plush Pepe', 'num': 1234, 'attributes': [
+        attr('StarGiftAttributeModel', name='Lucky'), attr('StarGiftAttributePattern', name='Star')]})()})()
+
+    async def entry_by_slug(api_id, api_hash, session, slug):
+        return entry if slug.lower() == 'plushpepe-1234' else None
+    monkeypatch.setattr(rt, 'entry_by_slug', entry_by_slug)
+    done = client.post('/api/admin/users/43/nft-gift', headers=signed(), json={'link': 'https://t.me/nft/PlushPepe-1234'})
+    assert done.status_code == 200 and done.json['source'] == 'relayer'
+    got, = [g for g in client.get('/api/inventory', headers=signed(43)).json['gifts'] if g.get('telegram_slug')]
+    assert got['origin'] == 'telegram-deposit' and got['model'] == 'Lucky' and got['symbol'] == 'Star'

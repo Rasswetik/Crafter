@@ -277,10 +277,49 @@ def install_packs(app, db, auth, record, audit):
                             db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * factor, 5), r['id']))
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v3','1') ON CONFLICT(key) DO NOTHING")
 
+    WINTER_IMAGE = '/static/assets/packs/winter-pack.webp'
+    # (collection, model, value in GRAM): winter gifts up to 15 inclusive. The first group is the model list of the reference pack, the second
+    # one is the cheap new-year gifts of the Snowman pack.
+    WINTER_GIFTS = (
+        ('snowmittens', 'Mistletoe', '15'), ('recordplayer', 'Winter', '14.38'), ('sakuraflower', 'Snowdrop', '13.39'), ('jinglebells', 'Cozy Winter', '12.24'),
+        ('sleighbell', 'Blizzard', '11.22'), ('snowglobe', 'Sky Terrace', '8.62'), ('snowglobe', 'Winter', '7.18'), ('springbasket', 'Penguin', '6.86'),
+        ('santahat', 'Warm Winter', '6.84'), ('faithamulet', 'Winter', '5.87'), ('bdaycandle', 'Winter Fun', '5.25'), ('bdaycandle', 'Winter Noon', '4.9'),
+        ('candycane', 'Blue Bliss', '4.24'), ('tamagadget', 'Winter', '4.18'), ('lunarsnake', 'The Deadliest', '4.08'), ('lunarsnake', 'Blizzard', '4.07'),
+        ('jellybunny', 'Snowman', '11'), ('gingercookie', 'Snowman', '5.61'), ('happybrownie', 'Snowman', '4.45'), ('bunnymuffin', 'Snowman', '10.79'),
+        ('winterwreath', 'Snowman', '7.6'), ('hangingstar', 'Snowman', '10.71'), ('snowmittens', 'Frost Fingers', '10.5'), ('xmasstocking', 'Translucent', '4.18'),
+        ('vicecream', 'Iceman', '4.08'),
+    )
+    # per-mille chance of one card being this GRAM amount: plenty of small balances, big ones are rare
+    WINTER_GRAM = (('0.1', 560), ('0.2', 170), ('0.3', 90), ('0.5', 70), ('0.75', 40), ('1', 36), ('1.5', 16), ('2', 8), ('3', 4), ('5', 2), ('10', .6), ('20', .2))
+
+    def seed_winter_pack():
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_winter_v1'").fetchone():
+            return
+        with db():
+            if not pack_row('winter'):
+                db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
+                             ('winter', 'Winter', WINTER_IMAGE, json.dumps({'1': 58, '2': 30, '3': 12}), 0, 0, 1, int(time.time())))
+                pos = 0
+                for amount, weight in WINTER_GRAM:
+                    put_prize('winter', pos, 'GRAM', amount, '', 'GRAM', '', amount, weight)
+                    pos += 1
+                gifts = []
+                for cid, model, value in WINTER_GIFTS:
+                    col, m = catalog().get(cid), catalog_model(cid, model)
+                    if col and m:
+                        gifts.append((cid, singular(col.get('name') or cid), m['image'], value, model))
+                total = 3.4                      # about one gift per 200 openings, cheaper ones a little more often
+                inv = [1 / float(g[3]) for g in gifts]
+                for g, w in zip(gifts, inv):
+                    put_prize('winter', pos, 'NFT', '', g[0], g[1], g[2], g[3], round(total * w / (sum(inv) or 1), 4), g[4])
+                    pos += 1
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_winter_v1','1') ON CONFLICT(key) DO NOTHING")
+
     with app.app_context():
         tune_default_pack()
         seed_snowman_pack()
         tune_packs_rarer()
+        seed_winter_pack()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""

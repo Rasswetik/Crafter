@@ -61,6 +61,16 @@ async def held_slugs(api_id, api_hash, session):
     return await with_client(api_id, api_hash, session, run)
 
 
+async def entry_by_slug(api_id, api_hash, session, slug):
+    """The relayer's saved-gift entry of this unique gift (slug like PlushPepe-1234), or None."""
+    async def run(client):
+        for entry in await saved_gifts(client):
+            if match(entry, slug=slug):
+                return entry
+        return None
+    return await with_client(api_id, api_hash, session, run)
+
+
 async def find_on_relayer(api_id, api_hash, session, slug=None, title=None, number=None):
     """Return the Telegram slug of a matching gift held by the relayer, or None."""
     async def run(client):

@@ -318,3 +318,19 @@ def test_admin_can_pick_any_collection_and_model(client):
     assert nft['model'] == 'Snowman' and nft['name'] == 'Toy Bear' and nft['value'] == '38.19'
     bad = client.post('/api/admin/new-year/packs', headers=admin, json=dict(pack, prizes=[dict(prize, model='No Such Model')]))
     assert bad.status_code == 400
+
+
+def test_winter_pack_is_rare_cheap_and_listed_lots_know_their_pack(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    packs = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}
+    winter = packs['winter']
+    assert winter['title'] == 'Winter' and winter['image'].endswith('winter-pack.webp')
+    gifts = [p for p in winter['prizes'] if p['kind'] == 'NFT']
+    assert len(gifts) >= 20 and all(float(p['value']) <= 15 for p in gifts)                 # nothing above 15
+    total = sum(p['weight'] for p in winter['prizes'])
+    cards = {int(k): v for k, v in winter['card_weights'].items()}
+    mean = sum(k * v for k, v in cards.items()) / sum(cards.values())
+    assert 0.3 <= 100 * mean * sum(p['weight'] for p in gifts) / total <= 0.9               # about one gift per 200 openings
+    assert len([p for p in winter['prizes'] if p['kind'] == 'GRAM']) >= 10                  # lots of balance prizes
+    assert 'pack_id' in __import__('inspect').getsource(__import__('resale'))

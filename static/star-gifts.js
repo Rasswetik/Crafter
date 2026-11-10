@@ -7,6 +7,7 @@
         const html = originalCard(gift, action);
         if (gift && gift.star_gift) return html.replace('<p class="number">#</p>', '<p class="number">' + esc(gift.stars) + ' ★</p>');
         if (gift && gift.pack_item && gift.model) {            // a pack: its title first, then "Pack #serial"
+            html = html.replace('<b style="margin:0 auto">' + esc(gift.model) + '</b>', '<b style="margin:0 auto">Открыть</b>');
             return html.replace('<h3>' + esc(gift.name) + '</h3><p class="number">#' + esc(gift.number) + '</p>',
                 '<h3>' + esc(gift.model) + '</h3><p class="number">Pack #' + esc(gift.number) + '</p>');
         }
@@ -51,6 +52,7 @@
     const originalDetail = showGiftDetail;
     showGiftDetail = function (gift, source) {
         if (gift && source === 'inventory' && gift.status === 'withdrawing') return showWithdrawalStatus(gift);
+        if (gift && gift.pack_item && gift.pack_id) window.crafterPackWarm?.(gift.pack_id);
         if (!gift || !gift.star_gift || source !== 'inventory') return originalDetail(gift, source);
         state.detailGift = gift;
         const busy = gift.status !== 'unlisted';
