@@ -367,3 +367,30 @@ def test_pack_opening_script_keeps_every_function_it_calls():
     for name in ('cardMarkup', 'tearPack', 'openInside', 'open', 'granted', 'openMany'):
         assert re.search(r'(async\s+)?function\s+' + name + r'\s*\(', code), name          # a slice edit once dropped cardMarkup and no pack could be opened
     assert 'catch (err)' in code and 'the show failed' in code                                 # a failing animation reveals the cards instead of freezing
+
+
+def test_every_pack_has_its_own_backdrop_set():
+    import packs
+    names = {b[0] for b in packs.BACKDROPS}
+    sets = {k: set(v) for k, v in packs.PACK_BACKDROPS.items()}
+    assert set(sets) == {'newyear', 'snowman', 'winter'} and all(v <= names and len(v) == 6 for v in sets.values())
+    for a in sets:
+        for b in sets:
+            if a < b:
+                assert len(sets[a] & sets[b]) <= 1                                   # they may meet, but only a little
+    assert {b[0] for b in packs.backdrops_for('winter')} == sets['winter']
+    assert len(packs.backdrops_for('custom-pack')) == len(packs.BACKDROPS)           # a pack made by hand draws from all
+
+
+def test_a_pack_gets_a_backdrop_from_its_own_set(client):
+    import packs
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    for pack in ('winter', 'newyear', 'snowman'):
+        for _ in range(6):
+            client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': pack})
+    items = [g for g in client.get('/api/inventory', headers=player).json['gifts'] if g.get('pack_item')]
+    assert len(items) == 18
+    for g in items:
+        assert g['backdrop'] in packs.PACK_BACKDROPS[g['pack_id']]
+        assert g['background']['center_color'] and g['background']['edge_color']

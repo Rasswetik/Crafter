@@ -27,6 +27,20 @@ BACKDROPS = (('Moonstone', 0x8FC1D4, 0x3C7C93), ('Persimmon', 0xF08A4B, 0xB9501F
              ('Sapphire', 0x4F86E8, 0x1E3E8F), ('Amber', 0xF2B94B, 0xAE7416), ('Lavender', 0xB79CF0, 0x6A4BB5), ('Burgundy', 0xA13A4C, 0x4B1520),
              ('Pacific Cyan', 0x3BC4D9, 0x14788C), ('Midnight Blue', 0x4A5AA8, 0x161C45), ('Coral', 0xF27B6B, 0xAA3A33), ('Mint Green', 0x7AD9A8, 0x2F8B63),
              ('Fuchsia', 0xD960C7, 0x7E1F75), ('Silver Blue', 0x9FB6CF, 0x4F6580), ('Tomato', 0xE8503E, 0x8F1C14), ('Cobalt Blue', 0x3F6BD6, 0x172E80))
+# Each pack has its own set of backdrops that suit it; the sets may share a colour but only a little.
+PACK_BACKDROPS = {
+    'newyear': ('Sapphire', 'Cobalt Blue', 'Midnight Blue', 'Pacific Cyan', 'Silver Blue', 'Fuchsia'),       # blues, with one pink
+    'snowman': ('Mint Green', 'Emerald', 'Moonstone', 'Persimmon', 'Amber', 'Silver Blue'),                    # snow, pines, a carrot and lamp light
+    'winter': ('Lavender', 'Burgundy', 'Raspberry', 'Coral', 'Tomato', 'Midnight Blue'),                      # violet dusk and deep winter reds
+}
+
+
+def backdrops_for(pack_id):
+    names = PACK_BACKDROPS.get(pack_id)
+    pool = [b for b in BACKDROPS if names and b[0] in names]
+    return pool or list(BACKDROPS)
+
+
 _LIMIT = 10**9
 _rng = secrets.SystemRandom()
 
@@ -334,7 +348,7 @@ def install_packs(app, db, auth, record, audit):
         db().execute("INSERT INTO user_packs(id,user_id,pack_id,source,request_id,created) VALUES(?,?,?,?,?,?)",
                      (upid, uid, pack_id, source, request_id, int(time.time())))
         serial = int(db().execute("SELECT COUNT(*) AS n FROM user_packs").fetchone()['n'])      # one running number for all packs
-        bd = _rng.choice(BACKDROPS)
+        bd = _rng.choice(backdrops_for(pack_id))
         gift = {'id': 'packitem-' + upid, 'name': COLLECTION[1], 'number': serial, 'model': pack['title'],
                 'symbol': '', 'image': pack['image_url'], 'price': '0', 'price_unit': 'GRAM',
                 'backdrop': bd[0], 'background': {'center_color': bd[1], 'edge_color': bd[2]},

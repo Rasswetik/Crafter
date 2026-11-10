@@ -130,26 +130,26 @@ window.openPackFromDetail = function (id) {
 };
 
 /* ---------- opening animation ---------- */
-/* The bag is opened like a real foil bag: the corner of the seal strip is pulled, and the strip peels off in one even
-   motion along a straight line while the rest of the bag stays flat. The torn part curls up around the tear front. */
+/* The bag is opened like a real foil bag: the left corner of the seal strip is pulled and the strip peels off in one even
+   motion, left to right, along a straight line while the rest of the bag stays flat. */
 const TEAR_Y = 11;
 function tearPack(pack, reduce) {
     const top = pack.querySelector('.pk-top'), body = pack.querySelector('.pk-body');
     const poly = list => 'polygon(' + list.map(p => p[0].toFixed(2) + '% ' + p[1].toFixed(2) + '%').join(',') + ')';
     const frame = p => {
-        const x = 100 * (1 - p);                                   // the tear front travels from the pulled corner to the far side
-        top.style.clipPath = poly([[x, 0], [100, 0], [100, TEAR_Y], [x, TEAR_Y]]);
-        body.style.clipPath = poly([[0, 0], [x, 0], [x, TEAR_Y], [100, TEAR_Y], [100, 100], [0, 100]]);
+        const x = 100 * p;                                          // the tear front travels from the pulled left corner to the right edge
+        top.style.clipPath = poly([[0, 0], [x, 0], [x, TEAR_Y], [0, TEAR_Y]]);
+        body.style.clipPath = poly([[0, TEAR_Y], [x, TEAR_Y], [x, 0], [100, 0], [100, 100], [0, 100]]);
         top.style.transformOrigin = x + '% ' + TEAR_Y + '%';
-        const lift = Math.min(1, p * 4);                           // the pulled corner leaves the bag at once, then the curl grows
-        top.style.transform = 'rotate(' + (-(30 * lift + 34 * p * p)).toFixed(2) + 'deg) translate(' + (6 * p).toFixed(2) + '%,' + (-16 * lift).toFixed(2) + '%)';
+        const lift = Math.min(1, p * 5);                            // the corner leaves the bag at once, then the strip curls evenly
+        top.style.transform = 'rotate(' + (26 * lift + 30 * p).toFixed(2) + 'deg) translate(' + (-4 * p).toFixed(2) + '%,' + (-12 * lift).toFixed(2) + '%)';
     };
-    const total = reduce ? 350 : 1500;
+    const total = reduce ? 350 : 1700;
     return new Promise(resolve => {
         const t0 = performance.now();
         const step = now => {
             const k = Math.min(1, (now - t0) / total);
-            frame(k < .5 ? 2 * k * k : 1 - 2 * (1 - k) * (1 - k));     // quick pull, steady tear, soft end
+            frame(.5 - .5 * Math.cos(Math.PI * k));                 // one smooth ease: no sudden speed changes
             if (k < 1) requestAnimationFrame(step); else resolve();
         };
         requestAnimationFrame(step);
@@ -255,7 +255,7 @@ async function open(upid, refresh, meta) {
             const inside = 'translate(' + (px - cx) + 'px,' + (pr.top + pr.height * .55 - cy) + 'px) scale(.62)';
             const out = 'translate(' + (px - cx) + 'px,' + (pr.top - r.height * .42 - cy) + 'px) scale(.9) rotate(' + ((i - (kids.length - 1) / 2) * 2.5) + 'deg)';
             return el.animate([{transform: inside}, {transform: out, offset: .5}, {transform: 'none'}],
-                {duration: reduce ? 300 : 1250, delay: reduce ? 0 : i * 330, easing: 'cubic-bezier(.3,.7,.25,1)', fill: 'both'});
+                {duration: reduce ? 300 : 1100, delay: reduce ? 0 : i * 260, easing: 'cubic-bezier(.33,.7,.3,1)', fill: 'both'});
         });
         await Promise.all(animations.map(x => x.finished.catch(() => {})));
         animations.forEach(x => { try { x.commitStyles(); x.cancel(); } catch (_) {} });

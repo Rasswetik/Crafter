@@ -221,3 +221,9 @@ dialog.pk-win.is-open .pk-win-card{transform:none}
 /* Pulled corner: the strip leaves up and to the right, no light line */
 .pk-tearline{display:none !important}
 .pk-pack.is-open .pk-top{transform:translate(34%,-250%) rotate(-52deg) !important;opacity:0;transition:transform .9s cubic-bezier(.4,0,.7,.3),opacity .9s}
+
+/* Left-to-right tear: the strip leaves up and to the left. The stage fits the screen so the "Забрать" button is always on it. */
+.pk-pack.is-open .pk-top{transform:translate(-34%,-250%) rotate(52deg) !important;opacity:0;transition:transform .9s cubic-bezier(.4,0,.7,.3),opacity .9s}
+.pk-stage{height:clamp(330px,calc(100vh - 210px),580px);height:clamp(330px,calc(100dvh - 210px),580px)}
+.pk-actions{position:relative;z-index:8;touch-action:manipulation}
+.pk-actions button{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
