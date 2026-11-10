@@ -16,3 +16,7 @@ body{max-width:100vw;overflow-x:hidden;overscroll-behavior-x:none;touch-action:m
 /* A pack picture is always shown whole, never cropped to a square */
 img[src*="/static/assets/packs/"]{object-fit:contain!important}
 dialog#sheet.catalog-sheet .catalog-row .catalog-thumb img[src*="/static/assets/packs/"]{padding:2px;background:transparent}
+
+/* the label is small and short ("Мин. цена"), the price sits right next to it */
+.gift .gift-bottom button.price small{font-size:10.5px;font-weight:600;opacity:.9}
+.gift .gift-bottom button.price{gap:5px}

@@ -373,7 +373,7 @@ def test_every_pack_has_its_own_backdrop_set():
     import packs
     names = {b[0] for b in packs.BACKDROPS}
     sets = {k: set(v) for k, v in packs.PACK_BACKDROPS.items()}
-    assert set(sets) == {'newyear', 'snowman', 'winter', 'christmas'} and all(v <= names and len(v) == 16 for v in sets.values())
+    assert set(sets) == {'newyear', 'snowman', 'winter', 'christmas', 'silverfrost'} and all(v <= names and len(v) == 16 for v in sets.values())
     for a in sets:
         for b in sets:
             if a < b:
@@ -386,11 +386,11 @@ def test_a_pack_gets_a_backdrop_from_its_own_set(client):
     import packs
     admin, player = signed(42), signed(43)
     client.get('/api/me', headers=player)
-    for pack in ('winter', 'newyear', 'snowman', 'christmas'):
+    for pack in ('winter', 'newyear', 'snowman', 'christmas', 'silverfrost'):
         for _ in range(8):
             client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': pack})
     items = [g for g in client.get('/api/inventory', headers=player).json['gifts'] if g.get('pack_item')]
-    assert len(items) == 32
+    assert len(items) == 40
     for g in items:
         assert g['backdrop'] in packs.PACK_BACKDROPS[g['pack_id']]
         assert g['background']['center_color'] and g['background']['edge_color']
@@ -515,3 +515,21 @@ def test_cherry_charm_joins_christmas_carol_on_an_existing_server(client):
     assert 'Red Velvet' not in gifts
     total = sum(p['weight'] for p in xmas['prizes'])
     assert abs(sum(g['weight'] for g in gifts.values()) / total - 0.0017) < 0.0001
+
+
+def test_silverfrost_pack(client):
+    import packs
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    pack = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}['silverfrost']
+    assert pack['title'] == 'Silverfrost' and pack['image'].endswith('silverfrost-pack.webp')
+    gifts = [(g['collection_id'], g['model'], g['value']) for g in pack['prizes'] if g['kind'] == 'NFT']
+    assert gifts == [('xmasstocking', 'Frozen Moss', '4.53'), ('candycane', 'Blue Bliss', '4.7'), ('partysparkler', 'Cyan Sizzle', '5.67'),
+                     ('gingercookie', 'Frozen Dough', '5.71'), ('winterwreath', 'Negative', '6.05'), ('eternalcandle', 'Blue Steel', '8'),
+                     ('santahat', 'Below Zero', '8.2'), ('snowglobe', 'Diamond', '8.37'), ('snowmittens', 'Pingu', '9.77'), ('jinglebells', 'Glacier', '11.33')] or         [g[:2] for g in gifts] == [('xmasstocking', 'Frozen Moss'), ('candycane', 'Blue Bliss'), ('partysparkler', 'Cyan Sizzle'), ('gingercookie', 'Frozen Dough'),
+                                  ('winterwreath', 'Negative'), ('eternalcandle', 'Blue Steel'), ('santahat', 'Below Zero'), ('snowglobe', 'Diamond'),
+                                  ('snowmittens', 'Pingu'), ('jinglebells', 'Glacier')]
+    assert {int(k): v for k, v in pack['card_weights'].items()} == {1: 60, 2: 24, 3: 10, 4: 4, 5: 1.5, 6: .5}
+    total = sum(p['weight'] for p in pack['prizes'])
+    assert abs(sum(p['weight'] for p in pack['prizes'] if p['kind'] == 'NFT') / total - 0.0017) < 0.0001
+    assert packs.PACK_ACCENTS['silverfrost']

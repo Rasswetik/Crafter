@@ -4,12 +4,12 @@
 
     const originalCard = card;
     card = function (gift, action) {
-        let html = originalCard(gift, action);
+        let html = originalCard(gift, action).replace('<small>Минимальная цена</small>', '<small>Мин. цена</small>');
         if (gift && gift.star_gift) return html.replace('<p class="number">#</p>', '<p class="number">' + esc(gift.stars) + ' ★</p>');
         if (gift && gift.pack_item && !gift.resale && gift.status !== 'listed') {      // a pack in the inventory: price line as for any other gift
             const floor = productFloor(gift);
             const value = floor.endsWith(' GRAM') ? esc(floor.slice(0, -5)) + ' ' + gramIcon() : esc(floor);
-            html = html.replace('<b style="margin:0 auto">' + esc(gift.model || '') + '</b>', '<small>Минимальная цена</small><b>' + value + '</b>');
+            html = html.replace('<b style="margin:0 auto">' + esc(gift.model || '') + '</b>', '<small>Мин. цена</small><b>' + value + '</b>');
         }
         return html;
     };
@@ -25,7 +25,16 @@
 
     const originalFloor = productFloor;
     productFloor = function (gift) {
-        return gift && gift.star_gift ? gramText(gift.price) : originalFloor(gift);
+        if (gift && gift.star_gift) return gramText(gift.price);
+        const text = originalFloor(gift);
+        // The site counts in GRAM: a floor quoted in TON is shown converted, with the GRAM icon.
+        const match = /^([\d\s.,]+)\s*TON$/.exec(String(text).trim());
+        const ratio = Number(state?.me?.new_year_gram_per_ton || 0);
+        if (match && ratio > 0) {
+            const ton = Number(match[1].replace(/\s/g, '').replace(',', '.'));
+            if (Number.isFinite(ton) && ton > 0) return money(ton * ratio) + ' GRAM';
+        }
+        return text;
     };
 
     // A gift that is being withdrawn (NFT or ordinary): show where the request stands and, if it failed, why.

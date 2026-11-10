@@ -44,6 +44,10 @@ _FAMILIES = {
     # reds for Christmas Carol
     'Crimson': (348, .78, .42), 'Ruby': (345, .80, .46), 'Cherry': (352, .75, .40), 'Brick Red': (8, .55, .40), 'Garnet': (350, .65, .34),
     'Scarlet': (4, .85, .50), 'Poinsettia': (355, .70, .44),
+    # silver and ice for Silverfrost
+    'Gunmetal': (215, .10, .38), 'Titanium': (210, .08, .50), 'Graphite': (220, .08, .28), 'Slate': (212, .18, .42), 'Pewter': (200, .06, .58),
+    'Frost': (195, .30, .80), 'Glacier': (196, .45, .70), 'Cloud': (210, .15, .82), 'Mist': (200, .12, .72), 'Silver': (210, .03, .74),
+    'Arctic': (190, .50, .62), 'Steel Grey': (215, .12, .46), 'Nickel': (210, .07, .64), 'Chrome': (205, .10, .70),
     # more violets for Winter
     'Amethyst': (275, .45, .54), 'Orchid': (300, .40, .60), 'Plum': (300, .38, .34), 'Twilight': (255, .40, .38), 'Iris': (250, .55, .58), 'Mauve': (290, .25, .58),
 }
@@ -67,13 +71,15 @@ PACK_BACKDROPS = {
                 'Pistachio', 'Moonstone', 'Ivory White', 'Platinum', 'Roman Silver', 'Persimmon', 'Tangerine', 'Silver Blue'),    # pines and snow, a carrot
     'winter': ('Lavender', 'Dark Lilac', 'Electric Purple', 'Royal Violet', 'English Violet', 'Grape', 'Fandango', 'Purple',
                'Amethyst', 'Orchid', 'Plum', 'Twilight', 'Iris', 'Mauve', 'Midnight Blue', 'Indigo Dye'),                          # violet dusk
+    'silverfrost': ('Gunmetal', 'Titanium', 'Graphite', 'Slate', 'Pewter', 'Frost', 'Glacier', 'Cloud', 'Mist', 'Silver',
+                    'Arctic', 'Steel Grey', 'Nickel', 'Chrome', 'Ice Blue', 'Steel Blue'),                                           # silver and ice
     'christmas': ('Burgundy', 'Raspberry', 'Carmine', 'Rosewood', 'Strawberry', 'Coral Red', 'Tomato', 'Coral',
                   'Crimson', 'Ruby', 'Cherry', 'Brick Red', 'Garnet', 'Scarlet', 'Poinsettia', 'Persimmon'),                       # reds, one orange
 }
 
 
 # The accent colour of a pack (r g b): the opening screen glows with it instead of one common blue.
-PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96'}
+PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222'}
 DEFAULT_ACCENT = '59 134 238'
 
 
@@ -336,6 +342,10 @@ def install_packs(app, db, auth, record, audit):
     # Every pack uses the same stingy balance table: a card is almost always 0.1 GRAM, big sums are very rare.
     STANDARD_GRAM = (('0.1', 840), ('0.2', 100), ('0.3', 35), ('0.5', 14), ('0.75', 6), ('1', 3), ('1.5', 1.2), ('2', .5), ('3', .2), ('5', .08), ('10', .02), ('20', .006))
     CARD_WEIGHTS = {'1': 60, '2': 24, '3': 10, '4': 4, '5': 1.5, '6': .5}      # 60% of packs hold one card, up to six
+    SILVERFROST_IMAGE = '/static/assets/packs/silverfrost-pack.webp'
+    SILVERFROST_GIFTS = (('xmasstocking', 'Frozen Moss', '4.53'), ('candycane', 'Blue Bliss', '4.70'), ('partysparkler', 'Cyan Sizzle', '5.67'),
+                         ('gingercookie', 'Frozen Dough', '5.71'), ('winterwreath', 'Negative', '6.05'), ('eternalcandle', 'Blue Steel', '8.00'),
+                         ('santahat', 'Below Zero', '8.20'), ('snowglobe', 'Diamond', '8.37'), ('snowmittens', 'Pingu', '9.77'), ('jinglebells', 'Glacier', '11.33'))
     CHRISTMAS_IMAGE = '/static/assets/packs/christmas-pack.webp'
     CHRISTMAS_GIFTS = (('snowglobe', 'Crimson Cabin'), ('hangingstar', 'Christmas'), ('snowmittens', 'Rudolph'), ('gingercookie', 'Cookie Claus'),
                        ('jinglebells', 'Nutcracker'), ('eternalcandle', 'Red Melter'), ('xmasstocking', 'Caramel Fest'),
@@ -449,6 +459,30 @@ def install_packs(app, db, auth, record, audit):
                     pos += 1
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_christmas_v1','1') ON CONFLICT(key) DO NOTHING")
 
+    def seed_silverfrost_pack():
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_silverfrost_v1'").fetchone():
+            return
+        with db():
+            if not pack_row('silverfrost'):
+                db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
+                             ('silverfrost', 'Silverfrost', SILVERFROST_IMAGE, json.dumps(CARD_WEIGHTS), 0, 0, 1, int(time.time())))
+                pos = 0
+                for amount, weight in STANDARD_GRAM:
+                    put_prize('silverfrost', pos, 'GRAM', amount, '', 'GRAM', '', amount, weight)
+                    pos += 1
+                gifts = []
+                for cid, model, value in SILVERFROST_GIFTS:
+                    col, m = catalog().get(cid), catalog_model(cid, model)
+                    if col and m:
+                        gifts.append((cid, singular(col.get('name') or cid), m['image'], value, model))
+                gram = sum(w for _, w in STANDARD_GRAM)
+                total = NFT_CARD_SHARE_V4 / (1 - NFT_CARD_SHARE_V4) * gram                    # about one gift per 400 openings
+                inv = [1 / max(float(g[3]), 1.0) for g in gifts]
+                for g, w in zip(gifts, inv):
+                    put_prize('silverfrost', pos, 'NFT', '', g[0], g[1], g[2], g[3], round(total * w / (sum(inv) or 1), 6), g[4])
+                    pos += 1
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_silverfrost_v1','1') ON CONFLICT(key) DO NOTHING")
+
     def tune_packs_final():
         """Once: one stingy balance table and fewer multi-card packs for every pack; gifts stay at one per ~400 openings."""
         if db().execute("SELECT 1 FROM settings WHERE key='packs_tuned_v5'").fetchone():
@@ -544,6 +578,7 @@ def install_packs(app, db, auth, record, audit):
         tune_card_counts()
         drop_christmas_bear()
         add_cherry_charm()
+        seed_silverfrost_pack()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""
