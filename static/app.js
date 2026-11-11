@@ -5,7 +5,7 @@ function anvilArt(className = 'anvil-svg') {
 const icon=(name)=>name === 'craft' ? anvilArt('craft-icon') : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${paths[name]||paths.gift}"/></svg>`;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const arg=x=>esc(JSON.stringify(String(x)));
-const imageURL=x=>/^(https:\/\/|\/static\/assets\/|\/api\/arena\/private\/[A-Za-z0-9_-]{24}\/bot-avatar(?:\?v=\d+)?$|\/media\/(?:fragment|collection)\/[a-z0-9-]+$|data:image\/webp;base64,)/.test(x||'')?x:'';
+const imageURL=x=>/^(https:\/\/|\/static\/assets\/|\/api\/arena\/private\/[A-Za-z0-9_-]{24}\/bot-avatar(?:\?v=\d+)?$|\/media\/(?:fragment|collection)\/[a-z0-9-]+$|\/media\/stargift\/[a-z0-9-]+\.png(?:\?v=\w+)?$|data:image\/webp;base64,)/.test(x||'')?x:'';
 const money=x=>{let n=Number(x);return Number.isFinite(n)?n.toLocaleString('ru-RU',{maximumFractionDigits:2}):'—'};
 let state={page:'market',me:null,gifts:[],catalog:{collections:[],attributes:{}},selected:[],list:false,query:'',collection:'',model:'',backdrop:'',sort:false,inventory:[],crafting:false,selection:{}};
 let tg=window.Telegram?.WebApp;
