@@ -45,7 +45,7 @@ function navSeason(){
 function addSeasonTile(){
     const wrap=document.querySelector('#main .crafter-games');
     if(!wrap||!active()||wrap.querySelector('.ny-game-tile'))return;
-    wrap.insertAdjacentHTML('afterbegin','<button class="crafter-game-tile ny-game-tile" type="button" onclick="go(\'new-year\')"><span class="crafter-game-label"><strong>Событие</strong><span>Новогодний маркет, адвент-календарь и события сообщества</span><span class="crafter-game-open">Открыть</span></span><span class="crafter-game-emblem ny-game-emblem">'+SEASON_ICON+'</span></button>');
+    wrap.insertAdjacentHTML('afterbegin','<button class="crafter-game-tile ny-game-tile" type="button" onclick="go(\'new-year\')"><span class="crafter-game-label"><strong>Событие</strong><span>Новогодний маркет, адвент-календарь и события сообщества</span><span class="crafter-game-open">Открыть</span></span><span class="ny-art" aria-hidden="true"><i class="nyb nyb1"></i><i class="nyb nyb2"></i><i class="nyb nyb3"></i><i class="nys nys1"></i><i class="nys nys2"></i><i class="nys nys3"></i></span></button>');
 }
 if(typeof renderGamesHub==='function'){
     const hubBefore=renderGamesHub;

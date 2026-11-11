@@ -1,0 +1,65 @@
+/* Escape: a ball in a ring. The page and the tile in the Games hub. */
+.esc{max-width:520px;margin:0 auto;padding:6px 14px 130px;display:grid;gap:12px;color:#f2f4f8;font-family:inherit}
+.esc *{box-sizing:border-box}
+.esc-top{display:flex;align-items:center;gap:10px}
+.esc-ico{display:grid;place-items:center;width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.07);color:#cfd6e0;cursor:pointer;padding:0;transition:transform .15s,background .2s}
+.esc-ico:hover{background:rgba(255,255,255,.12)}.esc-ico:active{transform:scale(.92)}.esc-ico svg{width:20px;height:20px}
+.esc-wallet{margin-left:auto;padding:10px 16px;border-radius:999px;background:rgba(30,50,90,.8);border:1px solid rgba(110,160,255,.3);font-weight:800;font-size:15px;white-space:nowrap}
+.esc-lucks{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.esc-luck{display:grid;grid-template-columns:1fr auto;gap:2px 8px;align-items:center;padding:8px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.esc-luck span{grid-column:1/-1;text-align:center;font-size:12px;color:#8f99a8;font-weight:700}
+.esc-luck b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.esc-luck i{font-style:normal;font-size:13px;font-weight:800;color:#e7ecf5}
+.esc-stage{position:relative;border-radius:22px;overflow:hidden;background:radial-gradient(90% 70% at 50% 35%,#16181f,#0e0f13);border:1px solid rgba(255,255,255,.1);box-shadow:0 20px 50px rgba(0,0,0,.4)}
+.esc-stage canvas{display:block;width:100%;height:auto;aspect-ratio:480/560}
+.esc-hint{position:absolute;left:12px;top:12px;padding:7px 12px;border-radius:12px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.1);font-size:13px;color:#d3d9e3}.esc-hint b{color:#c58bff}
+.esc-result{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);display:grid;gap:2px;justify-items:center;padding:16px 28px;border-radius:20px;text-align:center;background:rgba(10,12,16,.82);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.18);animation:esc-pop .35s cubic-bezier(.2,1.3,.4,1) both;pointer-events:none}
+.esc-result[hidden]{display:none}.esc-result b{font-size:30px;letter-spacing:-.5px}.esc-result small{font-size:13px;color:#aab3c0}
+.esc-result.is-win{border-color:rgba(40,217,119,.6);box-shadow:0 0 40px rgba(40,217,119,.35)}.esc-result.is-win b{color:#4be58f}
+.esc-result.is-lose{border-color:rgba(255,58,74,.55);box-shadow:0 0 36px rgba(255,58,74,.3)}.esc-result.is-lose b{color:#ff6b78}
+@keyframes esc-pop{from{opacity:0;transform:translate(-50%,-44%) scale(.85)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
+.esc-hash{display:flex;justify-content:center;align-items:center;gap:8px;font-size:14px;color:#8f99a8}.esc-hash b{color:#b6bfcc;font-family:ui-monospace,Menlo,Consolas,monospace}
+.esc-hash button{display:grid;place-items:center;width:28px;height:28px;border:0;border-radius:8px;background:transparent;color:#8f99a8;cursor:pointer;padding:0}.esc-hash button:hover{color:#fff}.esc-hash button svg{width:16px;height:16px}
+.esc-row{display:flex;justify-content:center}
+.esc-seg{display:inline-flex;gap:4px;padding:4px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)}
+.esc-seg button{min-width:76px;height:38px;border:0;border-radius:999px;background:transparent;color:#cfd6e0;font:inherit;font-size:15px;font-weight:700;cursor:pointer;transition:background .2s,color .2s,transform .15s}
+.esc-seg button:active{transform:scale(.95)}
+.esc-seg button.is-on{color:#fff}.esc-seg button.is-lite{background:#2b7be0}.esc-seg button.is-mid{background:#1fae6b}.esc-seg button.is-epic{background:#b640f5;box-shadow:0 0 18px rgba(182,64,245,.5)}
+.esc-bet{display:grid;grid-template-columns:auto 1fr;gap:10px}
+.esc-stepper{display:flex;align-items:center;gap:6px;padding:5px;border-radius:999px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12)}
+.esc-stepper button{display:grid;place-items:center;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.1);color:#fff;cursor:pointer;padding:0;transition:transform .15s}.esc-stepper button:active{transform:scale(.9)}.esc-stepper button svg{width:18px;height:18px}
+.esc-stepper input{width:64px;border:0;background:transparent;color:#fff;font:inherit;font-size:16px;font-weight:800;text-align:right;outline:0;padding:0}.esc-stepper span{font-size:12px;color:#8f99a8;margin-right:4px}
+.esc-go{display:grid;place-items:center;min-height:52px;padding:6px 14px;border:0;border-radius:999px;background:linear-gradient(180deg,#2a9bff,#1479ec);color:#fff;font:inherit;font-weight:800;font-size:16px;cursor:pointer;box-shadow:0 10px 24px rgba(22,121,236,.4);transition:transform .15s,filter .2s}
+.esc-go:active{transform:scale(.98)}.esc-go:disabled{background:rgba(255,255,255,.1);color:#9aa3b0;box-shadow:none;cursor:default}.esc-go small{display:block;font-size:12px;font-weight:600;color:#8f99a8}
+.esc-go.is-busy{background:rgba(255,255,255,.12);color:#cfd6e0}
+.esc-muted{color:#8f99a8}
+.esc-rules p{margin:0 0 12px;line-height:1.55;color:#cfd6e0}
+.esc-hist{display:grid;gap:8px}
+.esc-h{display:grid;grid-template-columns:1fr auto;gap:6px 10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.esc-h b{display:block;font-size:15px}.esc-h small{display:block;font-size:12px;color:#8f99a8;margin-top:2px}
+.esc-h.is-win b{color:#4be58f}.esc-h.is-lose b{color:#ff6b78}
+.esc-h button{align-self:center;padding:7px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:transparent;color:#e6ebf3;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.esc-h button.is-ok{border-color:#2e7d4f;color:#4be58f}.esc-h button.is-bad{border-color:#7a2a2a;color:#ff6b78}
+.esc-h code{grid-column:1/-1;display:block;font-size:11px;line-height:1.5;color:#7c8696;word-break:break-all}
+/* the tile in the Games hub: the same layout as the other tiles (text on the left, the picture on the right) */
+.escape-tile{background:radial-gradient(ellipse at 76% 42%,#4b2bd6 0%,#2a1593 48%,#150a4d 100%)!important;border-color:rgba(140,120,255,.28)!important}
+.escape-tile .crafter-game-label{position:relative;z-index:2}
+.escape-art{position:absolute;right:6%;top:50%;width:clamp(104px,38%,176px);aspect-ratio:1;transform:translateY(-50%);z-index:1;pointer-events:none}
+.escape-ring{position:absolute;inset:6%;border-radius:50%;border:7px solid #6f86ff;border-right-color:transparent;box-shadow:0 0 26px rgba(111,134,255,.6);animation:escape-spin 7s linear infinite}
+.escape-ball{position:absolute;left:50%;top:50%;width:40%;height:40%;margin:-20% 0 0 -20%;border-radius:50%;background:#16203f url(/static/assets/escape/lol-pop.png) center/cover no-repeat;border:2.5px solid rgba(255,255,255,.9);box-shadow:0 0 20px rgba(90,150,255,.8);animation:escape-bob 1.8s ease-in-out infinite}
+.escape-star{position:absolute;width:6px;height:6px;border-radius:50%;background:#fff;opacity:.7;box-shadow:0 0 8px #fff;animation:escape-tw 2.4s ease-in-out infinite}.escape-star.s1{left:2%;top:16%}.escape-star.s2{right:0;top:62%;animation-delay:.8s}.escape-star.s3{left:30%;bottom:2%;animation-delay:1.4s}
+.escape-online{position:absolute;right:14px;top:12px;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:rgba(18,14,60,.72);border:1px solid rgba(255,255,255,.14);font-size:12.5px;font-weight:800;color:#fff;z-index:3}
+.escape-online i{width:7px;height:7px;border-radius:50%;background:#35e07a;box-shadow:0 0 8px #35e07a}
+@keyframes escape-spin{to{transform:rotate(360deg)}}@keyframes escape-bob{0%,100%{transform:translateY(-7px)}50%{transform:translateY(7px)}}@keyframes escape-tw{0%,100%{opacity:.25}50%{opacity:.9}}
+/* the event tile: hanging ornaments */
+.ny-game-tile{background:radial-gradient(ellipse at 78% 38%,#b3263d 0%,#6e1424 52%,#2a0a14 100%)!important;border-color:rgba(255,150,130,.28)!important}
+.ny-game-tile .crafter-game-label{position:relative;z-index:2}
+.ny-art{position:absolute;right:4%;top:0;width:clamp(120px,44%,210px);height:100%;z-index:1;pointer-events:none}
+.nyb{position:absolute;top:-10px;width:46px;height:46px;border-radius:50%;transform-origin:50% -60px;animation:ny-swing 3.4s ease-in-out infinite;box-shadow:inset -6px -8px 14px rgba(0,0,0,.35),inset 5px 5px 10px rgba(255,255,255,.4),0 10px 20px rgba(0,0,0,.4)}
+.nyb::before{content:"";position:absolute;left:50%;top:-13px;width:12px;height:11px;margin-left:-6px;border-radius:3px 3px 0 0;background:linear-gradient(90deg,#c98d1c,#fff0b8 50%,#d79a22)}
+.nyb::after{content:"";position:absolute;left:50%;top:-70px;width:1.5px;height:58px;background:rgba(255,235,190,.7)}
+.nyb1{right:62%;height:56px;width:56px;margin-top:34px;background:radial-gradient(circle at 34% 30%,#ff9aa4,#d93a4a 60%,#7d1822);animation-delay:-.4s}
+.nyb2{right:30%;width:68px;height:68px;margin-top:70px;background:radial-gradient(circle at 34% 30%,#fff0b8,#eaa925 60%,#8a5a0a);animation-delay:-1.4s}
+.nyb3{right:2%;width:52px;height:52px;margin-top:24px;background:radial-gradient(circle at 34% 30%,#8ff0bb,#1f9a62 60%,#0d4a30);animation-delay:-2.2s}
+.nys{position:absolute;width:5px;height:5px;border-radius:50%;background:#fff;box-shadow:0 0 8px #fff;animation:escape-tw 2.6s ease-in-out infinite}.nys1{left:8%;top:62%}.nys2{left:44%;bottom:12%;animation-delay:.9s}.nys3{right:6%;bottom:22%;animation-delay:1.7s}
+@keyframes ny-swing{0%,100%{transform:rotate(-6deg)}50%{transform:rotate(6deg)}}
+@media(prefers-reduced-motion:reduce){.escape-ring,.escape-ball,.nyb,.escape-star,.nys{animation:none}}

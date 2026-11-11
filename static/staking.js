@@ -1,13 +1,13 @@
 /* Crafter Games Hub and gift staking. The existing craft mechanic is preserved. */
 const stakeUi = {status:null, picked:new Set(), tutorialStep:0, gifts:[], pending:false};
-const crafterModePolicy = {craft:true,arena:true,staking:true,upgrade:true};
+const crafterModePolicy = {craft:true,arena:true,staking:true,upgrade:true,escape:true};
 let crafterModePolicyLoaded = false;
 async function loadCrafterModePolicy() {
     if (crafterModePolicyLoaded) return;
     crafterModePolicyLoaded = true;
     try {
         const data = await api('site/modes');
-        for (const id of ['craft','arena','staking','upgrade'])
+        for (const id of ['craft','arena','staking','upgrade','escape'])
             if (typeof data.modes?.[id] === 'boolean') crafterModePolicy[id] = data.modes[id];
         if (state.page === 'games') renderGamesHub();
         if (typeof nav === 'function') nav();
@@ -29,7 +29,7 @@ const gameNavIcons = {games: gamesHubIcon, gift: stakingGiftIcon, staking: staki
 nav = function() {
     const root = document.querySelector('#nav');
     if (!root) return;
-    const inGames = Boolean(state.gamesMode || ['games','craft','arena','events','upgrade'].includes(state.page));
+    const inGames = Boolean(state.gamesMode || ['games','craft','arena','events','upgrade','escape'].includes(state.page));
     const sidePage = inGames ? 'market' : 'games';
     const sideLabel = inGames ? 'Маркет' : 'Игры';
     const destinations = inGames ? [

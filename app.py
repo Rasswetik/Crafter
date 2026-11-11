@@ -283,7 +283,7 @@ def create_app(config=None):
         return render_template('index.html', site_maintenance=is_maintenance_enabled())
 
     # every section of the app has its own address: a refresh (or a shared link) opens that very section
-    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'):
+    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/escape', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'):
         app.add_url_rule(_path, 'section_' + _path.strip('/').replace('-', '_'), index)
 
     @app.get('/admin')
@@ -314,7 +314,7 @@ def create_app(config=None):
         return build_preview()
     @app.after_request
     def cache_control(response):
-        if request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
+        if request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/escape', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')
@@ -1598,6 +1598,8 @@ def create_app(config=None):
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
     from partner_api import install_partner_api
     install_partner_api(app,db,auth,record,audit)
+    from escape_game import install_escape
+    install_escape(app,db,auth,record,audit)
     from creators import install_creators
     install_creators(app, auth)
     from creator_apps import install_creator_apps

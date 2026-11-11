@@ -341,6 +341,7 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
         ['arena','Arena','Игровая арена'],
         ['staking','Стейкинг','Начисление по APR'],
         ['upgrade','Апгрейд','Колесо апгрейдов'],
+        ['escape','Escape','Шар в кольце'],
     ];
     content.innerHTML=adminQueueHeader('Управление режимами',
         'При отключении сервер блокирует новые игровые запросы обычных пользователей. Администраторы сохраняют доступ.')+
