@@ -17,3 +17,9 @@ body.creators-doc{font-family:-apple-system,"SF Pro Text","Segoe UI",system-ui,s
 .creators-doc .dot{background:#ff5b6b}
 .creators-doc .modal-card{background:#1b1b1b}
 .creators-doc .vgrid{margin-top:14px}
+@media(max-width:640px){
+  .creators-doc table.rates{display:table;font-size:14px}
+  .creators-doc .rates th:nth-child(3),.creators-doc .rates td:nth-child(3){display:none}
+  .creators-doc .rates th,.creators-doc .rates td{padding:10px 8px}
+  .creators-doc .rates .price{font-size:16px}
+}
