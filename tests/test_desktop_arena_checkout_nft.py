@@ -23,14 +23,14 @@ def test_purchase_notification_contains_validated_direct_telegram_nft(monkeypatc
     assert receipt['chat_id'] == 44
     assert receipt['parse_mode'] == 'HTML'
     assert receipt['text'].startswith(
-        '✅ Successfully purchased <a href="https://t.me/nft/luckylocket-13826">'
-        'Lucky Locket #13826</a> for 14.5 GRAM.'
+        '✅ Вы успешно купили <a href="https://t.me/nft/luckylocket-13826">'
+        'Lucky Locket #13826</a> за 14.5 GRAM.'
     )
-    assert '<a href="https://t.me/nft/luckylocket-13826">View NFT in Telegram</a>' in receipt['text']
+    assert '<a href="https://t.me/nft/luckylocket-13826">Открыть подарок в Telegram</a>' in receipt['text']
     assert receipt['link_preview_options']['url'] == 'https://t.me/nft/luckylocket-13826'
     assert receipt['link_preview_options']['prefer_large_media'] is True
     assert receipt['reply_markup']['inline_keyboard'][0][0] == {
-        'text':'🎁 VIEW COLLECTIBLE','url':'https://t.me/nft/luckylocket-13826'
+        'text':'🎁 ОТКРЫТЬ ПОДАРОК','url':'https://t.me/nft/luckylocket-13826'
     }
 
 

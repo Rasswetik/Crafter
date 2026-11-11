@@ -1152,6 +1152,11 @@ def create_app(config=None):
             notify_gift_transfer(bot_settings(), recipient_id, gifts, sender, request.url_root, app.config['BOT_TOKEN'], message)
         except Exception:
             app.logger.warning('Telegram gift notification was not delivered')
+        try:
+            from telegram_bot import notify_gift_sent
+            notify_gift_sent(bot_settings(), sender_id, gifts, dict(recipient), app.config['BOT_TOKEN'])
+        except Exception:
+            app.logger.warning('Telegram sender receipt was not delivered')
         return {'ok': True, 'gift_ids': ids}
 
     @app.post('/api/inventory/action')
@@ -1383,9 +1388,9 @@ def create_app(config=None):
     bot_settings = install_telegram_bot(app, db, auth, audit)
     from telegram_bot import notify_withdrawal
 
-    def tell_withdrawal(uid, gift, ok, reason=''):
+    def tell_withdrawal(uid, gift, ok, reason='', via=''):
         try:
-            notify_withdrawal(bot_settings(), uid, gift, ok, reason, app.config['BOT_TOKEN'])
+            notify_withdrawal(bot_settings(), uid, gift, ok, reason, app.config['BOT_TOKEN'], via)
         except Exception:
             app.logger.warning('Withdrawal notification was not delivered')
     app.extensions['crafter_notify_withdrawal'] = tell_withdrawal

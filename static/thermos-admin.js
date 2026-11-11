@@ -35,9 +35,13 @@ async function renderThermosAdmin(content) {
         <div class="th-actions"><button type="button" class="${th.auto_withdraw ? 'is-active' : ''}" onclick="thermosAdmin('${th.auto_withdraw ? 'withdraw-off' : 'withdraw-on'}')">${th.auto_withdraw ? 'Автовывод TON включён — выключить' : 'Включить автовывод TON'}</button></div>
         <p class="th-note">Автовывод: заявки игроков на вывод TON уходят сами прямо с баланса Thermos на их кошельки (комиссия Thermos 0,1 TON за вывод). Никаких Render-кошельков и ручных подтверждений. На балансе Thermos должно хватать TON; если не хватает, заявка ждёт.</p>
         ${th.last_error ? `<p class="th-note">Последний отказ Thermos (${new Date(th.last_error.at * 1000).toLocaleString('ru-RU')}): <code>${esc(th.last_error.where)} → ${esc(th.last_error.code)} ${esc(th.last_error.answer)}</code> <button type="button" onclick="thermosAdmin('clear-error')">Стереть</button></p>` : ''}
-        <div class="th-actions"><button type="button" class="${th.delivery === 'assign' ? 'is-active' : ''}" onclick="thermosAdmin('${th.delivery === 'assign' ? 'delivery-relayer' : 'delivery-assign'}')">${th.delivery === 'assign' ? 'Сейчас: подарок передаётся игроку внутри Thermos. Переключить на вывод в Telegram через релейер' : 'Сейчас: вывод в Telegram через релейер. Переключить на передачу внутри Thermos'}</button></div>
-        <p class="th-note">Выдача через Thermos: подарок, купленный на Thermos, автоматически передаётся игроку внутри Thermos (метод /gifts/assign, без комиссии и без подключения к Telegram). Игрок увидит его в боте @thermos → «Мои подарки» и сам выведет в Telegram. Включайте после проверки кнопкой «Мои подарки в Thermos» ниже.</p>
-        <div class="th-actions"><label>Релейер сам платит за перевод подарка до <input id="nft-max-stars" type="number" min="0" max="1000" value="0" style="width:80px"> ★ <button type="button" onclick="thermosAdmin('max-stars')">Сохранить</button></label></div>
+        <h4 style="margin:14px 0 6px">Как выдавать NFT игрокам (переключается здесь)</h4>
+        <div class="th-actions">
+            <button type="button" class="${th.delivery === 'assign' ? 'is-active' : ''}" onclick="thermosAdmin('delivery-assign')">Напрямую: передать игроку внутри Thermos${th.delivery === 'assign' ? ' ✓' : ''}</button>
+            <button type="button" class="${th.delivery !== 'assign' ? 'is-active' : ''}" onclick="thermosAdmin('delivery-relayer')">Через релейер: Thermos → релейер → игроку в Telegram${th.delivery !== 'assign' ? ' ✓' : ''}</button>
+        </div>
+        <p class="th-note"><b>Напрямую:</b> подарок мгновенно переходит игроку в Thermos без комиссии, игрок сам нажимает «Вывести» в @thermos (платит его комиссию). <b>Через релейер:</b> подарок выводится с Thermos на Telegram релейера (комиссия Thermos 0,1 TON), затем релейер отправляет его игроку в Telegram; если Telegram просит звёзды, релейер платит их сам (лимит ниже).</p>
+        <div class="th-actions"><label>Релейер сам платит за перевод подарка до <input id="nft-max-stars" type="number" min="0" max="1000" value="25" style="width:80px"> ★ <button type="button" onclick="thermosAdmin('max-stars')">Сохранить</button></label></div>
         <p class="th-note">Для подарков, лежащих на релейере (игрок сам передал их релейеру): автовывод находит подарок на релейере и передаёт игроку. Если Telegram просит звёзды за перевод (около 25 ★), релейер заплатит их сам, но не больше указанного числа. 0 — никогда не платить (заявка уйдёт на ручную проверку).</p>
         <div id="thermos-info" class="th-info" role="status"></div>
         <p class="th-note">Комиссии Thermos: покупка 0,1 TON (0,2 TON при выводе на релейер), вывод подарка 0,1 TON. Лимит API — 2 запроса в секунду.</p>
@@ -49,7 +53,7 @@ async function renderThermosAdmin(content) {
         <div class="th-actions"><button type="button" onclick="thermosProbe('/gifts/me')">Мои подарки в Thermos</button><button type="button" onclick="thermosProbe('/gifts/me/on-sale')">Выставленные на продажу</button></div>
         <pre id="thermos-probe" class="th-info" style="white-space:pre-wrap;word-break:break-all;max-height:320px;overflow:auto"></pre></section>`);
     content.insertAdjacentHTML('beforeend', `<section class="admin-glass-panel th-card"><h3>Очередь автовывода NFT</h3><p>Что делает автовывод с каждой заявкой и почему. Он сам проверяет очередь раз в полминуты; кнопка запускает проверку сразу.</p>
-        <div class="th-actions"><button type="button" onclick="autoNftRun()">Запустить сейчас</button><button type="button" onclick="autoNftJobs()">Обновить список</button></div>
+        <div class="th-actions"><button type="button" onclick="autoNftRun()">Запустить сейчас</button><button type="button" onclick="autoNftJobs()">Обновить список</button><button type="button" onclick="autoNftCheck()">Проверить вывод через релейер</button></div>
         <div id="auto-nft-jobs" class="th-info" style="white-space:pre-wrap"></div></section>`);
     content.insertAdjacentHTML('beforeend', `<section class="admin-glass-panel th-card"><h3>Очередь вывода TON</h3><p>Почему вывод TON уходит или стоит. Автовывод сам проверяет очередь раз в 20 секунд; кнопка проверяет сразу.</p>
         <div class="th-actions"><button type="button" onclick="tonWithdrawRun()">Проверить и отправить сейчас</button></div>
@@ -74,6 +78,14 @@ async function autoNftJobs(extra) {
         const jobs = a.jobs.length ? a.jobs.map(j => new Date(j.updated * 1000).toLocaleTimeString('ru-RU') + ' · ' + j.source + ' · ' + j.stage + (j.note ? ' · ' + j.note : '')).join('\n') : 'Заявок пока нет';
         box.textContent = (extra ? extra + '\n' : '') + (a.enabled ? 'Автовывод включён' : 'Автовывод ВЫКЛЮЧЕН') + (a.relayer_connected ? ' · релейер подключён' : ' · релейер не подключён') + '\n' + jobs;
     } catch (error) { if (box) box.textContent = error.message; }
+}
+async function autoNftCheck() {
+    const box = document.querySelector('#auto-nft-jobs');
+    box.textContent = 'Проверяем…';
+    try {
+        const r = await api('admin/auto-nft/check', {});
+        box.textContent = r.report.map(x => (x.ok ? '✔ ' : '✘ ') + x.text).join(String.fromCharCode(10));
+    } catch (error) { box.textContent = error.message; }
 }
 async function autoNftRun() {
     try { const r = await api('admin/auto-nft/run', {}); await autoNftJobs('Проверено заявок: ' + (r.processed ?? 0)); }

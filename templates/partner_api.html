@@ -13,7 +13,7 @@
 <header class="head">
   <a class="logo" href="{{ site }}"><i></i>Crafter</a>
   <div class="meta"><small>Developers / API v1</small><a href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a></div>
-<details class="menu"><summary aria-label="Меню"><span></span><span></span><span></span></summary><div class="menu-box"><a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#ton">Вывод TON</a><a href="#stars">Обычные подарки</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a><a class="dl" href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a><a class="dl" href="https://t.me/crafter_support">Поддержка @crafter_support</a></div></details>
+<details class="menu"><summary aria-label="Меню"><span></span><span></span><span></span></summary><div class="menu-box"><a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#more">Офферы и выводы</a><a href="#ton">Вывод TON</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a><a class="dl" href="/partner-api.openapi.json">Скачать OpenAPI JSON ↗</a><a class="dl" href="https://t.me/crafter_support">Поддержка @crafter_support</a></div></details>
 </header>
 
 <div class="cols">
@@ -21,7 +21,7 @@
 <h1>Ваш проект.<br>Подарки в Crafter.</h1>
 <p class="lead">Один серверный ключ: каталог и модели, лоты игроков и подключённого маркета, покупка, продажа и передача подарков. Баланс и подарки лежат на вашем аккаунте Crafter.</p>
 <div class="note"><b>Паки в API не участвуют.</b> Карточные паки — внутренняя механика Crafter. Подарки, выпавшие из паков и ставшие обычными подарками аккаунта, API видит как все остальные.</div>
-<nav class="jump"><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#read">Чтение</a><a href="#write">Операции</a><a href="#ton">Вывод TON</a><a href="#stars">Обычные подарки</a><a href="#idem">Idempotency-Key</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#security">Безопасность</a></nav>
+<nav class="jump"><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#read">Чтение</a><a href="#write">Операции</a><a href="#more">Офферы и выводы</a><a href="#ton">Вывод TON</a><a href="#idem">Idempotency-Key</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#security">Безопасность</a></nav>
 <section id="about">
   <h2><span>01</span>Что даёт API</h2>
   <div class="grid">
@@ -243,36 +243,7 @@
   "result": { "gift_id": "thermos-7a1c…", "state": "done", "telegram_id": "123456789", "fee": "0" } }</pre>
 </section>
 
-<section id="stars">
-  <h2><span>07</span>Обычные подарки Telegram</h2>
-  <p>Bear, Rose, Cake и другие обычные подарки Telegram устроены проще NFT: у каждого есть фиксированная цена в Stars, а курс везде одинаков: <b>100 ★ = 1 GRAM</b>. Они работают отдельными запросами и не попадают в <code>/lots</code> и <code>/inventory</code>.</p>
-  <table>
-    <tr><th>Подарок</th><th>Stars</th><th>Цена в GRAM</th></tr>
-    <tr><td>Heart ❤️, Bear 🧸</td><td>15 ★</td><td><code>0.15</code></td></tr>
-    <tr><td>Rose 🌹, Gift 🎁</td><td>25 ★</td><td><code>0.25</code></td></tr>
-    <tr><td>Cake 🎂, Bouquet 💐, Rocket 🚀, Champagne 🍾</td><td>50 ★</td><td><code>0.5</code></td></tr>
-    <tr><td>Trophy 🏆, Ring 💍, Diamond 💎</td><td>100 ★</td><td><code>1</code></td></tr>
-  </table>
-  <div class="ep"><span class="m get">GET</span><code>/star-gifts</code><em>право read</em></div>
-  <p>Каталог: ключ, название, цена, PNG-картинка и <code>telegram_gift_id</code> — идентификатор подарка в Telegram, по которому его отправляют. Идентификатор и картинка появляются после загрузки из Telegram в админ-панели; до этого <code>telegram_gift_id</code> равен <code>null</code>, а картинка встроенная.</p>
-<pre>{
-  "ok": true, "stars_per_gram": 100,
-  "gifts": [
-    { "key": "bear", "name": "Bear", "emoji": "🧸", "stars": 15,
-      "price": "0.15", "price_nano": "150000000",
-      "image_url": "{{ site }}/media/stargift/bear.png", "telegram_gift_id": "5170233102089322756" }
-  ]
-}</pre>
-  <div class="ep"><span class="m get">GET</span><code>/star-gifts/inventory</code><em>право read</em></div>
-  <p>Ваши обычные подарки. <code>status</code>: <code>available</code> — можно продать, вывести или передать; <code>withdrawing</code> — вывод уже в обработке.</p>
-  <div class="ep"><span class="m post">POST</span><code>/star-gifts/sell</code><em>право sell</em></div>
-  <p>Сайт сразу выкупает подарок и зачисляет его стоимость на баланс. Тело: <code>{"gift_id":"stargift-…"}</code>.</p>
-  <div class="ep"><span class="m post">POST</span><code>/star-gifts/withdraw</code><em>право transfer</em></div>
-  <p>Релейер Crafter отправляет настоящий подарок в Telegram владельцу ключа с подписью «Gift from Crafter». Ответ <code>state: "accepted"</code> значит, что заявка принята; итог приходит игроку сообщением бота. Если вывод не удался, подарок возвращается, а причина видна в истории.</p>
-  <div class="ep"><span class="m post">POST</span><code>/star-gifts/transfer</code><em>право transfer</em></div>
-  <p>Бесплатно передаёт подарок игроку Crafter. Тело: <code>{"gift_id":"stargift-…","telegram_id":"123456789"}</code>; у получателя должен быть @username.</p>
-  <p>Все три POST требуют <code>Idempotency-Key</code>, как и остальные операции.</p>
-</section>
+
 
 <section id="idem">
   <h2><span>08</span>Idempotency-Key</h2>
@@ -403,6 +374,30 @@ console.log(r.status, await r.json());</pre>
   </div>
   <p class="fine">Crafter · Partner API v1 · <a href="{{ site }}">Открыть Crafter</a> · <a href="/partner-api.openapi.json">OpenAPI JSON</a></p>
 </footer>
+<section id="more">
+  <h2><span>07</span>Офферы, выводы NFT и история</h2>
+  <p>Эти запросы работают от имени аккаунта ключа. Все <code>POST</code> требуют <code>Idempotency-Key</code>.</p>
+  <table>
+    <tr><th>Путь</th><th>Метод</th><th>Право</th><th>Что делает</th></tr>
+    <tr><td><code>/history</code></td><td>GET</td><td>read</td><td>Покупки, продажи, передачи, пополнения, выводы (<code>?limit=1..100</code>)</td></tr>
+    <tr><td><code>/offers</code></td><td>GET</td><td>read</td><td>Полученные и сделанные офферы</td></tr>
+    <tr><td><code>/offers/create</code></td><td>POST</td><td>offers</td><td>Оффер на лот или на коллекцию</td></tr>
+    <tr><td><code>/offers/respond</code></td><td>POST</td><td>offers</td><td>accept, decline или withdraw</td></tr>
+    <tr><td><code>/withdraw</code></td><td>POST</td><td>withdraw</td><td>Вывести NFT в Telegram</td></tr>
+    <tr><td><code>/withdrawals</code></td><td>GET</td><td>read</td><td>Статусы выводов NFT</td></tr>
+    <tr><td><code>/withdrawals/cancel</code></td><td>POST</td><td>withdraw</td><td>Отменить вывод, пока подарок не отправляется</td></tr>
+  </table>
+  <div class="ep"><span class="m post">POST</span><code>/offers/create</code><em>право offers</em></div>
+  <p>Оффер на конкретный лот: <code>{"lot_id":"crafter-9f2c…","price":"8.5","expiry":"day"}</code>. Оффер на коллекцию: <code>{"collection":"Lol Pop","model":"Mirage","price":"4","quantity":2}</code>. Сумма резервируется на балансе до ответа, отзыва или окончания срока.</p>
+  <div class="ep"><span class="m post">POST</span><code>/withdraw</code><em>право withdraw</em></div>
+<pre>curl -X POST {{ base }}/withdraw \
+  -H "Authorization: Bearer CRT/ваш_ключ" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: nft-wd-2026-12-01-0001" \
+  -d '{"gift_id":"thermos-7a1c…"}'</pre>
+  <p>Ответ содержит <code>withdrawal_id</code>, <code>status</code> и комиссию. Подарок помечается как выводимый, релейер отправляет его вам в Telegram. Следите за <code>GET /withdrawals</code>: <code>queued</code> → <code>confirmed</code>; при отказе подарок и комиссия возвращаются, причина в поле <code>reason</code>.</p>
+</section>
+
 <section id="ton">
   <h2><span>08</span>Вывод TON</h2>
   <p>GRAM с баланса ключа можно вывести в TON. Деньги уходят только на кошелёк, который владелец аккаунта подключил в приложении (Профиль → Кошелёк): адрес в запросе передать нельзя, поэтому ключ не может отправить деньги «на чужой адрес».</p>
@@ -455,7 +450,7 @@ console.log(r.status, await r.json());</pre>
 
 </main>
 <aside class="toc"><small>Содержание</small>
-<a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#ton">Вывод TON</a><a href="#stars">Обычные подарки</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a></aside>
+<a href="#about">Что даёт API</a><a href="#start">Подключение</a><a href="#auth">Авторизация</a><a href="#units">Деньги и ID</a><a href="#read">Чтение данных</a><a href="#write">Покупка и продажа</a><a href="#more">Офферы и выводы</a><a href="#ton">Вывод TON</a><a href="#idem">Idempotency-Key</a><a href="#retries">Повторы</a><a href="#errors">Ошибки</a><a href="#limits">Лимиты</a><a href="#modes">Режимы</a><a href="#security">Безопасность</a><a href="#launch">Перед запуском</a><a href="#faq">Вопросы</a></aside>
 </div>
 </div>
 <script>document.querySelectorAll(".menu-box a").forEach(function(a){a.addEventListener("click",function(){document.querySelector(".menu").removeAttribute("open")})});document.addEventListener("click",function(e){var m=document.querySelector(".menu");if(m&&!m.contains(e.target))m.removeAttribute("open")});</script>

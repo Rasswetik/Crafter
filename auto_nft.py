@@ -10,6 +10,7 @@ State machine per queued gift withdrawal (table auto_nft_jobs). Rules that keep 
 """
 import asyncio
 import json
+from decimal import Decimal
 import threading
 import time
 
@@ -49,10 +50,10 @@ def install_auto_nft(app, db, auth, audit):
         return app.extensions['crafter_relayer_credentials']()
 
     def max_stars():
-        """Most Stars the relayer may pay for one transfer by itself (0 = never pay, send to review)."""
+        """Most Stars the relayer may pay for one transfer by itself (default 25; 0 = never pay, send to review)."""
         row = db().execute("SELECT payload FROM settings WHERE key='auto_nft_max_stars_v1'").fetchone()
         try:
-            return max(0, min(1000, int(json.loads(row[0]).get('stars')))) if row else 0
+            return max(0, min(1000, int(json.loads(row[0]).get('stars')))) if row else 25      # by default the relayer pays up to 25 Stars per transfer
         except (ValueError, TypeError, AttributeError):
             return 0
     app.extensions['crafter_auto_nft_max_stars'] = max_stars
@@ -249,6 +250,37 @@ def install_auto_nft(app, db, auth, audit):
             db().execute("INSERT INTO settings(key,payload) VALUES('auto_nft_max_stars_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps({'stars': stars}),))
         audit('Auto NFT: relayer may pay up to %d Stars per transfer' % stars)
         return overview()
+
+    @app.post('/api/admin/auto-nft/check')
+    @auth(admin=True)
+    def auto_nft_check():
+        """A dry run of the relayer route: every precondition is checked and named, nothing is moved."""
+        report = []
+        add = lambda ok, text: report.append({'ok': bool(ok), 'text': text})
+        add(enabled(), 'Автовывод NFT включён' if enabled() else 'Автовывод NFT ВЫКЛЮЧЕН (раздел «Relayer»)')
+        add(app.extensions.get('crafter_thermos_delivery', lambda: 'relayer')() == 'relayer',
+            'Выбран вывод через релейер' if app.extensions.get('crafter_thermos_delivery', lambda: 'relayer')() == 'relayer' else 'Выбрана передача внутри Thermos (не через релейер)')
+        try:
+            api_id, api_hash, session, account_id = creds()
+            add(True, 'Аккаунт релейера подключён (Telegram ID ' + str(account_id) + ')')
+        except Exception as error:
+            add(False, 'Аккаунт релейера не подключён: ' + str(error)[:160])
+            return {'report': report}
+        try:
+            held = asyncio.run(rt.held_slugs(api_id, api_hash, session))
+            add(True, 'Связь с Telegram есть, на релейере подарков: ' + str(len(held)))
+        except Exception as error:
+            add(False, 'Нет связи релейера с Telegram: ' + type(error).__name__ + ': ' + str(error)[:160] + ' (проверьте сервер/прокси CRAFTER_TELEGRAM_PROXY и сессию релейера)')
+        try:
+            balance = app.extensions['crafter_thermos_balance']()
+            add(balance >= Decimal('0.1'), 'Баланс Thermos ' + str(balance) + ' TON' + ('' if balance >= Decimal('0.1') else ' — не хватает на комиссию вывода 0,1 TON'))
+            owned = app.extensions['crafter_thermos_call']('GET', '/gifts/me')
+            add(True, 'В инвентаре Thermos подарков: ' + str(len(owned) if isinstance(owned, list) else 0))
+        except Exception as error:
+            add(False, 'Thermos: ' + str(getattr(error, 'description', error))[:160])
+        stars = max_stars()
+        add(stars > 0, 'Релейер платит за перевод до ' + str(stars) + ' ★' if stars else 'Лимит звёзд 0: платные переводы уйдут на ручную проверку')
+        return {'report': report}
 
     @app.post('/api/admin/auto-nft/run')
     @auth(admin=True)

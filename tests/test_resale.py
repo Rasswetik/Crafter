@@ -67,8 +67,8 @@ def test_resale_edit_withdraw_and_settle(client, telegram_messages):
                           if method == 'sendMessage' and message['chat_id'] == 42)
     buyer_message = next(message for method,message in telegram_messages
                          if method == 'sendMessage' and message['chat_id'] == 43)
-    assert 'You received: 12 Gram' in seller_message['text']
-    assert 'Successfully purchased' in buyer_message['text']
+    assert 'Вы получили: 12 GRAM' in seller_message['text']
+    assert 'Вы успешно купили' in buyer_message['text']
     assert client.get(market_url, headers=signed(44)).json['gifts'] == []
     assert client.get('/api/inventory', headers=signed(42)).json['gifts'] == []
     acquired, = client.get('/api/inventory', headers=signed(43)).json['gifts']
@@ -180,5 +180,5 @@ def test_crafter_lucky_craft_transfers_prize_and_notifies_seller(client, monkeyp
     assert client.get('/api/resale/listings/' + lot['id'], headers=buyer).status_code == 404
     (method, message), = telegram_messages
     assert method == 'sendMessage' and message['chat_id'] == 42
-    assert '<a href="https://t.me/nft/snoopdogg-303022">Snoop Dogg #303022</a> has been sold' in message['text']
-    assert 'You received: 12 Gram' in message['text']
+    assert '<a href="https://t.me/nft/snoopdogg-303022">Snoop Dogg #303022</a> продан' in message['text']
+    assert 'Вы получили: 12 GRAM' in message['text']

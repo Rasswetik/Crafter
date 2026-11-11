@@ -608,10 +608,12 @@ def test_transfer_gifts_atomically_and_record_anonymous_history(client, monkeypa
     body['gift_ids'] = ['available']
     assert client.post(route, headers=sender, json=body).status_code == 200
     assert client.post(route, headers=sender, json=body).status_code == 200
-    assert len(calls) == 1
-    assert calls[0][1]['reply_markup']['inline_keyboard'][0][0]['web_app']['url'] == 'https://crafter.example?view=gifts'
-    assert calls[0][1]['chat_id'] == 43 and 'anonymous' in calls[0][1]['text']
-    assert '&lt;b&gt;Enjoy!&lt;/b&gt;' in calls[0][1]['text']
+    assert len(calls) == 2                                          # the receiver's message and the sender's receipt
+    received = next(c for c in calls if c[1]['chat_id'] == 43)
+    assert received[1]['reply_markup']['inline_keyboard'][0][0]['web_app']['url'] == 'https://crafter.example?view=gifts'
+    assert 'анонимного отправителя' in received[1]['text']
+    assert '&lt;b&gt;Enjoy!&lt;/b&gt;' in received[1]['text']
+    assert 'Вы успешно отправили подарок' in next(c for c in calls if c[1]['chat_id'] == 42)[1]['text']
     assert client.post(route, headers=sender, json={**body, 'message':'Changed'}).status_code == 409
     assert [gift['id'] for gift in client.get('/api/inventory', headers=sender).json['gifts']] == ['listed']
     assert [gift['id'] for gift in client.get('/api/inventory', headers=recipient).json['gifts']] == ['available']

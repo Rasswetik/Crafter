@@ -54,7 +54,81 @@ def https_url(value):
         return False
 
 
-GIFT_TEMPLATE = '🎁 You received {count} {gift_word} from {sender}: {gifts}!\n\nOpen your inventory to see them.'
+OLD_GIFT_TEMPLATE = '🎁 You received {count} {gift_word} from {sender}: {gifts}!\n\nOpen your inventory to see them.'
+GIFT_TEMPLATE = '🎁 Вы получили {count} {gift_word} от {sender}: {gifts}!\n\nОткройте инвентарь, чтобы посмотреть.'
+EMOJI_SET = 'GiftNews_icons'                 # https://t.me/addemoji/GiftNews_icons
+_premium = {'at': 0.0, 'map': {}}
+
+
+LIBRARY_LOADER = None              # set by install_telegram_bot: emoji of the administrator's library (imported sets)
+
+
+def premium_map(token):
+    """emoji -> custom emoji id of the GiftNews_icons set (cached). Empty when the set cannot be read."""
+    if os.getenv('PYTEST_CURRENT_TEST') or os.getenv('CRAFTER_PREMIUM_EMOJI') == '0':
+        return {}
+    if time.time() - _premium['at'] < (6 * 3600 if _premium['map'] else 600):
+        return _premium['map']
+    _premium['at'] = time.time()
+    if LIBRARY_LOADER:                  # the set was imported in the admin (Бот → Эмодзи): use it, no request to Telegram needed
+        try:
+            library = LIBRARY_LOADER()
+        except Exception:
+            library = {}
+        if library:
+            _premium['map'] = library
+            return library
+    try:
+        data = bot_api(token, 'getStickerSet', {'name': EMOJI_SET})
+        found = {}
+        for sticker in (data or {}).get('stickers', []):
+            if sticker.get('custom_emoji_id') and sticker.get('emoji'):
+                found.setdefault(sticker['emoji'].replace('\ufe0f', ''), sticker['custom_emoji_id'])
+        _premium['map'] = found
+    except Exception:
+        _premium['map'] = {}
+    return _premium['map']
+
+
+def with_premium_emoji(token, html):
+    """Wraps the emoji that the set has in <tg-emoji>, outside tags only. Text without matches is returned unchanged."""
+    ids = premium_map(token)
+    if not ids:
+        return html
+    pieces = re.split(r'(<[^>]*>)', html)
+    inside = 0
+    for index, piece in enumerate(pieces):
+        if piece.startswith('<'):
+            if piece.startswith('<tg-emoji'):
+                inside += 1
+            elif piece.startswith('</tg-emoji'):
+                inside = max(0, inside - 1)
+            continue
+        if inside:
+            continue
+        out = []
+        for char in piece:
+            key = char.replace('\ufe0f', '')
+            if key and key in ids:
+                out.append('<tg-emoji emoji-id="' + ids[key] + '">' + char + '</tg-emoji>')
+            else:
+                out.append(char)
+        pieces[index] = ''.join(out)
+    return ''.join(pieces)
+
+
+def send_message(token, message):
+    """sendMessage with the premium emoji of the set; if Telegram refuses them, the same message goes out plain."""
+    text = message.get('text')
+    if message.get('parse_mode') == 'HTML' and text:
+        fancy = with_premium_emoji(token, text)
+        if fancy != text:
+            try:
+                return bot_api(token, 'sendMessage', {**message, 'text': fancy})
+            except Exception:
+                pass
+    return bot_api(token, 'sendMessage', message)
+
 GIFT_TEMPLATE_STYLES = {'b', 'i', 'u', 's', 'tg-spoiler', 'code'}
 GIFT_TEMPLATE_FIELDS = {'count', 'gift_word', 'sender', 'gifts', 'message'}
 GIFT_TEMPLATE_TOKEN = re.compile(r'(</?[a-z-]+>|\{[a-z_]+\})')
@@ -85,11 +159,11 @@ def render_gift_template(template, values):
 
 
 PHRASES = {
-    'sale': {'title': 'Подарок продан', 'text': '💰 {gift} has been sold\nYou received: {amount} Gram', 'fields': ('gift', 'amount')},
-    'purchase': {'title': 'Подарок куплен', 'text': '✅ Successfully purchased {gift} for {price} GRAM. The gift is now in your Crafter inventory.',
-                 'fields': ('gift', 'price'), 'button': ('purchase_button', '🎁 VIEW COLLECTIBLE')},
-    'offer_received': {'title': 'Новый оффер', 'text': '🎁 New offer: {gift} — {amount} GRAM. Open Crafter to accept it.', 'fields': ('gift', 'amount')},
-    'offer_withdrawn': {'title': 'Оффер отозван', 'text': '↩️ Offer withdrawn: {gift} — {amount} GRAM.', 'fields': ('gift', 'amount')},
+    'sale': {'title': 'Подарок продан', 'text': '💰 Подарок {gift} продан\nВы получили: {amount} GRAM', 'fields': ('gift', 'amount')},
+    'purchase': {'title': 'Подарок куплен', 'text': '✅ Вы успешно купили {gift} за {price} GRAM. Подарок уже в вашем инвентаре Crafter.',
+                 'fields': ('gift', 'price'), 'button': ('purchase_button', '🎁 ОТКРЫТЬ ПОДАРОК')},
+    'offer_received': {'title': 'Новый оффер', 'text': '🎁 Новое предложение: {gift} — {amount} GRAM. Откройте Crafter, чтобы принять его.', 'fields': ('gift', 'amount')},
+    'offer_withdrawn': {'title': 'Оффер отозван', 'text': '↩️ Предложение отозвано: {gift} — {amount} GRAM.', 'fields': ('gift', 'amount')},
     'deposit': {'title': 'Пополнение баланса', 'text': '💸Баланс обновлен\n\n⬆️Депозит: {amount} GRAM успешно зачислено\n\n🔎 Посмотреть транзакцию\n\n{link}',
                 'fields': ('amount', 'link')},
     'withdraw': {'title': 'Вывод средств', 'text': '💸 Баланс обновлен\n\n⬇️ Вывод: {amount} GRAM успешно выполнен\n\n🔎 Посмотреть транзакцию\n{link}',
@@ -153,55 +227,103 @@ def notify_advent(config, user_id, day, default_token, url=''):
         query = dict(parse_qsl(parts.query))
         query.update(view='new-year', open='advent')
         message['reply_markup'] = {'inline_keyboard': [[{'text': phrase_button(config, 'advent'), 'web_app': {'url': parts._replace(query=urlencode(query)).geturl()}}]]}
-    bot_api(token, 'sendMessage', message)
+    send_message(token, message)
     return True
 
 
-def notify_withdrawal(config, recipient, gift, ok, reason, default_token):
-    """Tell a player how their gift withdrawal ended (delivered, or returned with the reason)."""
+WARNING_TEXT = ('⚠️ Crafter никогда не пишет пользователям первым. Остерегайтесь мошенников и не передавайте третьим лицам '
+                'личные подарки, данные, коды подтверждения и доступ к аккаунту.\n\nСвязаться с поддержкой Crafter можно через бота: @crafter_support')
+
+
+def nft_link(gift):
+    """The public link of a collectible (telegram.me/nft/<name>-<number>), or ''."""
+    url = verified_nft_link(gift)
+    if not url:
+        name = re.sub(r'[^a-zA-Z0-9]', '', str(gift.get('name') or '')).lower()
+        serial = str(gift.get('source_number') or gift.get('number') or '')
+        url = f'https://t.me/nft/{name}-{serial}' if name and re.fullmatch(r'[1-9][0-9]*', serial) else ''
+    return url.replace('https://t.me/', 'https://telegram.me/') if url else ''
+
+
+def gift_label(gift, linked=True):
+    """«Lol Pop #168447» where the name is the link to the collectible."""
+    name = str(gift.get('name') or 'Подарок')
+    if gift.get('pack_item') and gift.get('model'):
+        name += ' ' + str(gift['model'])
+    url = nft_link(gift) if linked else ''
+    label = f'<a href="{escape(url, quote=True)}">{escape(name)}</a>' if url else escape(name)
+    return label + (' #' + escape(str(gift['number'])) if gift.get('number') else '')
+
+
+def notify_withdrawal(config, recipient, gift, ok, reason, default_token, via=''):
+    """Tell a player how their gift withdrawal ended: the receipt (like marketplace bots send it, with the collectible preview) or the reason."""
     token = config.get('token') or default_token
     if not token:
         return
-    name = escape(str(gift.get('name') or 'Подарок') + (' #' + str(gift['number']) if gift.get('number') else ''))
-    if ok:
-        text = '✅ <b>Вывод выполнен</b>' + chr(10) + name + ' отправлен вам в Telegram.'
+    url = nft_link(gift)
+    if ok and via == 'thermos':
+        text = ('🎁 Подарок ' + gift_label(gift) + ' успешно передан в ваш Thermos.\n\n'
+                'Чтобы получить его в Telegram, откройте бота @thermos → «Мои подарки» → выберите подарок и нажмите «Вывести».\n\n' + escape(WARNING_TEXT))
+    elif ok:
+        text = '🎁 Подарок ' + gift_label(gift) + ' успешно выведен из Crafter и отправлен вам в Telegram.\n\n' + escape(WARNING_TEXT)
     else:
-        text = ('❌ <b>Вывод не выполнен</b>' + chr(10) + name + ' возвращён в «Мои подарки».' +
+        text = ('❌ <b>Вывод не выполнен</b>' + chr(10) + gift_label(gift, linked=False) + ' возвращён в «Мои подарки».' +
                 (chr(10) + chr(10) + 'Причина: ' + escape(str(reason)) if reason else ''))
-    bot_api(token, 'sendMessage', {'chat_id': recipient, 'parse_mode': 'HTML', 'text': text,
-                                   'link_preview_options': {'is_disabled': True}})
+    message = {'chat_id': recipient, 'parse_mode': 'HTML', 'text': text,
+               'link_preview_options': {'url': url, 'prefer_large_media': True, 'show_above_text': False} if (ok and url) else {'is_disabled': True}}
+    if ok and url:
+        message['reply_markup'] = {'inline_keyboard': [[{'text': 'Открыть ссылку', 'url': url}]]}
+    send_message(token, message)
 
 
 def notify_gift_transfer(config, recipient, gifts, sender, origin, default_token, personal_message=''):
+    """«🎁 Вы получили подарок Lol Pop #168447 от @user!» — the name is the link to the collectible."""
     token = config.get('token') or default_token
     if not token:
         return
-    source = 'an anonymous sender' if sender is None else (
-        '@' + sender['username'] if sender['username'] else sender['name'] or 'another Crafter user'
-    )
-    labels = []
-    for gift in gifts[:7]:
-        name = gift['name']
-        label = escape(name + (f" #{gift['number']}" if gift.get('number') else ''))
-        slug = re.sub(r'[^a-zA-Z0-9]', '', name).lower()
-        serial = str(gift.get('source_number') or '')
-        labels.append(f'<a href="https://t.me/nft/{slug}-{serial}">{label}</a>' if slug and serial.isdecimal() else label)
-    extra = f' and {len(gifts)-7} others' if len(gifts) > 7 else ''
+    source = 'анонимного отправителя' if sender is None else (
+        '@' + sender['username'] if sender['username'] else sender['name'] or 'другого игрока Crafter')
+    labels = [gift_label(gift) for gift in gifts[:7]]
+    extra = f' и ещё {len(gifts) - 7}' if len(gifts) > 7 else ''
+    custom = config.get('gift_template')
+    if custom and custom not in (OLD_GIFT_TEMPLATE, GIFT_TEMPLATE):
+        gift_word = 'подарок' if len(gifts) == 1 else 'подарков'
+        values = {'count': str(len(gifts)), 'gift_word': gift_word, 'sender': escape(source), 'gifts': ', '.join(labels) + extra, 'message': escape(personal_message)}
+        text = render_gift_template(custom, values)
+        if personal_message and '{message}' not in custom:
+            text += '\n\n' + values['message']
+    elif len(gifts) == 1:
+        text = '🎁 Вы получили подарок ' + labels[0] + ' от ' + escape(source) + '!'
+        if personal_message:
+            text += '\n\n' + escape(personal_message)
+    else:
+        text = '🎁 Вы получили подарки от ' + escape(source) + ':\n' + '\n'.join('• ' + label for label in labels) + (('\n• ' + extra.strip()) if extra else '')
+        if personal_message:
+            text += '\n\n' + escape(personal_message)
     url = config.get('app_url') or os.getenv('RENDER_EXTERNAL_URL') or origin
-    template = config.get('gift_template') or GIFT_TEMPLATE
-    values = {'count': str(len(gifts)), 'gift_word': 'gift' if len(gifts) == 1 else 'gifts',
-              'sender': escape(source), 'gifts': ', '.join(labels) + extra, 'message': escape(personal_message)}
-    text = render_gift_template(template, values)
-    if personal_message and '{message}' not in template:
-        text += '\n\n' + values['message']
     message = {'chat_id': recipient, 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True}, 'text': text}
     if https_url(url):
         parts = urlsplit(url)
         query = dict(parse_qsl(parts.query))
         query['view'] = 'gifts'
         inventory_url = parts._replace(query=urlencode(query)).geturl()
-        message['reply_markup'] = {'inline_keyboard': [[{'text': config.get('gift_button_text') or 'View Inventory', 'web_app': {'url': inventory_url}}]]}
-    bot_api(token, 'sendMessage', message)
+        button = config.get('gift_button_text')
+        message['reply_markup'] = {'inline_keyboard': [[{'text': button if button and button != 'View Inventory' else 'Открыть инвентарь', 'web_app': {'url': inventory_url}}]]}
+    send_message(token, message)
+
+
+def notify_gift_sent(config, sender_id, gifts, recipient, default_token):
+    """«🎁 Вы успешно отправили подарок Lol Pop #168447 пользователю @user!» — the receipt for the sender."""
+    token = config.get('token') or default_token
+    if not token:
+        return
+    who = '@' + recipient['username'] if recipient.get('username') else recipient.get('name') or 'игроку Crafter'
+    labels = [gift_label(gift) for gift in gifts[:7]]
+    if len(gifts) == 1:
+        text = '🎁 Вы успешно отправили подарок ' + labels[0] + ' пользователю ' + escape(who) + '!'
+    else:
+        text = '🎁 Вы успешно отправили подарки пользователю ' + escape(who) + ':\n' + '\n'.join('• ' + label for label in labels)
+    send_message(token, {'chat_id': sender_id, 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True}, 'text': text})
 
 
 def sale_sticker(gift):
@@ -251,7 +373,7 @@ def notify_gift_sale(config, seller, gift, proceeds, default_token):
     amount = str(proceeds)
     if '.' in amount:
         amount = amount.rstrip('0').rstrip('.')
-    bot_api(token, 'sendMessage', {
+    send_message(token, {
         'chat_id': seller, 'parse_mode': 'HTML',
         'link_preview_options': {'url':url, 'prefer_large_media':True, 'show_above_text':False} if url else {'is_disabled':True},
         'text': render_phrase(config, 'sale', {'gift': label, 'amount': escape(amount)}),
@@ -282,7 +404,7 @@ def notify_offer_event(config, seller, gift, price, event, default_token):
     if '.' in amount:
         amount = amount.rstrip('0').rstrip('.')
     message = render_phrase(config, 'offer_received' if event == 'received' else 'offer_withdrawn', {'gift': label, 'amount': escape(amount)})
-    bot_api(token, 'sendMessage', {'chat_id': seller, 'parse_mode': 'HTML',
+    send_message(token, {'chat_id': seller, 'parse_mode': 'HTML',
                                   'link_preview_options': {'is_disabled': True},
                                   'text': message})
 
@@ -321,7 +443,7 @@ def notify_gram_deposit(config, recipient, gram, tx_hash, network, default_token
     if not value.is_finite() or value <= 0:
         return False
     amount = format(value.normalize(), 'f')
-    bot_api(token, 'sendMessage', {
+    send_message(token, {
         'chat_id': int(recipient),
         'parse_mode': 'HTML',
         'text': render_phrase(config, 'deposit', {'amount': escape(amount), 'link': escape(url)}),
@@ -338,7 +460,7 @@ def notify_gram_withdraw(config, recipient, gram, url, default_token):
     value = Decimal(str(gram))
     if not value.is_finite() or value <= 0:
         return False
-    bot_api(token, 'sendMessage', {
+    send_message(token, {
         'chat_id': int(recipient),
         'parse_mode': 'HTML',
         'text': render_phrase(config, 'withdraw', {'amount': escape(format(value.normalize(), 'f')), 'link': escape(url)}),
@@ -362,13 +484,13 @@ def notify_gift_purchase(config, buyer, gift, price, default_token):
     message = render_phrase(config, 'purchase', {'gift': label, 'price': escape(amount)})
     if url:
         message += (f'\n\n🔗 <a href="{escape(url, quote=True)}">'
-                    'View NFT in Telegram</a>')
+                    'Открыть подарок в Telegram</a>')
     kwargs = {'chat_id':buyer, 'parse_mode':'HTML', 'text':message,
               'link_preview_options': {'url':url,'prefer_large_media':True,
                                        'show_above_text':False} if url else {'is_disabled':True}}
     if url:
         kwargs['reply_markup'] = {'inline_keyboard': [[{'text': phrase_button(config, 'purchase'), 'url': url}]]}
-    bot_api(token,'sendMessage',kwargs)
+    send_message(token, kwargs)
 
 
 
@@ -379,6 +501,19 @@ def install_telegram_bot(app, db, auth, audit):
                        (bot_id INTEGER, update_id INTEGER, created INTEGER, PRIMARY KEY(bot_id, update_id));
                        CREATE TABLE IF NOT EXISTS telegram_emoji
                        (id TEXT PRIMARY KEY, emoji TEXT NOT NULL, thumbnail TEXT, grp TEXT NOT NULL DEFAULT '', added BIGINT NOT NULL DEFAULT 0)''')
+
+    def library_map():
+        """base emoji -> custom emoji id of the imported GiftNews_icons set (group names that contain GiftNews, or the whole library when it is one set)."""
+        global LIBRARY_LOADER
+        with app.app_context():
+            rows = db().execute("SELECT id,emoji,grp FROM telegram_emoji ORDER BY added,id").fetchall()
+        chosen = [r for r in rows if 'giftnews' in str(r['grp']).lower()] or []
+        found = {}
+        for row in chosen:
+            found.setdefault(str(row['emoji']).replace('️', ''), str(row['id']))
+        return found
+    import telegram_bot as _self
+    _self.LIBRARY_LOADER = library_map
 
     def migrate_emoji(saved):
         """The old library lived inside the settings JSON (500 at most). Move it into its own table once."""

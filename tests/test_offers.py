@@ -63,13 +63,13 @@ def test_offer_fee_refunds_and_acceptance(client, notifications):
     assert acquired['id'] == gift['id'] and acquired['number'] == gift['number']
     seller_messages = [msg for method,msg,_ in notifications
                        if method == 'sendMessage' and msg['chat_id'] == 42]
-    assert len([msg for msg in seller_messages if 'New offer:' in msg['text']]) == 3
-    assert len([msg for msg in seller_messages if 'Offer withdrawn:' in msg['text']]) == 1
-    assert len([msg for msg in seller_messages if 'has been sold' in msg['text']]) == 1
+    assert len([msg for msg in seller_messages if 'Новое предложение:' in msg['text']]) == 3
+    assert len([msg for msg in seller_messages if 'Предложение отозвано:' in msg['text']]) == 1
+    assert len([msg for msg in seller_messages if 'продан' in msg['text']]) == 1
     assert any(method == 'sendSticker' and msg['chat_id'] == 42 and kw['sticker'] == b'animated-sticker'
                for method,msg,kw in notifications)
     assert any(method == 'sendMessage' and msg['chat_id'] == 43 and
-               'Successfully purchased' in msg['text'] for method,msg,_ in notifications)
+               'Вы успешно купили' in msg['text'] for method,msg,_ in notifications)
     assert client.get('/api/wallet/history?types=offer_withdrawn',
                       headers=signed(42)).json['items'][0]['kind'] == 'offer_withdrawn'
     history = client.get('/api/wallet/history?types=sale', headers=signed(42)).json['items'][0]

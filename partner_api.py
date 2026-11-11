@@ -25,7 +25,7 @@ BASE = '/api/partner/v1'
 RATE_LIMIT, RATE_WINDOW = 30, 10.0
 OP_ID = re.compile(r'^[A-Za-z0-9_-]{16,80}$')
 CRAFTER_LOT = re.compile(r'^crafter-[0-9a-f]{32}$')
-RIGHTS = ['read', 'buy', 'sell', 'transfer', 'withdraw']
+RIGHTS = ['read', 'buy', 'sell', 'transfer', 'withdraw', 'offers']
 NANO = Decimal(10) ** 9
 
 
@@ -464,71 +464,86 @@ def install_partner_api(app, db, auth, record, audit):
             relay_error(status, reply)
         return {'gift_id': gift['gift_id'], 'state': 'done', 'telegram_id': str(recipient), 'fee': '0'}
 
-    # ---------------- ordinary Telegram gifts (Bear, Rose ...): a separate set of requests ----------------
-    def absolute(path):
-        return path if str(path).startswith('http') else request.url_root.rstrip('/') + str(path)
-
-    def star_catalog():
-        return [{'key': i['key'], 'name': i['name'], 'emoji': i['emoji'], 'stars': i['stars'], 'price': plain(i['price']), 'price_nano': nano(i['price']),
-                 'image_url': absolute(i['image']), 'telegram_gift_id': i['telegram_gift_id']} for i in app.extensions['crafter_star_gift_catalog']()]
-
-    def own_star_gifts():
-        status, body = internal('GET', '/api/inventory')
-        out = []
-        for gift in body.get('gifts', []) if status == 200 else []:
-            if not gift.get('star_gift') or gift.get('status') not in ('unlisted', 'withdrawing'):
-                continue
-            out.append({'gift_id': gift['id'], 'key': gift.get('star_key'), 'name': gift.get('name'), 'emoji': gift.get('emoji'), 'stars': gift.get('stars'),
-                        'price': plain(gift.get('price')), 'price_nano': nano(gift.get('price')), 'image_url': absolute(gift.get('image') or ''),
-                        'telegram_gift_id': gift.get('telegram_gift_id'), 'status': 'withdrawing' if gift['status'] == 'withdrawing' else 'available'})
-        return out
-
-    @app.get(BASE + '/star-gifts')
+    # ---------------- history ----------------
+    @app.get(BASE + '/history')
     @partner
-    def p_star_gifts():
-        return jsonify({'ok': True, 'stars_per_gram': 100, 'gifts': star_catalog()})
-
-    @app.get(BASE + '/star-gifts/inventory')
-    @partner
-    def p_star_inventory():
-        return jsonify({'ok': True, 'gifts': own_star_gifts()})
-
-    def star_or_fail(gift_id):
-        found = next((x for x in own_star_gifts() if x['gift_id'] == gift_id and x['status'] == 'available'), None)
-        if not found:
-            raise PartnerError(404, 'gift_not_found', 'Подарок не найден среди ваших обычных подарков или уже выводится')
-        return found
-
-    def do_star_sell(body, op_id):
-        gift = star_or_fail(str(body.get('gift_id') or ''))
-        status, reply = internal('POST', '/api/star-gifts/sell', {'gift_id': gift['gift_id']})
-        if status != 200:
-            relay_error(status, reply)
-        return {'gift_id': gift['gift_id'], 'state': 'done', 'amount': plain(reply['amount']), 'amount_nano': nano(reply['amount']), 'balance': plain(balance_of(g.partner['id']))}
-
-    def do_star_withdraw(body, op_id):
-        gift = star_or_fail(str(body.get('gift_id') or ''))
-        status, reply = internal('POST', '/api/star-gifts/withdraw', {'gift_id': gift['gift_id']})
-        if status != 200:
-            relay_error(status, reply)
-        return {'gift_id': gift['gift_id'], 'state': 'accepted', 'withdrawal_id': reply.get('id'), 'telegram_gift_id': gift['telegram_gift_id'],
-                'note': 'Подарок отправит релейер Crafter в Telegram с подписью Gift from Crafter'}
-
-    def do_star_transfer(body, op_id):
-        gift = star_or_fail(str(body.get('gift_id') or ''))
+    def p_history():
+        """Money and gift movements of the account: purchases, sales, transfers, deposits, withdrawals (packs and stars are not shown)."""
+        status, body = internal('GET', '/api/history')
+        hidden = ('pack', 'star', 'advent', 'shop', 'promo')
+        items = [{'id': x['id'], 'kind': x['kind'], 'created': x['created'], 'details': x.get('data')} for x in body.get('items', [])
+                 if status == 200 and not any(word in str(x.get('kind')) for word in hidden)]
         try:
-            recipient = int(str(body.get('telegram_id')))
+            limit = max(1, min(100, int(request.args.get('limit', 50))))
         except ValueError:
-            raise PartnerError(400, 'bad_request', 'telegram_id — число')
-        row = db().execute("SELECT username FROM users WHERE id=?", (recipient,)).fetchone()
-        if not row:
-            raise PartnerError(404, 'recipient_not_found', 'Получатель ещё не открывал Crafter')
-        if not row['username']:
-            raise PartnerError(409, 'recipient_no_username', 'У получателя нет @username в Telegram')
-        status, reply = internal('POST', '/api/inventory/transfer', {'gift_ids': [gift['gift_id']], 'recipient_id': recipient, 'request_id': op_id, 'username': row['username']})
+            limit = 50
+        return jsonify({'ok': True, 'items': items[:limit]})
+
+    # ---------------- offers ----------------
+    def offer_view(o):
+        return {'offer_id': o.get('id'), 'lot_id': o.get('lot_id'), 'price': plain(o.get('price', '0')), 'price_nano': nano(o.get('price', '0')),
+                'collection': o.get('collection') or o.get('collection_name'), 'quantity': o.get('quantity', 1), 'expires_at': o.get('expires_at'),
+                'status': o.get('status', 'active'), 'gift': o.get('gift')}
+
+    @app.get(BASE + '/offers')
+    @partner
+    def p_offers():
+        status, body = internal('GET', '/api/offers')
+        if status != 200:
+            relay_error(status, body)
+        return jsonify({'ok': True, 'received': [offer_view(o) for o in body.get('received', [])], 'placed': [offer_view(o) for o in body.get('placed', [])],
+                        'collection_offers': [offer_view(o) for o in body.get('collections', [])], 'fee': plain(body.get('fee_gram', '0'))})
+
+    def do_offer_create(body, op_id):
+        price = parse_money(body, 'price')
+        payload = {'price': plain(price), 'request_id': op_id, 'expiry': body.get('expiry', 'none')}
+        if body.get('lot_id'):
+            payload['lot_id'] = str(body['lot_id'])
+        else:
+            payload.update({'collection': str(body.get('collection') or ''), 'quantity': body.get('quantity', 1)})
+            for key in ('model', 'backdrop', 'symbol'):
+                if body.get(key):
+                    payload[key] = str(body[key])
+        status, reply = internal('POST', '/api/offers', payload)
         if status != 200:
             relay_error(status, reply)
-        return {'gift_id': gift['gift_id'], 'state': 'done', 'telegram_id': str(recipient), 'fee': '0'}
+        return {**offer_view(reply.get('offer') or {}), 'balance': plain(reply.get('balance', '0'))}
+
+    def do_offer_respond(body, op_id):
+        offer_id, action = str(body.get('offer_id') or ''), body.get('action')
+        if action not in ('accept', 'decline', 'withdraw'):
+            raise PartnerError(400, 'bad_request', 'action: accept, decline или withdraw')
+        status, reply = internal('POST', '/api/offers/' + offer_id + '/action', {'action': action})
+        if status != 200:
+            relay_error(status, reply)
+        return {'offer_id': offer_id, 'action': action, 'state': 'done'}
+
+    # ---------------- withdrawing an NFT to Telegram ----------------
+    def do_nft_withdraw(body, op_id):
+        gift = mine_or_fail(str(body.get('gift_id') or ''))
+        status, reply = internal('POST', '/api/gifts/withdraw', {'gift_id': gift['gift_id'], 'request_id': op_id})
+        if status != 200:
+            relay_error(status, reply)
+        return {'gift_id': gift['gift_id'], 'withdrawal_id': reply.get('id'), 'status': reply.get('status', 'queued'), 'fee': plain(reply.get('fee_gram', '0')),
+                'note': 'Подарок отправит релейер Crafter вам в Telegram. Статус: GET /withdrawals'}
+
+    @app.get(BASE + '/withdrawals')
+    @partner
+    def p_nft_withdrawals():
+        status, body = internal('GET', '/api/gifts/withdrawals')
+        if status != 200:
+            relay_error(status, body)
+        rows = [{'withdrawal_id': x['id'], 'gift_id': x.get('gift_id'), 'name': x.get('name'), 'number': x.get('number'), 'status': x['status'],
+                 'text': x.get('text'), 'reason': x.get('reason') or None, 'can_cancel': bool(x.get('can_cancel')), 'created': x.get('created')}
+                for x in body.get('items', []) if x.get('kind') == 'nft']
+        return jsonify({'ok': True, 'withdrawals': rows})
+
+    def do_nft_withdraw_cancel(body, op_id):
+        wid = str(body.get('withdrawal_id') or '')
+        status, reply = internal('POST', '/api/gifts/withdrawals/' + wid + '/cancel', {})
+        if status != 200:
+            relay_error(status, reply)
+        return {'withdrawal_id': wid, 'status': 'cancelled', 'note': 'Подарок вернулся в инвентарь, комиссия возвращена'}
 
     # ---------------- TON withdrawal: GRAM -> TON on the wallet linked in the app ----------------
     def ton_view(row):
@@ -571,7 +586,7 @@ def install_partner_api(app, db, auth, record, audit):
         return {**view, 'balance': plain(balance_of(g.partner['id'])),
                 'note': 'Заявка принята. Статус: GET /ton/withdrawals/{withdrawal_id}. Когда TON придёт на кошелёк, в статусе появится tx_url.'}
 
-    for route, name, handler in (('/star-gifts/sell', 'star_sell', do_star_sell), ('/star-gifts/withdraw', 'star_withdraw', do_star_withdraw), ('/star-gifts/transfer', 'star_transfer', do_star_transfer), ('/buy', 'buy', do_buy), ('/sell', 'sell', do_sell), ('/unlist', 'unlist', do_unlist), ('/transfer', 'transfer', do_transfer), ('/ton/withdraw', 'ton_withdraw', do_ton_withdraw)):
+    for route, name, handler in (('/buy', 'buy', do_buy), ('/sell', 'sell', do_sell), ('/unlist', 'unlist', do_unlist), ('/transfer', 'transfer', do_transfer), ('/ton/withdraw', 'ton_withdraw', do_ton_withdraw), ('/offers/create', 'offer_create', do_offer_create), ('/offers/respond', 'offer_respond', do_offer_respond), ('/withdraw', 'nft_withdraw', do_nft_withdraw), ('/withdrawals/cancel', 'nft_withdraw_cancel', do_nft_withdraw_cancel)):
         def make(name=name, handler=handler):
             def view():
                 authorize()

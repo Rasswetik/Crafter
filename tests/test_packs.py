@@ -798,3 +798,22 @@ def test_withdraw_receipt_text_and_preview(monkeypatch):
     assert payload['text'].startswith('💸 Баланс обновлен') and '⬇️ Вывод: 20.65 GRAM успешно выполнен' in payload['text']
     assert payload['text'].endswith('https://tonscan.org/tx/' + 'ab' * 32)
     assert payload['link_preview_options']['url'].endswith('ab' * 32) and payload['link_preview_options'].get('is_disabled') is not True
+
+
+def test_russian_transfer_messages_and_withdrawal_receipt(monkeypatch):
+    import telegram_bot
+    sent = []
+    monkeypatch.setattr(telegram_bot, 'bot_api', lambda token, method, payload, sticker=None: sent.append(payload) or True)
+    gift = {'id': 'x', 'name': 'Lol Pop', 'number': 168447, 'source_number': 168447, 'telegram_slug': 'LolPop-168447'}
+    telegram_bot.notify_gift_transfer({}, 43, [gift], {'name': 'Игорь', 'username': 'Goshan_wow'}, 'https://craftertg.site/', 'tok')
+    assert sent[-1]['text'] == '🎁 Вы получили подарок <a href="https://telegram.me/nft/LolPop-168447">Lol Pop</a> #168447 от @Goshan_wow!'
+    telegram_bot.notify_gift_sent({}, 42, [gift], {'name': 'R', 'username': 'crafter_relay'}, 'tok')
+    assert sent[-1]['text'] == '🎁 Вы успешно отправили подарок <a href="https://telegram.me/nft/LolPop-168447">Lol Pop</a> #168447 пользователю @crafter_relay!'
+    telegram_bot.notify_withdrawal({}, 43, gift, True, '', 'tok')
+    receipt = sent[-1]
+    assert receipt['text'].startswith('🎁 Подарок <a href="https://telegram.me/nft/LolPop-168447">Lol Pop</a> #168447 успешно выведен')
+    assert 'Crafter никогда не пишет пользователям первым' in receipt['text'] and '@crafter_support' in receipt['text']
+    assert receipt['link_preview_options']['url'] == 'https://telegram.me/nft/LolPop-168447'
+    assert receipt['reply_markup']['inline_keyboard'][0][0] == {'text': 'Открыть ссылку', 'url': 'https://telegram.me/nft/LolPop-168447'}
+    telegram_bot.notify_withdrawal({}, 43, gift, True, '', 'tok', 'thermos')
+    assert '@thermos' in sent[-1]['text'] and 'передан в ваш Thermos' in sent[-1]['text']

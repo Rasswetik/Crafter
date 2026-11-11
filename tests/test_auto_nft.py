@@ -274,7 +274,65 @@ def test_recover_returns_missed_relayer_gifts_to_their_senders(client, monkeypat
 
 def test_relayer_star_limit_is_set_by_the_administrator(client):
     client.get('/api/me', headers=signed(43))
-    assert client.get('/api/admin/auto-nft', headers=signed()).json['max_stars'] == 0           # never pays by default
+    assert client.get('/api/admin/auto-nft', headers=signed()).json['max_stars'] == 25          # up to 25 Stars by default
     assert client.post('/api/admin/auto-nft/max-stars', headers=signed(43), json={'stars': 30}).status_code == 403
     assert client.post('/api/admin/auto-nft/max-stars', headers=signed(), json={'stars': -1}).status_code == 400
     assert client.post('/api/admin/auto-nft/max-stars', headers=signed(), json={'stars': 30}).json['max_stars'] == 30
+
+
+def set_delivery(client, mode):
+    assert client.post('/api/admin/thermos/delivery', headers=signed(), json={'mode': mode}).status_code in (200, 409)
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO settings(key,payload) VALUES('thermos_delivery_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps({'mode': mode}),))
+
+
+def test_thermos_gift_mode_direct_hands_it_over_inside_thermos(client, monkeypatch):
+    handed = []
+    monkeypatch.setitem(client.application.extensions, 'crafter_thermos_assign', lambda gift, uid: (handed.append((gift['name'], uid)) or ('ok', '')))
+    wid = queue(client, make_gift('thermos'))
+    set_delivery(client, 'assign')
+    enable(client, monkeypatch)
+    run(client)
+    job, inv, wd = state(client, wid)
+    assert handed == [('Snoop Dogg', 43)] and job[0] == 'done' and wd[0] == 'confirmed' and inv is None
+
+
+def test_thermos_gift_mode_relayer_goes_thermos_then_relayer_then_player(client, monkeypatch):
+    order, paid = [], []
+    monkeypatch.setitem(client.application.extensions, 'crafter_thermos_to_telegram', lambda gift: (order.append('thermos->relayer') or ('ok', '')))
+
+    async def found(*a, **k):
+        order.append('found on relayer')
+        return 'snoop-77'
+
+    async def fake_transfer(api_id, api_hash, session, slug, to_user_id, to_username='', max_stars=0):
+        order.append('relayer->player')
+        paid.append(max_stars)
+        return True
+    monkeypatch.setattr(rt, 'find_on_relayer', found)
+    monkeypatch.setattr(rt, 'transfer', fake_transfer)
+    wid = queue(client, make_gift('thermos'))
+    set_delivery(client, 'relayer')
+    enable(client, monkeypatch)
+    for _ in range(4):
+        run(client)
+    job, inv, wd = state(client, wid)
+    assert order == ['thermos->relayer', 'found on relayer', 'relayer->player']
+    assert paid == [25]                                                # the relayer may pay up to 25 Stars (the default limit)
+    assert job[0] == 'done' and wd[0] == 'confirmed' and inv is None
+
+
+def test_dry_run_check_names_every_precondition(client, monkeypatch):
+    client.get('/api/me', headers=signed(43))
+    r = client.post('/api/admin/auto-nft/check', headers=signed(), json={})
+    assert r.status_code == 200 and any('не подключён' in x['text'] for x in r.json['report'])           # no relayer in the test app
+
+    async def broken(*a, **k):
+        raise ConnectionError('Connection to Telegram failed 1 time(s)')
+    monkeypatch.setitem(client.application.extensions, 'crafter_relayer_credentials', lambda: (1, 'h', 's', 777))
+    monkeypatch.setattr(rt, 'held_slugs', broken)
+    monkeypatch.setitem(client.application.extensions, 'crafter_thermos_balance', lambda: __import__('decimal').Decimal('0.4'))
+    monkeypatch.setitem(client.application.extensions, 'crafter_thermos_call', lambda *a, **k: [{'id': 'x'}])
+    texts = [x['text'] for x in client.post('/api/admin/auto-nft/check', headers=signed(), json={}).json['report']]
+    assert any('Нет связи релейера с Telegram: ConnectionError' in t for t in texts) and any('Баланс Thermos 0.4' in t for t in texts)
+    assert any('до 25 ★' in t for t in texts)

@@ -243,7 +243,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
         audit('NFT withdrawal ' + wid + ' marked ' + decision)      # outside the transaction: audit() commits, which PostgreSQL forbids inside it
         tell = app.extensions.get('crafter_notify_withdrawal')
         if tell:
-            tell(owner, gift, decision == 'confirmed', '' if decision == 'confirmed' else note)
+            tell(owner, gift, decision == 'confirmed', '' if decision == 'confirmed' else note, 'thermos' if str(note).startswith('thermos-assign') else '')
 
     app.extensions['crafter_gift_withdrawal_finalize'] = finalize_withdrawal
 
