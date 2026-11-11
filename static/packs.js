@@ -105,8 +105,10 @@ async function packInfo(upid) {
 async function openMany(ids, refresh) {
     if (ids.length < 2) { await open(ids[0], refresh); return; }
     const batch = {skip: false, results: []};
+    const ahead = {};                                             // the next pack is requested while this one plays: no waiting between packs
     for (let i = 0; i < ids.length && !batch.skip; i++) {
-        await open(ids[i], null, {index: i + 1, total: ids.length, batch});
+        if (i + 1 < ids.length) { ahead[i + 1] = api('packs/open', {user_pack_id: ids[i + 1]}); ahead[i + 1].catch(() => {}); }
+        await open(ids[i], null, {index: i + 1, total: ids.length, batch, pre: ahead[i]});
         if (batch.skip) {                                         // held for 5 seconds: everything that is left opens at once, in ONE request
             const left = ids.slice(i + 1);
             if (left.length) {
@@ -230,7 +232,7 @@ async function open(upid, refresh, meta) {
     if (playing) return;
     playing = true;
     let res;
-    try { res = await api('packs/open', {user_pack_id: upid}); }
+    try { res = await ((meta && meta.pre) || api('packs/open', {user_pack_id: upid})); }
     catch (err) { playing = false; toast(err.message); return; }
     const cards = res.cards || [];
     if (meta && meta.batch) meta.batch.results.push(res);

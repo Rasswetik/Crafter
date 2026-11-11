@@ -1,7 +1,7 @@
 """Ordinary Telegram gifts: the picture is the gift on its own coloured background (taken from the gift's own colour), not too big in the frame."""
 import io
 import colorsys
-from PIL import Image
+from PIL import Image, ImageDraw
 
 SIZE = 512
 SHARE = 0.60            # the gift takes this share of the frame: it is moved away from the edges
@@ -39,6 +39,9 @@ def compose(raw: bytes, key: str = '') -> bytes:
     scale = SIZE * SHARE / max(gift.size)
     gift = gift.resize((max(1, round(gift.width * scale)), max(1, round(gift.height * scale))), Image.LANCZOS)
     background.alpha_composite(gift, ((SIZE - gift.width) // 2, (SIZE - gift.height) // 2))
+    corners = Image.new('L', (SIZE * 2, SIZE * 2), 0)                 # rounded corners, drawn large and shrunk for a smooth edge
+    ImageDraw.Draw(corners).rounded_rectangle((0, 0, SIZE * 2 - 1, SIZE * 2 - 1), radius=int(SIZE * 2 * 0.2), fill=255)
+    background.putalpha(corners.resize((SIZE, SIZE), Image.LANCZOS))
     out = io.BytesIO()
-    background.convert('RGB').save(out, 'PNG', optimize=True)
+    background.save(out, 'PNG', optimize=True)
     return out.getvalue()

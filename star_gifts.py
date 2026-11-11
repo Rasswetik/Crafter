@@ -9,6 +9,8 @@
 * Automatic withdrawal is OFF until an administrator enables it. A send whose outcome is unknown is never
   repeated: the withdrawal goes to "review" for an operator.
 """
+import os
+from pathlib import Path
 import asyncio
 import json
 import threading
@@ -85,7 +87,7 @@ def install_star_gifts(app, db, auth, record, audit):
         for item in BY_KEY.values():
             row = known.get(item['key'])
             stars = int(row['stars']) if row else item['stars']
-            image = ('/media/stargift/' + item['key'] + '.png?v=' + str(row['updated'])) if row and row['has_png'] else '/static/assets/stargifts/' + item['key'] + '.png'
+            image = ('/media/stargift/' + item['key'] + '.png?v=' + str(row['updated']) + 'b') if row and row['has_png'] else '/static/assets/stargifts/' + item['key'] + '.png'
             out.append({**item, 'stars': stars, 'price': format(gram_value(stars), 'f'), 'image': image,
                         'telegram_gift_id': str(row['tg_id']) if row and row['tg_id'] else None, 'synced': bool(row)})
         return out
@@ -104,7 +106,11 @@ def install_star_gifts(app, db, auth, record, audit):
             try:
                 ART_CACHE[token] = stargift_art.compose(bytes(row['png']), key)       # the gift on a background of its own colour
             except Exception:
-                ART_CACHE[token] = bytes(row['png'])
+                # the downloaded picture is broken: show the bundled one instead of an empty frame
+                bundled = Path(app.root_path) / 'static' / 'assets' / 'stargifts' / (os.path.basename(key) + '.png')
+                if not bundled.is_file():
+                    abort(404)
+                ART_CACHE[token] = bundled.read_bytes()
         response = app.response_class(ART_CACHE[token], mimetype='image/png')
         response.headers['Cache-Control'] = 'public, max-age=86400, immutable'
         return response

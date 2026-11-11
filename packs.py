@@ -4,6 +4,7 @@ Packs are configured by administrators (card-count chances and prize chances), c
 community rewards, promo-code rewards or sold for New Year balls, and are opened with one request.
 Gift prizes are catalog items: they can be sold back instantly for their value but never withdrawn.
 """
+import threading
 import gzip
 import json
 import re
@@ -530,6 +531,32 @@ def install_packs(app, db, auth, record, audit):
                 db().execute("UPDATE packs SET card_weights=? WHERE id=?", (json.dumps(CARD_WEIGHTS), pack_id))
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v6','1') ON CONFLICT(key) DO NOTHING")
 
+    BETTER_GRAM = (('0.1', 620), ('0.2', 170), ('0.3', 80), ('0.5', 55), ('0.75', 30), ('1', 24), ('1.5', 11), ('2', 5.5), ('3', 2.5), ('5', 1), ('10', .35), ('20', .12))
+    BETTER_CARDS = {'1': 52, '2': 26, '3': 13, '4': 6, '5': 2, '6': 1}
+    BETTER_NFT_SHARE = 0.008
+
+    def tune_packs_better():
+        """Once: a little better prizes. Fewer 0.1 GRAM cards, more mid-size balance prizes, more cards per pack, gifts about five times as likely."""
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_tuned_v7'").fetchone():
+            return
+        table = dict(BETTER_GRAM)
+        with db():
+            for pack in db().execute("SELECT id FROM packs").fetchall():
+                db().execute("UPDATE packs SET card_weights=? WHERE id=?", (json.dumps(BETTER_CARDS), pack['id']))
+                for r in db().execute("SELECT * FROM pack_prizes WHERE pack_id=? AND kind='GRAM'", (pack['id'],)).fetchall():
+                    key = str(r['amount'])
+                    if key in table:
+                        db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (table[key], r['id']))
+                rows = db().execute("SELECT * FROM pack_prizes WHERE pack_id=?", (pack['id'],)).fetchall()
+                gram = sum(float(r['weight']) for r in rows if r['kind'] == 'GRAM')
+                nft = sum(float(r['weight']) for r in rows if r['kind'] == 'NFT')
+                if gram > 0 and nft > 0:
+                    wanted = BETTER_NFT_SHARE / (1 - BETTER_NFT_SHARE) * gram
+                    for r in rows:
+                        if r['kind'] == 'NFT':
+                            db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(float(r['weight']) * wanted / nft, 6), r['id']))
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_tuned_v7','1') ON CONFLICT(key) DO NOTHING")
+
     def drop_christmas_bear():
         """Once: the 169-value Toy Bear leaves Christmas Carol; the other gifts share its chance."""
         if db().execute("SELECT 1 FROM settings WHERE key='packs_christmas_v2'").fetchone():
@@ -579,6 +606,7 @@ def install_packs(app, db, auth, record, audit):
         drop_christmas_bear()
         add_cherry_charm()
         seed_silverfrost_pack()
+        tune_packs_better()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""
@@ -634,6 +662,7 @@ def install_packs(app, db, auth, record, audit):
             "JOIN inventory i ON i.nft_id='packitem-'||u.id "
             "WHERE i.user_id=? AND u.opened_at IS NULL ORDER BY u.created", (uid,)).fetchall()
         shop = db().execute("SELECT * FROM packs WHERE for_sale=1 AND enabled=1 ORDER BY created").fetchall()
+        warm([r['pid'] for r in mine])             # the owner is about to open them: load the market lots now
         return {'mine': [{'id': r['id'], 'source': r['source'], 'pack': {'id': r['pid'], 'title': r['title'], 'image': r['image_url']}} for r in mine],
                 'shop': [{**short(p), 'price_balls': int(p['price_balls'])} for p in shop]}
 
@@ -685,6 +714,7 @@ def install_packs(app, db, auth, record, audit):
                 db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (balls - price, uid))
             upid = grant(uid, pid, 'shop', 'buy:' + rid)
             record('pack_buy', {'pack': pid, 'price_balls': price}, uid=uid)
+        warm([pid])
         return {'ok': True, 'user_pack_id': upid, 'balance': {'balls': balls - price}}
 
     # ---- real market access for gift prizes ----
@@ -743,7 +773,7 @@ def install_packs(app, db, auth, record, audit):
             if p['kind'] != 'NFT' or float(p['weight']) <= 0:
                 continue
             hit = avail_cache.get(p['id'])
-            if not hit or now - hit[0] > (120 if hit[1] else 20):
+            if not hit or now - hit[0] > (300 if hit[1] else 20):
                 try:
                     hit = (now, market_lots(p))
                 except Exception:
@@ -751,6 +781,29 @@ def install_packs(app, db, auth, record, audit):
                 avail_cache[p['id']] = hit
             out[p['id']] = list(hit[1])
         return out
+
+    warming = set()
+
+    def warm(pack_ids):
+        """Loads the market lots of these packs in the background, so the next pack opens without waiting for the market."""
+        if not work_mode():
+            return
+        todo = [x for x in dict.fromkeys(pack_ids) if x not in warming]
+        if not todo:
+            return
+        warming.update(todo)
+
+        def job():
+            try:
+                with app.app_context():
+                    for pid in todo:
+                        try:
+                            availability(prizes_of(pid))
+                        except Exception:
+                            pass
+            finally:
+                warming.difference_update(todo)
+        threading.Thread(target=job, daemon=True).start()
 
     def test_models(cid):
         path = ROOT / 'data/catalog_seed.json.gz'

@@ -295,8 +295,8 @@ def test_snowman_pack_economy_and_contents(client):
     mean_cards = sum(k * v for k, v in cards.items()) / sum(cards.values())
     ev_card = sum(float(D(p['value'] if p['kind'] == 'NFT' else p['amount'])) * p['weight'] for p in snow['prizes']) / total
     gift_share = sum(p['weight'] for p in gifts) / total
-    assert 0.08 <= ev_card * mean_cards <= 0.3                                             # an opening is worth well under half a GRAM
-    assert 0.15 <= 100 * mean_cards * gift_share <= 0.45                                   # about one gift per 400 openings
+    assert 0.08 <= ev_card * mean_cards <= 0.55                                            # an opening is worth well under half a GRAM
+    assert 0.8 <= 100 * mean_cards * gift_share <= 2.2                                     # about one gift per 70 openings
     grams = {p['amount'] for p in snow['prizes'] if p['kind'] == 'GRAM'}
     assert {'0.1', '0.2', '0.5', '1', '2', '3', '5', '10'} <= grams
     info = client.get('/api/packs/snowman/contents', headers=player).json
@@ -331,7 +331,7 @@ def test_winter_pack_is_rare_cheap_and_listed_lots_know_their_pack(client):
     total = sum(p['weight'] for p in winter['prizes'])
     cards = {int(k): v for k, v in winter['card_weights'].items()}
     mean = sum(k * v for k, v in cards.items()) / sum(cards.values())
-    assert 0.15 <= 100 * mean * sum(p['weight'] for p in gifts) / total <= 0.45             # about one gift per 400 openings
+    assert 0.8 <= 100 * mean * sum(p['weight'] for p in gifts) / total <= 2.2               # about one gift per 70 openings
     assert len([p for p in winter['prizes'] if p['kind'] == 'GRAM']) >= 10                  # lots of balance prizes
     assert 'pack_id' in __import__('inspect').getsource(__import__('resale'))
 
@@ -419,7 +419,7 @@ def test_existing_packs_are_given_backdrops_of_their_own_set(client):
 
 def test_christmas_carol_pack_and_one_stingy_table(client):
     admin, player = signed(42), signed(43)
-    STANDARD = {'0.1': 840.0, '0.2': 100.0, '0.3': 35.0, '0.5': 14.0, '0.75': 6.0, '1': 3.0, '1.5': 1.2, '2': .5, '3': .2, '5': .08, '10': .02, '20': .006}
+    STANDARD = {'0.1': 620.0, '0.2': 170.0, '0.3': 80.0, '0.5': 55.0, '0.75': 30.0, '1': 24.0, '1.5': 11.0, '2': 5.5, '3': 2.5, '5': 1.0, '10': .35, '20': .12}
     client.get('/api/me', headers=player)
     all_packs = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}
     xmas = all_packs['christmas']
@@ -429,12 +429,12 @@ def test_christmas_carol_pack_and_one_stingy_table(client):
         ('snowglobe', 'Crimson Cabin'), ('hangingstar', 'Christmas'), ('snowmittens', 'Rudolph'), ('gingercookie', 'Cookie Claus'), ('jinglebells', 'Nutcracker'),
         ('eternalcandle', 'Red Melter'), ('xmasstocking', 'Caramel Fest'), ('winterwreath', 'Holly Leaves'), ('spicedwine', 'Gluhwein'), ('candycane', 'Cherry Charm')]
     for pack in all_packs.values():                                              # the same balance table and card counts everywhere
-        assert {int(k): v for k, v in pack['card_weights'].items()} == {1: 60, 2: 24, 3: 10, 4: 4, 5: 1.5, 6: .5}
+        assert {int(k): v for k, v in pack['card_weights'].items()} == {1: 52, 2: 26, 3: 13, 4: 6, 5: 2, 6: 1}
         table = {p['amount']: p['weight'] for p in pack['prizes'] if p['kind'] == 'GRAM' and p['amount'] in STANDARD}
         assert table == {k: float(v) for k, v in STANDARD.items() if k in table} and '0.1' in table
     for pack in all_packs.values():
         total = sum(p['weight'] for p in pack['prizes'])
-        assert sum(p['weight'] for p in pack['prizes'] if p['kind'] == 'NFT') / total < 0.0025          # a gift per card: at most 0.25%
+        assert sum(p['weight'] for p in pack['prizes'] if p['kind'] == 'NFT') / total < 0.01          # a gift per card: at most 1%
 
 
 def test_packs_are_a_collection_called_lucky_pack_with_a_floor(client):
@@ -468,7 +468,7 @@ def test_packs_hold_one_card_in_60_percent_of_openings_and_carry_an_accent(clien
     client.get('/api/me', headers=player)
     for pack in client.get('/api/admin/new-year/packs', headers=admin).json['packs']:
         weights = {int(k): v for k, v in pack['card_weights'].items()}
-        assert abs(weights[1] / sum(weights.values()) - .6) < 1e-9 and max(weights) == 6
+        assert abs(weights[1] / sum(weights.values()) - .52) < 1e-9 and max(weights) == 6
     client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': 'christmas'})
     pack, = [g for g in client.get('/api/inventory', headers=player).json['gifts'] if g.get('pack_item')]
     opened = client.post('/api/packs/open', headers=player, json={'user_pack_id': pack['user_pack_id']})
@@ -529,9 +529,9 @@ def test_silverfrost_pack(client):
                      ('santahat', 'Below Zero', '8.2'), ('snowglobe', 'Diamond', '8.37'), ('snowmittens', 'Pingu', '9.77'), ('jinglebells', 'Glacier', '11.33')] or         [g[:2] for g in gifts] == [('xmasstocking', 'Frozen Moss'), ('candycane', 'Blue Bliss'), ('partysparkler', 'Cyan Sizzle'), ('gingercookie', 'Frozen Dough'),
                                   ('winterwreath', 'Negative'), ('eternalcandle', 'Blue Steel'), ('santahat', 'Below Zero'), ('snowglobe', 'Diamond'),
                                   ('snowmittens', 'Pingu'), ('jinglebells', 'Glacier')]
-    assert {int(k): v for k, v in pack['card_weights'].items()} == {1: 60, 2: 24, 3: 10, 4: 4, 5: 1.5, 6: .5}
+    assert {int(k): v for k, v in pack['card_weights'].items()} == {1: 52, 2: 26, 3: 13, 4: 6, 5: 2, 6: 1}
     total = sum(p['weight'] for p in pack['prizes'])
-    assert abs(sum(p['weight'] for p in pack['prizes'] if p['kind'] == 'NFT') / total - 0.0017) < 0.0001
+    assert abs(sum(p['weight'] for p in pack['prizes'] if p['kind'] == 'NFT') / total - 0.008) < 0.0005
     assert packs.PACK_ACCENTS['silverfrost']
 
 
