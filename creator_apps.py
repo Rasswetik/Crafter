@@ -23,6 +23,7 @@ STATUSES = {
     'rejected': 'Отклонена',
 }
 CLOSED = {'paid', 'rejected'}
+STATUS_EMOJI = {'new': '✅', 'review': '🔎', 'need_info': '⚠', 'approved': '✅', 'paid': '💰', 'rejected': '❌'}
 MAX_FILE = 120 * 1024 * 1024
 VIDEO_EXT = {'.mp4', '.mov', '.m4v', '.webm', '.mkv', '.3gp', '.avi'}
 TIKTOK_HOSTS = ('tiktok.com', 'vm.tiktok.com', 'vt.tiktok.com')
@@ -77,6 +78,7 @@ def install_creator_apps(app, db, auth, record, audit, notify_user):
                'video_url': row['video_url'], 'wallet': row['wallet'], 'status': row['status'], 'status_text': STATUSES.get(row['status'], row['status']),
                'amount': row['amount'], 'views': int(row['views'] or 0), 'created': row['created'], 'updated': row['updated'],
                'closed': row['status'] in CLOSED, 'has_record': bool(row['record_name'])}
+        out['tg_username'] = row['tg_username']
         if with_admin:
             out.update(user_id=row['user_id'], tg_username=row['tg_username'], admin_note=row['admin_note'])
         return out
@@ -174,7 +176,7 @@ def install_creator_apps(app, db, auth, record, audit, notify_user):
         db().execute('INSERT INTO audit(actor,action,created) VALUES(?,?,?)', (uid, audit_text, now))
         db().commit()
         try:
-            notify_user(uid, 'Ваша заявка №%d отправлена. Мы рассмотрим её и ответим в боте. Статус заявки и чат с поддержкой можно открыть ниже.' % number, number)
+            notify_user(uid, '✅ Ваша заявка №%d отправлена.\n\n🔎 Мы проверим запись экрана и ролик и ответим вам. Статус заявки и чат с поддержкой можно открыть ниже.' % number, number)
         except Exception:
             pass
         return {'ok': True, 'number': number}
@@ -271,7 +273,7 @@ def install_creator_apps(app, db, auth, record, audit, notify_user):
         db().commit()
         if status != row['status']:
             try:
-                notify_user(row['user_id'], 'Заявка №%d: %s.' % (number, STATUSES[status]) + (' Сумма к выплате: %s $.' % amount if status in ('approved', 'paid') and amount else ''), number)
+                notify_user(row['user_id'], STATUS_EMOJI.get(status, '🔎') + ' Заявка №%d: %s.' % (number, STATUSES[status]) + ('\n\n💰 Сумма к выплате: %s $.' % amount if status in ('approved', 'paid') and amount else ''), number)
             except Exception:
                 pass
         return {'ok': True, 'application': view(admin_row(number), True), 'messages': messages(number)}
@@ -287,7 +289,7 @@ def install_creator_apps(app, db, auth, record, audit, notify_user):
             add_message(number, 'support', g.user['id'], body)
             db().execute('UPDATE creator_apps SET updated=?, admin_seen=? WHERE number=?', (int(time.time()), int(time.time()), number))
         try:
-            notify_user(row['user_id'], 'Сообщение по заявке №%d: %s' % (number, body[:300]), number)
+            notify_user(row['user_id'], '⭐ Сообщение по заявке №%d:\n\n%s' % (number, body[:300]), number)
         except Exception:
             pass
         return {'ok': True, 'messages': messages(number)}

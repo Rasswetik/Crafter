@@ -1599,7 +1599,7 @@ def create_app(config=None):
     from partner_api import install_partner_api
     install_partner_api(app,db,auth,record,audit)
     from creators import install_creators
-    install_creators(app)
+    install_creators(app, auth)
     from creator_apps import install_creator_apps
     from telegram_bot import notify_creator
 

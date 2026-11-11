@@ -1,20 +1,6 @@
-/* Creators info page: the calculator and the application form. Chats live on a separate page (/creators/my). */
+/* Creators info page: the application form, the private ad videos and the section highlight. Chats live on a separate page (/creators/my). */
 (function () {
     var $ = CR.$, esc = CR.esc;
-
-    /* ---------- calculator ---------- */
-    (function () {
-        var cat = $('calc-cat'), views = $('calc-views'), sum = $('calc-sum'), hint = $('calc-hint'), box = $('calc-box');
-        if (!cat || !views) return;
-        var minimum = Number(box.dataset.min || 10);
-        var money = function (v) { return v.toFixed(2).replace('.', ',') + ' $'; };
-        function count() {
-            var rate = Number(cat.value), n = Math.max(0, Number(views.value) || 0), total = Math.round(n / 1000 * rate * 100) / 100, need = Math.ceil(minimum / rate * 1000);
-            sum.textContent = money(total);
-            hint.textContent = total >= minimum ? 'Минимум выплаты выполнен' : 'До выплаты нужно ещё ' + (need - n).toLocaleString('ru-RU') + ' просмотров (всего ' + need.toLocaleString('ru-RU') + ')';
-        }
-        cat.addEventListener('change', count); views.addEventListener('input', count); count();
-    })();
 
     CR.onMe = function (d) { var dot = $('my-dot'); if (dot) dot.hidden = !d.unread; };
 
@@ -50,8 +36,10 @@
             xhr.onload = function () {
                 var d = {}; try { d = JSON.parse(xhr.responseText); } catch (e) {}
                 if (xhr.status >= 200 && xhr.status < 300 && d.number) {
-                    CR.openModal('<div class="ok-big"><div class="tick">✓</div><h3>Заявка №' + d.number + ' отправлена</h3><p class="hint">Мы рассмотрим её и ответим. Номер заявки мы написали вам в бот. Статус заявки и чат с поддержкой находятся на отдельной странице «Мои заявки».</p>' +
-                        '<a class="btn big" href="/creators/my?app=' + d.number + '">Мои заявки</a></div>');
+                    CR.openModal('<div class="done"><div class="done-ring"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l8 8 14-16"/></svg></div><h3>Заявка отправлена</h3><div class="done-num">№ ' + d.number + '</div>' +
+                        '<ul class="done-list"><li><i>1</i><div><b>Мы написали вам в бот</b><span>Там номер заявки и кнопка «Рассмотреть».</span></div></li><li><i>2</i><div><b>Проверим запись и ролик</b><span>Смотрим статистику, вставку и условия.</span></div></li><li><i>3</i><div><b>Ответим в чате</b><span>Статус и переписка с поддержкой на странице «Мои заявки».</span></div></li></ul>' +
+                        '<div class="done-actions"><a class="btn big" href="/creators/my?app=' + d.number + '">Открыть мои заявки</a><button type="button" class="btn ghost big" id="done-close">Закрыть</button></div></div>');
+                    CR.$('done-close').addEventListener('click', CR.closeModal);
                 } else {
                     btn.disabled = false; btn.textContent = 'Отправить заявку'; $('f-prog').hidden = true;
                     err.textContent = (d && (d.error || d.description)) || (xhr.status === 413 ? 'Файл слишком большой' : 'Не удалось отправить, ошибка ' + xhr.status);
@@ -61,7 +49,41 @@
             xhr.send(form);
         });
     }
-    $('apply-open').addEventListener('click', function () { CR.withLogin(applyModal); });
+    ['apply-open', 'apply-top', 'apply-bottom'].forEach(function (id) { var b = $(id); if (b) b.addEventListener('click', function () { CR.withLogin(applyModal); }); });
+    /* ---------- the ad videos: private, shown only to a signed-in player ---------- */
+    function showBanners() {
+        CR.api('/api/creators/banners').then(function (d) {
+            var box = $('banners-box'); box.className = '';
+            if (!d.banners.length) { box.innerHTML = '<p>Вставки пока не загружены. Напишите в поддержку: <a href="https://t.me/crafter_support">@crafter_support</a>.</p>'; return; }
+            box.innerHTML = '<p>Готовые вставки Crafter в формате 9:16. Используйте их без обрезки, ускорения и изменений. Ссылки личные и действуют 15 минут: если видео не открывается, обновите страницу.</p><div class="vgrid">' + d.banners.map(function (b) {
+                return '<div class="vcard"><video controls preload="metadata" playsinline controlsList="nodownload" src="' + esc(b.url) + '"></video><b>' + esc(b.title) + '</b><p>' + esc(b.note) + '</p><a class="btn small" href="' + esc(b.url) + '?download=1">Скачать · ' + b.size + ' МБ</a></div>';
+            }).join('') + '</div>';
+        }).catch(function () {});
+    }
+    var openBanners = $('banners-open');
+    if (openBanners) openBanners.addEventListener('click', function () { CR.withLogin(showBanners); });
+
+    /* ---------- the contents on the right: highlight the section we are in ---------- */
+    (function () {
+        var secs = [].slice.call(document.querySelectorAll('main section[id]')), links = [].slice.call(document.querySelectorAll('.toc a[href^="#"]'));
+        if (!secs.length || !links.length) return;
+        function mark(id) { links.forEach(function (a) { a.classList.toggle('is-active', a.getAttribute('href') === '#' + id); }); }
+        function spy() {
+            var line = window.innerHeight * 0.42, current = secs[0].id;
+            secs.forEach(function (s) {
+                var top = s.getBoundingClientRect().top;
+                if (top <= line) current = s.id;
+                if (top < window.innerHeight * 0.95) s.classList.add('in');
+            });
+            if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) current = secs[secs.length - 1].id;
+            mark(current);
+        }
+        window.addEventListener('scroll', spy, {passive: true}); window.addEventListener('resize', spy); spy();
+        if ('IntersectionObserver' in window) {
+            var rv = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); rv.unobserve(e.target); } }); }, {threshold: .06});
+            secs.forEach(function (s) { s.classList.add('rv'); rv.observe(s); });
+        }
+    })();
     if (new URLSearchParams(location.search).get('apply')) CR.withLogin(applyModal);
     else CR.loadMe().catch(function () {});
 })();
