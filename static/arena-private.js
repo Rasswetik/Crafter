@@ -207,7 +207,7 @@ function arenaPrivateInfo() {
             (info.is_owner ? '<button type="button" class="arena-private-info-primary" ' +
             'onclick="arenaPrivateSettings()">⚙ Настройки группы</button>' : '') +
             (info.is_owner ? '<button type="button" class="arena-private-info-secondary" ' +
-            'onclick="arenaPrivateInventory()">🎁 Инвентарь бота</button>' : '') +
+            'onclick="arenaPrivateInventory()">Инвентарь бота</button>' : '') +
             '<button type="button" class="arena-private-info-secondary" ' +
             'onclick="arenaPrivateShareSheet(arenaPrivate.info)">Пригласить друзей</button>' +
             '<button type="button" class="arena-private-info-text" ' +
@@ -270,7 +270,7 @@ function arenaPrivateSettings() {
         '<p class="arena-private-info-note">Аватар виден участникам в ставках и результатах. ' +
         'Бот использует GRAM и NFT, переданные владельцем. Выигранные NFT хранятся в инвентаре бота, пока владелец не заберёт их.</p>' +
         '<button type="button" class="arena-private-bot-inventory-open" ' +
-        'onclick="arenaPrivateInventory()">🎁 Инвентарь бота · Передать или забрать NFT</button>' +
+        'onclick="arenaPrivateInventory()">Инвентарь бота · Передать или забрать NFT</button>' +
         '<div class="arena-private-bot-bank"><div><span>Баланс бота</span>' +
         '<strong id="arena-private-bot-balance">' + arenaFormat(info.bot_balance || 0) +
         ' GRAM</strong></div>' +

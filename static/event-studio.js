@@ -520,7 +520,7 @@ function studioRenderPrizes(root){
    if(r>100)return '';
    const p=event.prizes[i];
    return '<button type="button" data-studio-rank="'+r+'" class="'+(r===rank?'active':'')+'">'+
-    r+(p&&p.type!=='none'?' 🎁':'')+'</button>';
+    r+(p&&p.type!=='none'?' NFT':'')+'</button>';
   }).join('')+'</div>'+
   '<button type="button" class="primary" data-studio-action="save-prizes">Сохранить награды</button>'+
  '<button type="button" class="secondary studio-prize-award" data-studio-action="quote-prize-award">После завершения: купить и выдать реальный NFT</button>';

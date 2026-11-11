@@ -327,11 +327,20 @@ def install_star_gifts(app, db, auth, record, audit):
         jobs = []
         for r in rows:
             gift = json.loads(r.pop('payload')).get('gift', {})
-            jobs.append({**r, 'gift_name': gift.get('name'), 'emoji': gift.get('emoji'), 'stars': gift.get('stars')})
+            picture = next((x['image'] for x in catalog_now() if x['key'] == gift.get('star_key')), gift.get('image'))
+            jobs.append({**r, 'gift_name': gift.get('name'), 'image': picture, 'stars': gift.get('stars')})
         counts = {r['status']: r['n'] for r in db().execute("SELECT status,COUNT(*) AS n FROM star_gift_withdrawals GROUP BY status")}
         state = load_state()
+        catalog = catalog_now()
+        report = [
+            (bool(enabled()), 'Автовывод включён' if enabled() else 'Автовывод выключен'),
+            (connected, 'Аккаунт релейера подключён' if connected else 'Аккаунт релейера не подключён'),
+            (not state.get('error') and bool(state.get('checked')), 'Связь с Telegram проверена' if state.get('checked') and not state.get('error') else (state.get('error') or 'Связь с Telegram ещё не проверялась: нажмите «Проверить и загрузить из Telegram»')),
+            (state.get('stars') is not None and int(state.get('stars') or 0) >= 15, 'Звёзд на релейере: ' + str(state.get('stars', '—')) + ' (нужно хотя бы 15 на подарок)'),
+            (all(i['synced'] for i in catalog), 'Настоящие картинки и ID из Telegram загружены: ' + str(sum(1 for i in catalog if i['synced'])) + ' из ' + str(len(catalog))),
+        ]
         return {'enabled': enabled(), 'relayer_connected': connected, 'state': state, 'counts': counts, 'jobs': jobs,
-                'catalog': catalog_now(), 'message': MESSAGE}
+                'catalog': catalog, 'message': MESSAGE, 'report': [{'ok': ok, 'text': text} for ok, text in report]}
 
     @app.get('/api/admin/star-gifts')
     @auth(admin=True)
@@ -355,16 +364,14 @@ def install_star_gifts(app, db, auth, record, audit):
         audit('Star gift auto withdrawal ' + ('enabled' if body['enabled'] else 'disabled'))
         return overview()
 
-    @app.post('/api/admin/star-gifts/check')
-    @auth(admin=True)
-    def star_admin_check():
+    def sync_assets():
+        """Connects to Telegram through the relayer and loads the real gift ids, Stars prices and PNG pictures."""
         wanted = [(i['key'], i['stars'], i['emoji']) for i in BY_KEY.values()]
-        # the connection check also pulls the real gift ids, prices and PNG previews from Telegram
         try:
             api_id, api_hash, session, _ = creds()
         except Exception:
             save_state(error='Релейер не подключён', checked=now())
-            return overview()
+            return False
         try:
             result = asyncio.run(rs.sync(api_id, api_hash, session, wanted))
             with db():
@@ -375,8 +382,15 @@ def install_star_gifts(app, db, auth, record, audit):
                                  "tg_id=excluded.tg_id,stars=excluded.stars,png=excluded.png,updated=excluded.updated",
                                  (key, info['tg_id'], info['stars'], png, now()))
             save_state(stars=result['stars'], gifts={k: True for k in result['gifts']}, pngs=sum(1 for v in result['gifts'].values() if v['png']), checked=now(), error='')
+            return True
         except Exception as error:
-            save_state(error='Не удалось проверить: ' + type(error).__name__, checked=now())
+            save_state(error='Не удалось проверить: ' + type(error).__name__ + ': ' + str(error)[:120], checked=now())
+            return False
+
+    @app.post('/api/admin/star-gifts/check')
+    @auth(admin=True)
+    def star_admin_check():
+        sync_assets()
         return overview()
 
     @app.post('/api/admin/star-gifts/run')
@@ -415,12 +429,17 @@ def install_star_gifts(app, db, auth, record, audit):
         audit('Star gift %s x%d granted to %d' % (body['key'], count, uid))
         return {'ok': True}
 
+    last_sync = {'at': 0.0}
+
     def background():
         while True:
             try:
                 with app.app_context():
                     if enabled():
                         process()
+                    if time.time() - last_sync['at'] > 1800 and not all(i['synced'] for i in catalog_now()):
+                        last_sync['at'] = time.time()          # pictures, ids and prices are missing: load them, no button needed
+                        sync_assets()
             except Exception:
                 app.logger.warning('star gift background loop failed')
             time.sleep(POLL_SECONDS)

@@ -84,7 +84,7 @@ async function autoNftCheck() {
     box.textContent = 'Проверяем…';
     try {
         const r = await api('admin/auto-nft/check', {});
-        box.textContent = r.report.map(x => (x.ok ? '✔ ' : '✘ ') + x.text).join(String.fromCharCode(10));
+        box.textContent = r.report.map(x => (x.ok ? 'OK  ' : 'НЕТ ') + x.text).join(String.fromCharCode(10));
     } catch (error) { box.textContent = error.message; }
 }
 async function autoNftRun() {

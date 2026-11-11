@@ -20,7 +20,8 @@
                 <p>Обычные подарки (Bear, Rose, Cake…) выводятся так: игрок нажимает «Вывести», релейер сразу отправляет ему настоящий Telegram-подарок за Stars со своей подписью «${esc(info.message)}». Курс: 100 ★ = 1 GRAM. Автовывод выключен, пока вы его не включите. Если Stars не хватает, заявки ждут, пока вы пополните релейер.</p>
                 <p>Релейер: <b>${info.relayer_connected ? 'подключён' : 'не подключён'}</b> · Баланс Stars: <b>${esc(stars)}</b>${st.checked ? ' <small>(проверено ' + when(st.checked) + ')</small>' : ''} · Заявок в работе: <b>${open}</b></p>
                 ${st.error ? '<p class="admin-mode-missing">' + esc(st.error) + '</p>' : ''}
-                ${catalog.length ? '<p>Каталог: ' + catalog.map(i => (i.synced ? '✅ ' : '⚠️ ') + esc(i.emoji + ' ' + i.name + ' · ' + i.stars + '★ = ' + i.price + ' GRAM · ID ' + (i.telegram_gift_id || 'не загружен'))).join('<br>') + '</p>' : ''}
+                ${(info.report || []).length ? '<ul class="sg-report">' + info.report.map(x => '<li class="' + (x.ok ? 'is-ok' : 'is-no') + '"><i></i>' + esc(x.text) + '</li>').join('') + '</ul>' : ''}
+                ${catalog.length ? '<div class="sg-catalog">' + catalog.map(i => '<div class="sg-item' + (i.synced ? '' : ' is-missing') + '"><img src="' + esc(i.image) + '" alt=""><b>' + esc(i.name) + '</b><small>' + i.stars + ' ★ · ' + esc(i.price) + ' GRAM</small><small>' + (i.telegram_gift_id ? 'ID ' + esc(i.telegram_gift_id) : 'не загружен') + '</small></div>').join('') + '</div>' : ''}
                 ${st.pngs !== undefined ? '<p>PNG-картинок загружено из Telegram: <b>' + st.pngs + '</b> из ' + catalog.length + '. Остальные показываются встроенными иконками.</p>' : ''}
             </div>
             <span class="admin-pill ${info.enabled ? 'is-good' : 'is-alert'}">${info.enabled ? 'Автовывод включён' : 'Автовывод выключен'}</span>
@@ -31,13 +32,13 @@
             </div>
             <form class="admin-glass-action-grid" id="star-grant-form" style="margin-top:14px;align-items:end">
                 <label>Выдать подарок игроку (Telegram ID)<input name="user_id" inputmode="numeric" placeholder="123456789" required></label>
-                <label>Подарок<select name="key">${(catalog || []).map(i => '<option value="' + esc(i.key) + '">' + esc(i.emoji + ' ' + i.name + ' — ' + i.stars + '★') + '</option>').join('')}</select></label>
+                <label>Подарок<select name="key">${(catalog || []).map(i => '<option value="' + esc(i.key) + '">' + esc(i.name + ' — ' + i.stars + '★') + '</option>').join('')}</select></label>
                 <label>Количество<input name="count" type="number" min="1" max="50" value="1"></label>
                 <button type="submit">Выдать</button>
             </form>
             ${info.jobs.length ? `<div class="star-gifts-jobs" style="margin-top:14px;display:grid;gap:8px">${info.jobs.map(job => `
                 <div class="admin-user-fact" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-                    <strong>${esc((job.emoji || '') + ' ' + (job.gift_name || '') + ' ' + (job.stars || '') + '★')}</strong>
+                    <img src="${esc(job.image || '')}" alt="" style="width:38px;height:38px;object-fit:contain"><strong>${esc((job.gift_name || '') + ' · ' + (job.stars || '') + ' ★')}</strong>
                     <span>${esc(job.name || job.user_id)}${job.username ? ' @' + esc(job.username) : ''}</span>
                     <span class="admin-pill ${COLOR[job.status] || ''}">${esc(STATUS[job.status] || job.status)}</span>
                     <small>${when(job.created)}${job.note ? ' · ' + esc(job.note) : ''}</small>
@@ -91,7 +92,7 @@
             return catalogCache;
         },
         options(list, selected) {
-            return (list || []).map(i => '<option value="' + esc(i.key) + '"' + (i.key === selected ? ' selected' : '') + '>' + esc(i.emoji + ' ' + i.name + ' — ' + i.stars + '★ = ' + i.price + ' GRAM') + '</option>').join('');
+            return (list || []).map(i => '<option value="' + esc(i.key) + '"' + (i.key === selected ? ' selected' : '') + '>' + esc(i.name + ' — ' + i.stars + '★ = ' + i.price + ' GRAM') + '</option>').join('');
         },
     };
 
@@ -116,7 +117,7 @@ window.adminRenderGrant = async function (uid) {
     box.innerHTML = `<h3>Выдача</h3>
         <p class="admin-small-warning">Обычные подарки и паки выдаются сразу. NFT выдаётся только по ссылке и только если он лежит на релейере или в инвентаре Thermos; иначе выдача отклоняется.</p>
         <div class="grant-block"><b>Обычный подарок Telegram</b>
-            <div class="grant-row"><select class="field" id="grant-star">${(stars || []).map(i => '<option value="' + esc(i.key) + '">' + esc(i.emoji + ' ' + i.name + ' — ' + i.stars + '★ = ' + i.price + ' GRAM') + '</option>').join('')}</select>
+            <div class="grant-row"><select class="field" id="grant-star">${(stars || []).map(i => '<option value="' + esc(i.key) + '">' + esc(i.name + ' — ' + i.stars + '★ = ' + i.price + ' GRAM') + '</option>').join('')}</select>
             <input class="field grant-count" id="grant-star-count" type="number" min="1" max="50" value="1" aria-label="Количество">
             <button type="button" id="grant-star-go">Выдать</button></div></div>
         <div class="grant-block"><b>Карточный пак</b>

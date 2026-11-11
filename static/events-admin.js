@@ -71,7 +71,7 @@ async function renderAdminEvents(content = document.querySelector('#admin-conten
                      <button type="button" class="secondary" data-edit="${esc(item.id)}">Изменить</button>
                      <button type="button" class="secondary" data-studio-open="${esc(item.id)}">Баннеры и таймер</button>
                      <button type="button" class="primary" data-leader-editor="${esc(item.id)}">♛ Редактор лидеров</button>
-                     <button type="button" class="secondary" data-event-prizes="${esc(item.id)}">🎁 NFT-награды (${(item.prizes||[]).filter(p=>p.type==='collection'||p.type==='model').length})</button>
+                     <button type="button" class="secondary" data-event-prizes="${esc(item.id)}">NFT-награды (${(item.prizes||[]).filter(p=>p.type==='collection'||p.type==='model').length})</button>
                     </div>
                 </article>`).join('') || '<p class="sub">Пока нет событий. Создайте первое для Arena или Крафтов.</p>'}
             </div>
@@ -162,7 +162,7 @@ function crafterEditEvent(item) {
             </div>
             <h4>Награды для мест 1–3</h4>
             <p class="sub">Можно указать целую коллекцию NFT (например, Plush Pepe), без выбора улучшенной модели. После завершения лидерборда администратор подтверждает покупку самого дешёвого подходящего подарка с Craft Market, и настоящий NFT поступает победителю.</p>
-            ${item?'<button type="button" class="primary" data-open-studio-prizes>🎁 Выбрать NFT по коллекции из каталога</button>':''}
+            ${item?'<button type="button" class="primary" data-open-studio-prizes>Выбрать NFT по коллекции из каталога</button>':''}
             <div class="crafter-event-prize-grid">
             ${[1,2,3].map(place=>{
                 const prize=event.prizes[place-1]||{};

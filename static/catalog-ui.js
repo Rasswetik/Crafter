@@ -227,7 +227,7 @@ function renderCraft() {
             <button class="target" onclick="chooseTarget()">${state.target ?
                 `<img src="${esc(imageURL(state.target.image))}" alt="">${esc(state.target.name)}${state.target.number ? ` #${esc(state.target.number)}` : ''}` :
                 'Выберите подарок'}${icon('chevron')}</button>
-            <div class="craft-warning">${craftEnglish?'⚠ If crafting fails, your gifts will be lost':'⚠ Если крафт не удастся, подарки сгорят'}</div>
+            <div class="craft-warning">${craftEnglish?'If crafting fails, your gifts will be lost':'Если крафт не удастся, подарки сгорят'}</div>
             <div class="craft-bottom">
                 <button id="craft-button" class="primary craft-action" onclick="${gifts.length ? 'runCraft()' : 'pickGift()'}">
                     ${gifts.length ? 'Скрафтить' : 'Добавить подарки для крафта'}

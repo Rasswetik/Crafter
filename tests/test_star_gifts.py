@@ -362,3 +362,12 @@ def test_nft_on_the_relayer_is_granted_with_its_real_attributes(client, monkeypa
     assert done.status_code == 200 and done.json['source'] == 'relayer'
     got, = [g for g in client.get('/api/inventory', headers=signed(43)).json['gifts'] if g.get('telegram_slug')]
     assert got['origin'] == 'telegram-deposit' and got['model'] == 'Lucky' and got['symbol'] == 'Star'
+
+
+def test_admin_overview_has_a_checklist_and_real_pictures_for_jobs(client):
+    client.get('/api/me', headers=signed(43))
+    info = client.get('/api/admin/star-gifts', headers=signed()).json
+    assert [x['text'] for x in info['report']][0].startswith('Автовывод') and all('ok' in x for x in info['report'])
+    assert all(i['image'] for i in info['catalog'])
+    page = open('static/star-gifts-admin.js', encoding='utf-8').read()
+    assert 'job.emoji' not in page and 'i.emoji' not in page            # pictures, never emoji, in the interface

@@ -249,7 +249,7 @@ function phraseCard(p) {
         <div class="bot-phrase-tools">
             ${p.fields.map(f => `<button type="button" class="bot-chip" data-act="field" data-v="{${esc(f)}}">{${esc(f)}}</button>`).join('')}
             ${styles.map(([t, l]) => `<button type="button" class="bot-chip" data-act="style" data-v="${t}">${l}</button>`).join('')}
-            <button type="button" class="bot-chip is-emoji" data-act="emoji">😀 Эмодзи</button>
+            <button type="button" class="bot-chip is-emoji" data-act="emoji">Эмодзи</button>
         </div>
         ${p.button ? `<label class="form-label">Кнопка под сообщением<input class="field" maxlength="64" data-role="button" data-bkey="${esc(p.button.key)}" data-bdefault="${esc(p.button.default)}" value="${esc(p.button.text)}"></label>` : ''}
     </div>`;
