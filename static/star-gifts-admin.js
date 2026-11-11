@@ -22,8 +22,7 @@
                 ${st.error ? '<p class="admin-mode-missing">' + esc(st.error) + '</p>' : ''}
                 ${(info.report || []).length ? '<ul class="sg-report">' + info.report.map(x => '<li class="' + (x.ok ? 'is-ok' : 'is-no') + '"><i></i>' + esc(x.text) + '</li>').join('') + '</ul>' : ''}
                 ${catalog.length ? '<div class="sg-catalog">' + catalog.map(i => '<div class="sg-item' + (i.synced ? '' : ' is-missing') + '"><img src="' + esc(i.image) + '" alt=""><b>' + esc(i.name) + '</b><small>' + i.stars + ' ★ · ' + esc(i.price) + ' GRAM</small><small>' + (i.telegram_gift_id ? 'ID ' + esc(i.telegram_gift_id) : 'не загружен') + '</small></div>').join('') + '</div>' : ''}
-                ${st.pngs !== undefined ? '<p>PNG-картинок загружено из Telegram: <b>' + st.pngs + '</b> из ' + catalog.length + '. Остальные показываются встроенными иконками.</p>' : ''}
-            </div>
+                            </div>
             <span class="admin-pill ${info.enabled ? 'is-good' : 'is-alert'}">${info.enabled ? 'Автовывод включён' : 'Автовывод выключен'}</span>
             <div class="admin-glass-action-grid">
                 <button type="button" onclick="starGiftsAdmin('toggle', ${!info.enabled})">${info.enabled ? 'Выключить' : 'Включить'}</button>
@@ -31,10 +30,10 @@
                 <button type="button" onclick="starGiftsAdmin('check')">Проверить и загрузить из Telegram (ID, цены, PNG)</button>
                 ${info.enabled ? '<button type="button" onclick="starGiftsAdmin(\'run\')">Обработать очередь сейчас</button>' : ''}
             </div>
-            <form class="admin-glass-action-grid" id="star-grant-form" style="margin-top:14px;align-items:end">
-                <label>Выдать подарок игроку (Telegram ID)<input name="user_id" inputmode="numeric" placeholder="123456789" required></label>
-                <label>Подарок<select name="key">${(catalog || []).map(i => '<option value="' + esc(i.key) + '">' + esc(i.name + ' — ' + i.stars + '★') + '</option>').join('')}</select></label>
-                <label>Количество<input name="count" type="number" min="1" max="50" value="1"></label>
+            <form class="sg-grant" id="star-grant-form">
+                <label><span>Выдать игроку (Telegram ID)</span><input name="user_id" inputmode="numeric" placeholder="123456789" required></label>
+                <label><span>Подарок</span><select name="key">${(catalog || []).map(i => '<option value="' + esc(i.key) + '">' + esc(i.name + ' — ' + i.stars + '★') + '</option>').join('')}</select></label>
+                <label><span>Количество</span><input name="count" type="number" min="1" max="50" value="1"></label>
                 <button type="submit">Выдать</button>
             </form>
             ${info.jobs.length ? `<div class="star-gifts-jobs" style="margin-top:14px;display:grid;gap:8px">${info.jobs.map(job => `
