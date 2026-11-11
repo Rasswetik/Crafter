@@ -30,7 +30,7 @@ async function showOfferForm(draft) {
     if (gift) state.detailGift = null;
     sheet(gift ? 'Ваше предложение' : 'Создать оффер', `<form class="offer-draft offer-trading-form">
         ${gift ? `<div class="offer-gift-summary">${transferArt(gift)}
-            <span><b>${esc(gift.name)}</b><small>#${esc(gift.number)}</small></span>
+            <span><b>${esc(gift.name)}</b><small>${gift.number ? '#' + esc(gift.number) : ''}</small></span>
             <span><b>${money(gift.price)} GRAM</b><small>Цена подарка</small></span>
         </div>` : `<div><b>Коллекция</b><p>${esc(collection.name)}</p></div>`}
         <div class="offer-expiry-block"><b>Окончание оффера</b><div class="segment offer-expiries">

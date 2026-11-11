@@ -90,12 +90,22 @@ def install_star_gifts(app, db, auth, record, audit):
                         'telegram_gift_id': str(row['tg_id']) if row and row['tg_id'] else None, 'synced': bool(row)})
         return out
 
+    ART_CACHE = {}
+
     @app.get('/media/stargift/<key>.png')
     def star_gift_png(key):
         row = db().execute("SELECT png,updated FROM star_gift_assets WHERE key=?", (key,)).fetchone()
         if not row or not row['png']:
             abort(404)
-        response = app.response_class(bytes(row['png']), mimetype='image/png')
+        import stargift_art
+        token = (key, row['updated'])
+        if token not in ART_CACHE:
+            ART_CACHE.clear()
+            try:
+                ART_CACHE[token] = stargift_art.compose(bytes(row['png']), key)       # the gift on a background of its own colour
+            except Exception:
+                ART_CACHE[token] = bytes(row['png'])
+        response = app.response_class(ART_CACHE[token], mimetype='image/png')
         response.headers['Cache-Control'] = 'public, max-age=86400, immutable'
         return response
 

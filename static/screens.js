@@ -209,7 +209,7 @@ function renderPicker() {
         const selected = state.pickerSelected.has(gift.id);
         return `<button class="picker-gift ${selected ? 'selected' : ''}" aria-pressed="${selected}" onclick="togglePicker(${arg(gift.id)})">
             <div style="background:${giftBackdrop(gift)}"><img ${giftPicture(gift)} alt=""><span>${selected ? '✓' : ''}</span></div>
-            <b>${esc(gift.name)}</b><small>#${esc(gift.number)}</small>
+            <b>${esc(gift.name)}</b><small>${gift.number ? '#' + esc(gift.number) : ''}</small>
         </button>`;
     }).join('')}</div>` : `<div class="picker-empty">${anvilArt('picker-anvil')}<p>Нет подарков для крафта</p></div>`;
 }

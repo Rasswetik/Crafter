@@ -112,7 +112,23 @@ def create_app(config=None):
         return {**result, 'gifts': [gift for gift in result['gifts']
                                   if gift['id'] not in sold and market_collectible_key(gift) not in sold]}
 
+    BAD_LOTS_KEY='thermos:badlots'
+    def hidden_lots():
+        """Lots that Thermos listed but refused or no longer had: hidden from the market for a while so nobody hits them again."""
+        row=db().execute('SELECT payload FROM cache WHERE key=?',(BAD_LOTS_KEY,)).fetchone()
+        try:data=json.loads(row['payload']) if row else {}
+        except (TypeError,ValueError):data={}
+        limit=int(time.time())-6*3600
+        return {k:v for k,v in data.items() if v>limit}
+    def hide_lots(ids):
+        data=hidden_lots();stamp=int(time.time())
+        for gid in ids:data[str(gid)]=stamp
+        with db():
+            db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',(BAD_LOTS_KEY,json.dumps(data),stamp))
+    app.extensions['crafter_hide_lots']=hide_lots
     def local_market_rows(result):
+        bad=hidden_lots()
+        if bad:result={**result,'gifts':[x for x in result.get('gifts',[]) if str(x.get('id')) not in bad]}
         # Local test prices use the source numeric amount in app GRAM; no FX or external purchase.
         result = hide_claimed_market_gifts(result)
         return {**result,'price_unit':'GRAM',

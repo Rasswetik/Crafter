@@ -33,7 +33,7 @@ function slot(kind) {
     const isStake = kind === 'stake', item = isStake ? ui.stake : ui.target;
     const disabled = !isStake && !ui.stake;
     const body = item
-        ? `<img class="upg-thumb" ${centerPicture(item)} alt="" draggable="false"><span class="upg-slot-text"><strong>${h(item.name)}</strong><small>${item.gram ? 'Ставка' : '#' + h(item.number || '')} · ${fmt(item.price)} GRAM</small></span>`
+        ? `<img class="upg-thumb" ${centerPicture(item)} alt="" draggable="false"><span class="upg-slot-text"><strong>${h(item.name)}</strong><small>${item.gram ? 'Ставка · ' : item.number ? '#' + h(item.number) + ' · ' : ''}${fmt(item.price)} GRAM</small></span>`
         : `${plusIcon}<strong>${isStake ? 'Выбрать ставку' : 'Выбрать цель'}</strong>`;
     return `<button type="button" class="upg-slot ${item ? 'is-filled' : ''}" data-slot="${kind}" ${disabled || ui.spinning ? 'disabled' : ''}>${body}</button>`;
 }
@@ -155,7 +155,7 @@ async function openStakeSheet() {
         const balance = Number(info.balance || 0), min = Number(info.gram_min || 0.1);
         const body = el.querySelector('.upg-sheet-body');
         const giftsHTML = ui.gifts.length ? `<div class="upg-grid">${ui.gifts.map((g, i) => `<button type="button" class="upg-card" data-i="${i}">
-            ${giftArt(g)}<strong>${h(g.name)}</strong><small>#${h(g.number || '')} · ${fmt(g.upgrade_value)} GRAM</small></button>`).join('')}</div>` :
+            ${giftArt(g)}<strong>${h(g.name)}</strong><small>${g.number ? '#' + h(g.number) + ' · ' : ''}${fmt(g.upgrade_value)} GRAM</small></button>`).join('')}</div>` :
             '<p class="upg-empty">Нет подарков, подходящих для апгрейда.</p>';
         const max = Math.floor(balance * 100) / 100;
         const gramHTML = `<div class="upg-gram">
@@ -242,7 +242,7 @@ async function openOffers(collection) {
                 .sort((a, b) => ((b[0].source === 'crafter') - (a[0].source === 'crafter')) || dir * (Number(a[0].price) - Number(b[0].price)));  // Crafter market first, then by price
             body.querySelector('.upg-grid').innerHTML = rows.length ? rows.map(([g, i]) => `<button type="button" class="upg-card" data-i="${i}">
                 ${giftArt(g)}<span class="upg-src">${g.source === 'crafter' ? 'Crafter' : h(String(g.market || 'Portals').charAt(0).toUpperCase() + String(g.market || 'Portals').slice(1).toLowerCase())}</span>
-                <strong>${h(g.name)}</strong><small>#${h(g.number || '')} · ${fmt(g.price)} GRAM</small>
+                <strong>${h(g.name)}</strong><small>${g.number ? '#' + h(g.number) + ' · ' : ''}${fmt(g.price)} GRAM</small>
                 <em>${fmt(g.chance)}%</em></button>`).join('') : '<p class="upg-empty" style="grid-column:1/-1">Ничего не найдено</p>';
         };
         body.innerHTML = `${searchBar('Поиск по модели или номеру', true)}<div class="upg-grid"></div>`;

@@ -430,7 +430,7 @@ function arenaPrizeCards(gram, gifts) {
     return `<div class="arena-prizes">${Number(gram) ? `<div class="arena-gram-prize">
         <img src="/static/assets/gram.svg" alt=""><b>${arenaFormat(gram)} GRAM</b></div>` : ''}
         ${gifts.map((gift, i) => `<button class="arena-prize-gift" type="button" onclick="arenaGiftInfo(${i})">
-            ${arenaGiftArt(gift)}<span class="arena-prize-info"><b>${esc(gift.name)} #${esc(gift.number)}</b>
+            ${arenaGiftArt(gift)}<span class="arena-prize-info"><b>${esc(gift.name)}${gift.number ? ' #' + esc(gift.number) : ''}</b>
             <small>${arenaGiftValue(gift)} GRAM</small></span></button>`).join('')}</div>`;
 }
 

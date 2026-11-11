@@ -121,7 +121,7 @@ async function openBannerLuckyCraft() {
     sheet('Lucky Craft', `<p class="sub">Выберите лот, который хотите скрафтить.</p>
         <div class="banner-lucky-gifts">${gifts.length ? gifts.map(gift =>
             `<button class="catalog-row" onclick="chooseLuckyGift(${arg(gift.id)})">
-                ${transferArt(gift)}<strong>${esc(gift.name)} #${esc(gift.number)}</strong>
+                ${transferArt(gift)}<strong>${esc(gift.name)}${gift.number ? ' #' + esc(gift.number) : ''}</strong>
                 <b>${money(gift.price)} ${currencyHTML(gift)}</b>
             </button>`).join('') : '<p class="sub">Среди текущих лотов нет подарков для Lucky Craft.</p>'}</div>`);
 }

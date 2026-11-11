@@ -91,10 +91,8 @@
             <div class="product-properties">
                 <div><span>Тип</span><strong>Подарок Telegram</strong></div>
                 <div><span>Стоимость</span><strong>${gramText(gift.price)}</strong></div>
-                <div><span>Курс</span><strong>100 ★ = 1 GRAM</strong></div>
             </div>
             ${busy ? '<div class="ny-footnote">Подарок обрабатывается: он уже в очереди на вывод.</div>' : `
-            <div class="ny-footnote">Продать: сайт сразу выкупит подарок и начислит ${gramText(gift.price)} на баланс. Вывести: Telegram-подарок придёт вам в чат с подписью «Gift from Crafter». Его также можно использовать в апгрейде и крафте.</div>
             <div class="product-actions owned-gift-actions">
                 <button class="secondary" type="button" id="star-withdraw">Вывести</button>
                 <button class="primary" type="button" id="star-sell">Продать за ${gramText(gift.price)}</button>

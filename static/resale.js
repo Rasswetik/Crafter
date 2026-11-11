@@ -80,7 +80,7 @@ function renderResaleEditor() {
             ${gifts.map(gift => `<article class="resale-editor-card" data-resale-card="${esc(gift.id)}">
                 ${edit ? '' : `<button type="button" class="resale-remove" data-resale-remove="${esc(gift.id)}" aria-label="Убрать подарок">×</button>`}
                 <div class="resale-editor-top">
-                    ${transferArt(gift)}<span><b>${esc(gift.name)}</b><small>#${esc(gift.number)}</small></span>
+                    ${transferArt(gift)}<span><b>${esc(gift.name)}</b><small>${gift.number ? '#' + esc(gift.number) : ''}</small></span>
                     ${unlist ? `<span class="resale-current-price"><b>${money(gift.listing_price ?? gift.price)} GRAM</b><small>Цена</small></span>` :
                         `<input class="resale-price" type="text" inputmode="decimal" maxlength="10" placeholder="Цена"
                             aria-label="Цена в GRAM для ${esc(gift.name)}" data-resale-price="${esc(gift.id)}" value="${esc(draft.prices.get(gift.id) || '')}">`}

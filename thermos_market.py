@@ -705,7 +705,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
     def public_rows(ids):
         found = {}
         for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",
-                                (int(time.time()) - 90,)):
+                                (int(time.time()) - 300,)):
             try:
                 data = json.loads(row['payload'])
             except (TypeError, ValueError):
@@ -744,7 +744,8 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 if gift.get('price_unit') != 'TON':
                     abort(409, description='Неподдерживаемая цена лота')
                 if not still_listed(gift, gift['price']):
-                    abort(409, description='Лот уже недоступен или цена изменилась. Обновите маркет')
+                    app.extensions['crafter_hide_lots']([gift['id']])          # gone from Thermos: stop showing it
+                    abort(409, description='Этот лот уже купили или цена изменилась — он убран из списка. Выберите другой')
             need = sum((Decimal(str(x['price'])) for x in found.values()), Decimal(0)) + FEE_WITHDRAW_OTHER_TON * len(ids)
             if balance_ton() < need:
                 abort(409, description='Ошибка покупки. Попробуйте позже.')
@@ -814,5 +815,6 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 db().execute("UPDATE thermos_orders SET status='complete',response=? WHERE id=?",
                              (json.dumps(result, ensure_ascii=False), order_id))
         if refused is not None:        # abort only AFTER the refund transaction has committed
+            app.extensions['crafter_hide_lots'](ids)      # Thermos refused it: hide the lot so it does not break the next purchase
             abort(409, description='Покупка не выполнена: ' + refused + '. GRAM возвращены.')
         return {'ok': True, 'status': 'complete', 'order_id': order_id, **result}
