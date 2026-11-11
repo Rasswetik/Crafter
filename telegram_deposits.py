@@ -81,6 +81,34 @@ def telegram_proxy():
     return (parsed.scheme, parsed.hostname, parsed.port, True, parsed.username, parsed.password)
 
 
+DC_ADDRESSES = (('DC1', '149.154.175.53'), ('DC2', '149.154.167.51'), ('DC3', '149.154.175.100'), ('DC4', '149.154.167.91'), ('DC5', '91.108.56.130'))
+
+
+def telegram_network_report():
+    """Can THIS server reach Telegram? A plain TCP connection to every MTProto data centre (port 443) and to the Bot API.
+    -> [{'ok': bool, 'text': str}]. The usual reason of «Connection to Telegram failed» is a network that blocks these addresses."""
+    import socket
+    from urllib.error import HTTPError
+    from urllib.request import urlopen
+    report = []
+    for name, ip in DC_ADDRESSES:
+        try:
+            socket.create_connection((ip, 443), timeout=4).close()
+            report.append({'ok': True, 'text': 'Сервер достаёт до Telegram %s (%s:443)' % (name, ip)})
+        except Exception as error:
+            report.append({'ok': False, 'text': 'Сервер НЕ достаёт до Telegram %s (%s:443): %s' % (name, ip, type(error).__name__)})
+    try:
+        urlopen('https://api.telegram.org', timeout=6).close()
+        report.append({'ok': True, 'text': 'Bot API (api.telegram.org) отвечает'})
+    except HTTPError:
+        report.append({'ok': True, 'text': 'Bot API (api.telegram.org) отвечает'})
+    except Exception as error:
+        report.append({'ok': False, 'text': 'Bot API (api.telegram.org) не отвечает: ' + type(error).__name__})
+    proxy = telegram_proxy()
+    report.append({'ok': True, 'text': 'Прокси для релейера: ' + (proxy[0] + '://' + proxy[1] + ':' + str(proxy[2]) if proxy else 'не задан (CRAFTER_TELEGRAM_PROXY)')})
+    return report
+
+
 async def with_client(api_id, api_hash, session, operation):
     client = TelegramClient(StringSession(session), api_id, api_hash, proxy=telegram_proxy(),
                             connection_retries=1, request_retries=1, timeout=12)

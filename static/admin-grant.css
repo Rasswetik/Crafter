@@ -20,3 +20,5 @@
 .sg-catalog{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;margin:12px 0}
 .sg-item{display:grid;justify-items:center;gap:3px;padding:10px 6px;border-radius:16px;background:#ffffff0a;border:1px solid #ffffff1c;text-align:center}
 .sg-item img{width:64px;height:64px;object-fit:contain}.sg-item small{color:#9aa3ad;font-size:11px}.sg-item.is-missing{opacity:.7;border-style:dashed}
+
+#star-gifts-admin{display:block!important}#star-gifts-admin>*{margin-bottom:12px}#star-gifts-admin .admin-pill{display:inline-block}

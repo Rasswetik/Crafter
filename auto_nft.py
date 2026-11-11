@@ -271,6 +271,9 @@ def install_auto_nft(app, db, auth, audit):
             add(True, 'Связь с Telegram есть, на релейере подарков: ' + str(len(held)))
         except Exception as error:
             add(False, 'Нет связи релейера с Telegram: ' + type(error).__name__ + ': ' + str(error)[:160] + ' (проверьте сервер/прокси CRAFTER_TELEGRAM_PROXY и сессию релейера)')
+            from telegram_deposits import telegram_network_report
+            for line in telegram_network_report():
+                add(line['ok'], line['text'])
         try:
             balance = app.extensions['crafter_thermos_balance']()
             add(balance >= Decimal('0.1'), 'Баланс Thermos ' + str(balance) + ' TON' + ('' if balance >= Decimal('0.1') else ' — не хватает на комиссию вывода 0,1 TON'))

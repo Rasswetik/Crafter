@@ -27,6 +27,7 @@
             <span class="admin-pill ${info.enabled ? 'is-good' : 'is-alert'}">${info.enabled ? 'Автовывод включён' : 'Автовывод выключен'}</span>
             <div class="admin-glass-action-grid">
                 <button type="button" onclick="starGiftsAdmin('toggle', ${!info.enabled})">${info.enabled ? 'Выключить' : 'Включить'}</button>
+                <button type="button" onclick="starGiftsAdmin('network')">Проверить доступ сервера к Telegram</button>
                 <button type="button" onclick="starGiftsAdmin('check')">Проверить и загрузить из Telegram (ID, цены, PNG)</button>
                 ${info.enabled ? '<button type="button" onclick="starGiftsAdmin(\'run\')">Обработать очередь сейчас</button>' : ''}
             </div>
@@ -70,6 +71,10 @@
                 if (!confirm((a ? 'Включить' : 'Выключить') + ' автовывод подарков Telegram за Stars?')) return;
                 await api('admin/star-gifts', {enabled: a, confirm: 'SET_STAR_GIFTS'});
                 toast('Автовывод подарков: ' + (a ? 'включён' : 'выключен'));
+            } else if (action === 'network') {
+                const net = await api('admin/star-gifts/network', {});
+                alert(net.report.map(x => (x.ok ? 'OK   ' : 'НЕТ  ') + x.text).join(String.fromCharCode(10)));
+                return;
             } else if (action === 'check') {
                 toast('Подключаемся к Telegram…');
                 await api('admin/star-gifts/check', {});

@@ -48,7 +48,7 @@ def test_catalog_and_prices(client):
     gifts = {g['key']: g for g in client.get('/api/star-gifts/catalog', headers=signed()).json['gifts']}
     assert gifts['bear']['price'] == '0.15' and gifts['rose']['price'] == '0.25' and gifts['cake']['price'] == '0.50' and gifts['diamond']['price'] == '1.00'
     gift, = grant(client, 43, 'bear')
-    assert gift['price'] == '0.15' and gift['stars'] == 15 and gift['image'].endswith('/bear.svg') and gift['origin'] == 'star-gift'
+    assert gift['price'] == '0.15' and gift['stars'] == 15 and gift['image'].endswith('/bear.png') and gift['origin'] == 'star-gift'
 
 
 def test_sell_credits_balance_once(client):
@@ -285,7 +285,7 @@ def test_check_loads_ids_prices_and_png_from_telegram(client, monkeypatch):
     assert info['state']['stars'] == 420 and info['state']['pngs'] == 1
     catalog = {g['key']: g for g in client.get('/api/star-gifts/catalog', headers=signed(43)).json['gifts']}
     assert catalog['bear']['image'].startswith('/media/stargift/bear.png') and catalog['bear']['telegram_gift_id'] == '5001'
-    assert catalog['rose']['image'].endswith('/rose.svg') and catalog['rose']['telegram_gift_id']          # no PNG yet: built-in icon
+    assert catalog['rose']['image'].endswith('/rose.png') and catalog['rose']['telegram_gift_id']          # no PNG yet: built-in icon
     served = client.get('/media/stargift/bear.png')
     assert served.status_code == 200 and served.mimetype == 'image/png' and served.data[:4] == b'\x89PNG'
     assert client.get('/media/stargift/rose.png').status_code == 404
@@ -371,3 +371,12 @@ def test_admin_overview_has_a_checklist_and_real_pictures_for_jobs(client):
     assert all(i['image'] for i in info['catalog'])
     page = open('static/star-gifts-admin.js', encoding='utf-8').read()
     assert 'job.emoji' not in page and 'i.emoji' not in page            # pictures, never emoji, in the interface
+
+
+def test_network_report_names_every_data_centre(monkeypatch):
+    import socket
+    import telegram_deposits
+    monkeypatch.setattr(socket, 'create_connection', lambda *a, **k: (_ for _ in ()).throw(OSError('blocked')))
+    monkeypatch.setattr('urllib.request.urlopen', lambda *a, **k: (_ for _ in ()).throw(OSError('blocked')))
+    report = telegram_deposits.telegram_network_report()
+    assert [x['ok'] for x in report[:6]] == [False] * 6 and 'DC5' in report[4]['text'] and 'api.telegram.org' in report[5]['text']

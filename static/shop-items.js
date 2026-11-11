@@ -29,7 +29,7 @@ function art(it) {
     if (it.kind === 'BALL') return '/static/assets/new-year-ornament.svg';
     if (it.kind === 'BUNDLE') return (it.contents && it.contents[0] && it.contents[0].pack.image) || (it.gram ? '/static/assets/gram.svg' : '/static/assets/new-year-ornament.svg');
     if (it.kind === 'PACK') return it.pack?.image || '/static/assets/packs/new-year-pack.webp';
-    if (it.kind === 'STAR') return it.star?.image || '/static/assets/stargifts/bear.svg';
+    if (it.kind === 'STAR') return it.star?.image || '/static/assets/stargifts/bear.png';
     return '/static/assets/community-reward.svg';
 }
 const unavailable = it => (it.left !== null && it.left <= 0) || (it.per_user !== null && it.mine >= it.per_user);

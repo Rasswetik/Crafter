@@ -42,7 +42,7 @@ def gram_value(stars):
 
 
 def catalog_view():
-    return [{**item, 'price': format(gram_value(item['stars']), 'f'), 'image': '/static/assets/stargifts/' + item['key'] + '.svg'}
+    return [{**item, 'price': format(gram_value(item['stars']), 'f'), 'image': '/static/assets/stargifts/' + item['key'] + '.png'}
             for item in BY_KEY.values()]
 
 
@@ -64,6 +64,12 @@ def install_star_gifts(app, db, auth, record, audit):
                 key TEXT PRIMARY KEY, tg_id BIGINT, stars INTEGER NOT NULL, png BYTEA, updated BIGINT NOT NULL);
         """)
         db().execute("INSERT INTO star_gift_lease VALUES(1,0) ON CONFLICT(id) DO NOTHING")
+        # one-time: the first built-in pictures were drawn like emoji; the real Telegram gift pictures replace them everywhere
+        if not db().execute("SELECT 1 FROM settings WHERE key='star_gift_png_v1'").fetchone():
+            for key in BY_KEY:
+                db().execute("UPDATE inventory SET payload=REPLACE(payload,?,?) WHERE payload LIKE ?", ('/stargifts/' + key + '.svg', '/stargifts/' + key + '.png', '%/stargifts/' + key + '.svg%'))
+                db().execute("UPDATE star_gift_withdrawals SET payload=REPLACE(payload,?,?) WHERE payload LIKE ?", ('/stargifts/' + key + '.svg', '/stargifts/' + key + '.png', '%/stargifts/' + key + '.svg%'))
+            db().execute("INSERT INTO settings(key,payload) VALUES('star_gift_png_v1','{}') ON CONFLICT(key) DO NOTHING")
 
     # ---------------- Telegram assets (PNG, Stars price, id used for sending) ----------------
     def assets():
@@ -79,7 +85,7 @@ def install_star_gifts(app, db, auth, record, audit):
         for item in BY_KEY.values():
             row = known.get(item['key'])
             stars = int(row['stars']) if row else item['stars']
-            image = ('/media/stargift/' + item['key'] + '.png?v=' + str(row['updated'])) if row and row['has_png'] else '/static/assets/stargifts/' + item['key'] + '.svg'
+            image = ('/media/stargift/' + item['key'] + '.png?v=' + str(row['updated'])) if row and row['has_png'] else '/static/assets/stargifts/' + item['key'] + '.png'
             out.append({**item, 'stars': stars, 'price': format(gram_value(stars), 'f'), 'image': image,
                         'telegram_gift_id': str(row['tg_id']) if row and row['tg_id'] else None, 'synced': bool(row)})
         return out
@@ -384,7 +390,7 @@ def install_star_gifts(app, db, auth, record, audit):
             save_state(stars=result['stars'], gifts={k: True for k in result['gifts']}, pngs=sum(1 for v in result['gifts'].values() if v['png']), checked=now(), error='')
             return True
         except Exception as error:
-            save_state(error='Не удалось проверить: ' + type(error).__name__ + ': ' + str(error)[:120], checked=now())
+            save_state(error='Не удалось проверить: ' + type(error).__name__ + ': ' + str(error)[:120] + '. Нажмите «Проверить доступ сервера к Telegram»: это покажет, блокирует ли сеть сервера Telegram.', checked=now())
             return False
 
     @app.post('/api/admin/star-gifts/check')
@@ -392,6 +398,12 @@ def install_star_gifts(app, db, auth, record, audit):
     def star_admin_check():
         sync_assets()
         return overview()
+
+    @app.post('/api/admin/star-gifts/network')
+    @auth(admin=True)
+    def star_admin_network():
+        from telegram_deposits import telegram_network_report
+        return {'report': telegram_network_report()}
 
     @app.post('/api/admin/star-gifts/run')
     @auth(admin=True)

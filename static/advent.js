@@ -3,7 +3,7 @@
 'use strict';
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? ''));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
-const ICON = {GRAM: '/static/assets/gram.svg', BALL: '/static/assets/new-year-ornament.svg', PACK: '/static/assets/packs/new-year-pack.webp', STAR: '/static/assets/stargifts/bear.svg', PROMO: '/static/assets/community-reward.svg'};
+const ICON = {GRAM: '/static/assets/gram.svg', BALL: '/static/assets/new-year-ornament.svg', PACK: '/static/assets/packs/new-year-pack.webp', STAR: '/static/assets/stargifts/bear.png', PROMO: '/static/assets/community-reward.svg'};
 const KIND_NAME = {GRAM: 'GRAM на баланс', BALL: 'Новогодние шары', PACK: 'Карточный пак', STAR: 'Подарок Telegram', PROMO: 'Промокод'};
 let STARS = [];
 const SHAPE_NAME = {sq: 'Квадрат', wide: 'Широкая', tall: 'Высокая', big: 'Большая'};

@@ -331,8 +331,10 @@ def test_dry_run_check_names_every_precondition(client, monkeypatch):
         raise ConnectionError('Connection to Telegram failed 1 time(s)')
     monkeypatch.setitem(client.application.extensions, 'crafter_relayer_credentials', lambda: (1, 'h', 's', 777))
     monkeypatch.setattr(rt, 'held_slugs', broken)
+    import telegram_deposits
+    monkeypatch.setattr(telegram_deposits, 'telegram_network_report', lambda: [{'ok': False, 'text': 'Сервер НЕ достаёт до Telegram DC2'}])
     monkeypatch.setitem(client.application.extensions, 'crafter_thermos_balance', lambda: __import__('decimal').Decimal('0.4'))
     monkeypatch.setitem(client.application.extensions, 'crafter_thermos_call', lambda *a, **k: [{'id': 'x'}])
     texts = [x['text'] for x in client.post('/api/admin/auto-nft/check', headers=signed(), json={}).json['report']]
     assert any('Нет связи релейера с Telegram: ConnectionError' in t for t in texts) and any('Баланс Thermos 0.4' in t for t in texts)
-    assert any('до 25 ★' in t for t in texts)
+    assert any('до 25 ★' in t for t in texts) and any('НЕ достаёт до Telegram DC2' in t for t in texts)
