@@ -14,6 +14,7 @@ const adminSections = {
     staking:      {label:'Стейкинг',detail:'Годовой APR и ограничения',group:'manage',glyph:'gift',render:renderAdminStaking},
     arena:        {label:'Arena',detail:'Банк, комиссии, ставки, сброс рекордов',group:'manage',glyph:'grid',render:renderAdminArena},
     'new-year': {label:'Новый год',detail:'Сезон, магазин NFT и праздничная валюта',group:'manage',glyph:'gift',render:renderAdminNewYear},
+    creators:     {label:'Заявки по видео',detail:'Выплаты авторам роликов, чат с игроком',group:'money',glyph:'gift',render:renderAdminCreators},
     promocodes: {label:'Промокоды',detail:'Коды, GRAM и количество активаций',group:'manage',glyph:'gift',render:renderAdminPromocodes},
     banners:      {label:'Баннеры',detail:'Галерея, карусель и публикация',group:'manage',glyph:'market',render:renderAdminBanners},
     craft_banner: {label:'Баннер крафтов',detail:'События, GIF, таймер',group:'manage',glyph:'grid',render:renderCraftBannerAdmin},

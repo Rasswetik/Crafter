@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ru">
+<head><link rel="icon" type="image/png" sizes="32x32" href="/static/icons/crafter-32.png?v=1"><link rel="icon" type="image/png" sizes="192x192" href="/static/icons/crafter-192.png?v=1"><link rel="shortcut icon" href="/favicon.ico?v=1">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#131313">
+<meta name="robots" content="noindex,nofollow">
+<title>Crafter Creators: оплата за рекламные вставки</title>
+<meta name="description" content="Программа для авторов роликов: оплата за 1000 просмотров, правила рекламной вставки, подача заявки и готовые вставки Crafter.">
+<link rel="stylesheet" href="/static/partner-api.css?v=11">
+<link rel="stylesheet" href="/static/creators.css?v=5">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+<div class="page">
+<header class="head">
+  <a class="logo" href="{{ site }}"><i></i>Crafter</a>
+  <div class="meta"><small>Creators</small><a href="/creators/my" id="open-my">Мои заявки <i class="dot" id="my-dot" hidden></i></a></div>
+</header>
+
+<div class="cols">
+<main>
+<h1>Платим за просмотры.<br>Вставка Crafter в ваш ролик.</h1>
+<p class="lead">Вы публикуете ролик с нашей рекламной вставкой, мы платим за каждую тысячу просмотров. Ставка зависит от темы ролика. Ниже все условия: сколько платим, что требуется от вставки, как подать заявку и когда мы вправе отказать в выплате.</p>
+<nav class="jump"><a href="#rates">Расценки</a><a href="#insert">Вставка</a><a href="#ban">Запрещено</a><a href="#apply">Заявка</a><a href="#calc">Расчёт</a><a href="#pay">Выплаты</a><a href="#refuse">Отказ</a><a href="#banners">Вставки</a></nav>
+
+<section id="about">
+  <h2><span>01</span>Как это работает</h2>
+  <ol class="cr-steps">
+    <li><b>Выберите вставку.</b> Готовые рекламные ролики Crafter лежат в разделе «Рекламные вставки» ниже.</li>
+    <li><b>Опубликуйте свой ролик</b> с вставкой по правилам из раздела «Требования к вставке».</li>
+    <li><b>Подайте заявку в течение {{ days }} дней</b> после публикации с записью экрана со статистикой.</li>
+    <li><b>Получите выплату.</b> Сумма считается по просмотрам на момент подачи заявки и ставке вашей темы, выплата идёт по очереди от {{ minimum }} $.</li>
+  </ol>
+</section>
+
+<section id="rates">
+  <h2><span>02</span>Сколько платим за 1 000 просмотров</h2>
+  <table class="rates">
+    <tr><th>Тема ролика</th><th>За 1 000 просмотров</th><th>За 10 000</th><th>Просмотров до {{ minimum }} $</th></tr>
+    {% for r in rates %}<tr><td><b>{{ r.title }}</b><br><small>{{ r.note }}</small></td><td class="price">{{ r.rate_text }} $</td><td>{{ r.example }} $</td><td>{{ '{:,}'.format(r.minimum_views).replace(',', ' ') }}</td></tr>{% endfor %}
+  </table>
+  <div class="note"><b>Тему определяет администрация.</b> Если в ролике несколько тем, берётся основная: та, которой посвящена большая часть ролика. Ставка относится ко всему ролику целиком, смешивать ставки нельзя.</div>
+</section>
+
+<section id="calc">
+  <h2><span>03</span>Калькулятор</h2>
+  <div class="calc" id="calc-box" data-min="{{ minimum }}">
+    <label>Тема ролика
+      <select id="calc-cat">{% for r in rates %}<option value="{{ r.rate }}">{{ r.title }} — {{ r.rate_text }} $ за 1 000</option>{% endfor %}</select>
+    </label>
+    <label>Просмотров
+      <input id="calc-views" type="number" min="0" step="100" value="10000" inputmode="numeric">
+    </label>
+    <div class="calc-out"><span>К выплате</span><b id="calc-sum">12,50 $</b><small id="calc-hint"></small></div>
+  </div>
+  <p class="fine">Формула: просмотры ÷ 1 000 × ставка. Просмотры считаются на момент подачи заявки, сумма округляется до центов.</p>
+</section>
+
+<section id="insert">
+  <h2><span>04</span>Требования к рекламной вставке</h2>
+  <ul class="rules">
+    <li><b>Размер.</b> Вставка занимает не менее 25% экрана и находится по центру. Размещение в углу не допускается, вставка должна быть хорошо видна.</li>
+    <li><b>Целиком.</b> Вставку нельзя обрезать, ускорять, заглушать, накладывать поверх неё другие элементы.</li>
+    <li><b>Пауза основного видео.</b> На время вставки основное видео стоит на паузе, вставка сопровождает его как отдельный блок.</li>
+    <li><b>Количество.</b> В ролике длиннее одной минуты нужна одна вставка на каждую минуту ролика.</li>
+    <li><b>Короткие ролики.</b> Если ролик длится 10–20 секунд, вставка стоит в первой половине видео.</li>
+    <li><b>Звук.</b> Звук вставки слышен и не заглушён основным видео.</li>
+  </ul>
+</section>
+
+<section id="ban">
+  <h2><span>05</span>Что запрещено</h2>
+  <ul class="rules rules-no">
+    <li><b>Накрутка и покупные просмотры.</b> Любые способы искусственного роста просмотров, боты, сервисы накрутки.</li>
+    <li><b>Платное продвижение.</b> Нельзя запускать рекламу ролика (например, TikTok Ads и аналоги). Просмотры, полученные через платное продвижение, не учитываются.</li>
+    <li><b>Реклама других проектов в том же ролике.</b> Нельзя упоминать и показывать сторонние Telegram-каналы, каналы на YouTube и Twitch, конкурентов Crafter и проекты из других сфер.</li>
+    <li><b>Нарушение требований к вставке.</b> См. раздел 04.</li>
+    <li><b>Чужой аккаунт.</b> Подавать заявку на ролик с аккаунта, который вам не принадлежит.</li>
+  </ul>
+</section>
+
+<section id="apply">
+  <h2><span>06</span>Как подать заявку</h2>
+  <ol class="cr-steps">
+    <li><b>Срок.</b> Заявка подаётся в течение {{ days }} дней после публикации ролика. Позже заявки не принимаются.</li>
+    <li><b>Запись экрана.</b> Приложите запись экрана со статистикой просмотров. Скриншоты не принимаются.</li>
+    <li><b>Что должно быть видно.</b> Что аккаунт ваш, статистика ролика по всем вкладкам, ссылка на ролик. При подозрительной активности выплаты не будет.</li>
+    <li><b>Одна заявка на ролик.</b> Повторные заявки на тот же ролик не рассматриваются.</li>
+    <li><b>Просмотры фиксируются</b> на момент подачи заявки. Что набрано позже, не оплачивается.</li>
+  </ol>
+  <div class="cta-row"><button type="button" class="btn big" id="apply-open">Нажать, подать заявку</button> <a class="btn ghost" href="/creators/my" id="apply-my">Мои заявки и чаты</a></div>
+  <p class="fine">Пока принимаем ролики только из TikTok. Заявка привязывается к вашему аккаунту Telegram. Отправляя заявку, вы автоматически соглашаетесь со всеми условиями этой страницы.</p>
+</section>
+
+<section id="pay">
+  <h2><span>07</span>Как считается награда и выплаты</h2>
+  <ul class="rules">
+    <li><b>Расчёт.</b> Просмотры на момент заявки ÷ 1 000 × ставка вашей темы. Все суммы в долларах США.</li>
+    <li><b>Минимум.</b> Выплата производится от {{ minimum }} $.</li>
+    <li><b>Очередь.</b> Выплаты идут по очереди в порядке подачи одобренных заявок.</li>
+    <li><b>Не оплачиваются:</b> ролики, не соответствующие условиям; накрученные, покупные и полученные через платное продвижение просмотры.</li>
+  </ul>
+</section>
+
+<section id="refuse">
+  <h2><span>08</span>Отказ в выплате</h2>
+  <p>Администрация вправе отказать в выплате полностью или частично, если:</p>
+  <ul class="rules rules-no">
+    <li>замечена накрутка, покупные просмотры или платное продвижение;</li>
+    <li>не выполнены требования к рекламной вставке (размер, расположение, целостность, пауза, количество);</li>
+    <li>в ролике есть реклама других проектов;</li>
+    <li>заявка подана позже срока, без записи экрана или с недостаточными данными;</li>
+    <li>есть подозрение на подмену статистики, чужой аккаунт или иное злоупотребление.</li>
+  </ul>
+  <p>Решение администрации по заявке окончательное. Мы можем запросить дополнительные доказательства и продлить проверку. Условия программы могут меняться: к роликам, опубликованным до изменения, применяются условия на день публикации.</p>
+</section>
+
+<section id="banners">
+  <h2><span>09</span>Рекламные вставки</h2>
+  {% if banners %}
+  <p>Готовые вставки Crafter в вертикальном формате 9:16. Используйте их без обрезки, ускорения и изменений.</p>
+  <div class="vgrid">
+    {% for b in banners %}<div class="vcard"><video controls preload="metadata" playsinline src="{{ b.url }}"></video><b>{{ b.title }}</b><p>{{ b.note }}</p><a class="btn small" href="{{ b.url }}" download>Скачать · {{ b.size }} МБ</a></div>{% endfor %}
+  </div>
+  {% else %}
+  <p>Вставки выдаёт поддержка по запросу: <a href="https://t.me/crafter_support">@crafter_support</a>.</p>
+  {% endif %}
+</section>
+
+<footer>
+  <h2>Вопросы</h2>
+  <p>Напишите в поддержку, если что-то непонятно в условиях или нужна вставка в другом формате.</p>
+  <div class="cta-row"><a class="btn" href="https://t.me/crafter_support">@crafter_support</a></div>
+  <p class="fine">Crafter · Creators · <a href="{{ site }}">Открыть Crafter</a></p>
+</footer>
+</main>
+<aside class="toc"><small>Содержание</small>
+<a href="#about">Как это работает</a><a href="#rates">Расценки</a><a href="#calc">Калькулятор</a><a href="#insert">Требования к вставке</a><a href="#ban">Запрещено</a><a href="#apply">Заявка</a><a href="#pay">Награда и выплаты</a><a href="#refuse">Отказ в выплате</a><a href="#banners">Рекламные вставки</a><a href="/creators/my">Мои заявки и чаты</a></aside>
+</div>
+</div>
+<div class="modal" id="modal" hidden><div class="modal-card"><button type="button" class="modal-x" id="modal-x" aria-label="Закрыть">×</button><div id="modal-body"></div></div></div>
+<script src="/static/creators-core.js?v=1"></script>
+<script src="/static/creators.js?v=3"></script>
+</body>
+</html>

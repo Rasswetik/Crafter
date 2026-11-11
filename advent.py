@@ -58,6 +58,19 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
             PRIMARY KEY(user_id,day)
         );
         """)
+        # an older database may hold advent_days without the newer columns (the admin panel failed with "column position does not exist")
+        database = db()
+        added = (('promo_kind', "TEXT NOT NULL DEFAULT ''"), ('amount', "TEXT NOT NULL DEFAULT ''"), ('count', 'BIGINT NOT NULL DEFAULT 1'),
+                 ('title', "TEXT NOT NULL DEFAULT ''"), ('image_url', "TEXT NOT NULL DEFAULT ''"), ('shape', "TEXT NOT NULL DEFAULT ''"),
+                 ('extra', "TEXT NOT NULL DEFAULT ''"), ('position', 'BIGINT'))
+        if hasattr(database, 'connection') and database.connection is not None:
+            for column, ddl in added:
+                database.execute('ALTER TABLE advent_days ADD COLUMN IF NOT EXISTS ' + column + ' ' + ddl)
+        else:
+            have = {r['name'] for r in database.execute('PRAGMA table_info(advent_days)').fetchall()}
+            for column, ddl in added:
+                if have and column not in have:
+                    database.execute('ALTER TABLE advent_days ADD COLUMN ' + column + ' ' + ddl)
 
     def read(key, default):
         row = db().execute("SELECT payload FROM settings WHERE key=?", (key,)).fetchone()

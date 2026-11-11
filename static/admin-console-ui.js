@@ -582,6 +582,7 @@ async function adminChangeUserBan(uid,banned){
 
 /* Only the verified configured primary administrator can manage other admins. */
 const adminRoleLabels = {
+    creators:'Заявки по видео',
     finance:'Финансы',users:'Пользователи',maintenance:'Технические работы',
     audit:'История действий',nft_withdraw:'Выводы NFT',ton_withdraw:'Выводы TON',
     tonconnect:'Автовывод TON',relayer:'Relayer',crafts:'Крафты',modes:'Режимы',

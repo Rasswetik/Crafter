@@ -1598,6 +1598,15 @@ def create_app(config=None):
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
     from partner_api import install_partner_api
     install_partner_api(app,db,auth,record,audit)
+    from creators import install_creators
+    install_creators(app)
+    from creator_apps import install_creator_apps
+    from telegram_bot import notify_creator
+
+    def creator_notice(user_id, text, number):
+        origin = bot_settings().get('app_url') or os.getenv('RENDER_EXTERNAL_URL') or os.getenv('PUBLIC_APP_URL') or request.url_root
+        return notify_creator(bot_settings(), user_id, text, number, origin, app.config['BOT_TOKEN'])
+    install_creator_apps(app,db,auth,record,audit,creator_notice)
     app.extensions['crafter_pack_ctx'] = dict(
         public_catalog=public_catalog, canonical_name=canonical_name, market_candidates=craft_market_candidates,
         ensure_listings=ensure_upgrade_listings, test_mode=lambda: purchase_mode() == 'test',

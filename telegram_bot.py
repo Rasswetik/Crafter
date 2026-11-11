@@ -255,6 +255,19 @@ def gift_label(gift, linked=True):
     return label + (' #' + escape(str(gift['number'])) if gift.get('number') else '')
 
 
+def notify_creator(config, user_id, text, number, origin, default_token):
+    """A message about a creators application with the button "Рассмотреть" that opens the page "Мои заявки" in the Mini App."""
+    token = config.get('token') or default_token
+    if not token:
+        return False
+    message = {'chat_id': user_id, 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True}, 'text': escape(text)}
+    url = (origin or '').rstrip('/') + '/creators/my?app=' + str(int(number))
+    if https_url(url):
+        message['reply_markup'] = {'inline_keyboard': [[{'text': 'Рассмотреть', 'web_app': {'url': url}}]]}
+    send_message(token, message)
+    return True
+
+
 def notify_withdrawal(config, recipient, gift, ok, reason, default_token, via=''):
     """Tell a player how their gift withdrawal ended: the receipt (like marketplace bots send it, with the collectible preview) or the reason."""
     token = config.get('token') or default_token
