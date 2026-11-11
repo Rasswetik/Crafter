@@ -45,7 +45,7 @@
 .escape-tile .crafter-game-label{position:relative;z-index:2}
 .escape-art{position:absolute;right:6%;top:50%;width:clamp(104px,38%,176px);aspect-ratio:1;transform:translateY(-50%);z-index:1;pointer-events:none}
 .escape-ring{position:absolute;inset:6%;border-radius:50%;border:7px solid #6f86ff;border-right-color:transparent;box-shadow:0 0 26px rgba(111,134,255,.6);animation:escape-spin 7s linear infinite}
-.escape-ball{position:absolute;left:50%;top:50%;width:40%;height:40%;margin:-20% 0 0 -20%;border-radius:50%;background:#16203f url(/static/assets/escape/lol-pop.png) center/cover no-repeat;border:2.5px solid rgba(255,255,255,.9);box-shadow:0 0 20px rgba(90,150,255,.8);animation:escape-bob 1.8s ease-in-out infinite}
+.escape-ball{position:absolute;left:50%;top:50%;width:40%;height:40%;margin:-20% 0 0 -20%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#c9e4ff,#4f95f0 45%,#2557c8);border:2.5px solid rgba(255,255,255,.9);box-shadow:0 0 20px rgba(90,150,255,.8);animation:escape-bob 1.8s ease-in-out infinite}
 .escape-star{position:absolute;width:6px;height:6px;border-radius:50%;background:#fff;opacity:.7;box-shadow:0 0 8px #fff;animation:escape-tw 2.4s ease-in-out infinite}.escape-star.s1{left:2%;top:16%}.escape-star.s2{right:0;top:62%;animation-delay:.8s}.escape-star.s3{left:30%;bottom:2%;animation-delay:1.4s}
 .escape-online{position:absolute;right:14px;top:12px;display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:999px;background:rgba(18,14,60,.72);border:1px solid rgba(255,255,255,.14);font-size:12.5px;font-weight:800;color:#fff;z-index:3}
 .escape-online i{width:7px;height:7px;border-radius:50%;background:#35e07a;box-shadow:0 0 8px #35e07a}

@@ -1,4 +1,4 @@
-"""Escape: a ball bounces inside a ring with a gap. Every bounce on the wall adds +0.2x. Sooner or later the ball leaves
+"""Escape: a ball bounces inside a ring with a gap. The game starts at 0x and every bounce on the wall adds +0.1x (Lite), +0.15x (Mid) or +0.2x (Epic). Sooner or later the ball leaves
 through the gap and falls on the floor: the green part pays bet x multiplier, the red part (the skull) takes the bet.
 
 The server settles the round before anything is drawn; the client only plays the already decided result. Every round is
@@ -16,25 +16,29 @@ from decimal import Decimal, ROUND_DOWN
 
 from flask import abort, g, request
 
-STEP = Decimal('0.2')                 # every bounce adds this to the multiplier
-START = Decimal('1.0')
 RTP = 0.96                            # return to player: the house keeps 4%
-MAX_BOUNCES = 80
+MAX_BOUNCES = 60
 MIN_BET, MAX_BET = Decimal('0.1'), Decimal('200')
 UNIT = Decimal('0.000001')
-# the chance to leave through the gap on one wall hit: the smaller the gap, the more bounces (and the bigger multipliers)
+# The game starts at 0x and every bounce on the wall adds the step of the level. "exit" is the chance to leave through the gap on one
+# wall hit (it decides how many bounces a round has); the green part of the floor is chosen so that every level returns RTP.
 LEVELS = {
-    'lite': {'name': 'Lite', 'exit': 0.50},
-    'mid': {'name': 'Mid', 'exit': 0.30},
-    'epic': {'name': 'Epic', 'exit': 0.15},
+    'lite': {'name': 'Lite', 'step': Decimal('0.10'), 'exit': 0.06},
+    'mid': {'name': 'Mid', 'step': Decimal('0.15'), 'exit': 0.08},
+    'epic': {'name': 'Epic', 'step': Decimal('0.20'), 'exit': 0.10},
 }
+
+
+def expected_multiplier(level):
+    setup = LEVELS[level]
+    e, step = setup['exit'], float(setup['step'])
+    total = sum(e * (1 - e) ** n * step * n for n in range(MAX_BOUNCES)) + (1 - e) ** MAX_BOUNCES * step * MAX_BOUNCES
+    return total
 
 
 def green_chance(level):
     """Chance of landing on the green part, chosen so that the return to player equals RTP for this level."""
-    e = LEVELS[level]['exit']
-    expected = float(START) + float(STEP) * (1 - e) / e
-    return min(0.97, RTP / expected)
+    return min(0.97, RTP / expected_multiplier(level))
 
 
 def draw(seed, client_seed, nonce, index):
@@ -45,13 +49,13 @@ def draw(seed, client_seed, nonce, index):
 
 def play_round(seed, client_seed, nonce, level):
     """-> {bounces, win, multiplier, landing}. 'landing' is a number in [0,1) inside the zone where the ball falls."""
-    e, green = LEVELS[level]['exit'], green_chance(level)
+    e, green, step = LEVELS[level]['exit'], green_chance(level), LEVELS[level]['step']
     bounces = 0
     while bounces < MAX_BOUNCES and draw(seed, client_seed, nonce, bounces) >= e:
         bounces += 1
     win = draw(seed, client_seed, nonce, 1000) < green
     landing = draw(seed, client_seed, nonce, 1001)
-    return {'bounces': bounces, 'win': win, 'multiplier': START + STEP * bounces, 'landing': landing, 'green': green}
+    return {'bounces': bounces, 'win': win, 'multiplier': step * bounces, 'landing': landing, 'green': green}
 
 
 def install_escape(app, db, auth, record, audit):
@@ -121,8 +125,8 @@ def install_escape(app, db, auth, record, audit):
         now = int(time.time())
         online = db().execute('SELECT COUNT(DISTINCT user_id) AS n FROM escape_rounds WHERE created>?', (now - 600,)).fetchone()['n']
         return {'hash': current_hash(uid), 'balance': str(balance_of(uid)), 'min_bet': str(MIN_BET), 'max_bet': str(MAX_BET),
-                'step': str(STEP), 'rtp': RTP, 'online': int(online),
-                'levels': [{'key': key, 'name': value['name'], 'exit': value['exit'], 'green': green_chance(key)} for key, value in LEVELS.items()],
+                'rtp': RTP, 'online': int(online),
+                'levels': [{'key': key, 'name': value['name'], 'step': str(value['step']), 'exit': value['exit'], 'green': green_chance(key)} for key, value in LEVELS.items()],
                 'best_week': best(now - 7 * 86400), 'best_day': best(now - 86400)}
 
     @app.get('/api/escape/history')

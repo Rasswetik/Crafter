@@ -22,10 +22,11 @@ def play(client, uid, rid, bet='1', level='mid'):
 
 
 def test_return_to_player_is_the_same_on_every_level():
+    steps = {'lite': Decimal('0.10'), 'mid': Decimal('0.15'), 'epic': Decimal('0.20')}
     for level, setup in escape_game.LEVELS.items():
-        e, green = setup['exit'], escape_game.green_chance(level)
-        expected = sum(e * (1 - e) ** n * (1 + 0.2 * n) for n in range(escape_game.MAX_BOUNCES)) + (1 - e) ** escape_game.MAX_BOUNCES * (1 + 0.2 * escape_game.MAX_BOUNCES)
-        assert abs(green * expected - escape_game.RTP) < 0.002, level
+        assert setup['step'] == steps[level]
+        assert abs(escape_game.green_chance(level) * escape_game.expected_multiplier(level) - escape_game.RTP) < 1e-9, level
+    assert escape_game.play_round('seed', 'c', 0, 'lite')['multiplier'] == steps['lite'] * escape_game.play_round('seed', 'c', 0, 'lite')['bounces']
 
 
 def test_round_is_provably_fair_and_settled_on_the_balance(client):
@@ -42,7 +43,7 @@ def test_round_is_provably_fair_and_settled_on_the_balance(client):
     bet = Decimal('1')
     expected = Decimal('50') - bet + (Decimal(r['payout']) if r['win'] else 0)
     assert money(client, 701) == expected and Decimal(done.json['balance']) == expected
-    assert Decimal(r['multiplier']) == Decimal('1.0') + Decimal('0.2') * r['bounces']
+    assert Decimal(r['multiplier']) == Decimal('0.15') * r['bounces']                  # the game starts at 0x, Mid adds 0.15x per bounce
 
 
 def hashlib_sha(text):
