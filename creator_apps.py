@@ -50,6 +50,53 @@ def tiktok_url(raw):
     return 'https://' + host + parts.path.rstrip('/')
 
 
+MIN_VIEWS = 1000
+_views_cache = {}
+
+
+def fetch_views(url):
+    """Play count of a TikTok video read from its public page: an int, or None when it cannot be read (blocked page, removed video)."""
+    import json as _json
+    import urllib.request
+    request_ = urllib.request.Request(url, headers={
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9'})
+    try:
+        with urllib.request.urlopen(request_, timeout=12) as response:
+            page = response.read(3_000_000).decode('utf-8', 'replace')
+            final = response.geturl()
+    except Exception:
+        return None
+    marker = 'id="__UNIVERSAL_DATA_FOR_REHYDRATION__" type="application/json">'
+    start = page.find(marker)
+    if start < 0:
+        return None
+    start += len(marker)
+    end = page.find('</script>', start)
+    try:
+        data = _json.loads(page[start:end])
+        item = data['__DEFAULT_SCOPE__']['webapp.video-detail']['itemInfo']['itemStruct']
+        views = int(item['stats']['playCount'])
+    except Exception:
+        return None
+    wanted = re.search(r'/video/(\d+)', final) or re.search(r'/video/(\d+)', url)
+    if wanted and str(item.get('id')) != wanted.group(1):
+        return None
+    return views
+
+
+def video_views(url):
+    """Cached (two minutes) view count of a video, None when unknown."""
+    hit = _views_cache.get(url)
+    if hit and time.time() - hit[0] < 120:
+        return hit[1]
+    value = fetch_views(url)
+    _views_cache[url] = (time.time(), value)
+    if len(_views_cache) > 500:
+        _views_cache.clear()
+    return value
+
+
 def install_creator_apps(app, db, auth, record, audit, notify_user):
     """notify_user(user_id, text, number) sends a bot message with the "Рассмотреть" button (a no-op when the bot is off)."""
     with app.app_context(), db():
@@ -89,7 +136,7 @@ def install_creator_apps(app, db, auth, record, audit, notify_user):
 
     def add_message(number, author, author_id, body):
         db().execute('INSERT INTO creator_messages(id,number,author,author_id,body,created) VALUES(?,?,?,?,?,?)',
-                     (uuid.uuid4().hex, number, author, author_id, body, int(time.time())))
+                     ('%019d%s' % (time.time_ns(), uuid.uuid4().hex[:8]), number, author, author_id, body, int(time.time())))   # time-ordered id: messages of one second keep their order
 
     def own(number):
         row = db().execute('SELECT * FROM creator_apps WHERE number=? AND user_id=?', (number, g.user['id'])).fetchone()
@@ -122,6 +169,27 @@ def install_creator_apps(app, db, auth, record, audit, notify_user):
                 'applications': out, 'unread': unread, 'platforms': [{'key': k, 'name': v} for k, v in PLATFORMS.items()],
                 'statuses': STATUSES}
 
+    checks = {}
+
+    @app.post('/api/creators/check-link')
+    @auth()
+    def creators_check_link():
+        """Called while the player types the link: does the video have the required number of views?"""
+        now = time.time()
+        mine = [t for t in checks.get(g.user['id'], []) if now - t < 60]
+        if len(mine) >= 12:
+            abort(429, description='Слишком часто. Подождите минуту.')
+        checks[g.user['id']] = mine + [now]
+        url = tiktok_url((request.get_json(silent=True) or {}).get('url'))
+        if not url:
+            return {'ok': False, 'state': 'bad_link', 'views': None, 'min': MIN_VIEWS, 'message': 'Вставьте ссылку на ролик в TikTok'}
+        views = video_views(url)
+        if views is None:
+            return {'ok': True, 'state': 'unknown', 'views': None, 'min': MIN_VIEWS, 'message': 'Не удалось проверить просмотры автоматически. Заявку проверит администратор.'}
+        if views < MIN_VIEWS:
+            return {'ok': False, 'state': 'few', 'views': views, 'min': MIN_VIEWS, 'message': 'У ролика %d просмотров. Нужно от %d, ролик не принимается.' % (views, MIN_VIEWS)}
+        return {'ok': True, 'state': 'enough', 'views': views, 'min': MIN_VIEWS, 'message': '%d просмотров, ролик подходит.' % views}
+
     @app.post('/api/creators/apply')
     @auth()
     def creators_apply():
@@ -137,6 +205,9 @@ def install_creator_apps(app, db, auth, record, audit, notify_user):
         url = tiktok_url(form.get('video_url'))
         if not url:
             abort(400, description='Вставьте ссылку на ролик в TikTok')
+        views = video_views(url)
+        if views is not None and views < MIN_VIEWS:
+            abort(400, description='У ролика %d просмотров. Нужно от %d, ролик не принимается.' % (views, MIN_VIEWS))
         wallet_raw = (form.get('wallet') or '').strip()
         try:
             from tonsdk.utils import Address
@@ -169,8 +240,9 @@ def install_creator_apps(app, db, auth, record, audit, notify_user):
                 target.unlink(missing_ok=True)
                 abort(409, description='На этот ролик уже подана заявка')
             number = int(db().execute('SELECT COALESCE(MAX(number),1000)+1 AS n FROM creator_apps').fetchone()['n'])
-            db().execute('INSERT INTO creator_apps(number,user_id,platform,tg_username,video_url,wallet,status,record_name,created,updated,user_seen) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-                         (number, uid, platform, username, url, wallet_raw, 'new', name, now, now, now))
+            db().execute('INSERT INTO creator_apps(number,user_id,platform,tg_username,video_url,wallet,status,record_name,created,updated,user_seen,views,admin_note) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                         (number, uid, platform, username, url, wallet_raw, 'new', name, now, now, now, int(views or 0),
+                          '' if views is not None else 'Просмотры не удалось проверить автоматически: проверьте вручную'))
             add_message(number, 'support', 0, 'Заявка получена. Мы проверим запись экрана и ссылку на ролик и ответим здесь. Статус будет меняться на этой странице.')
         audit_text = 'Creator application #%d from %s' % (number, uid)
         db().execute('INSERT INTO audit(actor,action,created) VALUES(?,?,?)', (uid, audit_text, now))

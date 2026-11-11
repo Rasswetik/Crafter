@@ -10,19 +10,37 @@
         CR.openModal('<h3>Заявка на выплату</h3><p class="hint">Платформа, ссылка на ролик, кошелёк для выплаты и запись экрана со статистикой.</p>' +
             '<div class="field"><span>Платформа</span><div class="plat"><button type="button" aria-pressed="true"><span class="logo-tt">' + CR.TT + '</span>TikTok</button></div></div>' +
             '<label class="field"><span>Ваш Telegram юзернейм</span><input type="text" id="f-user" maxlength="33" placeholder="@username" value="' + esc(u ? '@' + u : '') + '"></label>' +
-            '<label class="field"><span>Ссылка на ролик в TikTok</span><input type="url" id="f-url" maxlength="300" placeholder="https://www.tiktok.com/@name/video/…"></label>' +
+            '<label class="field"><span>Ссылка на ролик в TikTok</span><input type="url" id="f-url" maxlength="300" placeholder="https://www.tiktok.com/@name/video/…"><span class="linkstat" id="f-linkstat" hidden></span></label>' +
             '<label class="field"><span>Кошелёк для выплаты (сеть Gram)</span><input type="text" id="f-wallet" maxlength="100" placeholder="Адрес кошелька в сети Gram"><span class="help">Выплата идёт на этот адрес. Проверьте его внимательно: ошибку в адресе мы исправить не сможем.</span></label>' +
             '<div class="steps-rec"><b>Запись экрана.</b> Включите запись экрана и снимите: зайдите в свой профиль TikTok, нажмите на ролик, откройте статистику и пролистайте все слайды. На записи должно быть видно, что вы владелец аккаунта и вся статистика ролика. Скриншоты не принимаются.</div>' +
             '<label class="drop" id="f-drop"><input type="file" id="f-file" accept="video/*"><span id="f-file-name">Нажмите, чтобы прикрепить запись экрана</span></label>' +
             '<div class="prog" id="f-prog" hidden><i></i></div><p class="err" id="f-err"></p>' +
             '<button type="button" class="btn big" id="f-send">Отправить заявку</button>');
         var file = $('f-file');
+        var linkState = '', linkTimer = null, linkSeq = 0, stat = $('f-linkstat'), urlInput = $('f-url');
+        var ICON = {busy: '<i class="ls-spin"></i>', enough: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>', few: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>', unknown: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 7v6M12 17h.01"/></svg>'};
+        function paintLink(state, text) { linkState = state; stat.hidden = !state; stat.className = 'linkstat is-' + state; stat.innerHTML = state ? ICON[state === 'bad_link' ? 'few' : state] + '<span>' + esc(text) + '</span>' : ''; }
+        function checkLink() {
+            var url = urlInput.value.trim(), seq = ++linkSeq;
+            if (!url) return paintLink('', '');
+            if (!/tiktok\.com/i.test(url)) return paintLink('bad_link', 'Вставьте ссылку на ролик в TikTok');
+            paintLink('busy', 'Проверяем просмотры…');
+            CR.api('/api/creators/check-link', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({url: url})}).then(function (d) {
+                if (seq !== linkSeq) return;
+                paintLink(d.state === 'enough' ? 'enough' : d.state === 'unknown' ? 'unknown' : 'few', d.message);
+            }).catch(function (e) { if (seq === linkSeq) paintLink('unknown', e.message); });
+        }
+        urlInput.addEventListener('input', function () { clearTimeout(linkTimer); paintLink('', ''); linkTimer = setTimeout(checkLink, 650); });
+        urlInput.addEventListener('paste', function () { clearTimeout(linkTimer); linkTimer = setTimeout(checkLink, 120); });
+        urlInput.addEventListener('blur', function () { if (urlInput.value.trim() && !linkState) checkLink(); });
         file.addEventListener('change', function () { var f = file.files[0]; $('f-file-name').textContent = f ? f.name + ' · ' + (f.size / 1048576).toFixed(1) + ' МБ' : 'Нажмите, чтобы прикрепить запись экрана'; $('f-drop').classList.toggle('has', !!f); });
         $('f-send').addEventListener('click', function () {
             var err = $('f-err'), btn = this; err.textContent = '';
             var f = file.files[0];
             if (!$('f-user').value.trim()) return err.textContent = 'Укажите ваш Telegram юзернейм';
             if (!/tiktok\.com/i.test($('f-url').value)) return err.textContent = 'Вставьте ссылку на ролик в TikTok';
+            if (linkState === 'few' || linkState === 'bad_link') return err.textContent = stat.textContent || 'Ролик не подходит';
+            if (linkState === 'busy') return err.textContent = 'Подождите, проверяем просмотры ролика';
             if (!$('f-wallet').value.trim()) return err.textContent = 'Укажите адрес кошелька в сети Gram';
             if (!f) return err.textContent = 'Прикрепите запись экрана со статистикой';
             if (f.size > 120 * 1048576) return err.textContent = 'Файл больше 120 МБ';

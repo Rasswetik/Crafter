@@ -1,0 +1,19 @@
+/* The information page /creators looks like the partner API docs page (partner-api.css): quiet graphite, orange accent. */
+body.creators-doc{font-family:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;background:var(--bg)}
+.creators-doc .btn{display:inline-flex;align-items:center;justify-content:center;padding:12px 22px;border:0;border-radius:999px;background:var(--accent);color:#1a1004;font:inherit;font-weight:800;font-size:15px;cursor:pointer;text-decoration:none}
+.creators-doc .btn:hover{text-decoration:none;filter:brightness(1.08)}
+.creators-doc .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text)}
+.creators-doc .btn.ghost:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.creators-doc .btn.big,.creators-doc .btn.small{padding:12px 22px;font-size:15px;border-radius:999px}
+.creators-doc .cta-row{display:flex;flex-wrap:wrap;gap:10px;margin:18px 0}
+.creators-doc h2{display:block;font-size:25px;letter-spacing:-.4px;margin:44px 0 14px}
+.creators-doc h2 span{display:inline;min-width:0;height:auto;padding:0;border:0;background:none;color:var(--accent);font-weight:600;margin-right:10px;font-size:.8em}
+.creators-doc section{margin:0 0 48px}
+.creators-doc .steps li{counter-increment:s}
+.creators-doc ul{padding-left:22px}
+.creators-doc ul li{margin:8px 0;color:#cfcfcf}.creators-doc ul li b{color:var(--text)}
+.creators-doc table.rates{width:100%}
+.creators-doc .rates .price{color:var(--gold);font-weight:800;white-space:nowrap}
+.creators-doc .dot{background:#ff5b6b}
+.creators-doc .modal-card{background:#1b1b1b}
+.creators-doc .vgrid{margin-top:14px}

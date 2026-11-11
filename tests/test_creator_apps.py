@@ -3,6 +3,20 @@ import io
 from test_app import client, signed
 from test_resale import telegram_messages  # noqa: F401  (autouse notification stubs)
 
+import pytest
+
+import creator_apps
+
+
+@pytest.fixture(autouse=True)
+def tiktok_views(monkeypatch):
+    """No network: the number of views of a video comes from this table (5000 unless the test says otherwise)."""
+    table = {'default': 5000}
+    creator_apps._views_cache.clear()
+    monkeypatch.setattr(creator_apps, 'fetch_views', lambda url: table.get(url, table['default']))
+    return table
+
+
 WALLET = 'EQCD39VS5jcptHL8vMjEXrzGaRcCVYto7HUn4bpAOg8xqB2N'
 URL = 'https://www.tiktok.com/@creator/video/7311111111111111111'
 
@@ -61,3 +75,30 @@ def test_application_is_validated(client):
     assert apply(client, 503).status_code == 200
     assert apply(client, 503).status_code == 409                  # the same video twice
     assert client.get('/api/creators/me').status_code in (401, 200)
+
+
+def test_video_needs_1000_views_and_is_checked_while_typing(client, tiktok_views):
+    client.get('/api/me', headers=signed(510))
+    few = 'https://www.tiktok.com/@creator/video/7300000000000000001'
+    tiktok_views[few] = 420
+    checked = client.post('/api/creators/check-link', headers=signed(510), json={'url': few}).json
+    assert checked['ok'] is False and checked['state'] == 'few' and checked['views'] == 420
+    assert apply(client, 510, video_url=few).status_code == 400                      # not accepted
+    good = client.post('/api/creators/check-link', headers=signed(510), json={'url': URL}).json
+    assert good['ok'] is True and good['state'] == 'enough' and good['views'] == 5000
+    done = apply(client, 510)
+    assert done.status_code == 200
+    mine = client.get('/api/creators/apps/%d' % done.json['number'], headers=signed(510)).json['application']
+    assert mine['views'] == 5000                                                      # the checked views are saved
+    assert client.post('/api/creators/check-link', headers=signed(510), json={'url': 'https://youtube.com/x'}).json['state'] == 'bad_link'
+
+
+def test_unreadable_page_goes_to_the_administrator(client, tiktok_views):
+    client.get('/api/me', headers=signed(511))
+    unknown = 'https://www.tiktok.com/@creator/video/7300000000000000002'
+    tiktok_views[unknown] = None
+    assert client.post('/api/creators/check-link', headers=signed(511), json={'url': unknown}).json['state'] == 'unknown'
+    done = apply(client, 511, video_url=unknown)
+    assert done.status_code == 200
+    detail = client.get('/api/admin/creators/apps/%d' % done.json['number'], headers=signed()).json['application']
+    assert 'вручную' in detail['admin_note']

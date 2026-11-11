@@ -143,3 +143,14 @@ body.messenger-page{font-size:15px;line-height:1.5}
 .chat-head .info-btn{height:38px;padding:0 14px 0 11px;margin-left:0;flex:none}
 .chat-head .info-btn span{font-size:14px}
 .chat-meta{display:none}
+
+/* link check under the video field */
+.linkstat{display:flex;align-items:center;gap:8px;margin-top:2px;padding:9px 12px;border-radius:12px;font-size:13.5px;font-weight:600;line-height:1.4;animation:cr-fade .25s both}
+.linkstat[hidden]{display:none}
+.linkstat svg{width:18px;height:18px;flex:none}
+.linkstat.is-busy{background:rgba(255,255,255,.05);color:#aab0ba}
+.linkstat.is-enough{background:rgba(79,211,122,.12);color:#6fe09a;border:1px solid rgba(79,211,122,.35)}
+.linkstat.is-few,.linkstat.is-bad_link{background:rgba(255,122,122,.12);color:#ff8f8f;border:1px solid rgba(255,122,122,.35)}
+.linkstat.is-unknown{background:rgba(255,211,107,.1);color:#ffd36b;border:1px solid rgba(255,211,107,.3)}
+.ls-spin{width:16px;height:16px;border-radius:50%;border:2.5px solid rgba(255,255,255,.25);border-top-color:#fff;animation:cr-spin .7s linear infinite;flex:none}
+@keyframes cr-spin{to{transform:rotate(360deg)}}@keyframes cr-fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
