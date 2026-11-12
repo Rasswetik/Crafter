@@ -2,7 +2,7 @@
 (function () {
 'use strict';
 const ui = {
-    view: 'all', sort: 'ending', items: [], collections: [], offset: 0, timer: 0, poll: 0, detailTimer: 0, busy: false,
+    view: 'all', sort: 'ending', items: [], lookup: new Map(), collections: [], offset: 0, timer: 0, poll: 0, detailTimer: 0, busy: false,
     filters: {search: '', collections: new Set(), min: '', max: '', number: ''},
 };
 const VIEWS = [['all', 'Все'], ['favorites', 'Избранное'], ['bids', 'Мои ставки'], ['mine', 'Мои лоты']];
@@ -20,11 +20,32 @@ function shortTime(left) {
     const d = Math.floor(left / 86400), h = Math.floor(left % 86400 / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;
     return d ? `${d}д ${two(h)}ч ${two(m)}м` : `${two(h)}ч ${two(m)}м ${two(s)}с`;
 }
-function artOf(gift, bare) {
-    /* the gift keeps its size; a blurred copy of the same picture stretches its background over the whole area */
-    return `<span class="auc-art"${bare ? '' : ` style="background:${giftBackdrop(gift)}"`}>` +
-        `<img class="auc-art-bg" ${giftPicture(gift)} alt="" aria-hidden="true" loading="lazy" draggable="false">` +
-        `<img class="auc-art-main" ${giftPicture(gift, true)} alt="" loading="lazy" draggable="false"></span>`;
+function artOf(gift, bare, aid) {
+    /* backdrop colours stretched over the whole area + the symbol pattern + the model itself at its normal size */
+    const pictureGift = {...gift, image: ''};      // the transparent model, not a poster with a baked background
+    return `<span class="auc-art" data-aid="${esc(aid || '')}" style="background:${giftBackdrop(gift)}">` +
+        `${typeof giftPattern === 'function' ? giftPattern(gift) : ''}` +
+        `<img class="auc-art-main" ${giftPicture(pictureGift)} alt="" loading="lazy" draggable="false"></span>`;
+}
+function hydrateArts(scope) {
+    if (typeof prepareGiftBackdrop !== 'function') return;
+    scope.querySelectorAll('.auc-art[data-aid]').forEach(art => {
+        const a = ui.lookup.get(art.dataset.aid);
+        if (!a) return;
+        const img = art.querySelector('.auc-art-main'), original = typeof imageURL === 'function' ? imageURL(a.gift.image) : '';
+        if (img && original) {            // the poster of the gift is the last resort when the bare model does not exist
+            const list = JSON.parse(img.dataset.giftFallback || '[]');
+            if (!list.includes(original)) { list.push(original); img.dataset.giftFallback = JSON.stringify(list); }
+        }
+        prepareGiftBackdrop(art, a.gift).catch(() => {});
+    });
+}
+function collectionIcon(gift) {
+    try {
+        const c = typeof giftCollection === 'function' ? giftCollection(gift) : null;
+        const url = c?.photo_url ? imageURL(c.photo_url) : '';
+        return url ? `<img class="auc-coll" src="${esc(url)}" alt="" loading="lazy" draggable="false" onerror="this.remove()">` : '';
+    } catch { return ''; }
 }
 function params() {
     const f = ui.filters, q = new URLSearchParams({view: ui.view, sort: ui.sort});
@@ -45,7 +66,7 @@ function cardHTML(a, index = 0) {
     const label = a.own ? 'Ваш лот' : a.leading ? 'Лидируете' : 'Ставка';
     return `<article class="auc-card" data-auc="${esc(a.id)}" style="--i:${Math.min(index, 12)};background:${giftBackdrop(a.gift)}">
         <button type="button" class="auc-open" data-open="${esc(a.id)}" aria-label="${esc(a.gift.name)}">
-            ${artOf(a.gift, true)}
+            ${artOf(a.gift, true, a.id)}
             <span class="auc-timer${remaining(a) < 300 ? ' hot' : ''}" data-auc-end="${a.ends_at}">${shortTime(remaining(a))}</span>
             <span class="auc-name"><b>${esc(a.gift.name)}</b><i>${a.gift.number ? '#' + esc(a.gift.number) : ''}</i></span>
         </button>
@@ -85,7 +106,7 @@ function gridHTML() {
 }
 function paintGrid() {
     const grid = document.querySelector('#auc-grid');
-    if (grid) grid.innerHTML = gridHTML();
+    if (grid) { grid.innerHTML = gridHTML(); hydrateArts(grid); }
 }
 
 async function load(silent) {
@@ -96,6 +117,7 @@ async function load(silent) {
         const data = await api('auctions?' + params());
         ui.offset = data.now - Math.floor(Date.now() / 1000);
         ui.items = data.auctions;
+        data.auctions.forEach(a => ui.lookup.set(a.id, a));
         ui.collections = data.collections || [];
         ui.feePercent = data.fee_percent;
         if (typeof state.me === 'object' && state.me && data.balance != null) { state.me.balance = data.balance; updateBalance(); }
@@ -168,9 +190,9 @@ function detailHTML(a) {
     else if (a.leading) action = '<button type="button" class="auc-main" disabled>Ваша ставка лидирует</button>';
     else action = '<button type="button" class="auc-main" id="auc-bid">Сделать ставку</button>';
     return `<div class="auc-detail" data-detail="${esc(a.id)}">
-        <div class="auc-hero">${artOf(g)}<button type="button" class="auc-heart on-hero" data-heart="${esc(a.id)}" aria-pressed="${a.favorite}" aria-label="В избранное">${heart(a.favorite)}</button></div>
+        <div class="auc-hero">${artOf(g, true, a.id)}<button type="button" class="auc-heart on-hero" data-heart="${esc(a.id)}" aria-pressed="${a.favorite}" aria-label="В избранное">${heart(a.favorite)}</button></div>
         ${ended ? '<div class="auc-ends"><span>Аукцион завершён</span></div>' : timeBlocks(a)}
-        <div class="auc-title"><h2>${esc(g.name)}</h2><i>${g.number ? '#' + esc(g.number) : ''}</i></div>
+        <div class="auc-title"><h2>${esc(g.name)}${collectionIcon(g)}</h2><i>${g.number ? '#' + esc(g.number) : ''}</i></div>
         <div class="auc-traits">${traitRow('Модель', g.model, r.model)}${traitRow('Фон', g.backdrop, r.backdrop)}${traitRow('Символ', g.symbol, r.symbol)}</div>
         <div class="auc-price-row"><span>${a.current_bid ? 'Текущая ставка' : 'Стартовая цена'}</span><b>${gram(a.current_bid ?? a.start_price)}</b></div>
         ${ended ? '' : `<div class="auc-price-row dim"><span>Минимальная ставка</span><b>${gram(a.min_bid)}</b></div>`}
@@ -199,6 +221,8 @@ async function openDetail(id, quiet) {
             body.scrollTop = top;
         }
         ui.current = data.auction;
+        ui.lookup.set(data.auction.id, data.auction);
+        hydrateArts(document.querySelector('#sheet-body'));
         tick();
         clearInterval(ui.detailTimer);
         ui.detailTimer = setInterval(() => {
