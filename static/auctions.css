@@ -215,3 +215,18 @@ select.auc-input option,.auc-sort select option{background:#1b1d22;color:#f2f2f2
 @media(min-width:900px){.auc-hero .auc-art{max-height:none}.auc-card .auc-art img{padding:0!important}}
 @keyframes aucDrift{0%,100%{transform:scale(1.03)}50%{transform:scale(1.09) translateY(-1%)}}
 @media(prefers-reduced-motion:reduce){.auc-card .auc-art img,.auc-hero .auc-art img{animation:none!important;transform:none}}
+
+/* ---- final: the picture keeps its size, its background is stretched (blurred copy) over the whole lot ---- */
+.auc-art{position:relative;overflow:hidden}
+.auc-card .auc-art,.auc-hero .auc-art{background-color:#26324a}
+.auc-card .auc-art .auc-art-bg,.auc-hero .auc-art .auc-art-bg{position:absolute;left:-14%;top:-14%;width:128%;height:128%;max-width:none;padding:0!important;
+  object-fit:cover;filter:blur(18px) saturate(1.3) brightness(.96);animation:none;transform:none}
+.auc-card .auc-art .auc-art-main{position:absolute;left:0;top:0;width:100%;height:auto;aspect-ratio:1/1;padding:0!important;object-fit:contain;filter:none;animation:aucFloat 6s ease-in-out infinite;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent),linear-gradient(180deg,#000 86%,transparent);
+  -webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 9%,#000 91%,transparent),linear-gradient(180deg,#000 86%,transparent);mask-composite:intersect}
+.auc-hero .auc-art{aspect-ratio:16/10;max-height:none}
+.auc-hero .auc-art .auc-art-main{position:absolute;top:0;bottom:0;left:0;right:0;margin:0 auto;height:100%;width:auto;max-width:100%;padding:0!important;object-fit:contain;filter:none;animation:aucFloat 6s ease-in-out infinite;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent),linear-gradient(180deg,transparent,#000 8%,#000 92%,transparent);
+  -webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent),linear-gradient(180deg,transparent,#000 8%,#000 92%,transparent);mask-composite:intersect}
+@media(max-width:600px){.auc-hero .auc-art{aspect-ratio:1/1}}
+@media(prefers-reduced-motion:reduce){.auc-card .auc-art .auc-art-main,.auc-hero .auc-art .auc-art-main{animation:none!important}}

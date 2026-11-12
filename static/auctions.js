@@ -21,7 +21,10 @@ function shortTime(left) {
     return d ? `${d}д ${two(h)}ч ${two(m)}м` : `${two(h)}ч ${two(m)}м ${two(s)}с`;
 }
 function artOf(gift, bare) {
-    return `<span class="auc-art"${bare ? '' : ` style="background:${giftBackdrop(gift)}"`}><img ${giftPicture(gift, true)} alt="" loading="lazy" draggable="false"></span>`;
+    /* the gift keeps its size; a blurred copy of the same picture stretches its background over the whole area */
+    return `<span class="auc-art"${bare ? '' : ` style="background:${giftBackdrop(gift)}"`}>` +
+        `<img class="auc-art-bg" ${giftPicture(gift)} alt="" aria-hidden="true" loading="lazy" draggable="false">` +
+        `<img class="auc-art-main" ${giftPicture(gift, true)} alt="" loading="lazy" draggable="false"></span>`;
 }
 function params() {
     const f = ui.filters, q = new URLSearchParams({view: ui.view, sort: ui.sort});
