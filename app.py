@@ -283,7 +283,7 @@ def create_app(config=None):
         return render_template('index.html', site_maintenance=is_maintenance_enabled())
 
     # every section of the app has its own address: a refresh (or a shared link) opens that very section
-    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/escape', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'):
+    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'):
         app.add_url_rule(_path, 'section_' + _path.strip('/').replace('-', '_'), index)
 
     @app.get('/admin')
@@ -314,7 +314,7 @@ def create_app(config=None):
         return build_preview()
     @app.after_request
     def cache_control(response):
-        if request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/escape', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
+        if request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')
@@ -1218,7 +1218,7 @@ def create_app(config=None):
             if prior:return json.loads(prior[0])
             if db().execute('SELECT 1 FROM local_sold WHERE source_id=?',(source_id,)).fetchone():abort(409,description='Этот подарок уже куплен локально')
             gift=None
-            for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",(int(time.time())-300,)):
+            for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",(int(time.time())-6*3600,)):
                 gift=next((item for item in json.loads(row[0]).get('gifts',[]) if item['id']==source_id),None)
                 if gift:break
             if not gift:abort(409,description='Предложение устарело. Обновите маркет.')
@@ -1262,7 +1262,7 @@ def create_app(config=None):
             sold={r[0] for r in db().execute('SELECT source_id FROM local_sold')}
             if any(gid in sold for gid in ids):abort(409,description='Один из подарков уже куплен. Обновите корзину.')
             found={}
-            for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",(int(time.time())-300,)):
+            for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",(int(time.time())-6*3600,)):
                 for gift in json.loads(row[0]).get('gifts',[]):
                     if gift['id'] in ids and gift['id'] not in found:found[gift['id']]=gift
                 if len(found)==len(ids):break
@@ -1598,8 +1598,8 @@ def create_app(config=None):
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
     from partner_api import install_partner_api
     install_partner_api(app,db,auth,record,audit)
-    from escape_game import install_escape
-    install_escape(app,db,auth,record,audit)
+    from avatars import install_avatars
+    install_avatars(app, db)
     from creators import install_creators
     install_creators(app, auth)
     from creator_apps import install_creator_apps

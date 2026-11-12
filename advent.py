@@ -72,6 +72,15 @@ def install_advent(app, db, auth, record, audit, bot_token, notify=None):
                 if have and column not in have:
                     database.execute('ALTER TABLE advent_days ADD COLUMN ' + column + ' ' + ddl)
 
+    with app.app_context(), db():
+        # One time: a calendar whose cells are all still plain squares (made before cells could differ) gets the varied default shapes.
+        if not db().execute("SELECT 1 FROM settings WHERE key=?", (DEFAULTS_MARK,)).fetchone():
+            shapes = [r['shape'] for r in db().execute("SELECT shape FROM advent_days ORDER BY day").fetchall()]
+            if shapes and all(x in ('', 'sq') for x in shapes):
+                for number, in db().execute("SELECT day FROM advent_days ORDER BY day").fetchall():
+                    db().execute("UPDATE advent_days SET shape=? WHERE day=?", (DEFAULT_SHAPES[(number - 1) % len(DEFAULT_SHAPES)], number))
+            db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO NOTHING", (DEFAULTS_MARK, '1'))
+
     def read(key, default):
         row = db().execute("SELECT payload FROM settings WHERE key=?", (key,)).fetchone()
         if not row:

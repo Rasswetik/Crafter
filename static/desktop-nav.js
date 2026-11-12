@@ -5,14 +5,13 @@ const media=window.matchMedia('(min-width: 1024px)');
 let sidebar=null, signature='';
 const options=[
  ['market','Маркет','market'],['gifts','Мои подарки','gift'],
- ['games','Hub','games'],['craft','Крафты','hammer'],['upgrade','Апгрейд','upgrade'],['escape','Escape','escape'],
+ ['games','Игры','games'],['craft','Крафты','hammer'],['upgrade','Апгрейд','upgrade'],
  ['arena','Арена','arena'],['staking','Стейкинг','staking'],
  ['profile','Профиль','profile']
 ];
 function desktopIcon(name) {
     if(typeof gameNavIcons!=='undefined' && gameNavIcons[name])return gameNavIcons[name];
     if(name==='upgrade')return window.crafterUpgradeIcon||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v14"/><path d="m6 9 6-6 6 6"/><path d="M5 21h14"/></svg>';
-    if(name==='escape')return window.crafterEscapeIcon||'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/></svg>';
     if(name==='hammer')return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 21 13-13M13 3l8 8M10 6l5-5 8 8-5 5Z"/></svg>';
     if(name==='profile')return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-8 16-8 16 0"/></svg>';
     return typeof icon==='function'?icon(name):'◇';
@@ -20,7 +19,6 @@ function desktopIcon(name) {
 function eligible(page) {
     return page==='craft' ? (typeof crafterCanSeeMode!=='function'||crafterCanSeeMode('craft')) :
            page==='upgrade' ? (typeof crafterCanSeeMode!=='function'||crafterCanSeeMode('upgrade')) :
-           page==='escape' ? (typeof crafterCanSeeMode!=='function'||crafterCanSeeMode('escape')) :
            page==='arena' ? (typeof crafterCanSeeMode!=='function'||crafterCanSeeMode('arena')) :
            page==='staking' ? (typeof crafterCanSeeMode!=='function'||crafterCanSeeMode('staking')) : true;
 }

@@ -2,7 +2,7 @@
    Moving between sections updates the address, a refresh or a shared link opens the same section, Back and Forward work. */
 (function () {
 'use strict';
-const MAP = {market: '/market', gifts: '/gifts', games: '/hub', craft: '/craft', upgrade: '/upgrade', escape: '/escape', arena: '/arena', staking: '/staking',
+const MAP = {market: '/market', gifts: '/gifts', games: '/hub', craft: '/craft', upgrade: '/upgrade', arena: '/arena', staking: '/staking',
              profile: '/profile', 'new-year': '/new-year', wallet: '/wallet', deposit: '/deposit', withdraw: '/withdraw', cart: '/cart'};
 const REV = Object.fromEntries(Object.entries(MAP).map(([page, path]) => [path, page]));
 const clean = () => location.pathname.replace(/\/+$/, '') || '/';

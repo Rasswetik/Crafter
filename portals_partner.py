@@ -310,7 +310,7 @@ def install_portals_partner(app, db, auth, record, audit):
 
     def public_rows(ids):
         found = {}
-        threshold = int(time.time()) - 75
+        threshold = int(time.time()) - 6 * 3600    # the lot is re-checked live on Portals right before paying
         for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=?", (threshold,)):
             try:
                 data = json.loads(row["payload"])

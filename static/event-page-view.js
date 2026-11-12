@@ -118,7 +118,7 @@ function crafterEventPageView(main,event,leaders,page){
           if(stage){
              stage.tabIndex=0;
              stage.setAttribute('role','link');
-             stage.setAttribute('aria-label','Открыть '+(destination==='craft'?'Крафты':destination==='arena'?'Arena':'событие'));
+             stage.setAttribute('aria-label','Открыть '+(destination==='craft'?'Крафты':destination==='arena'?'Арену':'событие'));
              const open=()=>{
                if(destination==='craft')go('craft');
                else if(destination==='arena')go('arena');

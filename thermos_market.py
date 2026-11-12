@@ -705,7 +705,8 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
     def public_rows(ids):
         found = {}
         for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",
-                                (int(time.time()) - 300,)):
+                                (int(time.time()) - 6 * 3600,)):    # re-checked live on Thermos before paying
+
             try:
                 data = json.loads(row['payload'])
             except (TypeError, ValueError):

@@ -743,3 +743,16 @@ def test_every_section_has_its_own_address(client):
         assert page.status_code == 200 and 'id="app"' in page.get_data(as_text=True), path
     assert client.get('/market').headers['Cache-Control'].startswith('no-cache')
     assert '/static/router.js' in client.get('/market').get_data(as_text=True)
+
+
+def test_lot_seen_long_ago_can_still_be_bought(client):
+    """A player may look at a lot for minutes; the purchase must not fail with 'outdated' after 5 minutes."""
+    headers = signed()
+    client.get('/api/me', headers=headers)
+    lot = {**DEMO_GIFTS[0], 'id': 'slow-lot', 'price': '1.50', 'price_unit': 'GRAM'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute('INSERT INTO cache VALUES (?,?,?)',
+                   ('public:market:slow', json.dumps({'gifts': [lot]}), int(time.time()) - 25 * 60))
+        db.execute('UPDATE demo_accounts SET balance=? WHERE user_id=42', ('20',))
+    answer = client.post('/api/local/buy', headers=headers, json={'id': lot['id'], 'request_id': 'slow-1'})
+    assert answer.status_code == 200, answer.get_data(as_text=True)

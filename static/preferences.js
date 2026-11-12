@@ -472,8 +472,9 @@ crafterTranslationPairs.push(
     ['Ссылка недоступна','Link unavailable'],
     ['Минимум для перевода — 1 GRAM. Начисления поступают с оплаченных комиссий.','Minimum transfer is 1 GRAM. Rewards come from paid fees.']
 );
-const crafterRuEn = new Map(crafterTranslationPairs);
-const crafterEnRu = new Map(crafterTranslationPairs.map(pair=>[pair[1],pair[0]]));
+const crafterAllPairs = crafterTranslationPairs.concat(window.crafterExtraPairs || []);
+const crafterRuEn = new Map(crafterAllPairs);
+const crafterEnRu = new Map(crafterAllPairs.map(pair=>[pair[1],pair[0]]));
 const crafterTextCache = new WeakMap();
 const crafterAttrCache = new WeakMap();
 function crafterTranslateValue(raw) {

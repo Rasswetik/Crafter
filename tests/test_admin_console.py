@@ -104,7 +104,7 @@ def test_mode_management_is_authenticated_and_changes_actual_game_access(client)
     admin, member = signed(42), signed(43)
     assert client.get('/api/me', headers=member).status_code == 200
     assert client.get('/api/site/modes').json['modes'] == {
-        'craft': True, 'arena': True, 'staking': True, 'upgrade': True, 'escape': True
+        'craft': True, 'arena': True, 'staking': True, 'upgrade': True
     }
     assert client.post('/api/admin/modes',headers=member,json={
         'mode':'craft','enabled':False,'confirm':'SET_MODE'}).status_code == 403

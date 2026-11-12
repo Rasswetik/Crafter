@@ -76,7 +76,7 @@ function enterArena(main, privateToken = null) {
     arena.polling = false;
     arena.frameLast = 0;
     arena.view++;
-    main.innerHTML = `<section class="arena-page arena-loading ${privateToken ? 'arena-private-active' : ''}" aria-label="Arena" aria-busy="true">
+    main.innerHTML = `<section class="arena-page arena-loading ${privateToken ? 'arena-private-active' : ''}" aria-label="Арена" aria-busy="true">
         <div id="arena-event-banner" class="arena-event-banner-slot" hidden></div>
         <div class="arena-highlights" aria-label="Рекорды арены">
             <div class="arena-highlight" id="arena-best-game"><div class="arena-highlight-heading">Топ игра</div>

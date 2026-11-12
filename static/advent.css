@@ -27,7 +27,7 @@
 .adv-rib.v{left:50%;top:0;bottom:0;width:16%;transform:translateX(-50%)}.adv-rib.h{top:50%;left:0;right:0;height:14%;transform:translateY(-50%);background:linear-gradient(180deg,#ffe9a8,#ffc14d 50%,#ffe9a8)}
 .adv-bow{position:absolute;top:-2%;left:50%;width:46%;transform:translateX(-50%);filter:drop-shadow(0 3px 4px rgba(0,0,0,.35));z-index:1}
 .adv-snow{position:absolute;right:8%;bottom:6%;width:22%;color:rgba(255,255,255,.35);z-index:-1}
-.adv-num{position:relative;z-index:2;display:grid;place-items:center;min-width:46%;aspect-ratio:1;border-radius:50%;font-size:clamp(20px,3.4vw,30px);font-weight:800;color:#7a2a12;background:radial-gradient(circle at 35% 30%,#fff7d8,#ffd36b);box-shadow:0 3px 10px rgba(0,0,0,.35)}
+.adv-num{position:relative;z-index:2;display:grid;place-items:center;width:clamp(36px,34%,58px);min-width:0;aspect-ratio:1;border-radius:50%;font-size:clamp(20px,3.4vw,30px);font-weight:800;color:#7a2a12;background:radial-gradient(circle at 35% 30%,#fff7d8,#ffd36b);box-shadow:0 3px 10px rgba(0,0,0,.35)}
 .adv-state{position:relative;z-index:2;display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:3px 9px;border-radius:999px;font-size:10.5px;font-weight:700;color:#fff;background:rgba(10,6,24,.55);backdrop-filter:blur(4px);max-width:92%;white-space:nowrap}
 .adv-cell:hover:not(.is-locked){transform:translateY(-4px) rotate(-1deg);box-shadow:0 16px 34px rgba(10,6,24,.55)}
 .adv-cell:active{transform:scale(.96)}
@@ -152,3 +152,8 @@
 .adv-fly{position:fixed;z-index:100001;object-fit:contain;pointer-events:none;filter:drop-shadow(0 0 22px rgba(255,214,107,.95));transform-origin:50% 50%}
 .adv-fly.is-going{transition:transform .75s cubic-bezier(.3,.9,.3,1.05)}
 @media(prefers-reduced-motion:reduce){.adv-cell.is-unwrapping *,.adv-gem{animation-duration:.01s!important;animation-delay:0s!important}}
+
+/* Hub card: the title never runs under the little gift boxes. */
+.nyh-advent .nyh-copy{max-width:54%}
+.nyh-advent .nyh-copy strong{font-size:clamp(17px,4.6vw,24px);line-height:1.1;white-space:nowrap}
+@media(max-width:520px){.adv-minis .adv-mini:nth-child(n+3){display:none}.adv-mini{width:48px}}

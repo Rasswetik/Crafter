@@ -9,6 +9,7 @@ from decimal import Decimal, ROUND_DOWN
 
 from flask import abort, g, request
 
+from avatars import fallback as avatar_fallback
 from resale import cap_funded_balance
 from staking import decimal_amount
 
@@ -129,7 +130,7 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         total = sum(player['value'] for player in players.values())
         return [
             {'id': str(uid), 'name': profiles[uid]['name'] or 'Игрок',
-             'photo': profiles[uid]['photo_url'], 'is_bot': uid == BOT_UID, 'gram': gram(player['gram']),
+             'photo': avatar_fallback(uid, profiles[uid]['photo_url']), 'is_bot': uid == BOT_UID, 'gram': gram(player['gram']),
              'value': gram(player['value']), 'chance': round(100 * player['value'] / total, 4),
              'gifts': player['gifts']}
             for uid, player in players.items()

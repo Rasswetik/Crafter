@@ -1,0 +1,26 @@
+/* Loading screen v4: the Crafter mark in a progress ring on a calm dark background. Same on phone and computer. */
+#splash.splash-v4{position:fixed;inset:0;z-index:100000;display:grid;place-items:center;overflow:hidden;color:#fff;background:#0c0e13;
+  transition:opacity .45s ease,transform .45s ease}
+#splash.splash-v4.finished{opacity:0;pointer-events:none;transform:scale(1.03)}
+.sv4-glow{position:absolute;inset:-25%;background:radial-gradient(34% 30% at 50% 44%,rgb(70 120 255 / .30),transparent 70%),radial-gradient(40% 34% at 18% 82%,rgb(150 90 255 / .16),transparent 70%),radial-gradient(44% 36% at 86% 14%,rgb(40 190 255 / .12),transparent 70%);animation:sv4-breathe 5s ease-in-out infinite}
+.sv4-grid{position:absolute;inset:0;opacity:.5;background-image:linear-gradient(#ffffff08 1px,transparent 1px),linear-gradient(90deg,#ffffff08 1px,transparent 1px);background-size:44px 44px;
+  -webkit-mask-image:radial-gradient(circle at 50% 46%,#000,transparent 62%);mask-image:radial-gradient(circle at 50% 46%,#000,transparent 62%)}
+.sv4-stage{position:relative;display:flex;flex-direction:column;align-items:center;gap:0;width:min(86vw,340px)}
+.sv4-mark{position:relative;width:min(44vw,172px);aspect-ratio:1;display:grid;place-items:center}
+.sv4-logo{width:56%;height:56%;border-radius:26%;box-shadow:0 14px 40px #0009,0 0 0 1px #ffffff22,0 0 46px rgb(70 120 255 / .45);animation:sv4-float 3.2s ease-in-out infinite}
+.sv4-ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg)}
+.sv4-ring circle{fill:none;stroke-width:3;stroke-linecap:round}
+.sv4-track{stroke:#ffffff17}
+.sv4-arc{stroke:url(#none);stroke:#6fa0ff;stroke-dasharray:90 260;transform-origin:60px 60px;animation:sv4-spin 1.5s linear infinite;filter:drop-shadow(0 0 6px #6fa0ffaa)}
+.sv4-spark{position:absolute;width:6px;height:6px;border-radius:50%;background:#ffe9a8;box-shadow:0 0 10px 2px #ffd36b;opacity:0;animation:sv4-spark 2.6s ease-in-out infinite}
+.sv4-spark.a{left:18%;top:20%}.sv4-spark.b{right:14%;top:34%;animation-delay:.9s}.sv4-spark.c{left:30%;bottom:12%;animation-delay:1.7s}
+.sv4-brand{margin-top:clamp(18px,4vh,30px);font-size:clamp(34px,8vw,48px);font-weight:800;letter-spacing:-.04em;line-height:1}
+.sv4-tag{margin-top:9px;font-size:13px;letter-spacing:.04em;color:#ffffff80}
+.sv4-status{margin-top:clamp(24px,5vh,38px);width:100%;display:flex;flex-direction:column;align-items:center;gap:11px;font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:#ffffff70}
+#splash .splash-progress{width:min(70vw,240px);height:4px;border-radius:4px;background:#ffffff18;overflow:hidden}
+#splash .splash-progress-fill{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,#4f8dff,#9a7bff);box-shadow:0 0 12px #6f9bffaa}
+@keyframes sv4-spin{to{transform:rotate(360deg)}}
+@keyframes sv4-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@keyframes sv4-breathe{0%,100%{opacity:.85}50%{opacity:1}}
+@keyframes sv4-spark{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:1;transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.sv4-glow,.sv4-logo,.sv4-arc,.sv4-spark{animation:none}.sv4-spark{opacity:.6}}

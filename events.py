@@ -27,6 +27,9 @@ HEX = re.compile(r'#[0-9a-fA-F]{6}\Z')
 ID = re.compile(r'[0-9a-f]{32}\Z')
 
 
+from avatars import fallback as avatar_fallback
+
+
 def install_events(app, db, auth, audit, record=None, canonical_name=None,
                    available_lot=None, settle_lot=None, notify_purchase=None, notify_sale=None):
     with app.app_context(), db():
@@ -159,7 +162,7 @@ def install_events(app, db, auth, audit, record=None, canonical_name=None,
             players[uid] = {
                 'id': str(uid),
                 'name': (entry['name'] or entry['username'] or 'Игрок'),
-                'photo_url': entry['photo_url'] or '',
+                'photo_url': avatar_fallback(uid, entry['photo_url']),
             }
         leaders = sorted(totals.items(), key=lambda row: (-row[1], row[0]))[:limit]
         result = []

@@ -71,7 +71,7 @@ function openGiftDeposit() {
                     <span class="gift-deposit-exchange-arrow">${depositInstructionIcons.chevron}</span>
                     <div class="gift-deposit-party">
                         <img src="/static/assets/anvil-mark.webp" alt="" width="70" height="70">
-                        <strong>Relayer</strong>
+                        <strong>Релейер</strong>
                     </div>
                 </div>
             </div>

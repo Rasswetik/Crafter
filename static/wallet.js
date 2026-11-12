@@ -132,7 +132,7 @@ async function walletSDK() {
 }
 
 function walletNetworkName(network) {
-    return network === 'testnet' ? 'Testnet' : 'Mainnet';
+    return network === 'testnet' ? 'Тестовая сеть' : 'Основная сеть';
 }
 
 function shortWallet(address) {

@@ -174,7 +174,7 @@ function showForgeResult(status, result, usedGifts = []) {
         </figure>`
             : `<div class="forge-loss-art"><img src="${brokenGiftImage}" alt="Разбитый подарок"></div>`}
         ${usedGifts.length ? `<section class="craft-materials" aria-labelledby="craft-materials-title">
-            <h3 id="craft-materials-title">Crafting Tools</h3>
+            <h3 id="craft-materials-title">Инструменты крафта</h3>
             <div class="craft-materials-row">
                 ${usedGifts.map((item, index) => `<div class="craft-material" style="background:${giftBackdrop(item)};--material-delay:${index * 85}ms">
                     ${giftPattern(item)}<img ${giftPicture(item)} alt="${esc(item.name)}">

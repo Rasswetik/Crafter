@@ -16,6 +16,9 @@ BANNER_FIELDS = ('enabled', 'event_id', 'start_at', 'end_at', 'title', 'hide_aft
 SEASON_ID = re.compile(r'^[0-9a-f]{32}$')
 
 
+from avatars import fallback as avatar_fallback
+
+
 def season_ranking(db, event, limit=100):
     row = db().execute(
         'SELECT * FROM crafter_event_seasons WHERE season_event_id=?',
@@ -48,7 +51,7 @@ def season_ranking(db, event, limit=100):
             players[uid] = {
                 'id': str(uid),
                 'name': record['name'] or record['username'] or 'Игрок',
-                'photo_url': record['photo_url'] or '',
+                'photo_url': avatar_fallback(uid, record['photo_url']),
             }
     order = sorted(results, key=lambda uid: (
         -(results[uid]['arena_score'] + results[uid]['craft_score']), uid))

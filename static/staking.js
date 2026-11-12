@@ -1,13 +1,13 @@
 /* Crafter Games Hub and gift staking. The existing craft mechanic is preserved. */
 const stakeUi = {status:null, picked:new Set(), tutorialStep:0, gifts:[], pending:false};
-const crafterModePolicy = {craft:true,arena:true,staking:true,upgrade:true,escape:true};
+const crafterModePolicy = {craft:true,arena:true,staking:true,upgrade:true};
 let crafterModePolicyLoaded = false;
 async function loadCrafterModePolicy() {
     if (crafterModePolicyLoaded) return;
     crafterModePolicyLoaded = true;
     try {
         const data = await api('site/modes');
-        for (const id of ['craft','arena','staking','upgrade','escape'])
+        for (const id of ['craft','arena','staking','upgrade'])
             if (typeof data.modes?.[id] === 'boolean') crafterModePolicy[id] = data.modes[id];
         if (state.page === 'games') renderGamesHub();
         if (typeof nav === 'function') nav();
@@ -29,11 +29,11 @@ const gameNavIcons = {games: gamesHubIcon, gift: stakingGiftIcon, staking: staki
 nav = function() {
     const root = document.querySelector('#nav');
     if (!root) return;
-    const inGames = Boolean(state.gamesMode || ['games','craft','arena','events','upgrade','escape'].includes(state.page));
+    const inGames = Boolean(state.gamesMode || ['games','craft','arena','events','upgrade'].includes(state.page));
     const sidePage = inGames ? 'market' : 'games';
     const sideLabel = inGames ? 'Маркет' : 'Игры';
     const destinations = inGames ? [
-        ['games','games','Hub'], ['upgrade','upgrade','Апгрейд'], ...(window.crafterOfflinePreview ? [] : [['arena','arena','Arena']])
+        ['games','games','Игры'], ['upgrade','upgrade','Апгрейд'], ...(window.crafterOfflinePreview ? [] : [['arena','arena','Арена']])
     ] : [
         ['market','market','Маркет'],['gifts','gift','Подарки'],
         ['staking','staking','Стейкинг']
@@ -135,7 +135,7 @@ function renderGamesHub() {
             <span class="hub-wheel" aria-hidden="true"><i class="hub-wheel-ring"></i><i class="hub-wheel-zone"></i><i class="hub-wheel-pointer"></i><b>↑</b></span>
         </button>`}
         ${window.crafterOfflinePreview || !crafterCanSeeMode('arena') ? '' : `<button class="crafter-game-tile arena-tile crafter-swords-tile" onclick="go('arena')" type="button">
-            <span class="crafter-game-label"><strong>Arena</strong>
+            <span class="crafter-game-label"><strong>Арена</strong>
                 <span>Один раунд. Один победитель.</span>
                 <span class="crafter-game-open">Играть</span></span>
             <span class="arena-tile-icon crafter-swords-motion">${crafterArenaSwordArt}</span>
@@ -205,7 +205,7 @@ function renderStaking() {
         <h1>Стейкинг подарков</h1>
         <strong class="staking-apr">${esc(d.settings.apr_percent)}% APR</strong>
         <p>Замораживайте подарки и получайте внутренние GRAM-награды за полные сутки стейкинга.</p>
-        <button class="staking-activate" type="button" onclick="showStakingTutorial()" ${d.enabled?'':'disabled'}>Activate Staking</button>
+        <button class="staking-activate" type="button" onclick="showStakingTutorial()" ${d.enabled?'':'disabled'}>Включить стейкинг</button>
     </section>` : `<div class="staking-main">
         ${active.length ? `<section class="staking-gift-section">
              <div class="staking-section-header"><h2>Мои подарки</h2><span>${active.length}</span></div>
@@ -254,7 +254,7 @@ function showStakingTutorial(step=0) {
     stakeUi.tutorialStep = Math.min(stakingTutorialSlides.length-1,Math.max(0,step));
     const slide = stakingTutorialSlides[stakeUi.tutorialStep];
     const art=slide.kind==='gift'?stakingMachinePNG:
-        slide.kind==='activate'?'<span class="staking-tutorial-play">▶ Activate Staking</span>':
+        slide.kind==='activate'?'<span class="staking-tutorial-play">▶ Включить стейкинг</span>':
         slide.kind==='limit'?'<div class="staking-tutorial-limit">Ваш стейк <b>32/50 GRAM</b><hr>Лимит стейкинга <b>50 GRAM</b></div>':
         '<div class="staking-tutorial-deposit">'+stakingGiftIcon+'</div>';
     sheet('Стейкинг', `<div class="staking-tutorial">
@@ -263,7 +263,7 @@ function showStakingTutorial(step=0) {
         <p>${esc(slide.description)}</p>
         <div class="staking-tutorial-dots">${stakingTutorialSlides.map((_,i)=>`<i class="${i===stakeUi.tutorialStep?'active':''}"></i>`).join('')}</div>
         <button class="staking-tutorial-next" onclick="stakeTutorialContinue()">
-            ${stakeUi.tutorialStep===stakingTutorialSlides.length-1?'Activate Staking':'Продолжить'}
+            ${stakeUi.tutorialStep===stakingTutorialSlides.length-1?'Включить стейкинг':'Продолжить'}
         </button>
     </div>`);
     document.querySelector('#sheet').classList.add('staking-tutorial-sheet');

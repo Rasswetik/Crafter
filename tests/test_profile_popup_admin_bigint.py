@@ -89,13 +89,13 @@ def test_single_settings_gear_in_all_profiles_and_immediate_announcement_close()
 
 def test_splash_is_full_bleed_and_updates_both_progress_indicators():
     root = Path(__file__).resolve().parent.parent
-    layout = (root / "static/splash-v3.css").read_text(encoding="utf-8")
+    layout = (root / "static/splash-v4.css").read_text(encoding="utf-8")
     loader = (root / "static/loading.js").read_text(encoding="utf-8")
     template = (root / "templates/index.html").read_text(encoding="utf-8")
-    assert "position:fixed;inset:0" in layout and "min(78vw,50vh" in layout          # one layout, scales with the screen
+    assert "position:fixed;inset:0" in layout and "min(86vw,340px)" in layout          # one layout, scales with the screen
     assert "querySelectorAll('#splash .splash-progress')" in loader
     assert "Date.now()+2500" not in loader
-    assert "splash-v3.css" in template and template.count("/static/assets/splash/pepe-") >= 1
+    assert "splash-v4.css" in template and "sv4-logo" in template and "splash-v3" not in template
     assert "splash-device-layout.css" not in template and "crafter-approved-splash" not in template
     assert "announcements-glass-fix.css" in template
     assert "/static/preferences.js?v=" in template
