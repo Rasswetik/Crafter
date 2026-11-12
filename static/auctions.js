@@ -42,7 +42,7 @@ function filterCount() {
 
 function cardHTML(a, index = 0) {
     const price = a.current_bid ?? a.start_price;
-    const mark = a.own ? '<small>Ваш лот</small>' : a.leading ? '<small>Вы лидируете</small>' : '';
+    const label = a.own ? 'Ваш лот' : a.leading ? 'Лидируете' : 'Ставка';
     return `<article class="auc-card" data-auc="${esc(a.id)}" style="--i:${Math.min(index, 12)};background:${giftBackdrop(a.gift)}">
         <button type="button" class="auc-open" data-open="${esc(a.id)}" aria-label="${esc(a.gift.name)}">
             ${artOf(a.gift, true)}
@@ -51,7 +51,7 @@ function cardHTML(a, index = 0) {
         </button>
         <button type="button" class="auc-heart" data-heart="${esc(a.id)}" aria-pressed="${a.favorite}" aria-label="В избранное">${heart(a.favorite)}</button>
         <button type="button" class="auc-bid${a.leading ? ' leading' : ''}" data-open="${esc(a.id)}">
-            ${a.own ? 'Открыть' : 'Ставка'} ${gram(price)} ${mark}
+            ${label} ${gram(price)}
         </button>
     </article>`;
 }
@@ -66,8 +66,10 @@ function render() {
             `<button type="button" role="tab" aria-selected="${ui.view === key}" data-view="${key}">${label}</button>`).join('')}</div>
         <div class="auc-toolbar">
             <button type="button" class="auc-filter" id="auc-filter"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Фильтры${count ? ` <em>${count}</em>` : ''}</button>
-            <label class="auc-sort"><select id="auc-sort" aria-label="Сортировка">${SORTS.map(([key, label]) =>
-                `<option value="${key}"${ui.sort === key ? ' selected' : ''}>${label}</option>`).join('')}</select></label>
+            <div class="auc-sort"><button type="button" id="auc-sort-btn" aria-haspopup="listbox" aria-expanded="false"><span>${esc(SORTS.find(s => s[0] === ui.sort)?.[1] || '')}</span>
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+                <ul class="auc-menu" id="auc-menu" role="listbox" hidden>${SORTS.map(([key, label]) =>
+                `<li role="option" data-sort="${key}" aria-selected="${ui.sort === key}">${label}</li>`).join('')}</ul></div>
         </div>
         <div class="auc-grid" id="auc-grid">${gridHTML()}</div>
     </section>`;
@@ -342,6 +344,15 @@ async function openCreate(preselect) {
 /* ---------- events ---------- */
 document.addEventListener('click', async event => {
     const t = event.target;
+    const menu = document.querySelector('#auc-menu');
+    if (menu && !menu.hidden && !t.closest('.auc-sort')) { menu.hidden = true; document.querySelector('#auc-sort-btn')?.setAttribute('aria-expanded', 'false'); }
+    if (t.closest('#auc-sort-btn')) {
+        menu.hidden = !menu.hidden;
+        t.closest('#auc-sort-btn').setAttribute('aria-expanded', String(!menu.hidden));
+        return;
+    }
+    const pick = t.closest('#auc-menu [data-sort]');
+    if (pick) { ui.sort = pick.dataset.sort; render(); return load(); }
     const heartButton = t.closest('[data-heart]');
     if (heartButton) {
         event.preventDefault(); event.stopPropagation();
