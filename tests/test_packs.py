@@ -373,7 +373,7 @@ def test_every_pack_has_its_own_backdrop_set():
     import packs
     names = {b[0] for b in packs.BACKDROPS}
     sets = {k: set(v) for k, v in packs.PACK_BACKDROPS.items()}
-    assert set(sets) == {'newyear', 'snowman', 'winter', 'christmas', 'silverfrost', 'gingerbread'} and all(v <= names and len(v) == 16 for v in sets.values())
+    assert set(sets) == {'newyear', 'snowman', 'winter', 'christmas', 'silverfrost', 'gingerbread', 'honey'} and all(v <= names and len(v) == 16 for v in sets.values())
     for a in sets:
         for b in sets:
             if a < b:
@@ -423,7 +423,7 @@ def test_christmas_carol_pack_and_one_stingy_table(client):
     client.get('/api/me', headers=player)
     all_packs = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}
     xmas = all_packs['christmas']
-    all_packs.pop('gingerbread')                                                   # the premium pack has its own tables
+    all_packs.pop('gingerbread'), all_packs.pop('honey')                           # the premium packs have their own tables
     assert xmas['title'] == 'Christmas Carol' and xmas['image'].endswith('christmas-pack.webp')
     gifts = [p for p in xmas['prizes'] if p['kind'] == 'NFT']
     assert [(g['collection_id'], g['model']) for g in gifts] == [
@@ -468,7 +468,7 @@ def test_packs_hold_one_card_in_60_percent_of_openings_and_carry_an_accent(clien
     admin, player = signed(42), signed(43)
     client.get('/api/me', headers=player)
     for pack in client.get('/api/admin/new-year/packs', headers=admin).json['packs']:
-        if pack['id'] == 'gingerbread':                                           # the premium pack has its own card counts
+        if pack['id'] in ('gingerbread', 'honey'):                                # the premium packs have their own card counts
             continue
         weights = {int(k): v for k, v in pack['card_weights'].items()}
         assert abs(weights[1] / sum(weights.values()) - .52) < 1e-9 and max(weights) == 6
@@ -836,3 +836,15 @@ def test_gingerbread_pack_is_seeded_with_ten_gifts_and_a_balance_ladder(client):
     expected = sum(k * v for k, v in cards.items()) / 100
     value = sum(float(p['value']) * p['chance'] / 100 for p in data['prizes']) * expected
     assert 0.40 <= value <= 0.52                                  # an opening is worth about 0.5 TON
+
+
+def test_honey_holidays_pack_is_worth_about_a_third_of_a_ton(client):
+    data = client.get('/api/packs/honey/contents', headers=signed()).json
+    gifts = [p for p in data['prizes'] if p['kind'] == 'NFT']
+    assert data['pack']['title'] == 'Honey Holidays' and len(gifts) == 10
+    assert {p['model'] for p in gifts} == {'Golden Boy', 'Honeycomb', 'Honey Dew', 'Thick Honey', 'Beehive', 'Gold Dust', 'Golden Glow',
+                                           'Bell Hive', 'Honey Wine', 'Golden Tide'}
+    cards = {c['count']: c['chance'] for c in data['cards']}
+    expected = sum(k * v for k, v in cards.items()) / 100
+    value = sum(float(p['value']) * p['chance'] / 100 for p in data['prizes']) * expected
+    assert 0.26 <= value <= 0.32

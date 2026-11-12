@@ -25,11 +25,37 @@ function artOf(gift, bare, aid, large) {
     return `<span class="auc-art" data-aid="${esc(aid || '')}" style="background:${giftBackdrop(gift)}">` +
         `<img class="auc-art-main" ${giftPicture(gift, large)} alt="" loading="lazy" draggable="false"></span>`;
 }
-function collectionIcon(gift) {
+function patternTiles(gift) {
+    const path = typeof giftSymbolPath === 'function' ? giftSymbolPath(gift) : '';
+    if (!path) return '';
+    const rings = [[.27, 6, 12, .2, 0], [.40, 10, 10, .15, .3], [.54, 14, 9, .11, .1]];
+    let out = '';
+    rings.forEach(([r, n, size, opacity, shift]) => {
+        for (let i = 0; i < n; i++) {
+            const a = (i / n + shift) * Math.PI * 2, x = 50 + r * 100 * Math.cos(a), y = 50 + r * 100 * Math.sin(a);
+            out += `<img src="${esc(path)}" alt="" draggable="false" loading="lazy" onerror="this.remove()" style="left:${x.toFixed(1)}%;top:${y.toFixed(1)}%;width:${size}%;opacity:${opacity};transform:translate(-50%,-50%) rotate(${(i * 47) % 40 - 20}deg)">`;
+        }
+    });
+    return `<span class="auc-pattern" aria-hidden="true">${out}</span>`;
+}
+function heroArt(gift, aid) {
+    return `<span class="auc-art" data-aid="${esc(aid)}" style="background:${giftBackdrop(gift)}">${patternTiles(gift)}` +
+        `<img class="auc-art-main" ${giftPicture(gift, true)} alt="" draggable="false"></span>`;
+}
+function animateHero() {
+    /* the gift plays its own animation in the centre when a lot is opened (the player of the gift card) */
+    const art = document.querySelector('.auc-hero .auc-art'), a = ui.current;
+    if (!art || !a || art.dataset.animated === a.id || typeof mountGiftAnimation !== 'function') return;
+    art.dataset.animated = a.id;
+    Promise.resolve(state.catalogReady).catch(() => null).then(() => {
+        if (art.isConnected) { try { mountGiftAnimation(art, a.gift, null, true); } catch (_) {} }
+    });
+}
+function collectionIcon(gift, size) {
     try {
         const c = typeof giftCollection === 'function' ? giftCollection(gift) : null;
         const url = c?.photo_url ? imageURL(c.photo_url) : '';
-        return url ? `<img class="auc-coll" src="${esc(url)}" alt="" loading="lazy" draggable="false" onerror="this.remove()">` : '';
+        return url ? `<img class="auc-coll${size ? ' ' + size : ''}" src="${esc(url)}" alt="" loading="lazy" draggable="false" onerror="this.remove()">` : '';
     } catch { return ''; }
 }
 function params() {
@@ -53,7 +79,7 @@ function cardHTML(a, index = 0) {
         <button type="button" class="auc-open" data-open="${esc(a.id)}" aria-label="${esc(a.gift.name)}">
             ${artOf(a.gift, true, a.id)}
             <span class="auc-timer${remaining(a) < 300 ? ' hot' : ''}" data-auc-end="${a.ends_at}">${shortTime(remaining(a))}</span>
-            <span class="auc-name"><b>${esc(a.gift.name)}</b><i>${a.gift.number ? '#' + esc(a.gift.number) : ''}</i></span>
+            <span class="auc-name"><b>${esc(a.gift.name)}</b>${collectionIcon(a.gift, 'small')}<i>${a.gift.number ? '#' + esc(a.gift.number) : ''}</i></span>
         </button>
         <button type="button" class="auc-heart" data-heart="${esc(a.id)}" aria-pressed="${a.favorite}" aria-label="В избранное">${heart(a.favorite)}</button>
         <button type="button" class="auc-bid${a.leading ? ' leading' : ''}" data-open="${esc(a.id)}">
@@ -175,9 +201,9 @@ function detailHTML(a) {
     else if (a.leading) action = '<button type="button" class="auc-main" disabled>Ваша ставка лидирует</button>';
     else action = '<button type="button" class="auc-main" id="auc-bid">Сделать ставку</button>';
     return `<div class="auc-detail" data-detail="${esc(a.id)}">
-        <div class="auc-hero">${artOf(g, true, a.id, true)}<button type="button" class="auc-heart on-hero" data-heart="${esc(a.id)}" aria-pressed="${a.favorite}" aria-label="В избранное">${heart(a.favorite)}</button></div>
+        <div class="auc-hero" data-aid="${esc(a.id)}">${heroArt(g, a.id)}<button type="button" class="auc-close" aria-label="Закрыть"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><button type="button" class="auc-heart on-hero" data-heart="${esc(a.id)}" aria-pressed="${a.favorite}" aria-label="В избранное">${heart(a.favorite)}</button></div>
         ${ended ? '<div class="auc-ends"><span>Аукцион завершён</span></div>' : timeBlocks(a)}
-        <div class="auc-title"><h2>${esc(g.name)}${collectionIcon(g)}</h2><i>${g.number ? '#' + esc(g.number) : ''}</i></div>
+        <div class="auc-title"><h2>${esc(g.name)}${collectionIcon(g, 'big')}</h2><i>${g.number ? '#' + esc(g.number) : ''}</i></div>
         <div class="auc-traits">${traitRow('Модель', g.model, r.model)}${traitRow('Фон', g.backdrop, r.backdrop)}${traitRow('Символ', g.symbol, r.symbol)}</div>
         <div class="auc-price-row"><span>${a.current_bid ? 'Текущая ставка' : 'Стартовая цена'}</span><b>${gram(a.current_bid ?? a.start_price)}</b></div>
         ${ended ? '' : `<div class="auc-price-row dim"><span>Минимальная ставка</span><b>${gram(a.min_bid)}</b></div>`}
@@ -202,11 +228,15 @@ async function openDetail(id, quiet) {
             appSheet.classList.remove('auc-celebrate');
         } else {
             const body = document.querySelector('#sheet-body'), top = body.scrollTop;
+            const keep = body.querySelector('.auc-hero');
             body.innerHTML = html;
+            const fresh = body.querySelector('.auc-hero');
+            if (keep && fresh && keep.dataset.aid === fresh.dataset.aid) fresh.replaceWith(keep);
             body.scrollTop = top;
         }
         ui.current = data.auction;
         ui.lookup.set(data.auction.id, data.auction);
+        animateHero();
         try { if (location.pathname !== '/auctions/' + id) history.replaceState({crafterPage: 'auctions'}, '', '/auctions/' + id); } catch (_) {}
         tick();
         clearInterval(ui.detailTimer);
@@ -265,6 +295,7 @@ function openBidModal(a) {
 /* ---------- filters ---------- */
 function openFilters() {
     const f = ui.filters;
+    appSheet.classList.add('auc-thin');
     sheet('Фильтры', `<div class="auc-filters">
         <input class="auc-input" id="af-search" placeholder="Поиск по имени и атрибутам" value="${esc(f.search)}" maxlength="100">
         <div class="auc-two"><label>Цена от<input class="auc-input" id="af-min" inputmode="decimal" value="${esc(f.min)}" maxlength="10"></label>
@@ -304,6 +335,7 @@ async function openCreate(preselect) {
     if (preselect && !gifts.some(g => g.id === preselect)) return toast('Этот подарок нельзя поставить на аукцион');
     if (preselect) gifts.sort((a, b) => (b.id === preselect) - (a.id === preselect));
     const draft = {id: gifts[0].id, minutes: 1440, custom: false};
+    appSheet.classList.add('auc-thin');
     sheet('Выставить на аукцион', `<div class="auc-create-form">
         <div class="auc-pick">${gifts.map((g, i) => `<label class="auc-pick-row"><input type="radio" name="auc-gift" value="${esc(g.id)}"${i ? '' : ' checked'}>
             <span class="auc-mini" style="background:${giftBackdrop(g)}"><img ${giftPicture(g)} alt="" loading="lazy"></span>
@@ -386,6 +418,7 @@ document.addEventListener('click', async event => {
         if (t.closest('#auc-filter')) return openFilters();
         if (t.closest('#auc-create')) return openCreate();
     }
+    if (t.closest('.auc-close')) return closeSheet();
     if (t.closest('#auc-bid') && ui.current) return openBidModal(ui.current);
     if (t.closest('#auc-cancel') && ui.current) {
         if (!confirm('Снять аукцион? Подарок вернётся в инвентарь.')) return;
@@ -400,7 +433,7 @@ document.addEventListener('change', event => {
 });
 appSheet.addEventListener('close', () => {
     try { if (/^\/auctions\//.test(location.pathname)) history.replaceState({crafterPage: 'auctions'}, '', '/auctions'); } catch (_) {}
-    appSheet.classList.remove('auction-sheet');
+    appSheet.classList.remove('auction-sheet', 'auc-thin');
     document.querySelector('.auc-modal')?.remove();
     clearInterval(ui.detailTimer); ui.detailTimer = 0; ui.openId = null; ui.current = null;
 });
