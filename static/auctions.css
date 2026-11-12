@@ -201,3 +201,17 @@ select.auc-input option,.auc-sort select option{background:#1b1d22;color:#f2f2f2
 .auc-card .auc-bid .gram-icon{width:16px;height:16px}
 .auc-card .auc-bid small{font-size:11px;opacity:.9}
 @media(min-width:900px){.auc-card .auc-art img{padding:6% 8% 15%}}
+
+/* ---- the picture of the gift (with its own background) fills the whole lot ---- */
+.auc-card{display:block;position:relative;aspect-ratio:1/1.16;background-color:#26324a}
+.auc-card .auc-open{position:absolute;inset:0;width:100%;height:100%}
+.auc-card .auc-art{position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;overflow:hidden}
+.auc-card .auc-art img,.auc-hero .auc-art img{width:100%;height:100%;padding:0!important;object-fit:cover;filter:none;animation:aucDrift 9s ease-in-out infinite}
+.auc-card .auc-open::after{height:62%;background:linear-gradient(transparent,#000a)}
+.auc-card .auc-name{bottom:62px;padding:0 14px}
+.auc-card .auc-bid{position:absolute;left:12px;right:12px;bottom:12px;margin:0;z-index:2}
+.auc-hero .auc-art{aspect-ratio:1/1;max-height:none;overflow:hidden}
+.auc-hero{overflow:hidden}
+@media(min-width:900px){.auc-hero .auc-art{max-height:none}.auc-card .auc-art img{padding:0!important}}
+@keyframes aucDrift{0%,100%{transform:scale(1.03)}50%{transform:scale(1.09) translateY(-1%)}}
+@media(prefers-reduced-motion:reduce){.auc-card .auc-art img,.auc-hero .auc-art img{animation:none!important;transform:none}}
