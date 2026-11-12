@@ -127,13 +127,16 @@ def test_cancel_only_without_bids(world):
     assert sql("SELECT status FROM inventory WHERE nft_id='gift-b'")[0][0] == 'unlisted'
 
 
-def test_late_bid_extends_the_end(world):
+def test_late_bid_adds_one_minute_in_the_last_ten_minutes(world):
     client, sql = world
     auction = make(client).json['auction']['id']
-    soon = int(time.time()) + 30
+    soon = int(time.time()) + 500                # inside the last 10 minutes
     sql('UPDATE crafter_auctions SET ends_at=? WHERE id=?', soon, auction)
-    answer = bid(client, 43, auction, '10', 'e1')
-    assert answer.json['auction']['ends_at'] == soon + 120
+    assert bid(client, 43, auction, '10', 'e1').json['auction']['ends_at'] == soon + 60
+    assert bid(client, 44, auction, '11', 'e2').json['auction']['ends_at'] == soon + 120
+    far = int(time.time()) + 1200                # more than 10 minutes left: no extension
+    sql('UPDATE crafter_auctions SET ends_at=? WHERE id=?', far, auction)
+    assert bid(client, 43, auction, '12', 'e3').json['auction']['ends_at'] == far
 
 
 def test_winner_who_already_owns_the_gift_is_refunded(world):
@@ -195,9 +198,10 @@ def test_notices_for_outbid_leader_and_seller(world):
         c.post('/api/auctions/%s/bid' % auction, headers=signed(44), json={'amount': '11', 'request_id': 'n3'})
     finally:
         telegram_bot.send_message = original
-    targets = [(m['chat_id'], 'перебили' in m['text'] or 'ставку' in m['text']) for m in monkey]
+    targets = [(m['chat_id'], 'перебили' in m['text'] or 'ставку' in m['text'] or 'ставка' in m['text']) for m in monkey]
     assert (43, True) in targets and (42, True) in targets
-    assert any(m['chat_id'] == 43 and 'перебили' in m['text'] for m in monkey)
+    outbid = next(m for m in monkey if m['chat_id'] == 43 and 'перебили' in m['text'])
+    assert 'href="https://telegram.me/nft/' in outbid['text']        # the gift name is a link to the collectible
 
 
 def test_sql_stays_portable_to_postgres():
@@ -206,3 +210,10 @@ def test_sql_stays_portable_to_postgres():
     source = (pathlib.Path(__file__).resolve().parent.parent / 'auctions.py').read_text(encoding='utf-8')
     assert 'rowid' not in source.lower()
     assert 'INSERT OR' not in source.upper()
+
+
+def test_auction_pages_have_their_own_address(world):
+    client, sql = world
+    assert client.get('/auctions').status_code == 200
+    assert client.get('/auctions/auction-' + 'a' * 32).status_code == 200
+    assert client.get('/auctions/not-an-auction').status_code == 404

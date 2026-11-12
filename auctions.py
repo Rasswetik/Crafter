@@ -4,7 +4,7 @@ A seller puts a gift from the inventory up for a fixed time with a start price. 
 status 'auction' (so it cannot be sold, crafted, staked, withdrawn or played elsewhere). A bid is taken from the bidder's
 balance at once (escrow); the previous leader gets their money back the moment somebody outbids them. When the time is
 over the gift goes to the leader and the seller receives the price minus the marketplace fee, or the gift returns to the
-seller when nobody bid. A bid in the last two minutes moves the end by two minutes (no last-second sniping)."""
+seller when nobody bid. A bid in the last ten minutes adds one minute to the end (no last-second sniping)."""
 import json
 import re
 import threading
@@ -19,9 +19,9 @@ MIN_MINUTES = 30
 MAX_MINUTES = 30 * 24 * 60            # the seller picks any length from 30 minutes to 30 days
 MAX_ACTIVE_PER_SELLER = 10
 STEP_RATE = Decimal('0.05')          # a new bid must beat the leader by 5 %, at least one cent
-EXTEND_WINDOW = 120
-EXTEND_BY = 120
-MAX_EXTENSIONS = 30
+EXTEND_WINDOW = 600                  # a bid in the last 10 minutes ...
+EXTEND_BY = 60                       # ... adds one minute to the auction
+MAX_EXTENSIONS = 1000
 PUBLIC_FIELDS = {'name', 'number', 'model', 'image', 'background', 'backdrop', 'symbol', 'source_number',
                  'collection_id', 'rarity', 'telegram_url', 'telegram_slug', 'pack_item', 'pack_id'}
 
@@ -123,7 +123,7 @@ def install_auctions(app, db, auth, record, notify_sale=None, notify_purchase=No
                          (seller, gift_id))
             db().execute("UPDATE crafter_auctions SET status='unsold',closed_at=? WHERE id=?", (now, row['id']))
             record('auction_unsold', {'auction_id': row['id'], 'gift': gift}, uid=seller)
-            notices.append(('unsold', seller, gift, row['start_price']))
+            notices.append(('unsold', seller, gift, row['start_price'], row['id']))
             return notices
         price = Decimal(row['current_bid'])
         fee = (price * FEE).quantize(CENT, rounding=ROUND_HALF_UP)
@@ -162,7 +162,7 @@ def install_auctions(app, db, auth, record, notify_sale=None, notify_purchase=No
                 if notify_purchase:
                     notify_purchase(winner, trade)
             elif notify_auction:
-                notify_auction('unsold', notice[1], notice[2], notice[3])
+                notify_auction('unsold', notice[1], notice[2], notice[3], notice[4])
         return len(ids)
 
     def clean_request_id(data):
@@ -359,8 +359,8 @@ def install_auctions(app, db, auth, record, notify_sale=None, notify_purchase=No
             fresh = db().execute('SELECT * FROM crafter_auctions WHERE id=?', (auction_id,)).fetchone()
         if notify_auction:
             if outbid:
-                notify_auction('outbid', outbid[0], outbid[1], str(amount))
-            notify_auction('bid', row['seller_id'], json.loads(row['gift_json']), str(amount))
+                notify_auction('outbid', outbid[0], outbid[1], str(amount), auction_id)
+            notify_auction('bid', row['seller_id'], json.loads(row['gift_json']), str(amount), auction_id)
         return {'auction': public(fresh, uid, bids=True), 'balance': str(balance(uid))}
 
     @app.post('/api/auctions/<auction_id>/cancel')

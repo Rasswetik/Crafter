@@ -283,8 +283,14 @@ def create_app(config=None):
         return render_template('index.html', site_maintenance=is_maintenance_enabled())
 
     # every section of the app has its own address: a refresh (or a shared link) opens that very section
-    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'):
+    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/auctions'):
         app.add_url_rule(_path, 'section_' + _path.strip('/').replace('-', '_'), index)
+
+    @app.get('/auctions/<auction_id>')
+    def auction_lot_page(auction_id):
+        if not re.fullmatch(r'auction-[0-9a-f]{32}', auction_id):
+            abort(404)
+        return index()
 
     @app.get('/admin')
     def admin_page():
@@ -314,7 +320,7 @@ def create_app(config=None):
         return build_preview()
     @app.after_request
     def cache_control(response):
-        if request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
+        if request.path.startswith('/auctions') or request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')
@@ -1600,13 +1606,14 @@ def create_app(config=None):
     install_partner_api(app,db,auth,record,audit)
     from auctions import install_auctions
 
-    def notify_crafter_auction(event, user_id, gift, amount):
+    def notify_crafter_auction(event, user_id, gift, amount, auction_id=None):
         if user_id == app.extensions.get('crafter_house_id'):
             return
         try:
             from telegram_bot import notify_auction_event
             origin = bot_settings().get('app_url') or os.getenv('RENDER_EXTERNAL_URL') or os.getenv('PUBLIC_APP_URL') or ''
-            notify_auction_event(bot_settings(), user_id, event, gift, amount, app.config['BOT_TOKEN'], origin)
+            link = origin.rstrip('/') + ('/auctions/' + auction_id if auction_id else '/auctions') if origin else ''
+            notify_auction_event(bot_settings(), user_id, event, gift, amount, app.config['BOT_TOKEN'], link)
         except Exception:
             app.logger.warning('Telegram auction notification was not delivered')
     install_auctions(app, db, auth, record, notify_crafter_sale, notify_crafter_purchase, notify_crafter_auction)

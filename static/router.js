@@ -3,8 +3,9 @@
 (function () {
 'use strict';
 const MAP = {market: '/market', gifts: '/gifts', games: '/hub', craft: '/craft', upgrade: '/upgrade', arena: '/arena', staking: '/staking',
-             profile: '/profile', 'new-year': '/new-year', wallet: '/wallet', deposit: '/deposit', withdraw: '/withdraw', cart: '/cart'};
+             profile: '/profile', 'new-year': '/new-year', wallet: '/wallet', deposit: '/deposit', withdraw: '/withdraw', cart: '/cart', auctions: '/auctions'};
 const REV = Object.fromEntries(Object.entries(MAP).map(([page, path]) => [path, page]));
+const deep = () => /^\/(collections|auctions)\//.test(location.pathname);
 const clean = () => location.pathname.replace(/\/+$/, '') || '/';
 window.crafterRouteView = () => REV[clean()] || null;
 window.crafterPagePath = () => MAP[state.page] || '/';
@@ -14,7 +15,7 @@ go = async function (page, ...rest) {
     const result = await before.call(this, page, ...rest);
     try {
         const path = MAP[state.page];
-        if (!silent && path && !location.pathname.startsWith('/collections/') && clean() !== path) {
+        if (!silent && path && !deep() && clean() !== path) {
             const keep = path === '/new-year' ? location.search : '';
             history[location.pathname === '/' ? 'replaceState' : 'pushState']({crafterPage: state.page}, '', path + keep);
         }
@@ -26,14 +27,14 @@ const settle = setInterval(() => {
     if (document.querySelector('#splash')) return;
     clearInterval(settle);
     const path = MAP[state.page];
-    if (path && clean() !== path && !location.pathname.startsWith('/collections/')) {
+    if (path && clean() !== path && !deep()) {
         try { history.replaceState({crafterPage: state.page}, '', path); } catch (_) {}
     }
 }, 300);
 setTimeout(() => clearInterval(settle), 30000);
 window.addEventListener('popstate', () => {
     const page = window.crafterRouteView();
-    if (!page || page === state.page || location.pathname.startsWith('/collections/')) return;
+    if (!page || page === state.page || deep()) return;
     silent = true;
     Promise.resolve(go(page)).finally(() => { silent = false; });
 });

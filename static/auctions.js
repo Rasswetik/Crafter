@@ -40,6 +40,13 @@ function hydrateArts(scope) {
         prepareGiftBackdrop(art, a.gift).catch(() => {});
     });
 }
+function animateHero() {
+    /* the gift plays its own animation in the centre when a lot is opened (the same player as in the gift card) */
+    const art = document.querySelector('.auc-hero .auc-art'), a = ui.current;
+    if (!art || !a || art.dataset.animated === a.id || typeof mountGiftAnimation !== 'function') return;
+    art.dataset.animated = a.id;
+    try { mountGiftAnimation(art, a.gift, null, true); } catch (_) {}
+}
 function collectionIcon(gift) {
     try {
         const c = typeof giftCollection === 'function' ? giftCollection(gift) : null;
@@ -200,7 +207,7 @@ function detailHTML(a) {
         <div class="auc-bids">${(a.bids || []).length ? a.bids.map(b => `<div class="auc-bidrow${b.mine ? ' mine' : ''}">
             <span>${esc(b.user)}${b.mine ? ' (вы)' : ''}</span><b>${gram(b.amount)}</b><small>${timeAgo(b.created)}</small></div>`).join('')
             : '<div class="auc-bidrow none">Ставок пока нет</div>'}</div>
-        <p class="auc-note">Ставка списывается сразу и возвращается, если её перебьют. Ставка в последние 2 минуты продлевает аукцион на 2 минуты. Комиссия продавца — ${feeText()}%.</p>
+        <p class="auc-note">Ставка списывается сразу и возвращается, если её перебьют. Ставка в последние 10 минут продлевает аукцион на 1 минуту. Комиссия продавца — ${feeText()}%.</p>
         <div class="auc-action">${action}</div>
     </div>`;
 }
@@ -223,6 +230,8 @@ async function openDetail(id, quiet) {
         ui.current = data.auction;
         ui.lookup.set(data.auction.id, data.auction);
         hydrateArts(document.querySelector('#sheet-body'));
+        animateHero();
+        try { if (location.pathname !== '/auctions/' + id) history.replaceState({crafterPage: 'auctions'}, '', '/auctions/' + id); } catch (_) {}
         tick();
         clearInterval(ui.detailTimer);
         ui.detailTimer = setInterval(() => {
@@ -414,6 +423,7 @@ document.addEventListener('change', event => {
     if (event.target.id === 'auc-sort') { ui.sort = event.target.value; load(); }
 });
 appSheet.addEventListener('close', () => {
+    try { if (/^\/auctions\//.test(location.pathname)) history.replaceState({crafterPage: 'auctions'}, '', '/auctions'); } catch (_) {}
     appSheet.classList.remove('auction-sheet');
     document.querySelector('.auc-modal')?.remove();
     clearInterval(ui.detailTimer); ui.detailTimer = 0; ui.openId = null; ui.current = null;
@@ -438,6 +448,8 @@ go = async function (page, ...rest) {
     render();
     start();
     await load();
+    const lot = (location.pathname.match(/^\/auctions\/(auction-[0-9a-f]{32})$/) || [])[1];
+    if (lot && !ui.deepDone) { ui.deepDone = true; openDetail(lot); }
 };
 const baseTabs = resaleMarketTabs;
 resaleMarketTabs = function () {
