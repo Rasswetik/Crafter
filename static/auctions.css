@@ -230,3 +230,8 @@ select.auc-input option,.auc-sort select option{background:#1b1d22;color:#f2f2f2
   -webkit-mask-composite:source-in;mask-image:linear-gradient(90deg,transparent,#000 8%,#000 92%,transparent),linear-gradient(180deg,transparent,#000 8%,#000 92%,transparent);mask-composite:intersect}
 @media(max-width:600px){.auc-hero .auc-art{aspect-ratio:1/1}}
 @media(prefers-reduced-motion:reduce){.auc-card .auc-art .auc-art-main,.auc-hero .auc-art .auc-art-main{animation:none!important}}
+
+/* ---- thumbnails in the pick list fill their whole tile ---- */
+.auc-mini{width:52px;height:52px;border-radius:14px;overflow:hidden;padding:0;background-color:#26324a}
+.auc-mini img{width:100%;height:100%;object-fit:cover;display:block}
+.auc-pick-row{padding:8px 12px}
