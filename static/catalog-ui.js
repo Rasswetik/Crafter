@@ -486,6 +486,7 @@ function showGiftDetail(gift, source) {
             own && gift.test_only ? `<div class="ny-footnote">Тестовый NFT нельзя вывести или продать. Для крафта используйте тестовые покупки из маркета.</div>` : own ? `<div class="product-actions owned-gift-actions">
             ${gift.pack_item ? `<button class="secondary" onclick="openPackFromDetail(${arg(gift.id)})">Открыть</button>` : `<button class="secondary" onclick="requestGiftWithdrawal(${arg(gift.id)})">Вывести NFT</button>`}
             <button class="primary" onclick="startResale('sell', ${arg(gift.id)})">Продать</button>
+            ${gift.pack_item || gift.catalog_only || gift.star_gift ? '' : `<button class="auction-action" type="button" onclick="startAuctionFromGift(${arg(gift.id)})"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 13-8.5 8.5a2.1 2.1 0 0 1-3-3L11 10"/><path d="m16 16 6-6"/><path d="m8 8 6-6"/><path d="m9 7 8 8"/><path d="m21 11-8-8"/></svg>Поставить на аукцион</button>`}
         </div>` : source === 'market' ? `<div class="market-gift-actions market-offer-actions">
             ${gift.own_listing ? `<button class="primary" onclick="openListedInventory()">Управлять в инвентаре</button>` : `
                 ${gift.number && !gift.catalog_only ? `<button type="button" class="lucky-craft" onclick="chooseLuckyGift(${arg(gift.id)})">

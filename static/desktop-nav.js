@@ -4,7 +4,7 @@
 const media=window.matchMedia('(min-width: 1024px)');
 let sidebar=null, signature='';
 const options=[
- ['market','Маркет','market'],['gifts','Мои подарки','gift'],
+ ['market','Маркет','market'],['auctions','Аукционы','hammer'],['gifts','Мои подарки','gift'],
  ['games','Игры','games'],['craft','Крафты','hammer'],['upgrade','Апгрейд','upgrade'],
  ['arena','Арена','arena'],['staking','Стейкинг','staking'],
  ['profile','Профиль','profile']

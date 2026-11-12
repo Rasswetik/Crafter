@@ -11,6 +11,7 @@ const walletGroups = {
     balance: {label:'Баланс', kinds:['deposit','withdraw_funds','balance_adjustment','stake_claim','event_award_paid','arena_stake','arena_refund','arena_result','arena_bot_fund']},
     gifts: {label:'Подарки', kinds:['buy','sale','sell','listing_price','unlist','withdraw','transfer','craft','gift_granted','gift_received','gift_withdraw_requested','gift_withdraw_failed','star_gift_sold','star_gift_withdraw_requested','star_gift_withdraw','star_gift_withdraw_failed']},
     offers: {label:'Офферы', kinds:['offer_received','offer_created','offer_cancelled','offer_withdrawn','offer_accepted']},
+    auctions: {label:'Аукционы', kinds:['auction_created','auction_bid','auction_outbid','auction_cancelled','auction_unsold']},
 };
 const walletEventNames = {
     deposit:'Пополнение', withdraw_funds:'Вывод', balance_adjustment:'Корректировка баланса', stake_claim:'Награда стейкинга', event_award_paid:'Покупка приза лидерборда',
@@ -20,6 +21,7 @@ const walletEventNames = {
     gift_withdraw_failed:'Вывод NFT не выполнен', star_gift_sold:'Продажа подарка Telegram', star_gift_withdraw_requested:'Заявка на вывод подарка Telegram', star_gift_withdraw:'Подарок Telegram отправлен', star_gift_withdraw_failed:'Вывод подарка Telegram не выполнен', transfer:'Отправка подарка',
     gift_granted:'Получен подарок', gift_received:'Подарок получен', craft:'Крафт', offer_received:'Получен оффер',
     offer_created:'Оффер создан', offer_cancelled:'Оффер отменён', offer_withdrawn:'Оффер отозван', offer_accepted:'Оффер принят',
+    auction_created:'Аукцион создан', auction_bid:'Ставка на аукционе', auction_outbid:'Вашу ставку перебили', auction_cancelled:'Аукцион снят', auction_unsold:'Аукцион без ставок',
 };
 const walletStatuses = {
     pending:'Ожидает подтверждения', confirmed:'Подтверждено', queued:'В очереди', processing:'Обрабатывается',
@@ -383,7 +385,8 @@ function walletHistoryRow(item) {
         kind === 'sale' ? data.proceeds :
         kind === 'withdraw_funds' ? -data.gram :
         kind === 'offer_cancelled' ? data.amount :
-        kind === 'offer_created' ? -(data.amount || 0) : data.gram);
+        kind === 'offer_created' || kind === 'auction_bid' ? -(data.amount || 0) :
+        kind === 'auction_outbid' ? data.amount : data.gram);
     const showAmount = Number.isFinite(amount) && amount !== 0;
     const cancelled = kind === 'withdraw_funds' && status === 'cancelled';
     const sender = data.sender;

@@ -423,6 +423,31 @@ def notify_offer_event(config, seller, gift, price, event, default_token):
 
 
 
+def notify_auction_event(config, user_id, event, gift, amount, default_token, url=''):
+    """Auction notices: the player was outbid, the seller got a bid, or the auction ended with no bids."""
+    token = config.get('token') or default_token
+    if not token or event not in ('outbid', 'bid', 'unsold'):
+        return
+    name = str(gift.get('name') or 'Gift')
+    label = escape(name + (f" #{gift['number']}" if gift.get('number') else ''))
+    value = str(amount)
+    if '.' in value:
+        value = value.rstrip('0').rstrip('.')
+    value = escape(value)
+    text = {
+        'outbid': f'\U0001F514 Вашу ставку на <b>{label}</b> перебили. Новая ставка: <b>{value} GRAM</b>.\n'
+                  'Ваши GRAM уже вернулись на баланс. Сделайте ставку выше, пока аукцион не закончился.',
+        'bid': f'\U0001F528 На ваш аукцион <b>{label}</b> сделали ставку: <b>{value} GRAM</b>.\n'
+               'Теперь аукцион нельзя снять — он завершится в назначенное время.',
+        'unsold': f'\u23F1 Аукцион <b>{label}</b> завершился без ставок. Подарок вернулся в ваш инвентарь.',
+    }[event]
+    message = {'chat_id': user_id, 'parse_mode': 'HTML', 'link_preview_options': {'is_disabled': True}, 'text': text}
+    link = url if url and https_url(url) else ''
+    if link:
+        message['reply_markup'] = {'inline_keyboard': [[{'text': 'Открыть аукцион', 'web_app': {'url': link}}]]}
+    send_message(token, message)
+
+
 def ton_transaction_link(tx_hash, network):
     """Use the *verified incoming transaction hash*, never the TON Connect intent ID.
 

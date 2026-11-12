@@ -1598,6 +1598,18 @@ def create_app(config=None):
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
     from partner_api import install_partner_api
     install_partner_api(app,db,auth,record,audit)
+    from auctions import install_auctions
+
+    def notify_crafter_auction(event, user_id, gift, amount):
+        if user_id == app.extensions.get('crafter_house_id'):
+            return
+        try:
+            from telegram_bot import notify_auction_event
+            origin = bot_settings().get('app_url') or os.getenv('RENDER_EXTERNAL_URL') or os.getenv('PUBLIC_APP_URL') or ''
+            notify_auction_event(bot_settings(), user_id, event, gift, amount, app.config['BOT_TOKEN'], origin)
+        except Exception:
+            app.logger.warning('Telegram auction notification was not delivered')
+    install_auctions(app, db, auth, record, notify_crafter_sale, notify_crafter_purchase, notify_crafter_auction)
     from avatars import install_avatars
     install_avatars(app, db)
     from creators import install_creators
