@@ -6,11 +6,21 @@ const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleSt
 const ORN = '<img src="/static/assets/new-year-ornament.svg" alt="" aria-hidden="true">';
 const LABEL = {GRAM: 'Баланс GRAM', BALL: 'Новогодние шары', PACK: 'Карточный пак', BUNDLE: 'Бандл', STAR: 'Подарок Telegram', PROMO: 'Промокод'};
 let STARS = [];
+const SIZES = [['small', 'Обычная', '1×1', 'Маленькая плитка в сетке'], ['wide', 'Широкая', '2×1', 'Вытянута на две колонки'],
+    ['tall', 'Длинная', '1×2', 'Высокая, на две строки'], ['large', 'Большая', '2×2', 'Крупная витрина'], ['banner', 'Баннер', 'на всю ширину', 'Акция на всю строку']];
+const sizeOf = it => (SIZES.some(s => s[0] === it.size) ? it.size : 'small');
 const KIND_NAME = [['GRAM', 'GRAM'], ['BALL', 'Шары'], ['PACK', 'Пак'], ['STAR', 'Подарок'], ['PROMO', 'Промокод']];
 /* Packs in a bundle stand one behind another: the first one straight in front, the others behind it, each a bit more turned. */
 function packOf(it) { return it.kind === 'PACK' || (it.kind === 'BUNDLE' && it.contents && it.contents.length) || (it.kind === 'PROMO' && it.promo_kind === 'PACK'); }
 function artHTML(it, cls) {
     const src = art(it);
+    /* a bundle of several kinds of packs: every kind stands in one spread fan, so none of them is hidden behind the first */
+    const kinds = packOf(it) && it.contents && it.contents.length > 1 ? it.contents.slice(0, 7) : null;
+    if (kinds) {
+        const mid = (kinds.length - 1) / 2;
+        const imgs = kinds.map((c, i) => '<img src="' + e(c.pack.image || src) + '" alt="" title="' + e(c.pack.title) + '" style="--pos:' + (i - mid).toFixed(2) + ';--apos:' + Math.abs(i - mid).toFixed(2) + ';--z:' + (20 - Math.round(Math.abs(i - mid) * 2)) + '">').join('');
+        return '<span class="si-fan spread n' + kinds.length + (cls ? ' ' + cls : '') + '">' + imgs + (Number(it.bundle) > 1 ? '<b class="si-fan-count">×' + it.bundle + '</b>' : '') + '</span>';
+    }
     if (packOf(it) && Number(it.bundle) > 1) {
         const shown = Math.min(5, Number(it.bundle));
         const order = it.contents && it.contents.length ? it.contents.flatMap(c => Array(Math.max(1, Number(c.count))).fill(c.pack.image)) : [];
@@ -46,8 +56,8 @@ function describe(it) {
 
 function tiles(items) {
     return (items || []).filter(it => !unavailable(it)).map(it =>
-        '<button type="button" class="ny-lot cm-tile si-tile" data-si="' + e(it.id) + '"><div class="ny-lot-art">' + artHTML(it) + offHTML(it) + '</div>' +
-        '<div class="ny-lot-name">' + e(it.title) + '</div>' +
+        '<button type="button" class="ny-lot cm-tile si-tile si-sz-' + sizeOf(it) + '" data-si="' + e(it.id) + '" style="--ac:' + accentOf(it) + '"><div class="ny-lot-art">' + artHTML(it) + offHTML(it) + '</div>' +
+        '<div class="ny-lot-name">' + e(it.title) + '</div>' + (sizeOf(it) === 'small' || sizeOf(it) === 'tall' ? '' : '<div class="si-desc">' + e(describe(it)) + '</div>') +
         '<div class="ny-lot-id">' + (it.left !== null ? 'Осталось ' + num(it.left) : (it.kind === 'PACK' || it.kind === 'STAR') && it.bundle > 1 ? it.bundle + ' шт. в наборе' : LABEL[it.kind]) + '</div>' +
         '<div class="ny-lot-price">' + priceHTML(it) + '</div></button>');
 }
@@ -103,7 +113,7 @@ async function admin(content) {
     sec.className = 'ny-admin-section si-admin';
     sec.dataset.pane = 'shop';
     content.appendChild(sec);
-    const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: ''};
+    const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: '', size: 'small', view: 'phone'};
     let editing = null;
     const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
     const range = (key, label, min, max, val, fmt) => '<div class="adm-range"><div class="adm-range-top"><label>' + label + '</label><b data-out="' + key + '">' + fmt(Number(val)) + '</b></div>' +
@@ -114,7 +124,7 @@ async function admin(content) {
     const preview = () => {
         const mixList = f.kind === 'BUNDLE' ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => ({pack: packs.find(p => p.id === id), count: n})).filter(c => c.pack) : [];
         const it = {contents: mixList.length ? mixList : null, gram: f.kind === 'BUNDLE' && Number(f.bgram) > 0 ? f.bgram : null, balls: f.kind === 'BUNDLE' && Number(f.bballs) > 0 ? f.bballs : null, kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: mixList.length ? mixList.reduce((x, c) => x + c.count, 0) : (Number(f.bundle) || 1), per_user: Number(f.per) || null, mine: 0, old_price_balls: Number(f.old) > Number(f.price) ? Number(f.old) : null, discount_percent: Number(f.old) > Number(f.price) ? Math.round((1 - Number(f.price) / Number(f.old)) * 100) : null, title: f.title || autoTitle(), image_url: f.image,
-            pack: packs.find(p => p.id === f.pack) ? {image: packs.find(p => p.id === f.pack).image} : null, price_balls: Number(f.price) || 0, left: f.stock ? Number(f.stock) : null};
+            pack: packs.find(p => p.id === f.pack) ? {image: packs.find(p => p.id === f.pack).image} : null, price_balls: Number(f.price) || 0, left: f.stock ? Number(f.stock) : null, size: f.size};
         return tiles([it])[0] || '';
     };
     const autoTitle = () => {
@@ -123,8 +133,8 @@ async function admin(content) {
         return f.kind === 'PROMO' ? 'Промокод: ' + w : w;
     };
     const list = () => r.items.map(it => '<div class="ny-admin-row"><div class="cm-admin-pic"><img src="' + e(art(it)) + '" alt=""></div><div><b>' + e(it.title) + '</b><small>' + e(LABEL[it.kind]) + ' · ' +
-        (it.price_balls ? num(it.price_balls) + ' шаров' + (it.discount_percent > 0 ? ' (скидка −' + it.discount_percent + '%, было ' + num(it.old_price_balls) + ')' : '') : 'бесплатно') + ' · продано ' + it.sold + (it.stock !== null ? '/' + it.stock : '') + (it.bundle > 1 ? ' · ' + it.bundle + ' пака за покупку' : '') + (it.per_user !== null ? ' · лимит ' + it.per_user : '') + (it.status === 'hidden' ? ' · скрыт' : '') + '</small></div>' +
-        '<span><button type="button" data-si-up="' + e(it.id) + '" aria-label="Выше">↑</button> <button type="button" data-si-down="' + e(it.id) + '" aria-label="Ниже">↓</button> <button type="button" data-si-edit="' + e(it.id) + '">Изменить</button> <button type="button" data-si-st="' + e(it.id) + '" data-next="' + (it.status === 'active' ? 'hidden' : 'active') + '">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button> <button type="button" data-si-del="' + e(it.id) + '">Удалить</button></span></div>').join('');
+        (it.price_balls ? num(it.price_balls) + ' шаров' + (it.discount_percent > 0 ? ' (скидка −' + it.discount_percent + '%, было ' + num(it.old_price_balls) + ')' : '') : 'бесплатно') + ' · продано ' + it.sold + (it.stock !== null ? '/' + it.stock : '') + (it.bundle > 1 ? ' · ' + it.bundle + ' пака за покупку' : '') + (it.per_user !== null ? ' · лимит ' + it.per_user : '') + (it.status === 'hidden' ? ' · скрыт' : '') + ' · размер: ' + e((SIZES.find(s => s[0] === sizeOf(it)) || SIZES[0])[1]) + '</small></div>' +
+        '<span><select class="si-size-select" data-si-size="' + e(it.id) + '" aria-label="Размер плитки">' + SIZES.map(s => '<option value="' + s[0] + '"' + (sizeOf(it) === s[0] ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select> <button type="button" data-si-up="' + e(it.id) + '" aria-label="Выше">↑</button> <button type="button" data-si-down="' + e(it.id) + '" aria-label="Ниже">↓</button> <button type="button" data-si-edit="' + e(it.id) + '">Изменить</button> <button type="button" data-si-st="' + e(it.id) + '" data-next="' + (it.status === 'active' ? 'hidden' : 'active') + '">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button> <button type="button" data-si-del="' + e(it.id) + '">Удалить</button></span></div>').join('');
     const draw = () => {
         const kinds = KIND_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length));
         const step2 = f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + PROMO_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length)).map(k => tile(f.promo === k[0], 'data-promo="' + k[0] + '"', k[2], k[1])).join('') + '</div></div>' : '';
@@ -149,7 +159,10 @@ async function admin(content) {
             '<details class="adm-more"' + (f.image || f.title ? ' open' : '') + '><summary>Название и картинка</summary><div class="adm-row3">' +
             '<div class="adm-field"><label>Название</label><input data-f="title" maxlength="80" value="' + e(f.title) + '" placeholder="' + e(autoTitle()) + '"></div>' +
             '<div class="adm-field" style="grid-column:span 2"><label>Картинка (ссылка)</label><input data-f="image" value="' + e(f.image) + '" placeholder="По умолчанию подставится сама"></div></div></details>' +
-            '<div class="adm-step"><h4>Как будет выглядеть</h4><div class="adm-preview"><div class="ny-grid">' + preview() + '</div></div></div>' +
+            '<div class="adm-step"><h4>Размер плитки</h4><p class="sub">Как плитка стоит в магазине: можно сделать широкую, длинную, большую или баннер на всю ширину.</p><div class="sz-pick">' +
+            SIZES.map(s => '<button type="button" class="sz-opt' + (f.size === s[0] ? ' is-on' : '') + '" data-size="' + s[0] + '"><span class="sz-shape sz-' + s[0] + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span><b>' + s[1] + '</b><small>' + s[2] + '</small></button>').join('') + '</div></div>' +
+            '<div class="adm-step"><h4>Как будет выглядеть</h4><div class="sz-views"><button type="button" class="sz-view' + (f.view === 'phone' ? ' is-on' : '') + '" data-view="phone">Телефон</button><button type="button" class="sz-view' + (f.view === 'pc' ? ' is-on' : '') + '" data-view="pc">Компьютер</button></div>' +
+            '<div class="sz-stage sz-' + f.view + '"><div class="ny-grid sz-grid">' + preview() + '<div class="sz-ghost"></div><div class="sz-ghost"></div><div class="sz-ghost"></div><div class="sz-ghost"></div><div class="sz-ghost"></div></div></div></div>' +
             '<button class="primary" type="button" id="si-add">' + (editing ? 'Сохранить изменения' : 'Добавить товар') + '</button>' + (editing ? ' <button type="button" id="si-cancel">Отмена</button>' : '') +
             '<h3 style="margin-top:26px">Товары</h3><p class="sub">Порядок на маркете: ' + (r.order === 'manual' ? 'как вы расставили (стрелки ↑ ↓). <button type="button" id="si-order">Вернуть: по возрастанию цены</button>' : 'по возрастанию цены (по умолчанию). Стрелки ↑ ↓ переключат на ручной порядок.') + '</p><div class="ny-admin-list">' + (list() || '<p class="sub">Товаров пока нет.</p>') + '</div>';
         sec.querySelectorAll('input[data-f]').forEach(i => { i.setAttribute('autocomplete', 'off'); i.setAttribute('name', 'shop-' + i.dataset.f); });
@@ -164,6 +177,9 @@ async function admin(content) {
         sec.querySelectorAll('[data-mix-set]').forEach(i => i.addEventListener('change', () => { pull(); f.mix[i.dataset.mixSet] = Math.max(0, Math.min(500, Math.floor(Number(i.value) || 0))); draw(); }));
         sec.querySelectorAll('[data-mix-dec]').forEach(b => b.addEventListener('click', () => { pull(); f.mix[b.dataset.mixDec] = Math.max(0, (f.mix[b.dataset.mixDec] || 0) - 1); draw(); }));
         sec.querySelectorAll('[data-adm-pack]').forEach(b => b.addEventListener('click', () => { pull(); f.pack = b.dataset.admPack; draw(); }));
+        sec.querySelectorAll('[data-size]').forEach(b => b.addEventListener('click', () => { pull(); f.size = b.dataset.size; draw(); }));
+        sec.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => { pull(); f.view = b.dataset.view; draw(); }));
+        sec.querySelectorAll('[data-si-size]').forEach(b => b.addEventListener('change', () => run(() => api('admin/new-year/shop/' + b.dataset.siSize + '/size', {size: b.value}), 'Размер изменён')));
         sec.querySelectorAll('[data-chip]').forEach(b => b.addEventListener('click', () => { pull(); f[b.dataset.chip] = b.dataset.v; draw(); }));
         sec.querySelectorAll('[data-f]').forEach(i => i.addEventListener('change', () => { pull(); draw(); }));
         sec.querySelectorAll('input[type=range]').forEach(i => i.addEventListener('input', () => {
@@ -174,15 +190,15 @@ async function admin(content) {
         }));
         sec.querySelector('#si-add').addEventListener('click', () => {
             pull();
-            run(() => api(editing ? 'admin/new-year/shop/' + editing + '/edit' : 'admin/new-year/shop', {contents: f.kind === 'BUNDLE' ? {packs: Object.entries(f.mix).filter(([, n]) => n > 0).map(([pack_id, count]) => ({pack_id, count})), gram: f.bgram, balls: f.bballs} : undefined, kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' ? f.bundle : 1, image_url: f.image, title: f.title}), editing ? 'Изменения сохранены' : 'Товар добавлен');
+            run(() => api(editing ? 'admin/new-year/shop/' + editing + '/edit' : 'admin/new-year/shop', {contents: f.kind === 'BUNDLE' ? {packs: Object.entries(f.mix).filter(([, n]) => n > 0).map(([pack_id, count]) => ({pack_id, count})), gram: f.bgram, balls: f.bballs} : undefined, kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' ? f.bundle : 1, image_url: f.image, title: f.title, size: f.size}), editing ? 'Изменения сохранены' : 'Товар добавлен');
         });
         sec.querySelectorAll('[data-si-up],[data-si-down]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + (b.dataset.siUp || b.dataset.siDown) + '/move', {direction: b.dataset.siUp ? 'up' : 'down'}), 'Порядок изменён')));
         sec.querySelector('#si-order')?.addEventListener('click', () => run(() => api('admin/new-year/shop-order', {mode: 'price'}), 'Порядок: по возрастанию цены'));
-        sec.querySelector('#si-cancel')?.addEventListener('click', () => { editing = null; Object.assign(f, {kind: 'GRAM', promo: 'GRAM', amount: '1', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: ''}); draw(); });
+        sec.querySelector('#si-cancel')?.addEventListener('click', () => { editing = null; Object.assign(f, {kind: 'GRAM', promo: 'GRAM', amount: '1', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: '', size: 'small'}); draw(); });
         sec.querySelectorAll('[data-si-edit]').forEach(b => b.addEventListener('click', () => {
             const it = r.items.find(x => x.id === b.dataset.siEdit); if (!it) return;
             editing = it.id;
-            Object.assign(f, {kind: it.kind, promo: it.promo_kind || 'GRAM', amount: it.amount, pack: it.kind === 'PACK' || it.promo_kind === 'PACK' ? it.amount : f.pack, price: String(it.price_balls), old: it.old_price_balls ? String(it.old_price_balls) : '', stock: it.stock === null ? '' : String(it.stock), per: it.per_user === null ? '0' : String(it.per_user), bundle: String(it.bundle || 1), image: it.image_url && !it.pack && !it.star ? it.image_url : '', title: it.title, mix: {}, bgram: it.gram || '', bballs: it.balls ? String(it.balls) : ''});
+            Object.assign(f, {kind: it.kind, promo: it.promo_kind || 'GRAM', amount: it.amount, pack: it.kind === 'PACK' || it.promo_kind === 'PACK' ? it.amount : f.pack, price: String(it.price_balls), old: it.old_price_balls ? String(it.old_price_balls) : '', stock: it.stock === null ? '' : String(it.stock), per: it.per_user === null ? '0' : String(it.per_user), bundle: String(it.bundle || 1), image: it.image_url && !it.pack && !it.star ? it.image_url : '', title: it.title, mix: {}, bgram: it.gram || '', bballs: it.balls ? String(it.balls) : '', size: sizeOf(it)});
             if (it.kind === 'BUNDLE') (it.contents || []).forEach(c => { f.mix[c.pack.id] = c.count; });
             draw(); sec.scrollIntoView({behavior: 'smooth', block: 'start'});
         }));

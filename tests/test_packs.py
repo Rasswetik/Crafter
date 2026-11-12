@@ -848,3 +848,25 @@ def test_honey_holidays_pack_is_worth_about_a_third_of_a_ton(client):
     expected = sum(k * v for k, v in cards.items()) / 100
     value = sum(float(p['value']) * p['chance'] / 100 for p in data['prizes']) * expected
     assert 0.26 <= value <= 0.32
+
+
+def test_shop_tiles_have_a_size_that_the_administrator_can_change(client):
+    admin = signed(42)
+    client.get('/api/me', headers=admin)
+    made = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': '1', 'price_balls': '10'})
+    assert made.status_code == 200
+    iid = made.json['id']
+    items = client.get('/api/shop-items', headers=admin).json['items']
+    assert [i['size'] for i in items] == ['small']                                   # the default
+    wide = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': '2', 'price_balls': '20', 'size': 'banner'})
+    assert wide.status_code == 200
+    assert client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': '2', 'price_balls': '20', 'size': 'huge'}).status_code == 400
+    for size in ('wide', 'tall', 'large', 'banner', 'small'):
+        assert client.post('/api/admin/new-year/shop/%s/size' % iid, headers=admin, json={'size': size}).status_code == 200
+        assert next(i for i in client.get('/api/admin/new-year/shop', headers=admin).json['items'] if i['id'] == iid)['size'] == size
+    assert client.post('/api/admin/new-year/shop/%s/size' % iid, headers=admin, json={'size': 'x'}).status_code == 400
+    assert client.post('/api/admin/new-year/shop/nope/size', headers=admin, json={'size': 'wide'}).status_code == 404
+    assert client.post('/api/admin/new-year/shop/%s/size' % iid, headers=signed(43), json={'size': 'wide'}).status_code == 403
+    edited = client.post('/api/admin/new-year/shop/%s/edit' % iid, headers=admin, json={'kind': 'GRAM', 'amount': '1', 'price_balls': '10', 'size': 'large'})
+    assert edited.status_code == 200
+    assert next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == iid)['size'] == 'large'

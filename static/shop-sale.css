@@ -66,3 +66,15 @@
 /* a single pack never grows past its stage, so the title below is always visible */
 .si-stage .si-solo{position:absolute!important;top:0;bottom:0;left:0;right:0;margin:auto!important;height:100%!important;width:auto!important;max-width:62%!important;max-height:100%!important}
 .si-hero-text{position:relative;z-index:4;margin-top:6px}
+
+/* ---- a bundle with several kinds of packs: all of them stand in one spread fan ---- */
+.si-fan.spread img,.si-stage .si-fan.spread img{left:50%;bottom:7%;width:40%!important;max-height:84%;transform-origin:50% 100%;z-index:var(--z,10);
+  transform:translateX(-50%) translateX(calc(var(--pos) * 12%)) translateY(calc(var(--apos) * 2.5%)) rotate(calc(var(--pos) * 6deg));
+  filter:drop-shadow(0 5px 9px rgba(0,0,0,.5))}
+.si-fan.spread.n2 img,.si-stage .si-fan.spread.n2 img{width:50%!important}
+.si-fan.spread.n3 img,.si-stage .si-fan.spread.n3 img{width:46%!important}
+.si-fan.spread.n4 img,.si-fan.spread.n5 img,.si-stage .si-fan.spread.n4 img,.si-stage .si-fan.spread.n5 img{width:42%!important}
+.si-fan.spread.n6 img,.si-fan.spread.n7 img,.si-stage .si-fan.spread.n6 img,.si-stage .si-fan.spread.n7 img{width:36%!important}
+.si-stage .si-fan.spread{width:min(100%,340px)}
+.si-fan.spread img:hover{z-index:30;transform:translateX(-50%) translateX(calc(var(--pos) * 12%)) translateY(-4%) rotate(calc(var(--pos) * 3deg)) scale(1.05)}
+.si-fan.spread img{transition:transform .25s cubic-bezier(.2,.9,.25,1.2)}
