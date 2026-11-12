@@ -870,3 +870,20 @@ def test_shop_tiles_have_a_size_that_the_administrator_can_change(client):
     edited = client.post('/api/admin/new-year/shop/%s/edit' % iid, headers=admin, json={'kind': 'GRAM', 'amount': '1', 'price_balls': '10', 'size': 'large'})
     assert edited.status_code == 200
     assert next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == iid)['size'] == 'large'
+
+
+def test_shop_item_description_is_editable_and_limited(client):
+    admin = signed(42)
+    client.get('/api/me', headers=admin)
+    made = client.post('/api/admin/new-year/shop', headers=admin,
+                       json={'kind': 'GRAM', 'amount': '1', 'price_balls': '10', 'description': '  Тёплый   подарок \n для всех  '})
+    iid = made.json['id']
+    item = next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == iid)
+    assert item['description'] == 'Тёплый подарок для всех'
+    edited = client.post('/api/admin/new-year/shop/%s/edit' % iid, headers=admin,
+                         json={'kind': 'GRAM', 'amount': '1', 'price_balls': '10', 'description': 'x' * 400})
+    assert edited.status_code == 200
+    item = next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == iid)
+    assert len(item['description']) == 240
+    cleared = client.post('/api/admin/new-year/shop/%s/edit' % iid, headers=admin, json={'kind': 'GRAM', 'amount': '1', 'price_balls': '10'})
+    assert next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == iid)['description'] == ''

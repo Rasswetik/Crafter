@@ -66,3 +66,58 @@
 .si-size-select{padding:6px 8px;border-radius:10px;background:#ffffff0f;border:1px solid #ffffff22;color:inherit;font-size:12.5px}
 .si-size-select option{background:#1b1d22;color:#f2f2f2}
 @media(prefers-reduced-motion:reduce){.sz-ghost,.sz-grid .ny-lot{animation:none}}
+
+/* ---- bigger pictures, a spread fan that may run out of the frame, living tiles ---- */
+.si-tile{transition:transform .28s cubic-bezier(.2,.9,.25,1.25),box-shadow .28s,border-color .28s;animation:si-tile-in .55s cubic-bezier(.2,.9,.25,1.1) both;animation-delay:calc(var(--n,0) * 45ms)}
+.si-tile:hover{transform:translateY(-4px) scale(1.012);border-color:rgb(var(--ac) / .65);box-shadow:0 16px 38px rgb(var(--ac) / .28),inset 0 1px #ffffff22}
+.si-tile:active{transform:scale(.985)}
+.si-tile .ny-lot-art{background:radial-gradient(circle at 50% 34%,rgb(var(--ac) / .34),#1d2330 70%)}
+.si-tile .ny-lot-art img[src$="gram.svg"],.si-tile .ny-lot-art img[src$="new-year-ornament.svg"]{width:62%;height:62%;filter:drop-shadow(0 8px 14px #0008)}
+.si-tile .si-solo{width:84%;height:84%;object-fit:contain;filter:drop-shadow(0 10px 16px #0008);animation:si-float 5.5s ease-in-out infinite;animation-delay:calc(var(--n,0) * -.7s)}
+.si-tile .ny-lot-price{position:relative;overflow:hidden}
+.si-tile .ny-lot-price::after{content:"";position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,#ffffff40 50%,transparent 65%);transform:translateX(-130%);animation:si-price-shine 4.6s ease-in-out infinite;animation-delay:calc(var(--n,0) * .4s);pointer-events:none}
+.si-off{animation:si-off-pulse 2.6s ease-in-out infinite}
+/* the fan: big central pack, the neighbours stand out to the sides and may leave the frame */
+.si-tile .ny-lot-art{overflow:hidden}
+.si-fan.spread{animation:si-float 6.5s ease-in-out infinite}
+.si-fan.spread img,.si-stage .si-fan.spread img{--sp:15%;width:54%!important;bottom:3%;max-height:96%;
+  transform:translateX(-50%) translateX(calc(var(--pos) * var(--sp))) translateY(calc(var(--apos) * 2.2%)) rotate(calc(var(--pos) * 5deg));
+  animation:si-fan-in .75s cubic-bezier(.2,.9,.25,1.15) both;animation-delay:calc(var(--apos) * 70ms + var(--n,0) * 30ms + .05s);
+  transition:transform .35s cubic-bezier(.2,.9,.25,1.2);filter:drop-shadow(0 6px 10px rgba(0,0,0,.5))}
+.si-fan.spread.n2 img,.si-stage .si-fan.spread.n2 img{width:62%!important;--sp:20%}
+.si-fan.spread.n3 img,.si-stage .si-fan.spread.n3 img{width:58%!important;--sp:18%}
+.si-fan.spread.n4 img,.si-fan.spread.n5 img,.si-stage .si-fan.spread.n4 img,.si-stage .si-fan.spread.n5 img{width:54%!important;--sp:16%}
+.si-fan.spread.n6 img,.si-fan.spread.n7 img,.si-stage .si-fan.spread.n6 img,.si-stage .si-fan.spread.n7 img{width:52%!important;--sp:15%}
+.si-tile:hover .si-fan.spread img{--sp:19%}
+.si-fan.spread img:hover{z-index:40}
+.si-stage .si-fan.spread{width:min(100%,420px)}
+.si-fan-count{animation:si-off-pulse 3s ease-in-out infinite}
+.si-sz-wide .ny-lot-art,.si-sz-banner .ny-lot-art,.si-sz-large .ny-lot-art{overflow:hidden}
+@keyframes si-tile-in{from{opacity:0;transform:translateY(16px) scale(.96)}}
+@keyframes si-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-3.5%)}}
+@keyframes si-fan-in{from{opacity:0;transform:translateX(-50%) translateY(30%) rotate(0) scale(.65)}}
+@keyframes si-price-shine{0%,60%{transform:translateX(-130%)}85%,100%{transform:translateX(130%)}}
+@keyframes si-off-pulse{0%,100%{filter:none}50%{filter:brightness(1.18) drop-shadow(0 0 6px rgba(255,120,140,.55))}}
+.si-desc-count{display:block;margin-top:4px}
+.adm-field textarea{width:100%;resize:vertical;padding:11px 13px;border-radius:12px;background:#ffffff0d;border:1px solid #ffffff24;color:inherit;font:inherit;font-size:14px;line-height:1.45}
+.adm-field textarea:focus{outline:none;border-color:#4aa8ff}
+@media(prefers-reduced-motion:reduce){.si-tile,.si-tile .si-solo,.si-fan.spread,.si-fan.spread img,.si-tile .ny-lot-price::after,.si-off,.si-fan-count{animation:none!important}}
+
+/* ---- wide, large and banner tiles: the picture area is narrow or tall, so the fan fills it and may leave the frame ---- */
+.si-sz-wide .ny-lot-art,.si-sz-banner .ny-lot-art{min-height:0;aspect-ratio:4/5;height:auto;align-self:center}
+.si-sz-wide .si-fan.spread img,.si-sz-banner .si-fan.spread img{width:86%!important;--sp:24%;bottom:7%;max-height:88%}
+.si-sz-wide .si-fan.spread.n2 img,.si-sz-banner .si-fan.spread.n2 img{width:92%!important;--sp:30%}
+.si-sz-wide .si-fan.spread.n3 img,.si-sz-banner .si-fan.spread.n3 img{width:88%!important;--sp:27%}
+.si-sz-wide .si-solo,.si-sz-banner .si-solo{width:78%;height:78%}
+.si-sz-large .si-fan.spread img{width:48%!important;--sp:15%}
+.si-sz-large .si-fan.spread.n2 img{width:56%!important;--sp:19%}
+.si-sz-wide .si-desc{-webkit-line-clamp:4;font-size:12.5px}
+.si-sz-banner .si-desc{-webkit-line-clamp:3}
+.si-sz-large .si-desc{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+@media(max-width:560px){
+  .si-sz-wide{grid-template-columns:40% minmax(0,1fr)}
+  .si-sz-wide .ny-lot-art{aspect-ratio:3/4}
+  .si-sz-wide .si-desc{-webkit-line-clamp:3;font-size:12px;margin:4px 0 6px}
+  .si-sz-wide .ny-lot-name{font-size:16px;margin-top:4px}
+  .si-sz-banner .ny-lot-art{aspect-ratio:3/4}
+}
