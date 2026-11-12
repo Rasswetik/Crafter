@@ -14,13 +14,14 @@ const gram = value => `${typeof gramIcon === 'function' ? gramIcon() : ''}<b>${m
 const two = n => String(n).padStart(2, '0');
 const heart = on => `<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 20.5s-7.5-4.6-9.2-9.4C1.8 8 3.4 4.8 6.6 4.5c2-.2 3.8.9 5.4 3 1.6-2.1 3.4-3.2 5.4-3 3.2.3 4.8 3.5 3.8 6.6-1.7 4.8-9.2 9.4-9.2 9.4Z" fill="${on ? '#ff5d73' : 'none'}" stroke="${on ? '#ff5d73' : 'currentColor'}" stroke-width="2" stroke-linejoin="round"/></svg>`;
 
+const feeText = () => String(Number(ui.feePercent || 4));
 function remaining(auction) { return Math.max(0, auction.ends_at - nowSec()); }
 function shortTime(left) {
     const d = Math.floor(left / 86400), h = Math.floor(left % 86400 / 3600), m = Math.floor(left % 3600 / 60), s = left % 60;
     return d ? `${d}д ${two(h)}ч ${two(m)}м` : `${two(h)}ч ${two(m)}м ${two(s)}с`;
 }
-function artOf(gift) {
-    return `<span class="auc-art" style="background:${giftBackdrop(gift)}"><img ${giftPicture(gift, true)} alt="" loading="lazy" draggable="false"></span>`;
+function artOf(gift, bare) {
+    return `<span class="auc-art"${bare ? '' : ` style="background:${giftBackdrop(gift)}"`}><img ${giftPicture(gift, true)} alt="" loading="lazy" draggable="false"></span>`;
 }
 function params() {
     const f = ui.filters, q = new URLSearchParams({view: ui.view, sort: ui.sort});
@@ -39,9 +40,9 @@ function filterCount() {
 function cardHTML(a, index = 0) {
     const price = a.current_bid ?? a.start_price;
     const mark = a.own ? '<small>Ваш лот</small>' : a.leading ? '<small>Вы лидируете</small>' : '';
-    return `<article class="auc-card" data-auc="${esc(a.id)}" style="--i:${Math.min(index, 12)}">
+    return `<article class="auc-card" data-auc="${esc(a.id)}" style="--i:${Math.min(index, 12)};background:${giftBackdrop(a.gift)}">
         <button type="button" class="auc-open" data-open="${esc(a.id)}" aria-label="${esc(a.gift.name)}">
-            ${artOf(a.gift)}
+            ${artOf(a.gift, true)}
             <span class="auc-timer${remaining(a) < 300 ? ' hot' : ''}" data-auc-end="${a.ends_at}">${shortTime(remaining(a))}</span>
             <span class="auc-name"><b>${esc(a.gift.name)}</b><i>${a.gift.number ? '#' + esc(a.gift.number) : ''}</i></span>
         </button>
@@ -172,7 +173,7 @@ function detailHTML(a) {
         <div class="auc-bids">${(a.bids || []).length ? a.bids.map(b => `<div class="auc-bidrow${b.mine ? ' mine' : ''}">
             <span>${esc(b.user)}${b.mine ? ' (вы)' : ''}</span><b>${gram(b.amount)}</b><small>${timeAgo(b.created)}</small></div>`).join('')
             : '<div class="auc-bidrow none">Ставок пока нет</div>'}</div>
-        <p class="auc-note">Ставка списывается сразу и возвращается, если её перебьют. Ставка в последние 2 минуты продлевает аукцион на 2 минуты. Комиссия продавца — ${esc(ui.feePercent || '4')}%.</p>
+        <p class="auc-note">Ставка списывается сразу и возвращается, если её перебьют. Ставка в последние 2 минуты продлевает аукцион на 2 минуты. Комиссия продавца — ${feeText()}%.</p>
         <div class="auc-action">${action}</div>
     </div>`;
 }
@@ -299,7 +300,7 @@ async function openCreate(preselect) {
             <button type="button" class="auc-chip" data-minutes="custom" aria-pressed="false">Своя</button></div>
         <div class="auc-two" id="ac-custom" hidden><label>Значение<input class="auc-input" id="ac-value" inputmode="numeric" maxlength="5" value="2"></label>
             <label>Единицы<select class="auc-input" id="ac-unit"><option value="1">минут</option><option value="60">часов</option><option value="1440" selected>дней</option></select></label></div>
-        <p class="auc-hint">От 30 минут до 30 дней. Подарок будет заблокирован до конца аукциона. Снять аукцион можно только до первой ставки. Комиссия с продажи — ${esc(ui.feePercent || '4')}%.</p>
+        <p class="auc-hint">От 30 минут до 30 дней. Подарок будет заблокирован до конца аукциона. Снять аукцион можно только до первой ставки. Комиссия с продажи — ${feeText()}%.</p>
         <p class="auc-error" role="alert" hidden></p>
         <div class="auc-action"><button type="button" class="auc-main" id="ac-send">Выставить на аукцион</button></div>
     </div>`);

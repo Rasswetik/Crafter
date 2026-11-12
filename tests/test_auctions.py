@@ -198,3 +198,11 @@ def test_notices_for_outbid_leader_and_seller(world):
     targets = [(m['chat_id'], 'перебили' in m['text'] or 'ставку' in m['text']) for m in monkey]
     assert (43, True) in targets and (42, True) in targets
     assert any(m['chat_id'] == 43 and 'перебили' in m['text'] for m in monkey)
+
+
+def test_sql_stays_portable_to_postgres():
+    """Production runs on PostgreSQL: SQLite-only columns such as rowid must not appear in the queries."""
+    import pathlib
+    source = (pathlib.Path(__file__).resolve().parent.parent / 'auctions.py').read_text(encoding='utf-8')
+    assert 'rowid' not in source.lower()
+    assert 'INSERT OR' not in source.upper()
