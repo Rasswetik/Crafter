@@ -105,7 +105,7 @@ def install_auctions(app, db, auth, record, notify_sale=None, notify_purchase=No
             item['bids'] = [{'user': person(b['user_id']), 'amount': b['amount'], 'created': b['created'],
                              'mine': b['user_id'] == uid}
                             for b in db().execute("""SELECT user_id,amount,created FROM crafter_auction_bids
-                                WHERE auction_id=? ORDER BY created DESC,id DESC LIMIT 12""", (row['id'],))]
+                                WHERE auction_id=? ORDER BY created DESC,CAST(amount AS NUMERIC) DESC LIMIT 12""", (row['id'],))]
         return item
 
     def settle(row):
