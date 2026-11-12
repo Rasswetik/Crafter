@@ -278,3 +278,10 @@ select.auc-input option,.auc-sort select option{background:#1b1d22;color:#f2f2f2
 .auc-detail .auc-action{backdrop-filter:none;-webkit-backdrop-filter:none;background:#1e1e1e;box-shadow:0 -16px 14px -2px #1e1e1e;margin:0 -2px;padding:12px 2px 6px}
 .auc-hero .gift-animation-layer,.auc-hero .gift-animation-replay{inset:0}
 .auc-hero .gift-animation-replay{cursor:pointer}
+
+/* ---- the original PNG (background and pattern included) fills the lot ---- */
+.auc-card{aspect-ratio:1/1.1}
+.auc-card .auc-art .auc-art-main{left:0;top:0;width:100%;height:100%;aspect-ratio:auto;object-fit:cover;object-position:50% 25%;filter:none;animation:none;-webkit-mask-image:none;mask-image:none;max-width:none}
+.auc-hero .auc-art{aspect-ratio:1/1}
+.auc-hero .auc-art .auc-art-main{left:0;right:0;top:0;bottom:0;margin:0;width:100%;height:100%;max-width:none;object-fit:cover;filter:none;animation:none;-webkit-mask-image:none;mask-image:none}
+.auc-card .auc-open::after{height:48%;background:linear-gradient(transparent,#0009)}
