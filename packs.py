@@ -6,6 +6,7 @@ Gift prizes are catalog items: they can be sold back instantly for their value b
 """
 import threading
 import gzip
+from urllib.parse import quote
 import json
 import re
 import secrets
@@ -51,6 +52,10 @@ _FAMILIES = {
     'Arctic': (190, .50, .62), 'Steel Grey': (215, .12, .46), 'Nickel': (210, .07, .64), 'Chrome': (205, .10, .70),
     # more violets for Winter
     'Amethyst': (275, .45, .54), 'Orchid': (300, .40, .60), 'Plum': (300, .38, .34), 'Twilight': (255, .40, .38), 'Iris': (250, .55, .58), 'Mauve': (290, .25, .58),
+    # gingerbread, caramel and cocoa
+    'Caramel': (30, .62, .50), 'Cocoa': (22, .50, .32), 'Cinnamon': (18, .60, .40), 'Gingerbread': (26, .55, .42), 'Honey': (40, .75, .55),
+    'Toffee': (32, .50, .45), 'Chestnut': (14, .50, .36), 'Mahogany': (10, .60, .28), 'Copper': (24, .62, .48), 'Biscuit': (36, .45, .58),
+    'Maple': (20, .70, .42), 'Mocha': (24, .35, .34), 'Burnt Sienna': (16, .68, .43), 'Praline': (28, .40, .40), 'Sugar Brown': (30, .55, .36),
 }
 
 
@@ -74,13 +79,15 @@ PACK_BACKDROPS = {
                'Amethyst', 'Orchid', 'Plum', 'Twilight', 'Iris', 'Mauve', 'Midnight Blue', 'Indigo Dye'),                          # violet dusk
     'silverfrost': ('Gunmetal', 'Titanium', 'Graphite', 'Slate', 'Pewter', 'Frost', 'Glacier', 'Cloud', 'Mist', 'Silver',
                     'Arctic', 'Steel Grey', 'Nickel', 'Chrome', 'Ice Blue', 'Steel Blue'),                                           # silver and ice
+    'gingerbread': ('Caramel', 'Cocoa', 'Cinnamon', 'Gingerbread', 'Honey', 'Toffee', 'Chestnut', 'Mahogany',
+                    'Copper', 'Biscuit', 'Maple', 'Mocha', 'Burnt Sienna', 'Praline', 'Sugar Brown', 'Amber'),                       # biscuit, caramel and cocoa
     'christmas': ('Burgundy', 'Raspberry', 'Carmine', 'Rosewood', 'Strawberry', 'Coral Red', 'Tomato', 'Coral',
                   'Crimson', 'Ruby', 'Cherry', 'Brick Red', 'Garnet', 'Scarlet', 'Poinsettia', 'Persimmon'),                       # reds, one orange
 }
 
 
 # The accent colour of a pack (r g b): the opening screen glows with it instead of one common blue.
-PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222'}
+PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80'}
 DEFAULT_ACCENT = '59 134 238'
 
 
@@ -592,6 +599,47 @@ def install_packs(app, db, auth, record, audit):
                         db().execute("UPDATE pack_prizes SET weight=? WHERE id=?", (round(total * w / sum(inv), 6), r['id']))
             db().execute("INSERT INTO settings(key,payload) VALUES('packs_christmas_v3','1') ON CONFLICT(key) DO NOTHING")
 
+
+    # ---- Gingerbread House: a premium pack (opening is worth about 0.5 TON), ten gifts of the gingerbread set ----
+    GINGERBREAD_IMAGE = '/static/assets/packs/gingerbread-pack.webp'
+    GINGERBREAD_GIFTS = (('snowglobe', 'Ginger House', '25'), ('gingercookie', 'Original', '55'), ('jinglebells', 'Gingerbread', '27'),
+                         ('winterwreath', 'Gingerbread', '19'), ('hangingstar', 'Gingerbread', '33'), ('holidaydrink', 'Ginger Joker', '11'),
+                         ('candycane', 'Amber Glitter', '20'), ('xmasstocking', 'Caramel Fest', '20'), ('spicedwine', 'Chocolate Cherry', '16'),
+                         ('eternalcandle', 'Hot Cocoa', '18'))
+    GINGERBREAD_GRAM = (('0.1', 640), ('0.2', 165), ('0.3', 78), ('0.5', 46), ('0.75', 25), ('1', 17), ('1.5', 8.5), ('2', 4.6), ('3', 2.4),
+                        ('5', 1.1), ('10', .4), ('20', .13), ('50', .03), ('100', .007))
+    GINGERBREAD_CARDS = {'1': 50, '2': 32, '3': 12, '4': 5, '5': 1}          # 1.7 cards per opening
+    GINGERBREAD_NFT_SHARE = 0.0025                                            # one card in 400 is a gift: about one pack in 230
+
+    def seed_gingerbread_pack():
+        """Once: the Gingerbread House pack. Gifts are worth 11-55, the balance ladder reaches 100 GRAM, the rarest gift comes about once in 6000 packs."""
+        if db().execute("SELECT 1 FROM settings WHERE key='packs_gingerbread_v1'").fetchone():
+            return
+        with db():
+            if not pack_row('gingerbread'):
+                db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
+                             ('gingerbread', 'Gingerbread House', GINGERBREAD_IMAGE, json.dumps(GINGERBREAD_CARDS), 0, 0, 1, int(time.time())))
+                pos = 0
+                for amount, weight in GINGERBREAD_GRAM:
+                    put_prize('gingerbread', pos, 'GRAM', amount, '', 'GRAM', '', amount, weight)
+                    pos += 1
+                gifts = []
+                for cid, model, value in GINGERBREAD_GIFTS:
+                    col = catalog().get(cid)
+                    if not col:
+                        continue
+                    name = singular(col.get('name') or cid)
+                    m = catalog_model(cid, model)
+                    image = m['image'] if m else 'https://api.changes.tg/model/%s/%s.png?size=128' % (quote(name), quote(model))
+                    gifts.append((cid, name, image, value, model))
+                gram = sum(w for _, w in GINGERBREAD_GRAM)
+                total = GINGERBREAD_NFT_SHARE / (1 - GINGERBREAD_NFT_SHARE) * gram
+                inv = [1 / max(float(g[3]), 1.0) for g in gifts]
+                for g, w in zip(gifts, inv):
+                    put_prize('gingerbread', pos, 'NFT', '', g[0], g[1], g[2], g[3], round(total * w / (sum(inv) or 1), 6), g[4])
+                    pos += 1
+            db().execute("INSERT INTO settings(key,payload) VALUES('packs_gingerbread_v1','1') ON CONFLICT(key) DO NOTHING")
+
     with app.app_context():
         tune_default_pack()
         seed_snowman_pack()
@@ -607,6 +655,7 @@ def install_packs(app, db, auth, record, audit):
         add_cherry_charm()
         seed_silverfrost_pack()
         tune_packs_better()
+        seed_gingerbread_pack()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""

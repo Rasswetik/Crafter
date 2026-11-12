@@ -373,7 +373,7 @@ def test_every_pack_has_its_own_backdrop_set():
     import packs
     names = {b[0] for b in packs.BACKDROPS}
     sets = {k: set(v) for k, v in packs.PACK_BACKDROPS.items()}
-    assert set(sets) == {'newyear', 'snowman', 'winter', 'christmas', 'silverfrost'} and all(v <= names and len(v) == 16 for v in sets.values())
+    assert set(sets) == {'newyear', 'snowman', 'winter', 'christmas', 'silverfrost', 'gingerbread'} and all(v <= names and len(v) == 16 for v in sets.values())
     for a in sets:
         for b in sets:
             if a < b:
@@ -423,6 +423,7 @@ def test_christmas_carol_pack_and_one_stingy_table(client):
     client.get('/api/me', headers=player)
     all_packs = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}
     xmas = all_packs['christmas']
+    all_packs.pop('gingerbread')                                                   # the premium pack has its own tables
     assert xmas['title'] == 'Christmas Carol' and xmas['image'].endswith('christmas-pack.webp')
     gifts = [p for p in xmas['prizes'] if p['kind'] == 'NFT']
     assert [(g['collection_id'], g['model']) for g in gifts] == [
@@ -467,6 +468,8 @@ def test_packs_hold_one_card_in_60_percent_of_openings_and_carry_an_accent(clien
     admin, player = signed(42), signed(43)
     client.get('/api/me', headers=player)
     for pack in client.get('/api/admin/new-year/packs', headers=admin).json['packs']:
+        if pack['id'] == 'gingerbread':                                           # the premium pack has its own card counts
+            continue
         weights = {int(k): v for k, v in pack['card_weights'].items()}
         assert abs(weights[1] / sum(weights.values()) - .52) < 1e-9 and max(weights) == 6
     client.post('/api/admin/users/43/packs', headers=admin, json={'pack_id': 'christmas'})
@@ -817,3 +820,19 @@ def test_russian_transfer_messages_and_withdrawal_receipt(monkeypatch):
     assert receipt['reply_markup']['inline_keyboard'][0][0] == {'text': 'Открыть ссылку', 'url': 'https://telegram.me/nft/LolPop-168447'}
     telegram_bot.notify_withdrawal({}, 43, gift, True, '', 'tok', 'thermos')
     assert '@thermos' in sent[-1]['text'] and 'передан в ваш Thermos' in sent[-1]['text']
+
+
+def test_gingerbread_pack_is_seeded_with_ten_gifts_and_a_balance_ladder(client):
+    answer = client.get('/api/packs/gingerbread/contents', headers=signed())
+    assert answer.status_code == 200
+    data = answer.json
+    gifts = [p for p in data['prizes'] if p['kind'] == 'NFT']
+    assert len(gifts) == 10 and data['pack']['title'] == 'Gingerbread House'
+    assert {p['model'] for p in gifts} >= {'Ginger House', 'Original', 'Hot Cocoa', 'Ginger Joker'}
+    assert max(float(p['value']) for p in data['prizes']) == 100.0
+    nft_share = sum(p['chance'] for p in gifts)
+    assert 0.2 < nft_share < 0.4                                  # a gift on about one card in 400
+    cards = {c['count']: c['chance'] for c in data['cards']}
+    expected = sum(k * v for k, v in cards.items()) / 100
+    value = sum(float(p['value']) * p['chance'] / 100 for p in data['prizes']) * expected
+    assert 0.40 <= value <= 0.52                                  # an opening is worth about 0.5 TON
