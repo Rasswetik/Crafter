@@ -1,5 +1,6 @@
-/* The New Year market in the style of a game shop: sections on the left, offers with juicy titles whose colour follows the rarity,
-   a window of the lot with what it includes and a big buy button. Horizontal on computers, vertical on phones.
+/* The New Year market in the style of a game shop: sections on the left (an icon, a name and a picture, each section has its own
+   background), offers with juicy titles whose colour follows the rarity, a window of the lot with a confirmation of the purchase,
+   an animated reveal of what was bought and a panel of chances. Horizontal on computers, vertical on phones.
    The same file renders the standalone preview page (/shop/preview) that the administrator sees for the phone and the computer. */
 (function () {
 'use strict';
@@ -7,11 +8,66 @@ const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? '').replace(/[&
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
 const ORN = '<img class="fm-ball" src="/static/assets/new-year-ornament.svg" alt="">';
 const SI = () => window.crafterShopItems || {};
-const NAMES = {common: 'Акция', rare: 'Особая акция', epic: 'Эпическая акция', mythic: 'Мифическая акция', legend: 'Легендарная акция', res: 'Ресурсы'};
+const NAMES = {common: 'Акция', rare: 'Редкая акция', special: 'Особая акция', epic: 'Эпическая акция', mythic: 'Мифическая акция', legend: 'Легендарная акция', res: 'Ресурсы'};
 const TYPES = {GRAM: 'Баланс GRAM', BALL: 'Шары', PACK: 'Пак', BUNDLE: 'Набор', STAR: 'Подарок Telegram', PROMO: 'Промокод', REWARD: 'Награда сообщества'};
 const WIDTH = {small: 1, tall: 1, wide: 1.6, large: 2, banner: 2.6};
 let offset = 0;                                                    // server time minus the time of this device
 const nowSec = () => Math.floor(Date.now() / 1000) + offset;
+const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.crafterAnimations === 'off';
+
+/* ---------- registries: icons, backgrounds ---------- */
+const S = (body, extra) => '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"' + (extra || '') + '>' + body + '</svg>';
+const ICONS = {
+    star: S('<path d="m12 2 2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 20.9l1.6-7L2 9.200l7.100-.6z"/>'),
+    pack: S('<path d="M7 2h10l2 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5zm1.5 3L8 6h8l-.5-1zM9 10v2h6v-2zm0 4v2h4v-2z"/>'),
+    bundle: S('<path d="M3 8h18v4H3zm1 5h16v8H4zm7-5h2v13h-2zM12 8C10 3 6 4.500 8 7zm0 0c2-5 6-3.500 4-1z"/>'),
+    gem: S('<path d="M12 2 4 8l8 14 8-14zm0 4.200L15.500 9 12 15 8.500 9z"/>'),
+    cup: S('<path d="M6 3h12v3a6 6 0 0 1-5 5.900V15h3v2H8v-2h3v-3.100A6 6 0 0 1 6 6zM4 5h2v3a3 3 0 0 1-2-2zm16 0v1a3 3 0 0 1-2 2.800V5zM7 19h10v2H7z"/>'),
+    gift: S('<path d="M3 9h18v4H3zm1 5h7v7H4zm9 0h7v7h-7zM11 9h2v12h-2zM12 9C10 3 6 5 8 8zm0 0c2-6 6-4 4-1z"/>'),
+    tree: S('<path d="M12 2 8.500 8H10l-3.500 5H8.500L5 19h14l-3.500-6h2L14 8h1.500z"/><rect x="10.800" y="19" width="2.400" height="3" rx=".6"/>'),
+    flake: S('<path d="M11 2h2v5.500l3.500-2 1 1.700-4.500 2.600v2.400l2.100-1.200 3.700-2.100.9 1.700-3.700 2.100L18 13.900l-1 1.700-2.100-1.200-2.900 1.700V20.600l1.900-1.100 1 1.700-2.900 1.700-2.900-1.700 1-1.700 1.900 1.100v-3.800l-2.900-1.700-2.100 1.200-1-1.700L8.100 11.800 4.400 9.700l.9-1.700 3.700 2.100L11 11.300V8.900L6.500 6.400l1-1.700L11 6.700z"/>'),
+    sleigh: S('<path d="M3 16h14a3 3 0 0 0 3-3V9h-2v4H8l-.5-5H3zm1 3h15a3 3 0 0 0 3-3h-2a1 1 0 0 1-1 1H4zM5 9.500V8h1.500l.3 4H5z"/>'),
+    bell: S('<path d="M12 2a1.500 1.500 0 0 1 1.500 1.500V4.200A6 6 0 0 1 18 10v4l2 3H4l2-3v-4a6 6 0 0 1 4.500-5.800V3.500A1.500 1.500 0 0 1 12 2zM10 19h4a2 2 0 0 1-4 0z"/>'),
+    candy: S('<path d="M15.500 2A5.500 5.500 0 0 0 10 7.500V10l-6 11 3 1 6.500-11.500V7.500a1.500 1.500 0 0 1 3 0V9h3V7.500A5.500 5.500 0 0 0 15.500 2z"/>'),
+    crown: S('<path d="m3 8 4.500 4L12 5l4.500 7L21 8l-2 11H5z"/>'),
+    fire: S('<path d="M12 2c1 3.500 5 5.500 5 10a5 5 0 0 1-10 0c0-2 1-3.500 2-4.500 0 2 1 3 2 3 0-3-1-5 1-8.500z"/>'),
+    heart: S('<path d="M12 21s-8-4.700-9.500-10A5 5 0 0 1 12 7a5 5 0 0 1 9.500 4C20 16.300 12 21 12 21z"/>'),
+    bag: S('<path d="M6 7V6a6 6 0 0 1 12 0v1h2l1 15H3L4 7zm2 0h8V6a4 4 0 0 0-8 0z"/>'),
+};
+ICONS.featured = ICONS.star; ICONS.packs = ICONS.pack; ICONS.bundles = ICONS.bundle; ICONS.res = ICONS.gem; ICONS.rewards = ICONS.cup; ICONS.gifts = ICONS.gift;
+const BG_KEYS = [['village', 'Деревня'], ['snow', 'Снегопад'], ['night', 'Звёздная ночь'], ['aurora', 'Северное сияние'], ['garland', 'Гирлянды'], ['frost', 'Мороз'], ['candy', 'Леденцы'],
+    ['blue', 'Синий'], ['violet', 'Фиолетовый'], ['crimson', 'Алый'], ['emerald', 'Изумрудный'], ['gold', 'Золотой']];
+const CARD_BG_KEYS = [['', 'По редкости'], ['ny-snow', 'Снежная ночь'], ['ny-candy', 'Леденцы'], ['ny-lights', 'Гирлянды'], ['ny-frost', 'Иней'], ['ny-ginger', 'Пряник'], ['ny-bells', 'Колокольчики'], ['ny-fire', 'Камин'],
+    ['ny-aurora', 'Сияние'], ['c-blue', 'Синий'], ['c-violet', 'Фиолетовый'], ['c-crimson', 'Алый'], ['c-emerald', 'Изумрудный'], ['c-gold', 'Золотой'], ['c-pink', 'Розовый']];
+const DEFAULT_SECTIONS = [
+    {id: 'featured', title: 'Акции', kind: 'smart', rule: 'featured', icon: 'builtin:star', preview: '', bg: 'village', enabled: true},
+    {id: 'packs', title: 'Паки', kind: 'smart', rule: 'packs', icon: 'builtin:pack', preview: '', bg: 'night', enabled: true},
+    {id: 'bundles', title: 'Наборы', kind: 'smart', rule: 'bundles', icon: 'builtin:bundle', preview: '', bg: 'candy', enabled: true},
+    {id: 'res', title: 'Ресурсы', kind: 'smart', rule: 'res', icon: 'builtin:gem', preview: '', bg: 'emerald', enabled: true},
+    {id: 'rewards', title: 'Награды', kind: 'smart', rule: 'rewards', icon: 'builtin:cup', preview: '', bg: 'gold', enabled: true},
+    {id: 'gifts', title: 'Подарки', kind: 'smart', rule: 'gifts', icon: 'builtin:gift', preview: '', bg: 'snow', enabled: true},
+];
+function iconHTML(icon, rule) {
+    if (icon && icon.startsWith('builtin:')) return ICONS[icon.slice(8)] || ICONS.star;
+    if (icon && /^\/media\/shop\//.test(icon)) return '<img class="fm-ico-img" src="' + e(icon) + '" alt="" draggable="false">';
+    return ICONS[rule] || ICONS.star;
+}
+function railButton(s) {
+    return '<button type="button" class="fm-sec" data-fm-sec="' + e(s.id) + '" title="' + e(s.title) + '"><span class="fm-ico">' + iconHTML(s.icon, s.rule) + '</span><span class="fm-lab">' + e(s.title) + '</span></button>' +
+        (s.preview && /^\/media\/shop\//.test(s.preview) ? '<img class="fm-pic" src="' + e(s.preview) + '" alt="" draggable="false">' : '');
+}
+function bgHTML(key) {
+    if (key && key.startsWith('image:')) return '<div class="fm-bgx bg-image" style="background-image:url(' + e(key.slice(6)) + ')"></div>';
+    if (key === 'village' && window.crafterVillage) return '<div class="fm-bgx bg-village">' + window.crafterVillage() + '</div>';
+    const k = key === 'village' ? 'night' : (key || 'night');
+    let kids = '';
+    if (k === 'snow') for (let i = 0; i < 38; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 37 + 7) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (9 + i % 7) + 's;--d:-' + ((i * 1.7) % 11).toFixed(1) + 's;--dx:' + (i % 2 ? 24 : -24) + 'px"></i>';
+    if (k === 'night') for (let i = 0; i < 46; i++) kids += '<i class="fm-star" style="--x:' + ((i * 53 + 11) % 100) + '%;--y:' + ((i * 29 + 5) % 100) + '%;--s:' + (1 + i % 3) + 'px;--d:-' + ((i * .7) % 5).toFixed(1) + 's"></i>';
+    if (k === 'aurora') kids = '<i class="fm-blob a"></i><i class="fm-blob b"></i><i class="fm-blob c"></i>';
+    if (k === 'garland') { let b = ''; for (let i = 0; i < 18; i++) b += '<i class="fm-bulb" style="--x:' + (i * 5.8).toFixed(1) + '%;--c:' + ['#ff5c6e', '#ffd27a', '#6ac7ff', '#9be37f', '#c39bff'][i % 5] + ';--d:-' + ((i * .45) % 3).toFixed(1) + 's"></i>'; kids = '<span class="fm-wire"></span>' + b; }
+    if (k === 'frost') for (let i = 0; i < 9; i++) kids += '<i class="fm-crystal" style="--x:' + ((i * 41 + 9) % 100) + '%;--y:' + ((i * 23 + 13) % 100) + '%;--s:' + (50 + (i * 37) % 90) + 'px;--r:' + (i * 31 % 90) + 'deg"></i>';
+    return '<div class="fm-bgx bg-' + e(k) + '">' + kids + '</div>';
+}
 
 function rarityOf(it) {
     if (it.rarity && it.rarity !== 'auto') return it.rarity;
@@ -34,6 +90,7 @@ function descOf(it) {
     return it.description || (d ? d(it) : '');
 }
 const priceOf = it => it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Бесплатно</b>';
+const headingOf = it => it.heading || NAMES[rarityOf(it)];
 
 /* ---------- one offer card ---------- */
 function card(o, opts = {}) {
@@ -42,10 +99,13 @@ function card(o, opts = {}) {
         : it.left !== null && it.left !== undefined ? '<span class="fm-tab">Осталось ' + num(it.left) + '</span>' : '';
     const off = it.discount_percent > 0 ? '<span class="fm-off"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '';
     const showDesc = ['wide', 'large', 'banner'].includes(size) && descOf(it);
+    const cbg = it.card_bg || '';
+    const cbClass = cbg ? (cbg.startsWith('image:') ? ' cb-image' : ' cb-' + cbg) : '';
+    const cbStyle = cbg.startsWith('image:') ? ' style="background-image:linear-gradient(rgba(8,12,40,.18),rgba(8,12,40,.5)),url(' + e(cbg.slice(6)) + ')"' : '';
     return '<div class="fm-card r-' + r + ' fm-s-' + size + (opts.board ? ' is-board' : '') + '" data-fm="' + e(o.key) + '" style="--u:' + WIDTH[size] + '" tabindex="0" role="button" aria-label="' + e(it.title) + '">' +
         tab + (it.badge ? '<span class="fm-new">' + e(it.badge) + '</span>' : '') +
-        '<div class="fm-body"><i class="fm-rays"></i><i class="fm-dots"></i><i class="fm-glint"></i>' +
-        '<h3 class="fm-title">' + e(NAMES[r]) + '</h3>' +
+        '<div class="fm-body' + cbClass + '"' + cbStyle + '><i class="fm-rays"></i><i class="fm-dots"></i><i class="fm-glint"></i>' +
+        '<h3 class="fm-title">' + e(headingOf(it)) + '</h3>' +
         '<div class="fm-art">' + artOf(it) + '</div>' +
         '<div class="fm-name"><b>' + e(it.title) + '</b><small>' + e(TYPES[it.kind] || '') + (it.bundle > 1 && it.kind !== 'BUNDLE' ? ' ×' + it.bundle : '') + '</small>' +
         (showDesc ? '<p>' + e(descOf(it)) + '</p>' : '') + '</div>' +
@@ -66,66 +126,165 @@ function includes(o) {
     }
     return out;
 }
+function packImages(it) {
+    const list = [];
+    (it.contents || []).forEach(c => { for (let i = 0; i < Math.min(c.count, 3); i++) list.push(c.pack.image); });
+    if (!list.length && (it.pack?.image || it.kind === 'PACK')) for (let i = 0; i < Math.min(it.bundle || 1, 8); i++) list.push(it.pack?.image || it.image_url);
+    return list.slice(0, 9);
+}
 
-/* ---------- the window of a lot ---------- */
-function stage(o, ctx) {
-    const it = o.it, r = rarityOf(it), phone = innerWidth < 760;
-    document.querySelector('.fm-stage')?.remove();
+/* ---------- the panel of chances ---------- */
+const chanceCache = new Map();
+async function chancesData(pid, ctx) {
+    if (ctx.preview) throw new Error('В предпросмотре шансы не показываются');
+    if (!chanceCache.has(pid)) chanceCache.set(pid, api('packs/' + encodeURIComponent(pid) + '/contents'));
+    try { return await chanceCache.get(pid); } catch (error) { chanceCache.delete(pid); throw error; }
+}
+const tierOf = ch => ch < 1 ? 'legend' : ch < 3 ? 'epic' : ch < 10 ? 'rare' : 'common';
+const pct = v => (v < 0.01 ? '<0,01' : v < 1 ? v.toFixed(2).replace('.', ',') : v < 10 ? v.toFixed(1).replace('.', ',') : Math.round(v)) + '%';
+function openChances(packs, ctx) {
+    document.querySelector('.fm-chances')?.remove();
     const el = document.createElement('div');
-    el.className = 'fm-stage r-' + r;
-    const inc = includes(o);
-    const lines = descOf(it).split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 5);
-    const canBuy = !(ctx.preview);
-    el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i><div class="fm-top"><button type="button" class="fm-back" data-fm-close aria-label="Назад"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>' +
-        '<span class="fm-bal">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span></div>' +
-        '<div class="fm-info"><div class="fm-plate"><small>' + e(NAMES[r]) + '</small><h2>' + e(it.title) + '</h2></div>' +
-        (lines.length ? '<ul class="fm-lines">' + lines.map(l => '<li>' + e(l) + '</li>').join('') + '</ul>' : '') + '</div>' +
-        '<div class="fm-hero"><div class="fm-floor"></div><div class="fm-heroart">' + artOf(it) + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
-        '<div class="fm-inc"><div class="fm-inc-head"><b>Включает</b>' + (inc.some(x => x.pack) ? '<button type="button" class="fm-q" data-fm-chances aria-label="Что внутри">?</button>' : '') + '</div>' +
-        '<div class="fm-inc-grid">' + inc.map(x => '<button type="button" class="fm-ic"' + (x.pack ? ' data-pk-inside="' + e(x.pack) + '"' : '') + '><img src="' + e(x.img) + '" alt=""><b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
-        '<div class="fm-buy"><button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
-        '<p class="fm-err" role="alert"></p></div>';
+    el.className = 'fm-chances';
+    el.innerHTML = '<i class="fm-rays big"></i><div class="fm-ch-top"><h2>Шансы на награды</h2><button type="button" class="fm-x" data-fm-x aria-label="Закрыть">×</button></div>' +
+        (packs.length > 1 ? '<div class="fm-ch-tabs">' + packs.map((p, i) => '<button type="button" class="fm-ch-tab' + (i ? '' : ' is-on') + '" data-p="' + e(p.id) + '"><img src="' + e(p.image) + '" alt=""><span>' + e(p.title) + '</span></button>').join('') + '</div>' : '') +
+        '<div class="fm-ch-body" data-fm-ch><div class="fm-ch-load"><i></i><i></i><i></i></div></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
-    const close = () => { el.classList.remove('is-in'); setTimeout(() => el.remove(), 260); document.removeEventListener('keydown', onKey); };
+    const close = () => { el.classList.remove('is-in'); setTimeout(() => el.remove(), 240); document.removeEventListener('keydown', onKey); };
     const onKey = ev => { if (ev.key === 'Escape') close(); };
     document.addEventListener('keydown', onKey);
-    el.querySelector('[data-fm-close]').addEventListener('click', close);
-    window.crafterPacks?.bindContents?.(el);
-    el.querySelector('[data-fm-chances]')?.addEventListener('click', () => el.querySelector('[data-pk-inside]')?.click());
-    const btn = el.querySelector('[data-fm-buy]'), err = el.querySelector('.fm-err');
-    btn.addEventListener('click', async () => {
-        if (!canBuy) { err.textContent = 'Это предпросмотр: покупка отключена'; return; }
-        if (o.src === 'pack') { close(); window.crafterPacks.buy(o.p, ctx.refresh); return; }
-        if (o.src === 'cm') { close(); window.crafterCommunity.claim(o.m, ctx.refresh); return; }
-        btn.disabled = true; err.textContent = '';
+    el.querySelector('[data-fm-x]').addEventListener('click', close);
+    const body = el.querySelector('[data-fm-ch]');
+    const show = async pack => {
+        body.innerHTML = '<div class="fm-ch-load"><i></i><i></i><i></i></div>';
         try {
-            const rid = 'si-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random().toString(36).slice(2));
-            const res = await api('shop-items/buy', {item_id: it.id, request_id: rid});
-            if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
-            if (res.gram_balance !== undefined && state?.me) { state.me.balance = res.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
-            if (res.pack_id) { close(); await window.crafterPacks?.granted(res.pack_ids || [res.pack_id], ctx.refresh); return; }
-            if (res.gift_ids) { close(); toast('Подарок получен: он в «Мои подарки»'); ctx.refresh?.(); return; }
-            if (res.code) {
-                const cc = window.crafterCommunity;
-                el.querySelector('.fm-buy').innerHTML = cc.codeBlock(res.code);
-                cc.bindCode(el.querySelector('.fm-buy'), res.code); ctx.refresh?.(); return;
-            }
-            close(); toast(res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : 'Зачислено шаров: ' + num(res.balls_gain)); ctx.refresh?.();
-        } catch (error) { err.textContent = error.message; btn.disabled = false; }
+            const d = await chancesData(pack.id, ctx);
+            const nft = d.prizes.filter(p => p.kind === 'NFT').sort((a, b) => a.chance - b.chance), gram = d.prizes.filter(p => p.kind !== 'NFT').sort((a, b) => Number(a.amount) - Number(b.amount));
+            const maxCards = Math.max(...d.cards.map(c => c.count));
+            body.innerHTML = '<div class="fm-ch-head"><img src="' + e(d.pack.image || pack.image) + '" alt=""><div><b>' + e(d.pack.title || pack.title) + '</b><small>В паке от ' + Math.min(...d.cards.map(c => c.count)) + ' до ' + maxCards + ' карточек</small></div></div>' +
+                '<h4>Сколько карточек в паке</h4><div class="fm-ch-cards">' + d.cards.map(c => '<span class="fm-ch-chip"><b>' + c.count + '</b> ' + (c.count === 1 ? 'карточка' : c.count < 5 ? 'карточки' : 'карточек') + '<em>' + pct(c.chance) + '</em></span>').join('') + '</div>' +
+                (nft.length ? '<h4>Подарки</h4><div class="fm-ch-grid">' + nft.map((p, i) => '<div class="fm-ch-prize t-' + tierOf(p.chance) + '" style="--i:' + i + '"><em>' + pct(p.chance) + '</em><img src="' + e(p.image) + '" alt="" loading="lazy"><b>' + e(p.model || p.name) + '</b><small>' + e(p.model ? p.name : '') + '</small><u>' + num(p.value) + ' GRAM</u></div>').join('') + '</div>' : '') +
+                (gram.length ? '<h4>Баланс GRAM</h4><div class="fm-ch-cards gram">' + gram.map(p => '<span class="fm-ch-chip t-' + tierOf(p.chance) + '"><b>' + num(p.amount) + '</b> GRAM<em>' + pct(p.chance) + '</em></span>').join('') + '</div>' : '');
+        } catch (error) { body.innerHTML = '<p class="fm-ch-err">' + e(error.message) + '</p>'; }
+    };
+    show(packs[0]);
+    el.querySelectorAll('.fm-ch-tab').forEach(b => b.addEventListener('click', () => {
+        el.querySelectorAll('.fm-ch-tab').forEach(x => x.classList.toggle('is-on', x === b));
+        show(packs.find(p => p.id === b.dataset.p));
+    }));
+}
+
+/* ---------- the reveal after a purchase ---------- */
+function reveal(o, result, ctx, closeStage) {
+    const it = o.it, el = document.createElement('div');
+    el.className = 'fm-reveal r-' + rarityOf(it);
+    const ids = result.packIds || [], imgs = packImages(it), total = result.count || it.bundle || ids.length || 1;
+    const spawn = imgs.length ? imgs : [it.pack?.image || it.image_url || '/static/assets/gram.svg'];
+    const isPack = Boolean(result.packIds);
+    const fan = spawn.map((src, i) => {
+        const mid = (spawn.length - 1) / 2, x = (i - mid) * (spawn.length > 5 ? 11 : 15);
+        return '<img class="fm-rv-pack" src="' + e(src) + '" alt="" style="--x:' + x.toFixed(1) + '%;--r:' + ((i - mid) * 5).toFixed(1) + 'deg;--i:' + i + ';--z:' + (20 - Math.round(Math.abs(i - mid) * 2)) + '">';
+    }).join('');
+    const sparks = Array.from({length: 26}, (_, i) => '<i class="fm-rv-spark" style="--a:' + (i * 360 / 26).toFixed(0) + 'deg;--d:' + (120 + (i * 37) % 160) + 'px;--t:' + (.9 + (i % 5) * .12).toFixed(2) + 's;--c:' + ['#ffd36b', '#7cc8ff', '#ff7a9a', '#9be37f', '#ffffff'][i % 5] + '"></i>').join('');
+    let title, text, buttons;
+    if (isPack) {
+        title = 'Вы купили: <b>×' + num(total) + '</b>';
+        text = total > 1 ? 'Паки уже в инвентаре («Мои подарки»). Что с ними сделать?' : 'Пак уже в инвентаре («Мои подарки»). Что с ним сделать?';
+        buttons = '<button type="button" class="fm-btn green" data-rv-open>' + (total > 1 ? 'Открыть все (' + num(total) + ')' : 'Открыть сейчас') + '</button>' +
+            '<button type="button" class="fm-btn blue" data-rv-keep>Оставить в инвентаре</button>';
+    } else {
+        title = result.title || 'Покупка совершена';
+        text = result.text || '';
+        buttons = (result.html || '') + '<button type="button" class="fm-btn green" data-rv-keep>Отлично</button>';
+    }
+    el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i><div class="fm-rv-stage"><div class="fm-rv-burst">' + sparks + '</div><div class="fm-rv-packs">' + fan + '</div></div>' +
+        '<div class="fm-rv-panel"><small>Покупка совершена</small><h2>' + title + '</h2><p>' + e(text) + '</p><div class="fm-rv-btns">' + buttons + '</div></div>';
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('is-in'));
+    const done = () => { el.classList.remove('is-in'); setTimeout(() => { el.remove(); closeStage(); }, 260); ctx.refresh?.(); };
+    el.querySelector('[data-rv-keep]')?.addEventListener('click', done);
+    el.querySelector('[data-rv-open]')?.addEventListener('click', async () => {
+        if (ctx.preview || !ids.length) { done(); return; }
+        el.classList.remove('is-in'); setTimeout(() => el.remove(), 200); closeStage();
+        try { await window.crafterPacks.openMany(ids, ctx.refresh); } catch (error) { toast(error.message); }
     });
+    result.bind?.(el);
     return el;
 }
 
+/* ---------- the window of a lot ---------- */
+function stage(o, ctx) {
+    const it = o.it, r = rarityOf(it);
+    document.querySelector('.fm-stage')?.remove();
+    const el = document.createElement('div');
+    el.className = 'fm-stage r-' + r + (it.card_bg ? ' ' + (it.card_bg.startsWith('image:') ? '' : 'cb-' + it.card_bg) : '');
+    const inc = includes(o);
+    const lines = descOf(it).split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 5);
+    const packsIn = inc.filter(x => x.pack).map(x => ({id: x.pack, title: x.label, image: x.img}));
+    el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i>' +
+        '<button type="button" class="fm-back" data-fm-close aria-label="Назад"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>' +
+        '<span class="fm-bal">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span>' +
+        '<div class="fm-info"><div class="fm-plate"><small>' + e(headingOf(it)) + '</small><h2>' + e(it.title) + '</h2></div>' +
+        (lines.length ? '<ul class="fm-lines">' + lines.map(l => '<li>' + e(l) + '</li>').join('') + '</ul>' : '') + '</div>' +
+        '<div class="fm-hero"><div class="fm-floor"></div><div class="fm-heroart">' + artOf(it) + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
+        '<div class="fm-inc"><div class="fm-inc-head"><b>Включает</b>' + (packsIn.length ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
+        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic" style="--i:' + i + '"' + (x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '><img src="' + e(x.img) + '" alt=""><b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
+        '<div class="fm-buy"><div class="fm-confirm" hidden><b>Подтвердить?</b><button type="button" class="fm-yes" data-fm-yes>ДА</button><button type="button" class="fm-no" data-fm-no>Отмена</button></div>' +
+        '<button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
+        '<p class="fm-err" role="alert"></p></div>';
+    if (it.card_bg && it.card_bg.startsWith('image:')) el.style.backgroundImage = 'linear-gradient(rgba(8,12,40,.3),rgba(8,12,40,.55)),url(' + it.card_bg.slice(6) + ')', el.style.backgroundSize = 'cover';
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('is-in'));
+    const close = () => { el.classList.remove('is-in'); setTimeout(() => el.remove(), 260); document.removeEventListener('keydown', onKey); };
+    const onKey = ev => { if (ev.key === 'Escape' && !document.querySelector('.fm-chances,.fm-reveal')) close(); };
+    document.addEventListener('keydown', onKey);
+    el.querySelector('[data-fm-close]').addEventListener('click', close);
+    el.querySelector('[data-fm-chances]')?.addEventListener('click', () => openChances(packsIn, ctx));
+    el.querySelectorAll('[data-fm-pk]').forEach(b => b.addEventListener('click', () => { const i = packsIn.findIndex(p => p.id === b.dataset.fmPk); openChances(i > 0 ? [packsIn[i]].concat(packsIn.filter((_, j) => j !== i)) : packsIn, ctx); }));
+    const btn = el.querySelector('[data-fm-buy]'), err = el.querySelector('.fm-err'), bubble = el.querySelector('.fm-confirm');
+    const hide = () => { bubble.classList.remove('is-in'); setTimeout(() => { bubble.hidden = true; }, 180); };
+    btn.addEventListener('click', ev => {
+        ev.stopPropagation(); err.textContent = '';
+        if (o.src === 'cm') { close(); window.crafterCommunity.claim(o.m, ctx.refresh); return; }
+        if (!bubble.hidden) { hide(); return; }
+        bubble.hidden = false; requestAnimationFrame(() => bubble.classList.add('is-in'));
+    });
+    el.addEventListener('click', ev => { if (!bubble.hidden && !ev.target.closest('.fm-confirm') && !ev.target.closest('[data-fm-buy]')) hide(); });
+    el.querySelector('[data-fm-no]').addEventListener('click', hide);
+    el.querySelector('[data-fm-yes]').addEventListener('click', async () => {
+        const yes = el.querySelector('[data-fm-yes]');
+        yes.disabled = true; err.textContent = '';
+        try {
+            const res = await perform(o, ctx);
+            hide();
+            reveal(o, res, ctx, close);
+        } catch (error) { hide(); err.textContent = error.message; }
+        yes.disabled = false;
+    });
+    return el;
+}
+async function perform(o, ctx) {
+    const it = o.it, rid = 'si-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random().toString(36).slice(2));
+    if (ctx.preview) {                                               // the preview page shows the animation only
+        await new Promise(r => setTimeout(r, 450));
+        return ['PACK', 'BUNDLE'].includes(it.kind) ? {packIds: [], count: it.bundle || 1} : {title: it.kind === 'GRAM' ? 'Зачислено: ' + num(it.amount) + ' GRAM' : 'Покупка совершена', text: 'Так будет выглядеть сообщение игроку.'};
+    }
+    if (o.src === 'pack') {
+        const res = await api('packs/buy', {pack_id: o.p.id, request_id: rid});
+        if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
+        return {packIds: [res.user_pack_id], count: 1};
+    }
+    const res = await api('shop-items/buy', {item_id: it.id, request_id: rid});
+    if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
+    if (res.gram_balance !== undefined && state?.me) { state.me.balance = res.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
+    if (res.pack_id) { const ids = res.pack_ids || [res.pack_id]; return {packIds: ids, count: ids.length}; }
+    if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};
+    if (res.code) { const cc = window.crafterCommunity; return {title: 'Ваш промокод', text: 'Он привязан к вашему аккаунту и работает один раз.', html: cc.codeBlock(res.code), bind: root => cc.bindCode(root, res.code)}; }
+    return {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : 'Зачислено шаров: ' + num(res.balls_gain), text: 'Баланс уже обновлён.'};
+}
+
 /* ---------- the market ---------- */
-const ICONS = {
-    featured: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="m12 2 2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 20.9l1.6-7L2 9.2l7.1-.6z"/></svg>',
-    packs: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M7 2h10l2 3v15a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5zm1.5 3L8 6h8l-.5-1zM9 10v2h6v-2zm0 4v2h4v-2z"/></svg>',
-    bundles: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 8h18v4H3zm1 5h16v8H4zm7-5h2v13h-2zM12 8C10 3 6 4.5 8 7zm0 0c2-5 6-3.500 4-1z"/></svg>',
-    res: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M12 2 4 8l8 14 8-14zm0 4.200L15.500 9 12 15 8.500 9z"/></svg>',
-    rewards: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M6 3h12v3a6 6 0 0 1-5 5.900V15h3v2H8v-2h3v-3.100A6 6 0 0 1 6 6zM4 5h2v3a3 3 0 0 1-2-2zm16 0v1a3 3 0 0 1-2 2.800V5zM7 19h10v2H7z"/></svg>',
-    gifts: '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M3 9h18v4H3zm1 5h7v7H4zm9 0h7v7h-7zM11 9h2v12h-2zM12 9C10 3 6 5 8 8zm0 0c2-6 6-4 4-1z"/></svg>',
-};
 function render(main, ctx) {
     if (ctx.shopState?.now) offset = ctx.shopState.now - Math.floor(Date.now() / 1000);
     const usable = it => !(it.left !== null && it.left !== undefined && it.left <= 0) && !(it.per_user && it.mine >= it.per_user) && !(it.ends_at && it.ends_at <= nowSec());
@@ -133,52 +292,116 @@ function render(main, ctx) {
     const packs = (ctx.packState?.shop || []).map(p => ({key: 'pk:' + p.id, src: 'pack', p, it: {id: 'pk:' + p.id, kind: 'PACK', amount: p.id, title: 'Pack ' + p.title, image_url: p.image, pack: {image: p.image, title: p.title, accent: p.accent, id: p.id}, price_balls: p.price_balls, size: 'small', bundle: 1, left: null, mine: 0, rarity: 'auto', badge: '', description: ''}}));
     const rewards = (ctx.shared?.milestones || []).filter(m => m.reached && !m.redeemed && !(m.reward_kind === 'PACK' && m.code)).map(m => ({key: 'cm:' + m.id, src: 'cm', m, it: {
         id: 'cm:' + m.id, kind: 'REWARD', title: m.title, image_url: (m.image_url && /^(https:\/\/|\/static\/)/.test(m.image_url)) ? m.image_url : (m.pack?.image || m.star?.image || '/static/assets/community-reward.svg'),
-        price_balls: m.price_balls, size: 'small', bundle: 1, left: m.left, rarity: 'rare', badge: 'Награда', description: 'Награда за общую цель сообщества. Тираж ограничен.', contents: null}}));
+        price_balls: m.price_balls, size: 'small', bundle: 1, left: m.left, rarity: 'special', badge: 'Награда', description: 'Награда за общую цель сообщества. Тираж ограничен.', contents: null}}));
     const all = items.concat(packs);
+    const sections = (ctx.shopState?.sections && ctx.shopState.sections.length ? ctx.shopState.sections : DEFAULT_SECTIONS).filter(s => ctx.showEmpty || s.enabled !== false);
+    const customIds = new Set(sections.filter(s => s.kind === 'custom').map(s => s.id));
+    const mine = o => o.it.section_id && customIds.has(o.it.section_id);
     const isBundle = o => o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1)));
     const lots = ctx.data?.lots || [];
-    const SEC = [
-        ['featured', 'Акции', all.filter(o => o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge).concat(rewards)],
-        ['packs', 'Паки', all.filter(o => o.it.kind === 'PACK' && !isBundle(o))],
-        ['bundles', 'Наборы', all.filter(isBundle)],
-        ['res', 'Ресурсы', all.filter(o => ['GRAM', 'BALL', 'PROMO', 'STAR'].includes(o.it.kind))],
-        ['rewards', 'Награды', rewards],
-        ['gifts', 'Подарки', lots],
-    ].filter(s => s[2].length);
-    let active = ctx.section && SEC.some(s => s[0] === ctx.section) ? ctx.section : (SEC[0] ? SEC[0][0] : '');
+    const rule = {
+        featured: () => all.filter(o => !mine(o) && (o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge)).concat(rewards),
+        packs: () => all.filter(o => !mine(o) && o.it.kind === 'PACK' && !isBundle(o)),
+        bundles: () => all.filter(o => !mine(o) && isBundle(o)),
+        res: () => all.filter(o => !mine(o) && ['GRAM', 'BALL', 'PROMO', 'STAR'].includes(o.it.kind)),
+        rewards: () => rewards,
+        gifts: () => lots,
+    };
+    const SEC = sections.map(s => ({s, list: s.kind === 'custom' ? all.filter(o => o.it.section_id === s.id) : (rule[s.rule] ? rule[s.rule]() : [])})).filter(x => x.list.length || ctx.showEmpty);
+    const RK = 'crafter:fm-rail';
+    let railW = 210;
+    try { railW = Math.max(72, Math.min(320, Number(localStorage.getItem(RK)) || 210)); } catch (_) {}
+    let active = ctx.section && SEC.some(x => x.s.id === ctx.section) ? ctx.section : (SEC[0] ? SEC[0].s.id : '');
     const root = document.createElement('div');
     root.className = 'fm-root';
-    const apply = () => root.classList.toggle('fm-phone', ctx.force ? ctx.force === 'phone' : innerWidth < 760);
-    const draw = () => {
-        const sec = SEC.find(s => s[0] === active);
-        root.innerHTML = '<div class="fm-rail" role="navigation" aria-label="Разделы маркета">' + SEC.map(s => '<button type="button" class="fm-sec' + (s[0] === active ? ' is-on' : '') + '" data-fm-sec="' + s[0] + '"><span>' + s[1] + '</span>' + ICONS[s[0]] + (s[0] !== 'featured' ? '<em>' + s[2].length + '</em>' : '') + '</button>').join('') + '</div>' +
-            '<div class="fm-main">' + (sec ? (sec[0] === 'gifts'
-                ? '<div class="ny-grid fm-gifts">' + sec[2].map(l => ctx.lotTile(l)).join('') + '</div>'
-                : '<div class="fm-wrap"><button type="button" class="fm-arrow l" data-fm-go="-1" aria-label="Назад">‹</button><div class="fm-row">' + sec[2].map(o => card(o)).join('') + '</div><button type="button" class="fm-arrow r" data-fm-go="1" aria-label="Вперёд">›</button></div>')
-                : '<p class="ny-quiet">Совсем скоро здесь появятся новогодние предложения.</p>') + '</div>';
-        root.querySelectorAll('[data-fm-sec]').forEach(b => b.addEventListener('click', () => { active = b.dataset.fmSec; draw(); }));
-        const row = root.querySelector('.fm-row');
+    root.innerHTML = '<div class="fm-bg"></div><div class="fm-rail-col"><div class="fm-rail" role="navigation" aria-label="Разделы маркета"><i class="fm-ind"></i>' +
+        SEC.map(x => '<div class="fm-sec-wrap" data-wrap="' + e(x.s.id) + '">' + railButton(x.s) + (x.s.rule !== 'featured' && x.list.length ? '<em>' + x.list.length + '</em>' : '') + '</div>').join('') + '</div>' +
+        '<button type="button" class="fm-fold" data-fm-fold aria-label="Свернуть панель разделов" title="Свернуть или развернуть панель"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button></div>' +
+        '<div class="fm-grip" data-fm-grip title="Потяните, чтобы изменить ширину"></div><div class="fm-main"></div>';
+    const rail = root.querySelector('.fm-rail'), ind = root.querySelector('.fm-ind'), host = root.querySelector('.fm-main');
+    const phone = () => (ctx.force ? ctx.force === 'phone' : innerWidth < 760);
+    const apply = () => {
+        root.classList.toggle('fm-phone', phone());
+        root.style.setProperty('--rail', railW + 'px');
+        root.classList.toggle('is-mini', !phone() && railW < 136);
+        place();
+    };
+    const place = () => {
+        const w = rail.querySelector('.fm-sec-wrap.is-on');
+        if (!w) { ind.style.opacity = 0; return; }
+        ind.style.opacity = 1;
+        ind.style.width = w.offsetWidth + 'px'; ind.style.height = w.offsetHeight + 'px';
+        ind.style.transform = 'translate(' + w.offsetLeft + 'px,' + w.offsetTop + 'px)';
+    };
+    const setBg = key => {
+        const bg = root.querySelector('.fm-bg');
+        if (bg.dataset.key === key) return;
+        bg.dataset.key = key;
+        const layer = document.createElement('div');
+        layer.className = 'fm-bg-layer';
+        layer.innerHTML = bgHTML(key);
+        bg.appendChild(layer);
+        requestAnimationFrame(() => layer.classList.add('is-in'));
+        [...bg.children].filter(c => c !== layer).forEach(old => { old.classList.remove('is-in'); setTimeout(() => old.remove(), 700); });
+    };
+    const io = 'IntersectionObserver' in window ? new IntersectionObserver(list => list.forEach(en => en.target.classList.toggle('is-vis', en.isIntersecting)), {threshold: .05}) : null;
+    const show = (id, first) => {
+        active = id;
+        const entry = SEC.find(x => x.s.id === id);
+        rail.querySelectorAll('.fm-sec-wrap').forEach(w => w.classList.toggle('is-on', w.dataset.wrap === id));
+        place();
+        if (!entry) { host.innerHTML = '<p class="ny-quiet">Совсем скоро здесь появятся новогодние предложения.</p>'; return; }
+        const gifts = entry.s.rule === 'gifts' && entry.s.kind !== 'custom';
+        host.innerHTML = '<div class="fm-view' + (first ? '' : ' fm-enter') + '">' + (gifts
+            ? '<div class="ny-grid fm-gifts">' + entry.list.map(l => ctx.lotTile(l)).join('') + '</div>'
+            : entry.list.length ? '<div class="fm-wrap"><button type="button" class="fm-arrow l" data-fm-go="-1" aria-label="Назад">‹</button><div class="fm-row">' + entry.list.map(x => card(x)).join('') + '</div><button type="button" class="fm-arrow r" data-fm-go="1" aria-label="Вперёд">›</button></div>'
+            : '<p class="ny-quiet">В этом разделе пока ничего нет.</p>') + '</div>';
+        setBg(entry.s.bg || 'night');
+        const row = host.querySelector('.fm-row');
         if (row) {
-            const find = key => (sec[2].find(o => o.key === key));
+            const find = key => entry.list.find(x => x.key === key);
             row.addEventListener('click', ev => {
                 if (row.dataset.dragged === '1') { row.dataset.dragged = '0'; return; }
                 const c = ev.target.closest('.fm-card'); if (c) stage(find(c.dataset.fm), ctx);
             });
             row.addEventListener('keydown', ev => { if (ev.key === 'Enter' || ev.key === ' ') { const c = ev.target.closest('.fm-card'); if (c) { ev.preventDefault(); stage(find(c.dataset.fm), ctx); } } });
-            root.querySelectorAll('[data-fm-go]').forEach(b => b.addEventListener('click', () => row.scrollBy({left: Number(b.dataset.fmGo) * row.clientWidth * .8, behavior: 'smooth'})));
+            host.querySelectorAll('[data-fm-go]').forEach(b => b.addEventListener('click', () => row.scrollBy({left: Number(b.dataset.fmGo) * row.clientWidth * .8, behavior: 'smooth'})));
+            const arrows = () => host.querySelectorAll('.fm-arrow').forEach(b => { b.hidden = row.scrollWidth <= row.clientWidth + 4; });
+            arrows(); setTimeout(arrows, 400); window.addEventListener('resize', arrows);
             let sx = 0, sl = 0, down = false, moved = 0;                  // a mouse can drag the row, a finger scrolls it itself
             row.addEventListener('pointerdown', ev => { if (ev.pointerType !== 'mouse') return; down = true; moved = 0; sx = ev.clientX; sl = row.scrollLeft; });
-            window.addEventListener('pointermove', ev => { if (!down) return; const dx = ev.clientX - sx; moved = Math.max(moved, Math.abs(dx)); row.scrollLeft = sl - dx; });
-            window.addEventListener('pointerup', () => { if (down && moved > 6) row.dataset.dragged = '1'; down = false; });
+            const move = ev => { if (!down) return; const dx = ev.clientX - sx; moved = Math.max(moved, Math.abs(dx)); row.scrollLeft = sl - dx; };
+            const up = () => { if (down && moved > 6) row.dataset.dragged = '1'; down = false; if (!row.isConnected) { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); } };
+            window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
             row.addEventListener('wheel', ev => { if (!root.classList.contains('fm-phone') && Math.abs(ev.deltaY) > Math.abs(ev.deltaX)) { row.scrollLeft += ev.deltaY; ev.preventDefault(); } }, {passive: false});
+            if (io) row.querySelectorAll('.fm-card').forEach(c => io.observe(c)); else row.querySelectorAll('.fm-card').forEach(c => c.classList.add('is-vis'));
         }
-        ctx.bindLots?.(root);
-        apply();
+        ctx.bindLots?.(host);
     };
+    rail.addEventListener('click', ev => { const b = ev.target.closest('[data-fm-sec],.fm-pic'); const w = ev.target.closest('.fm-sec-wrap'); if (w && w.dataset.wrap !== active) { ripple(w, ev); show(w.dataset.wrap); } });
+    const ripple = (w, ev) => {
+        if (reduced()) return;
+        const r = document.createElement('i'), box = w.getBoundingClientRect();
+        r.className = 'fm-rip'; r.style.left = (ev.clientX - box.left) + 'px'; r.style.top = (ev.clientY - box.top) + 'px';
+        w.appendChild(r); setTimeout(() => r.remove(), 600);
+    };
+    // the panel of sections: fold it to icons only or pull its edge to change the width
+    const setRail = (w, save) => { railW = Math.max(72, Math.min(320, Math.round(w))); apply(); if (save) { try { localStorage.setItem(RK, String(railW)); } catch (_) {} } };
+    root.querySelector('[data-fm-fold]').addEventListener('click', () => setRail(railW < 136 ? 210 : 72, true));
+    root.querySelector('[data-fm-grip]').addEventListener('pointerdown', ev => {
+        ev.preventDefault();
+        const left = root.getBoundingClientRect().left;
+        root.classList.add('is-sizing');
+        const move = e2 => setRail(Math.max(72, e2.clientX - left - 6), false);
+        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); root.classList.remove('is-sizing'); if (railW < 112) railW = 72; setRail(railW, true); };
+        window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
+    });
     main.innerHTML = '<div class="new-year-page fm-page">' + (ctx.back ? '<button type="button" class="nyh-back" data-fm-back>‹ События</button>' : '') + (ctx.hero || '') + '</div>';
     main.querySelector('.fm-page').appendChild(root);
     main.querySelector('[data-fm-back]')?.addEventListener('click', ctx.back);
-    draw();
+    apply();
+    show(active, true);
+    requestAnimationFrame(place);
     const resize = () => { if (!root.isConnected) { window.removeEventListener('resize', resize); return; } apply(); };
     window.addEventListener('resize', resize);
     const tick = () => {
@@ -187,8 +410,8 @@ function render(main, ctx) {
         setTimeout(tick, 1000);
     };
     tick();
-    return {root, open: key => { const o = SEC.flatMap(s => s[2]).find(x => x.key === key); if (o && o.it) stage(o, ctx); }};
+    return {root, show, open: key => { const o = SEC.flatMap(x => x.list).find(x => x.key === key); if (o && o.it) stage(o, ctx); }};
 }
 
-window.crafterFestive = {render, card, stage, rarityOf, includes, setNow: s => { offset = s - Math.floor(Date.now() / 1000); }};
+window.crafterFestive = {render, card, stage, rarityOf, includes, railButton, bgHTML, iconHTML, icons: ICONS, bgKeys: BG_KEYS, cardBgKeys: CARD_BG_KEYS, names: NAMES, setNow: s => { offset = s - Math.floor(Date.now() / 1000); }};
 })();

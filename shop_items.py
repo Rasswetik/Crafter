@@ -12,7 +12,9 @@ from flask import abort, g, request
 
 KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO', 'BUNDLE')
 PROMO_KINDS = ('GRAM', 'BALL', 'PACK', 'STAR')
-RARITIES = ('auto', 'common', 'rare', 'epic', 'mythic', 'legend')   # the colour and the name of an offer; auto = by price
+RARITIES = ('auto', 'common', 'rare', 'special', 'epic', 'mythic', 'legend')   # the colour and the name of an offer; auto = by price
+CARD_BGS = ('ny-snow', 'ny-candy', 'ny-lights', 'ny-frost', 'ny-ginger', 'ny-bells', 'ny-fire', 'ny-aurora',
+            'c-blue', 'c-violet', 'c-crimson', 'c-emerald', 'c-gold', 'c-pink')                  # the background of one offer card
 SIZES = ('small', 'wide', 'tall', 'large', 'banner')     # 1x1, 2x1 stretched, 1x2 long, 2x2 big, a whole row
 ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 _LIMIT = 10**9
@@ -48,6 +50,9 @@ def install_shop_items(app, db, auth, record, audit):
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS rarity TEXT NOT NULL DEFAULT 'auto'")
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS badge TEXT NOT NULL DEFAULT ''")
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS ends_at BIGINT")
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS section_id TEXT")
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS heading TEXT NOT NULL DEFAULT ''")
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS card_bg TEXT NOT NULL DEFAULT ''")
         else:
             cols = [r['name'] for r in database.execute("PRAGMA table_info(shop_items)").fetchall()]
             if 'bundle' not in cols:
@@ -68,6 +73,12 @@ def install_shop_items(app, db, auth, record, audit):
                 database.execute("ALTER TABLE shop_items ADD COLUMN badge TEXT NOT NULL DEFAULT ''")
             if 'ends_at' not in cols:
                 database.execute("ALTER TABLE shop_items ADD COLUMN ends_at BIGINT")
+            if 'section_id' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN section_id TEXT")
+            if 'heading' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN heading TEXT NOT NULL DEFAULT ''")
+            if 'card_bg' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN card_bg TEXT NOT NULL DEFAULT ''")
 
     import json
 
@@ -106,7 +117,7 @@ def install_shop_items(app, db, auth, record, audit):
                 'per_user': row['per_user'], 'bundle': int(row['bundle'] or 1), 'mine': mine, 'status': row['status'],
                 'size': row['size'] if row['size'] in SIZES else 'small', 'description': row['description'] or '',
                 'rarity': row['rarity'] if row['rarity'] in RARITIES else 'auto', 'badge': row['badge'] or '',
-                'ends_at': int(row['ends_at']) if row['ends_at'] else None}
+                'ends_at': int(row['ends_at']) if row['ends_at'] else None, 'section_id': row['section_id'] or '', 'heading': row['heading'] or '', 'card_bg': row['card_bg'] or ''}
 
     def order_mode():
         row = db().execute("SELECT payload FROM settings WHERE key='shop_items_order_v1'").fetchone()
@@ -125,7 +136,7 @@ def install_shop_items(app, db, auth, record, audit):
     def shop_items():
         now = int(time.time())
         rows = ordered(db().execute("SELECT * FROM shop_items WHERE status='active' AND (ends_at IS NULL OR ends_at>?)", (now,)).fetchall())
-        return {'items': [view(r, g.user['id']) for r in rows], 'now': now}
+        return {'items': [view(r, g.user['id']) for r in rows], 'now': now, 'sections': app.extensions['crafter_shop_sections'](False)}
 
     @app.post('/api/shop-items/buy')
     @auth()
@@ -225,7 +236,7 @@ def install_shop_items(app, db, auth, record, audit):
     @auth(admin=True)
     def admin_shop():
         rows = ordered(db().execute("SELECT * FROM shop_items").fetchall())[:300]
-        return {'items': [view(r) for r in rows], 'order': order_mode(), 'now': int(time.time())}
+        return {'items': [view(r) for r in rows], 'order': order_mode(), 'now': int(time.time()), 'sections': app.extensions['crafter_shop_sections'](True)}
 
     def whole(value, low, high, name):
         try:
@@ -344,7 +355,14 @@ def install_shop_items(app, db, auth, record, audit):
             ends_at = int(time.time()) + whole(hours, 1, 24 * 120, 'Срок акции в часах') * 3600
         elif str(body.get('ends_at') or '').strip() not in ('', '0', 'None'):
             ends_at = whole(body.get('ends_at'), 1, 4102444800, 'Время окончания')
-        return (kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, mix, size, description, rarity, badge, ends_at)
+        section_id = str(body.get('section_id') or '').strip()
+        if section_id and not app.extensions['crafter_shop_section_exists'](section_id):
+            abort(400, description='Раздел не найден')
+        heading = ' '.join(str(body.get('heading') or '').split())[:30]
+        card_bg = str(body.get('card_bg') or '').strip()
+        if card_bg and card_bg not in CARD_BGS and not re.fullmatch(r'image:/media/shop/[0-9a-f]{32}', card_bg):
+            abort(400, description='Фон карточки: выберите готовый или загрузите картинку')
+        return (kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, mix, size, description, rarity, badge, ends_at, section_id or None, heading, card_bg)
 
     @app.post('/api/admin/new-year/shop')
     @auth(admin=True)
@@ -355,7 +373,7 @@ def install_shop_items(app, db, auth, record, audit):
             position = None
             if order_mode() == 'manual':
                 position = int(db().execute("SELECT COALESCE(MAX(position),0)+1 AS n FROM shop_items").fetchone()['n'])
-            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,old_price_balls,stock,per_user,bundle,contents,size,description,rarity,badge,ends_at,position,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,old_price_balls,stock,per_user,bundle,contents,size,description,rarity,badge,ends_at,section_id,heading,card_bg,position,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                          (iid,) + vals + (position, int(time.time())))
         audit('Shop item created: ' + vals[3])
         return {'ok': True, 'id': iid}
@@ -365,7 +383,7 @@ def install_shop_items(app, db, auth, record, audit):
     def admin_shop_edit(iid):
         vals = parse_item(request.get_json(silent=True) or {})
         with db():
-            if not db().execute("UPDATE shop_items SET kind=?,promo_kind=?,amount=?,title=?,image_url=?,price_balls=?,old_price_balls=?,stock=?,per_user=?,bundle=?,contents=?,size=?,description=?,rarity=?,badge=?,ends_at=? WHERE id=?",
+            if not db().execute("UPDATE shop_items SET kind=?,promo_kind=?,amount=?,title=?,image_url=?,price_balls=?,old_price_balls=?,stock=?,per_user=?,bundle=?,contents=?,size=?,description=?,rarity=?,badge=?,ends_at=?,section_id=?,heading=?,card_bg=? WHERE id=?",
                                 vals + (iid,)).rowcount:
                 abort(404, description='Товар не найден')
         audit('Shop item edited: ' + vals[3])
@@ -383,6 +401,17 @@ def install_shop_items(app, db, auth, record, audit):
                 abort(404, description='Товар не найден')
             db().execute("UPDATE shop_items SET size=? WHERE id=?", (size, iid))
         audit('Shop item size: ' + row['title'] + ' -> ' + size)
+        return {'ok': True}
+
+    @app.post('/api/admin/new-year/shop/<iid>/section')
+    @auth(admin=True)
+    def admin_shop_section(iid):
+        section_id = str((request.get_json(silent=True) or {}).get('section_id') or '').strip()
+        if section_id and not app.extensions['crafter_shop_section_exists'](section_id):
+            abort(400, description='Раздел не найден')
+        with db():
+            if not db().execute("UPDATE shop_items SET section_id=? WHERE id=?", (section_id or None, iid)).rowcount:
+                abort(404, description='Товар не найден')
         return {'ok': True}
 
     @app.post('/api/admin/new-year/shop/<iid>/move')

@@ -922,3 +922,18 @@ def test_shop_offer_has_rarity_badge_and_an_end_time(client):
     bought = client.post('/api/shop-items/buy', headers=admin, json={'item_id': iid, 'request_id': 'late-offer-1'})
     assert bought.status_code == 409
     assert iid in [i['id'] for i in client.get('/api/admin/new-year/shop', headers=admin).json['items']]       # the administrator still sees it
+
+
+def test_offer_can_have_its_own_heading_and_card_background(client):
+    admin = signed(42)
+    client.get('/api/me', headers=admin)
+    base = {'kind': 'GRAM', 'amount': '1', 'price_balls': '10'}
+    made = client.post('/api/admin/new-year/shop', headers=admin, json={**base, 'rarity': 'special', 'heading': '  Зимняя   ярмарка ', 'card_bg': 'ny-lights'})
+    assert made.status_code == 200, made.get_data(as_text=True)
+    item = next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == made.json['id'])
+    assert (item['rarity'], item['heading'], item['card_bg']) == ('special', 'Зимняя ярмарка', 'ny-lights')
+    assert client.post('/api/admin/new-year/shop', headers=admin, json={**base, 'card_bg': 'rainbow'}).status_code == 400
+    plain = client.post('/api/admin/new-year/shop', headers=admin, json=base).json['id']
+    row = next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == plain)
+    assert row['heading'] == '' and row['card_bg'] == ''
+    assert len(next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == made.json['id'])['heading']) <= 30

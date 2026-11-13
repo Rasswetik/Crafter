@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="/static/new-year.css">
 <link rel="stylesheet" href="/static/shop-sale.css">
 <link rel="stylesheet" href="/static/shop-sizes.css">
-<link rel="stylesheet" href="/static/festive-market.css">
+<link rel="stylesheet" href="/static/festive-market.css?v=5">
 </head>
 <body class="fmpv-body">
 <main id="main"></main>
@@ -20,8 +20,8 @@ window.state = {me: {}};
 window.toast = function () {};
 window.api = function () { return Promise.reject(new Error('Это предпросмотр')); };
 </script>
-<script src="/static/shop-items.js?v=sizes5"></script>
-<script src="/static/festive-market.js?v=2"></script>
+<script src="/static/shop-items.js?v=sizes7"></script>
+<script src="/static/festive-market.js?v=4"></script>
 <script>
 (function () {
     var main = document.getElementById('main');
@@ -33,8 +33,8 @@ window.api = function () { return Promise.reject(new Error('Это предпр�
         {id: 's2', kind: 'PACK', title: 'Gingerbread House', price_balls: 1800, old_price_balls: 2250, discount_percent: 20, size: 'small', bundle: 1, amount: 'gingerbread', pack: {id: 'gingerbread', title: 'Gingerbread House', image: pack + 'gingerbread-pack.webp'}, image_url: pack + 'gingerbread-pack.webp', description: '', left: null, mine: 0},
         {id: 's3', kind: 'GRAM', title: '5 GRAM', amount: '5', price_balls: 3500, size: 'small', bundle: 1, left: null, mine: 0}
     ];
-    function show(items, select) {
-        var ctx = {shopState: {items: items, now: Math.floor(Date.now() / 1000)}, packState: null, shared: null, data: {lots: []}, preview: true,
+    function show(items, select, sections) {
+        var ctx = {showEmpty: false, shopState: {items: items, sections: sections || [], now: Math.floor(Date.now() / 1000)}, packState: null, shared: null, data: {lots: []}, preview: true,
             balance: function () { return 12500; }, lotTile: function () { return ''; }, bindLots: function () {}};
         var r = window.crafterFestive.render(main, ctx);
         if (select) r.open(select);
@@ -42,7 +42,7 @@ window.api = function () { return Promise.reject(new Error('Это предпр�
     window.addEventListener('message', function (ev) {
         if (ev.origin !== location.origin) return;
         var d = ev.data;
-        if (d && d.type === 'fm-preview' && Array.isArray(d.items)) { document.querySelector('.fm-stage') && document.querySelector('.fm-stage').remove(); show(d.items); }
+        if (d && d.type === 'fm-preview' && Array.isArray(d.items)) { document.querySelector('.fm-stage') && document.querySelector('.fm-stage').remove(); show(d.items, null, d.sections); }
     });
     show(sample);
 })();

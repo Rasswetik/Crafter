@@ -155,6 +155,7 @@ const SEASON_GIFTS=['candycane','cookieheart','gingercookie','holidaydrink','jin
 
 /* The banner of the New Year market: a decorated night village, drawn in SVG (houses, a chapel, firs with garlands, the aurora, the moon,
    smoke, lights, falling snow and a small sleigh crossing the sky). Everything is generated here, nothing is loaded. */
+window.crafterVillage=function(){return villageScene();};
 function villageScene(){
     let seed=17;
     const rnd=()=>(seed=seed*16807%2147483647)/2147483647;

@@ -1484,6 +1484,8 @@ def create_app(config=None):
                    notify=lambda uid, day: notify_advent(bot_settings(), uid, day, app.config['BOT_TOKEN'],
                                                          bot_settings().get('app_url') or os.getenv('RENDER_EXTERNAL_URL') or os.getenv('PUBLIC_APP_URL') or ''))
     from shop_items import install_shop_items
+    from shop_sections import install_shop_sections
+    install_shop_sections(app,db,auth,audit)
     install_shop_items(app,db,auth,record,audit)
     from community_events import install_community_events
     install_community_events(app,db,auth,record,audit)
