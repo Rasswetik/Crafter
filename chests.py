@@ -42,7 +42,7 @@ def install_chests(app, db, auth, audit, record):
             );
             CREATE TABLE IF NOT EXISTS chest_loot (
                 id TEXT PRIMARY KEY, chest_id TEXT NOT NULL, position BIGINT NOT NULL DEFAULT 0, kind TEXT NOT NULL, amount TEXT NOT NULL,
-                cmin BIGINT NOT NULL DEFAULT 1, cmax BIGINT NOT NULL DEFAULT 1, weight TEXT NOT NULL
+                cnt_min BIGINT NOT NULL DEFAULT 1, cnt_max BIGINT NOT NULL DEFAULT 1, weight TEXT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS chest_opens (
                 id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, chest_id TEXT NOT NULL, source TEXT NOT NULL DEFAULT '', result TEXT NOT NULL, created BIGINT NOT NULL
@@ -54,9 +54,9 @@ def install_chests(app, db, auth, audit, record):
             made = db().execute("INSERT INTO chests(id,title,image,model,model_mobile,bg,rolls,settings,enabled,created) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
                                 ('gingerbread', 'Ginger Box', '/static/assets/chests/gingerbread.png', '', '', 'cozy', json.dumps(DEFAULT_ROLLS), json.dumps(DEFAULT_SETTINGS), 1, now))
             if made.rowcount:
-                for i, (kind, amount, cmin, cmax, weight) in enumerate(DEFAULT_LOOT):
-                    db().execute("INSERT INTO chest_loot(id,chest_id,position,kind,amount,cmin,cmax,weight) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
-                                 (uuid.uuid4().hex[:12], 'gingerbread', i, kind, amount, cmin, cmax, str(weight)))
+                for i, (kind, amount, cnt_min, cnt_max, weight) in enumerate(DEFAULT_LOOT):
+                    db().execute("INSERT INTO chest_loot(id,chest_id,position,kind,amount,cnt_min,cnt_max,weight) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                                 (uuid.uuid4().hex[:12], 'gingerbread', i, kind, amount, cnt_min, cnt_max, str(weight)))
 
     # ---------- helpers ----------
     def balls_of(uid):
@@ -104,7 +104,7 @@ def install_chests(app, db, auth, audit, record):
             v = (lo + (hi - lo) * Decimal(str(rng.random()))).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
             v = max(v, Decimal('0.01'))
             return {'kind': 'GRAM', 'title': 'GRAM', 'image': GRAM_ICON, 'amount': plain(v), 'count': 1}
-        count = rng.randint(int(row['cmin']), int(row['cmax']))
+        count = rng.randint(int(row['cnt_min']), int(row['cnt_max']))
         if kind == 'PACK':
             pack = app.extensions['crafter_pack_short'](amount) or {}
             return {'kind': 'PACK', 'title': pack.get('title') or 'Пак', 'image': pack.get('image') or '', 'amount': amount, 'count': count}
@@ -193,8 +193,8 @@ def install_chests(app, db, auth, audit, record):
                 once = (1 - miss) * 100
             else:
                 once = (1 - sum(v / rt * (1 - float(x['weight']) / total) ** int(k) for k, v in rolls.items())) * 100
-            sample = entry_item({**dict(x), 'cmin': x['cmin'], 'cmax': x['cmax']}) if x['kind'] in ('PACK', 'STAR') else {'title': 'Шары' if x['kind'] == 'BALL' else 'GRAM', 'image': BALL_ICON if x['kind'] == 'BALL' else GRAM_ICON}
-            out.append({'kind': x['kind'], 'title': sample['title'], 'image': sample['image'], 'amount': x['amount'], 'cmin': int(x['cmin']), 'cmax': int(x['cmax']), 'chance': round(once, 4), 'inside': round(p * 100, 3)})
+            sample = entry_item({**dict(x), 'cnt_min': x['cnt_min'], 'cnt_max': x['cnt_max']}) if x['kind'] in ('PACK', 'STAR') else {'title': 'Шары' if x['kind'] == 'BALL' else 'GRAM', 'image': BALL_ICON if x['kind'] == 'BALL' else GRAM_ICON}
+            out.append({'kind': x['kind'], 'title': sample['title'], 'image': sample['image'], 'amount': x['amount'], 'cmin': int(x['cnt_min']), 'cmax': int(x['cnt_max']), 'chance': round(once, 4), 'inside': round(p * 100, 3)})
         return {'chest': view(row), 'settings': st, 'loot': out, 'rolls': [{'count': int(k), 'chance': round(v / rt * 100, 2)} for k, v in sorted(rolls.items(), key=lambda kv: int(kv[0]))]}
 
     @app.get('/api/chests/<cid>')
@@ -216,7 +216,7 @@ def install_chests(app, db, auth, audit, record):
             d['rolls_raw'] = rolls_of(row)
             d['settings_raw'] = settings_of(row)
             d['custom'] = {'image': row['image'], 'model': row['model'], 'model_mobile': row['model_mobile']}
-            d['loot_raw'] = [{'kind': x['kind'], 'amount': x['amount'], 'cmin': int(x['cmin']), 'cmax': int(x['cmax']), 'weight': x['weight']} for x in loot_rows(row['id'])]
+            d['loot_raw'] = [{'kind': x['kind'], 'amount': x['amount'], 'cmin': int(x['cnt_min']), 'cmax': int(x['cnt_max']), 'weight': x['weight']} for x in loot_rows(row['id'])]
             out.append(d)
         return {'chests': out}
 
@@ -262,12 +262,12 @@ def install_chests(app, db, auth, audit, record):
             elif kind == 'STAR' and not app.extensions['crafter_star_gift_exists'](amount):
                 abort(400, description='Выберите подарок Telegram')
             try:
-                cmin, cmax, weight = int(x.get('cmin') or 1), int(x.get('cmax') or x.get('cmin') or 1), float(x.get('weight'))
+                cnt_min, cnt_max, weight = int(x.get('cmin') or 1), int(x.get('cmax') or x.get('cmin') or 1), float(x.get('weight'))
             except (TypeError, ValueError):
                 abort(400, description='Количество и вес: числа')
-            if not (1 <= cmin <= cmax <= 20) or weight <= 0:
+            if not (1 <= cnt_min <= cnt_max <= 20) or weight <= 0:
                 abort(400, description='Штук от 1 до 20, вес больше нуля')
-            loot.append((kind, amount, cmin, cmax, plain(Decimal(str(weight)))))
+            loot.append((kind, amount, cnt_min, cnt_max, plain(Decimal(str(weight)))))
         if not loot:
             abort(400, description='Добавьте в ящик хотя бы один предмет')
         enabled = 1 if body.get('enabled') in (True, 1, '1', 'true') else 0
@@ -287,8 +287,8 @@ def install_chests(app, db, auth, audit, record):
             else:
                 cid = uuid.uuid4().hex[:10]
                 db().execute("INSERT INTO chests(id,title,image,model,model_mobile,bg,rolls,settings,enabled,created) VALUES(?,?,?,?,?,?,?,?,?,?)", (cid, title, image, model, mobile, bg, json.dumps(rolls), json.dumps(settings), enabled, int(time.time())))
-            for i, (kind, amount, cmin, cmax, weight) in enumerate(loot):
-                db().execute("INSERT INTO chest_loot(id,chest_id,position,kind,amount,cmin,cmax,weight) VALUES(?,?,?,?,?,?,?,?)", (uuid.uuid4().hex[:12], cid, i, kind, amount, cmin, cmax, weight))
+            for i, (kind, amount, cnt_min, cnt_max, weight) in enumerate(loot):
+                db().execute("INSERT INTO chest_loot(id,chest_id,position,kind,amount,cnt_min,cnt_max,weight) VALUES(?,?,?,?,?,?,?,?)", (uuid.uuid4().hex[:12], cid, i, kind, amount, cnt_min, cnt_max, weight))
         audit('Chest saved: ' + title)
         return {'ok': True, 'id': cid}
 
