@@ -150,3 +150,5 @@ body.cx-open .crafter-snowfall{display:none!important}
 .fm-hero:has(.fm-heroart.is-chest) .fm-floor{display:none}
 .fm-heroart.is-chest .cx-host::after{content:"";position:absolute;left:50%;bottom:9%;width:46%;height:5%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.38),transparent 70%);z-index:-1}
 [data-ny-tab="chests"] > [data-pane="chests"].ny-admin-section{display:block!important}
+.cx-count.is-nft{font-size:clamp(26px,6.4vw,46px);max-width:92vw;overflow-wrap:anywhere}
+.cx-nftnote{font:700 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#fff3dc;opacity:.9;text-shadow:0 2px 0 rgba(0,0,0,.4)}

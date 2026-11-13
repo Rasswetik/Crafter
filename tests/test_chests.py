@@ -41,8 +41,23 @@ def test_ginger_box_follows_the_drop_sheet(client):
     info = client.get('/api/chests/gingerbread', headers=player).json
     assert [r['count'] for r in info['rolls']] == [3, 4, 5, 6] and [r['chance'] for r in info['rolls']] == [50, 30, 15, 5]
     once = {(x['kind'], x['amount']): x['chance'] for x in info['loot']}
-    assert abs(once[('GRAM', '0.1')] - 49.8047) < .01 and abs(once[('BALL', '5')] - 34.5575) < .01 and abs(once[('PACK', 'newyear')] - 21.1904) < .01
+    assert abs(once[('GRAM', '0.1')] - 49.8047) < .01 and abs(once[('BALL', '5')] - 34.5575) < .01
+    assert abs(once[('NFT', 'santahat:Warm Winter')] - 0.1935) < .001 and abs(once[('NFT', 'gingercookie:Original')] - 0.0161) < .001
+    assert not [x for x in info['loot'] if x['kind'] == 'PACK' and x['amount'] in ('gifton', 'goshan', 'nikolay')]
+    assert abs(sum(x['chance'] for x in info['loot'] if x['kind'] == 'NFT') - 1.0742) > 0       # the sum is not a probability: several can drop together
     for _ in range(40):
         res = client.post('/api/admin/new-year/chests/gingerbread/preview', headers=admin).json
         kinds = [i['kind'] for i in res['items']]
-        assert 3 <= len(kinds) <= 6 and {'GRAM', 'BALL', 'PACK'} <= set(kinds)
+        assert 3 <= len(kinds) <= 6 and kinds[0] == 'GRAM' and kinds[1] == 'BALL' and kinds[2] in ('PACK', 'NFT')
+
+
+def test_direct_nft_goes_to_the_inventory(client):
+    admin, player = signed(42), signed(56)
+    client.get('/api/me', headers=player)
+    made = client.post('/api/admin/new-year/chests', headers=admin, json={'title': 'NFT', 'rolls': {'1': 1}, 'enabled': True, 'settings': {'guaranteed': ['PACK'], 'bonus': {'PACK': 1}},
+                       'loot': [{'kind': 'NFT', 'amount': 'santahat:Warm Winter', 'weight': 1}]})
+    assert made.status_code == 200, made.get_data(as_text=True)
+    code = client.post('/api/admin/promocodes', headers=admin, json={'currency': 'CHEST', 'reward': made.json['id'], 'limit': 1}).json['code']
+    got = client.post('/api/promocodes/redeem', headers=player, json={'code': code}).json['chest_open']['items'][0]
+    assert got['kind'] == 'NFT' and got['title'] == 'Warm Winter' and got['collection'] == 'Santa Hat' and got['nft_id']
+    assert client.post('/api/admin/new-year/chests', headers=admin, json={'title': 'bad', 'rolls': {'1': 1}, 'loot': [{'kind': 'NFT', 'amount': 'nope:x', 'weight': 1}]}).status_code == 400

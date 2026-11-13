@@ -12,7 +12,8 @@ from decimal import ROUND_DOWN, Decimal
 
 from flask import abort, g, request
 
-KINDS = ('BALL', 'GRAM', 'PACK', 'STAR')
+KINDS = ('BALL', 'GRAM', 'PACK', 'NFT', 'STAR')
+GROUP = {'NFT': 'PACK'}                                       # a pack and a direct NFT share one slot of the drop
 LIMIT = 10 ** 9
 MAX_MODEL = 9_000_000
 DEFAULT_MODEL = '/static/assets/chests/gingerbread.glb'
@@ -25,10 +26,15 @@ rng = random.SystemRandom()
 # the first chest, as in Ginger_Box_Drop.md: 3..6 rewards; one GRAM, one batch of balls and one pack are always there, the rest is a bonus
 DEFAULT_ROLLS = {'3': 50, '4': 30, '5': 15, '6': 5}
 DEFAULT_SETTINGS = {'guaranteed': ['GRAM', 'BALL', 'PACK'], 'bonus': {'GRAM': 60, 'BALL': 30, 'PACK': 10}}
+NFT_DROP = (('santahat', 'Warm Winter', .18), ('holidaydrink', 'Gold Dust', .14), ('holidaydrink', 'Ginger Joker', .12), ('snowmittens', 'Honey Wine', .10),
+            ('spicedwine', 'Golden Glow', .09), ('spicedwine', 'Chocolate Cherry', .08), ('eternalcandle', 'Hot Cocoa', .07), ('winterwreath', 'Holly Leaves', .05),
+            ('winterwreath', 'Gingerbread', .04), ('candycane', 'Amber Glitter', .03), ('xmasstocking', 'Caramel Fest', .03), ('snowglobe', 'Ginger House', .02),
+            ('jinglebells', 'Gingerbread', .02), ('hangingstar', 'Gingerbread', .015), ('gingercookie', 'Original', .015))
 DEFAULT_LOOT = (
     [('GRAM', a, 1, 1, w) for a, w in (('0.1', 40), ('0.2', 28), ('0.3', 14), ('0.5', 8), ('0.75', 4), ('1', 3), ('1.5', 1.5), ('2', .8), ('3', .5), ('5', .2))] +
     [('BALL', a, 1, 1, w) for a, w in (('5', 30), ('10', 30), ('15', 18), ('25', 12), ('40', 5), ('60', 3), ('100', 1.5), ('150', .5))] +
-    [('PACK', a, 1, 1, w) for a, w in (('newyear', 20), ('snowman', 18), ('winter', 15), ('christmas', 12), ('silverfrost', 10), ('gingerbread', 9), ('honey', 7), ('gifton', 4), ('goshan', 3), ('nikolay', 2))])
+    [('PACK', a, 1, 1, w) for a, w in (('newyear', 21.76), ('snowman', 19.58), ('winter', 16.32), ('christmas', 13.05), ('silverfrost', 10.88), ('gingerbread', 9.79), ('honey', 7.62))] +
+    [('NFT', c + ':' + m, 1, 1, w) for c, m, w in NFT_DROP])
 
 
 def install_chests(app, db, auth, audit, record):
@@ -57,6 +63,17 @@ def install_chests(app, db, auth, audit, record):
                 for i, (kind, amount, cnt_min, cnt_max, weight) in enumerate(DEFAULT_LOOT):
                     db().execute("INSERT INTO chest_loot(id,chest_id,position,kind,amount,cnt_min,cnt_max,weight) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
                                  (uuid.uuid4().hex[:12], 'gingerbread', i, kind, amount, cnt_min, cnt_max, str(weight)))
+
+    with app.app_context(), db():
+        db().execute('BEGIN IMMEDIATE')
+        if not db().execute("SELECT 1 FROM settings WHERE key='chest_ginger_drop_v2'").fetchone():
+            if db().execute("SELECT 1 FROM chests WHERE id='gingerbread'").fetchone():
+                db().execute("UPDATE chests SET rolls=?,settings=? WHERE id='gingerbread'", (json.dumps(DEFAULT_ROLLS), json.dumps({**DEFAULT_SETTINGS, **{k: v for k, v in json.loads(db().execute("SELECT settings FROM chests WHERE id='gingerbread'").fetchone()['settings'] or '{}').items() if k in ('bg_open', 'bg_reward')}})))
+                db().execute("DELETE FROM chest_loot WHERE chest_id='gingerbread'")
+                for i, (kind, amount, cnt_min, cnt_max, weight) in enumerate(DEFAULT_LOOT):
+                    db().execute("INSERT INTO chest_loot(id,chest_id,position,kind,amount,cnt_min,cnt_max,weight) VALUES(?,?,?,?,?,?,?,?)",
+                                 (uuid.uuid4().hex[:12], 'gingerbread', i, kind, amount, cnt_min, cnt_max, str(weight)))
+            db().execute("INSERT INTO settings(key,payload) VALUES('chest_ginger_drop_v2','1') ON CONFLICT(key) DO NOTHING")
 
     # ---------- helpers ----------
     def balls_of(uid):
@@ -105,6 +122,10 @@ def install_chests(app, db, auth, audit, record):
             v = (lo + (hi - lo) * Decimal(str(rng.random()))).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
             v = max(v, Decimal('0.01'))
             return {'kind': 'GRAM', 'title': 'GRAM', 'image': GRAM_ICON, 'amount': plain(v), 'count': 1}
+        if kind == 'NFT':
+            cid, _, model = amount.partition(':')
+            info = app.extensions['crafter_nft_short'](cid, model) or {}
+            return {'kind': 'NFT', 'title': info.get('model') or model or 'NFT', 'collection': info.get('collection') or cid, 'image': info.get('image') or '', 'amount': amount, 'count': 1, 'value': info.get('value') or '0'}
         count = rng.randint(int(row['cnt_min']), int(row['cnt_max']))
         if kind == 'PACK':
             pack = app.extensions['crafter_pack_short'](amount) or {}
@@ -117,8 +138,8 @@ def install_chests(app, db, auth, audit, record):
             raw = json.loads(row['settings'] or '{}')
         except ValueError:
             raw = {}
-        bonus = {k: float(v) for k, v in (raw.get('bonus') or {}).items() if k in KINDS and float(v) > 0}
-        guaranteed = [k for k in (raw.get('guaranteed') or []) if k in KINDS]
+        bonus = {k: float(v) for k, v in (raw.get('bonus') or {}).items() if k in KINDS and k not in GROUP and float(v) > 0}
+        guaranteed = [k for k in (raw.get('guaranteed') or []) if k in KINDS and k not in GROUP]
         pic = lambda v: v if isinstance(v, str) and PATH.fullmatch(v) else ''
         return {'guaranteed': guaranteed, 'bonus': bonus, 'bg_open': pic(raw.get('bg_open')), 'bg_reward': pic(raw.get('bg_reward'))}
 
@@ -132,7 +153,7 @@ def install_chests(app, db, auth, audit, record):
         st = settings_of(row)
         by = {}
         for x in loot:
-            by.setdefault(x['kind'], []).append(x)
+            by.setdefault(GROUP.get(x['kind'], x['kind']), []).append(x)
         pick = lambda kind: entry_item(rng.choices(by[kind], weights=[float(x['weight']) for x in by[kind]])[0])
         if not st['bonus'] and not st['guaranteed']:                  # a simple chest: n draws from the whole table
             weights = [float(x['weight']) for x in loot]
@@ -142,7 +163,8 @@ def install_chests(app, db, auth, audit, record):
         kinds += [rng.choices(list(pool), weights=list(pool.values()))[0] for _ in range(n - len(kinds))]
         return [pick(k) for k in kinds]
 
-    def open_chest(uid, cid, source, preview=False):
+    def open_chest(uid, cid_, source, preview=False):
+        cid = cid_
         row = db().execute("SELECT * FROM chests WHERE id=?", (cid,)).fetchone()
         if not row or not row['enabled']:
             abort(409, description='Этот ящик сейчас недоступен')
@@ -154,6 +176,10 @@ def install_chests(app, db, auth, audit, record):
                     balls += int(it['amount'])
                 elif it['kind'] == 'GRAM':
                     gram += Decimal(it['amount'])
+                elif it['kind'] == 'NFT':
+                    col, _, model = it['amount'].partition(':')
+                    got = app.extensions['crafter_grant_nft'](uid, col, model, 'chest:' + cid_)
+                    it.update(nft_id=got.get('nft_id'), number=got.get('number'), credited=got.get('credited'))
                 elif it['kind'] == 'PACK':
                     it['pack_ids'] = [app.extensions['crafter_grant_pack'](uid, it['amount'], 'chest:' + cid) for _ in range(it['count'])]
                 else:
@@ -181,22 +207,23 @@ def install_chests(app, db, auth, audit, record):
         rolls = rolls_of(row)
         rt = sum(rolls.values())
         per = {}
+        grp = lambda k: GROUP.get(k, k)
         for x in loot:
-            per[x['kind']] = per.get(x['kind'], 0) + float(x['weight'])
+            per[grp(x['kind'])] = per.get(grp(x['kind']), 0) + float(x['weight'])
         bsum = sum(st['bonus'].values())
         total = sum(float(x['weight']) for x in loot) or 1
         out = []
         for x in loot:
-            p = float(x['weight']) / (per[x['kind']] or 1)
+            p = float(x['weight']) / (per[grp(x['kind'])] or 1)
             if st['bonus'] or st['guaranteed']:
-                a = (st['bonus'].get(x['kind'], 0) / bsum) if bsum else 0
-                g = 1 if x['kind'] in st['guaranteed'] else 0
+                a = (st['bonus'].get(grp(x['kind']), 0) / bsum) if bsum else 0
+                g = 1 if grp(x['kind']) in st['guaranteed'] else 0
                 miss = sum(v / rt * (1 - p) ** g * (1 - a * p) ** max(0, int(k) - len(st['guaranteed'])) for k, v in rolls.items())
                 once = (1 - miss) * 100
             else:
                 once = (1 - sum(v / rt * (1 - float(x['weight']) / total) ** int(k) for k, v in rolls.items())) * 100
-            sample = entry_item({**dict(x), 'cnt_min': x['cnt_min'], 'cnt_max': x['cnt_max']}) if x['kind'] in ('PACK', 'STAR') else {'title': 'Шары' if x['kind'] == 'BALL' else 'GRAM', 'image': BALL_ICON if x['kind'] == 'BALL' else GRAM_ICON}
-            out.append({'kind': x['kind'], 'title': sample['title'], 'image': sample['image'], 'amount': x['amount'], 'cmin': int(x['cnt_min']), 'cmax': int(x['cnt_max']), 'chance': round(once, 4), 'inside': round(p * 100, 3)})
+            sample = entry_item({**dict(x), 'cnt_min': x['cnt_min'], 'cnt_max': x['cnt_max']}) if x['kind'] in ('PACK', 'STAR', 'NFT') else {'title': 'Шары' if x['kind'] == 'BALL' else 'GRAM', 'image': BALL_ICON if x['kind'] == 'BALL' else GRAM_ICON}
+            out.append({'kind': x['kind'], 'title': sample['title'], 'image': sample['image'], 'collection': sample.get('collection', ''), 'amount': x['amount'], 'cmin': int(x['cnt_min']), 'cmax': int(x['cnt_max']), 'chance': round(once, 4), 'inside': round(p * 100, 3)})
         return {'chest': view(row), 'settings': st, 'loot': out, 'rolls': [{'count': int(k), 'chance': round(v / rt * 100, 2)} for k, v in sorted(rolls.items(), key=lambda kv: int(kv[0]))]}
 
     @app.get('/api/chests/<cid>')
@@ -261,6 +288,10 @@ def install_chests(app, db, auth, audit, record):
                     abort(400, description='GRAM: не больше 100000')
             elif kind == 'PACK' and not app.extensions['crafter_pack_exists'](amount):
                 abort(400, description='Выберите существующий пак')
+            elif kind == 'NFT':
+                col, _, model = amount.partition(':')
+                if not app.extensions['crafter_nft_short'](col, model):
+                    abort(400, description='Выберите коллекцию и модель подарка из каталога')
             elif kind == 'STAR' and not app.extensions['crafter_star_gift_exists'](amount):
                 abort(400, description='Выберите подарок Telegram')
             try:

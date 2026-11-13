@@ -775,6 +775,39 @@ def install_packs(app, db, auth, record, audit):
                      (uid, str(after)))
         return after
 
+    def nft_short(cid, model):
+        """A gift of a collection (and a model) from the bundled catalogue: name, picture and value, or None."""
+        col = catalog().get(str(cid))
+        if not col:
+            return None
+        found = catalog_model(cid, model) if model and str(model).strip().lower() != 'original' else None
+        try:
+            value = Decimal(str((found or {}).get('price') or col.get('floor_price') or '0'))
+        except InvalidOperation:
+            value = Decimal('0')
+        return {'collection_id': str(cid), 'collection': singular(col.get('name') or cid),
+                'model': (str(found['name']).replace('\xa0', ' ') if found else (str(model or 'Original'))),
+                'image': (found or {}).get('image') or col.get('photo_url') or '', 'value': plain(value)}
+
+    def grant_nft(uid, cid, model, source):
+        """A gift goes straight to the inventory. With real purchases switched on the gift cannot be bought here, so its value is credited."""
+        info = nft_short(cid, model)
+        if not info:
+            abort(409, description='Такого подарка нет в каталоге')
+        if work_mode():
+            credit(uid, Decimal(info['value']))
+            return {**info, 'credited': info['value']}
+        bd = _rng.choice(BACKDROPS)
+        gift = {'id': 'chest-' + uuid.uuid4().hex, 'name': info['collection'], 'number': _rng.randint(1000, 99999),
+                'model': info['model'], 'symbol': '', 'backdrop': bd[0], 'background': {'center_color': bd[1], 'edge_color': bd[2]},
+                'image': info['image'], 'price': info['value'], 'price_unit': 'GRAM', 'floor_price': info['value'], 'floor_unit': 'GRAM',
+                'collection_id': info['collection_id'], 'origin': 'pack', 'catalog_only': True, 'test_only': True, 'pack_prize': True}
+        db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)", (uid, gift['id'], json.dumps(gift, ensure_ascii=False), 'unlisted'))
+        return {**info, 'nft_id': gift['id'], 'number': gift['number']}
+
+    app.extensions['crafter_nft_short'] = nft_short
+    app.extensions['crafter_grant_nft'] = grant_nft
+
     def pick(weights):
         total = sum(w for _, w in weights)
         point = _rng.uniform(0, total)

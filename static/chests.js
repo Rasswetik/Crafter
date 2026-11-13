@@ -206,10 +206,11 @@ function viewer(host, chest, opts = {}) {
 const KIND_TITLE = {BALL: 'ШАРЫ', GRAM: 'GRAM'};
 function pieces(items) {                                            // one screen for each item that came out
     return items.map(it => {
-        const title = KIND_TITLE[it.kind] || String(it.title || 'Награда').toUpperCase();
-        const count = it.kind === 'BALL' || it.kind === 'GRAM' ? 'x' + num(it.amount) : 'x' + (it.count || 1);
+        const nft = it.kind === 'NFT';                                // a direct gift: the collection on top, the model under its picture
+        const title = nft ? String(it.collection || 'NFT').toUpperCase() : KIND_TITLE[it.kind] || String(it.title || 'Награда').toUpperCase();
+        const count = nft ? String(it.title || '') : it.kind === 'BALL' || it.kind === 'GRAM' ? 'x' + num(it.amount) : 'x' + (it.count || 1);
         const image = it.image || (it.kind === 'GRAM' ? GRAM : ORN);
-        return {title, count, image, kind: it.kind, big: it.kind === 'PACK' || it.kind === 'STAR', item: it};
+        return {title, count, image, kind: it.kind, big: it.kind === 'PACK' || it.kind === 'STAR' || nft, item: it};
     });
 }
 function burst(host) {
@@ -241,7 +242,7 @@ function play(res, opts = {}) {
         const p = items[at];
         left.hidden = false; left.querySelector('b').textContent = String(items.length - at - 1);
         reward.hidden = false; reward.className = 'cx-reward is-' + p.kind.toLowerCase() + (p.big ? ' is-big' : '');
-        reward.innerHTML = '<h2>' + e(p.title) + '</h2><div class="cx-art"><i class="cx-aura"></i><img src="' + e(p.image) + '" alt="" draggable="false"></div><div class="cx-count">' + e(p.count) + '</div><small class="cx-tap">Нажмите, чтобы продолжить</small>';
+        reward.innerHTML = '<h2>' + e(p.title) + '</h2><div class="cx-art"><i class="cx-aura"></i><img src="' + e(p.image) + '" alt="" draggable="false"></div><div class="cx-count' + (p.kind === 'NFT' ? ' is-nft' : '') + '">' + e(p.count) + '</div>' + (p.kind === 'NFT' ? '<small class="cx-nftnote">NFT · уже в вашем инвентаре</small>' : '') + '<small class="cx-tap">Нажмите, чтобы продолжить</small>';
         void reward.offsetWidth; reward.classList.add('is-pop');
     };
     const summary = () => {
@@ -249,12 +250,12 @@ function play(res, opts = {}) {
         sum.hidden = false;
         const tot = [];                                              // GRAM and balls are added up, packs are counted
         items.forEach(p => {
-            const key = p.kind === 'PACK' || p.kind === 'STAR' ? p.kind + p.item.amount : p.kind, hit = tot.find(t => t.key === key);
+            const key = p.kind === 'NFT' ? 'NFT' + (p.item.nft_id || Math.random()) : p.kind === 'PACK' || p.kind === 'STAR' ? p.kind + p.item.amount : p.kind, hit = tot.find(t => t.key === key);
             const amount = p.kind === 'BALL' || p.kind === 'GRAM' ? Number(p.item.amount) : (p.item.count || 1);
             if (hit) hit.amount += amount; else tot.push({key, p, amount});
         });
-        const cells = tot.map(t => ({...t.p, count: 'x' + num(Math.round(t.amount * 100) / 100)}));
-        sum.innerHTML = '<h2>Вы получили</h2><div class="cx-grid">' + cells.map((p, i) => '<div class="cx-cell' + (p.big ? ' is-big' : '') + '" style="--i:' + i + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.count) + '</b><small>' + e(p.kind === 'BALL' ? 'Шары' : p.kind === 'GRAM' ? 'GRAM' : p.item.title) + '</small></div>').join('') + '</div>' +
+        const cells = tot.map(t => ({...t.p, count: t.p.kind === 'NFT' ? t.p.item.title : 'x' + num(Math.round(t.amount * 100) / 100)}));
+        sum.innerHTML = '<h2>Вы получили</h2><div class="cx-grid">' + cells.map((p, i) => '<div class="cx-cell' + (p.big ? ' is-big' : '') + '" style="--i:' + i + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.count) + '</b><small>' + e(p.kind === 'BALL' ? 'Шары' : p.kind === 'GRAM' ? 'GRAM' : p.kind === 'NFT' ? p.item.collection : p.item.title) + '</small></div>').join('') + '</div>' +
             '<p>' + (packIds.length ? (packIds.length > 1 ? 'Паки уже в инвентаре. Открыть их сейчас?' : 'Пак уже в инвентаре. Открыть его сейчас?') : 'Всё уже на вашем балансе.') + '</p>' +
             '<div class="cx-btns">' + (packIds.length ? '<button type="button" class="cx-btn green" data-cx-open>' + (packIds.length > 1 ? 'Открыть все (' + packIds.length + ')' : 'Открыть сейчас') + '</button><button type="button" class="cx-btn blue" data-cx-keep>Оставить в инвентаре</button>' : '<button type="button" class="cx-btn green" data-cx-keep>Отлично</button>') + '</div>';
         sum.querySelector('[data-cx-keep]').addEventListener('click', ev => { ev.stopPropagation(); done(); });
@@ -297,13 +298,13 @@ async function chances(chestId, api) {
         const d = await api('chests/' + encodeURIComponent(chestId));
         const top = Math.max(...d.rolls.map(r => r.chance)), word = n => n === 1 ? 'награда' : n < 5 ? 'награды' : 'наград';
         const pc = v => (v < 0.01 ? '<0,01' : v < 1 ? v.toFixed(2).replace('.', ',') : v < 10 ? v.toFixed(1).replace('.', ',') : v.toFixed(v % 1 ? 1 : 0).replace('.', ',')) + '%';
-        const label = x => x.kind === 'BALL' ? num(x.amount.split('-')[0]) + (x.amount.includes('-') ? '–' + num(x.amount.split('-')[1]) : '') + ' шаров' : x.kind === 'GRAM' ? num(x.amount.split('-')[0]) + (x.amount.includes('-') ? '–' + num(x.amount.split('-')[1]) : '') + ' GRAM' : x.title + (x.cmax > 1 ? ' ×' + (x.cmin === x.cmax ? x.cmax : x.cmin + '–' + x.cmax) : '');
-        const NAMES = {GRAM: 'GRAM', BALL: 'Новогодние шары', PACK: 'Закрытые паки', STAR: 'Подарки Telegram'};
-        const sure = (d.settings && d.settings.guaranteed || []).map(k => ({GRAM: 'сумма GRAM', BALL: 'шары', PACK: 'закрытый пак', STAR: 'подарок'}[k])).filter(Boolean);
+        const label = x => x.kind === 'BALL' ? num(x.amount.split('-')[0]) + (x.amount.includes('-') ? '–' + num(x.amount.split('-')[1]) : '') + ' шаров' : x.kind === 'GRAM' ? num(x.amount.split('-')[0]) + (x.amount.includes('-') ? '–' + num(x.amount.split('-')[1]) : '') + ' GRAM' : (x.kind === 'NFT' ? x.title + ' · ' + x.collection : x.title) + (x.cmax > 1 ? ' ×' + (x.cmin === x.cmax ? x.cmax : x.cmin + '–' + x.cmax) : '');
+        const NAMES = {GRAM: 'GRAM', BALL: 'Новогодние шары', PACK: 'Закрытые паки', NFT: 'Прямые NFT', STAR: 'Подарки Telegram'};
+        const sure = (d.settings && d.settings.guaranteed || []).map(k => ({GRAM: 'сумма GRAM', BALL: 'шары', PACK: d.loot.some(x => x.kind === 'NFT') ? 'закрытый пак или NFT' : 'закрытый пак', STAR: 'подарок'}[k])).filter(Boolean);
         body.innerHTML = '<div class="cx-ch-hero"><img src="' + e(d.chest.image) + '" alt=""><div><b>' + e(d.chest.title) + '</b><small>Открывается сразу после покупки</small></div></div>' +
             (sure.length ? '<p class="cx-ch-sure"><b>В каждом ящике:</b> ' + sure.join(' + ') + '. Остальное — бонусные награды.</p>' : '') +
             '<h4>Сколько наград</h4><div class="cx-ch-bars">' + d.rolls.map(r => '<div><span>' + r.count + ' ' + word(r.count) + '</span><i><u style="width:' + Math.max(3, r.chance / top * 100).toFixed(1) + '%"></u></i><b>' + pc(r.chance) + '</b></div>').join('') + '</div>' +
-            ['GRAM', 'BALL', 'PACK', 'STAR'].filter(k => d.loot.some(x => x.kind === k)).map(k => '<h4>' + NAMES[k] + ' <small>шанс среди таких наград · хотя бы раз за ящик</small></h4><div class="cx-ch-loot">' + d.loot.filter(x => x.kind === k).map(x => '<div class="t-' + (x.inside < 3 ? 'legend' : x.inside < 10 ? 'epic' : x.inside < 25 ? 'rare' : 'common') + '"><em>' + pc(x.inside) + '</em><img src="' + e(x.image || (x.kind === 'GRAM' ? GRAM : ORN)) + '" alt="" loading="lazy"><span>' + e(label(x)) + '</span><small>' + pc(x.chance) + ' за ящик</small></div>').join('') + '</div>').join('');
+            ['GRAM', 'BALL', 'PACK', 'NFT', 'STAR'].filter(k => d.loot.some(x => x.kind === k)).map(k => '<h4>' + NAMES[k] + ' <small>шанс среди таких наград · хотя бы раз за ящик</small></h4><div class="cx-ch-loot">' + d.loot.filter(x => x.kind === k).map(x => '<div class="t-' + (x.inside < 3 ? 'legend' : x.inside < 10 ? 'epic' : x.inside < 25 ? 'rare' : 'common') + '"><em>' + pc(x.inside) + '</em><img src="' + e(x.image || (x.kind === 'GRAM' ? GRAM : ORN)) + '" alt="" loading="lazy"><span>' + e(label(x)) + '</span><small>' + pc(x.chance) + ' за ящик</small></div>').join('') + '</div>').join('');
     } catch (err) { body.innerHTML = '<p class="cx-ch-load">' + e(err.message || 'Не удалось загрузить') + '</p>'; }
 }
 

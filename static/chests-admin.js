@@ -2,13 +2,17 @@
 (function () {
 'use strict';
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])));
-const KINDS = [['BALL', 'Шары'], ['GRAM', 'GRAM'], ['PACK', 'Пак'], ['STAR', 'Подарок Telegram']];
+const KINDS = [['BALL', 'Шары'], ['GRAM', 'GRAM'], ['PACK', 'Пак'], ['NFT', 'Прямой NFT'], ['STAR', 'Подарок Telegram']];
+const SLOT = k => k === 'NFT' ? 'PACK' : k;                       // a pack and a direct NFT share one slot
+const GROUP_KINDS = KINDS.filter(([k]) => k !== 'NFT');
 
 async function admin(content) {
-    let r, packs = [], STARS = [];
+    let r, packs = [], STARS = [], COLS = [];
+    const MODELS = {};                                              // models of a collection, loaded when the collection is picked
     try { r = await api('admin/new-year/chests'); } catch (_) { return; }
     try { packs = (await api('admin/new-year/packs')).packs || []; } catch (_) {}
     try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) {}
+    try { COLS = (await api('admin/new-year/catalog')).collections; } catch (_) {}
     if (!content?.isConnected) return;
     const sec = document.createElement('section');
     sec.className = 'ny-admin-section';
@@ -36,14 +40,28 @@ async function admin(content) {
         sec.querySelectorAll('[data-cl]').forEach(i => { const [n, k] = i.dataset.cl.split('.'); if (form.loot[+n]) form.loot[+n][k] = i.value; });
     };
     const pct = (v, all) => all > 0 ? (v / all * 100).toFixed(v / all < .1 ? 2 : 1) + '%' : '—';
+    const loadModels = async cid => {
+        if (MODELS[cid] !== undefined) return;
+        MODELS[cid] = null;
+        try { MODELS[cid] = (await api('admin/new-year/catalog/' + encodeURIComponent(cid) + '/models')).models; } catch (_) { MODELS[cid] = []; }
+        if (form) { pull(); draw(); }
+    };
     const lootRow = (x, i, per) => {
         const k = x.kind;
         const what = k === 'PACK' ? '<select data-cl="' + i + '.amount">' + packs.map(p => '<option value="' + e(p.id) + '"' + (x.amount === p.id ? ' selected' : '') + '>' + e(p.title) + '</option>').join('') + '</select>'
+            : k === 'NFT' ? (() => {
+                const [cid, ...rest] = String(x.amount).split(':'), model = rest.join(':'), list = MODELS[cid];
+                if (cid && !list) loadModels(cid);
+                const names = list ? list.map(m => m.name) : [model];
+                if (model && !names.includes(model)) names.unshift(model);
+                return '<select data-nft-col="' + i + '">' + COLS.map(c => '<option value="' + e(c.id) + '"' + (c.id === cid ? ' selected' : '') + '>' + e(c.name) + '</option>').join('') + '</select>' +
+                    '<select data-nft-model="' + i + '">' + names.map(n => '<option value="' + e(n) + '"' + (n === model ? ' selected' : '') + '>' + e(n) + '</option>').join('') + '</select>';
+            })()
             : k === 'STAR' ? '<select data-cl="' + i + '.amount">' + (window.crafterStarGifts ? window.crafterStarGifts.options(STARS, x.amount) : '') + '</select>'
             : '<input data-cl="' + i + '.amount" value="' + e(x.amount) + '" placeholder="' + (k === 'BALL' ? '100-250' : '0.1-0.3') + '" title="Число или диапазон: игроку выпадет случайное значение">';
         const cnt = k === 'PACK' || k === 'STAR' ? '<span class="cxa-cnt">штук <input data-cl="' + i + '.cmin" type="number" min="1" max="20" value="' + e(x.cmin) + '"> – <input data-cl="' + i + '.cmax" type="number" min="1" max="20" value="' + e(x.cmax) + '"></span>' : '';
         return '<div class="cxa-row"><select data-cl-kind="' + i + '">' + KINDS.map(([v, t]) => '<option value="' + v + '"' + (k === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>' + what + cnt +
-            '<label class="cxa-w">Вес <input data-cl="' + i + '.weight" type="number" min="0" step="any" value="' + e(x.weight) + '"></label><b class="cxa-pct">' + pct(Number(x.weight) || 0, per[x.kind] || 0) + '</b>' +
+            '<label class="cxa-w">Вес <input data-cl="' + i + '.weight" type="number" min="0" step="any" value="' + e(x.weight) + '"></label><b class="cxa-pct">' + pct(Number(x.weight) || 0, per[SLOT(x.kind)] || 0) + '</b>' +
             '<button type="button" class="danger" data-cl-del="' + i + '" aria-label="Убрать">×</button></div>';
     };
     const draw = () => {
@@ -57,7 +75,7 @@ async function admin(content) {
                 '<p class="sub">Чтобы продать ящик: «Магазин» → «Новый товар» → «Ящик». Подарок по дням и промокод тоже умеют выдавать ящик.</p></div>';
         }
         if (form) {
-            const per = {}; form.loot.forEach(x => { per[x.kind] = (per[x.kind] || 0) + (Number(x.weight) || 0); });
+            const per = {}; form.loot.forEach(x => { per[SLOT(x.kind)] = (per[SLOT(x.kind)] || 0) + (Number(x.weight) || 0); });
             const rt = Object.values(form.rolls).reduce((s, v) => s + (Number(v) || 0), 0);
             html += '<div class="cxa-card"><h4>' + (form.id ? 'Изменить ящик' : 'Новый ящик') + '</h4>' +
                 '<div class="adm-row3">' + field('Название', '<input data-cf="title" maxlength="40" value="' + e(form.title) + '">') +
@@ -70,7 +88,7 @@ async function admin(content) {
                 '<h4>Сколько наград выпадет всего</h4><p class="sub">Вес — относительный: 50 и 30 значат 50% и 30%. Пустое поле — такого количества не бывает. Одна награда — одна выдача: сумма GRAM, пачка шаров или один пак.</p>' +
                 '<div class="cxa-rolls">' + [1, 2, 3, 4, 5, 6].map(n => '<label>' + n + ' <input data-cr="' + n + '" type="number" min="0" step="any" value="' + e(form.rolls[n]) + '"><b>' + pct(Number(form.rolls[n]) || 0, rt) + '</b></label>').join('') + '</div>' +
                 '<h4>Гарантированные награды и бонусы</h4><p class="sub">Гарантированные выдаются в каждом ящике (по одной). Остальные награды (всего минус гарантированные) — бонусные: их тип выбирается по шансам ниже. Если ничего не отмечено и шансов нет — награды берутся из всей таблицы сразу.</p>' +
-                '<div class="cxa-rolls">' + KINDS.map(([k, t]) => '<label>' + t + ' <input type="checkbox" data-c-sure="' + k + '"' + (form.settings.guaranteed[k] ? ' checked' : '') + '> гарант. <input data-cb="' + k + '" type="number" min="0" step="any" value="' + e(form.settings.bonus[k]) + '" placeholder="бонус %"></label>').join('') + '</div>' +
+                '<div class="cxa-rolls">' + GROUP_KINDS.map(([k, t]) => '<label>' + (k === 'PACK' ? 'Пак / NFT' : t) + ' <input type="checkbox" data-c-sure="' + k + '"' + (form.settings.guaranteed[k] ? ' checked' : '') + '> гарант. <input data-cb="' + k + '" type="number" min="0" step="any" value="' + e(form.settings.bonus[k]) + '" placeholder="бонус %"></label>').join('') + '</div>' +
                 '<h4>Что может лежать внутри</h4><p class="sub">Шары и GRAM: число или диапазон (100-250). Для паков и подарков — сколько штук. Вес считается внутри своего типа: проценты справа — шанс именно в этом типе.</p>' +
                 '<div class="cxa-rows">' + form.loot.map((x, i) => lootRow(x, i, per)).join('') + '</div><button type="button" data-loot-add>+ Добавить предмет</button>' +
                 '<div class="adm-chips" style="margin-top:14px"><button type="button" class="primary" data-save>Сохранить</button><button type="button" data-cancel>Отмена</button></div></div>';
@@ -92,7 +110,12 @@ async function admin(content) {
         sec.querySelectorAll('[data-c-on]').forEach(b => b.addEventListener('click', () => { pull(); form.enabled = b.dataset.cOn === '1'; draw(); }));
         sec.querySelectorAll('[data-up-bg]').forEach(i => i.addEventListener('change', async () => { const f = i.files[0]; if (!f) return; pull(); try { form.settings[i.dataset.upBg] = await upload(f, 'admin/new-year/shop-media', 15000000); toast('Фон загружен'); draw(); } catch (err) { toast(err.message); } }));
         sec.querySelectorAll('[data-bg-reset]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); pull(); form.settings[a.dataset.bgReset] = ''; draw(); }));
-        sec.querySelectorAll('[data-cl-kind]').forEach(s => s.addEventListener('change', () => { pull(); const x = form.loot[+s.dataset.clKind]; x.kind = s.value; x.amount = s.value === 'PACK' ? (packs[0]?.id || '') : s.value === 'STAR' ? (STARS[0]?.key || '') : s.value === 'BALL' ? '100-250' : '0.1-0.3'; x.cmin = 1; x.cmax = 1; draw(); }));
+        sec.querySelectorAll('[data-cl-kind]').forEach(s => s.addEventListener('change', () => { pull(); const x = form.loot[+s.dataset.clKind]; x.kind = s.value; x.amount = s.value === 'NFT' ? (COLS[0] ? COLS[0].id + ':' : '') : s.value === 'PACK' ? (packs[0]?.id || '') : s.value === 'STAR' ? (STARS[0]?.key || '') : s.value === 'BALL' ? '100-250' : '0.1-0.3'; x.cmin = 1; x.cmax = 1; draw(); }));
+        sec.querySelectorAll('[data-nft-col]').forEach(sel2 => sel2.addEventListener('change', async () => {
+            pull(); const x = form.loot[+sel2.dataset.nftCol]; await loadModels(sel2.value);
+            x.amount = sel2.value + ':' + ((MODELS[sel2.value] || [])[0]?.name || ''); draw();
+        }));
+        sec.querySelectorAll('[data-nft-model]').forEach(sel2 => sel2.addEventListener('change', () => { pull(); const x = form.loot[+sel2.dataset.nftModel]; x.amount = String(x.amount).split(':')[0] + ':' + sel2.value; draw(); }));
         sec.querySelectorAll('[data-cl-del]').forEach(b => b.addEventListener('click', () => { pull(); form.loot.splice(+b.dataset.clDel, 1); draw(); }));
         sec.querySelector('[data-loot-add]')?.addEventListener('click', () => { pull(); form.loot.push({kind: 'BALL', amount: '100-250', cmin: 1, cmax: 1, weight: '10'}); draw(); });
         sec.querySelectorAll('[data-cl$=".weight"],[data-cr]').forEach(i => i.addEventListener('change', () => { pull(); draw(); }));
