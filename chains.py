@@ -31,13 +31,20 @@ def install_chains(app, db, auth, audit, record):
             );
             CREATE TABLE IF NOT EXISTS offer_chain_steps (
                 id TEXT PRIMARY KEY, chain_id TEXT NOT NULL, position BIGINT NOT NULL DEFAULT 0, label TEXT NOT NULL DEFAULT '', caption TEXT NOT NULL DEFAULT '',
-                image TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL, amount TEXT NOT NULL, item_count BIGINT NOT NULL DEFAULT 1, price_balls BIGINT NOT NULL DEFAULT 0
+                image TEXT NOT NULL DEFAULT '', kind TEXT NOT NULL, amount TEXT NOT NULL, item_count BIGINT NOT NULL DEFAULT 1, price_balls BIGINT NOT NULL DEFAULT 0, rewards TEXT NOT NULL DEFAULT ''
             );
             CREATE TABLE IF NOT EXISTS offer_chain_claims (
                 user_id BIGINT NOT NULL, step_id TEXT NOT NULL, chain_id TEXT NOT NULL, result TEXT NOT NULL, created BIGINT NOT NULL,
                 PRIMARY KEY(user_id, step_id)
             );
         """)
+
+    with app.app_context(), db():                                      # chains made before a step could hold several prizes
+        database = db()
+        if hasattr(database, 'connection') and database.connection is not None:
+            database.execute("ALTER TABLE offer_chain_steps ADD COLUMN IF NOT EXISTS rewards TEXT NOT NULL DEFAULT ''")
+        elif 'rewards' not in [r['name'] for r in database.execute("PRAGMA table_info(offer_chain_steps)").fetchall()]:
+            database.execute("ALTER TABLE offer_chain_steps ADD COLUMN rewards TEXT NOT NULL DEFAULT ''")
 
     def msk_time(value):
         m = re.fullmatch(r'(\d{4})-(\d\d)-(\d\d)[T ](\d\d):(\d\d)', str(value or '').strip())
@@ -78,10 +85,22 @@ def install_chains(app, db, auth, audit, record):
     def steps_of(cid):
         return db().execute("SELECT * FROM offer_chain_steps WHERE chain_id=? ORDER BY position,id", (cid,)).fetchall()
 
+    def rewards_of(r):
+        """The prizes of a step: a list of {kind, amount, count} (older steps hold a single prize in their own columns)."""
+        try:
+            found = json.loads(r['rewards']) if r['rewards'] else None
+        except ValueError:
+            found = None
+        return found or [{'kind': r['kind'], 'amount': r['amount'], 'count': int(r['item_count'])}]
+
     def step_view(r, state=None):
-        title, pic = reward_info(r['kind'], r['amount'], int(r['item_count']))
-        return {'id': r['id'], 'position': int(r['position']), 'label': r['label'], 'caption': r['caption'], 'image': r['image'] or pic, 'own_image': r['image'],
-                'reward_title': title, 'kind': r['kind'], 'amount': r['amount'], 'count': int(r['item_count']), 'price_balls': int(r['price_balls']), 'state': state}
+        rw = []
+        for x in rewards_of(r):
+            title, pic = reward_info(x['kind'], x['amount'], int(x.get('count') or 1))
+            rw.append({'kind': x['kind'], 'amount': x['amount'], 'count': int(x.get('count') or 1), 'title': title, 'image': pic})
+        return {'id': r['id'], 'position': int(r['position']), 'label': r['label'], 'caption': r['caption'], 'image': r['image'] or (rw[0]['image'] if rw else ''), 'own_image': r['image'],
+                'reward_title': ' + '.join(x['title'] for x in rw), 'rewards': rw, 'kind': rw[0]['kind'], 'amount': rw[0]['amount'], 'count': rw[0]['count'],
+                'price_balls': int(r['price_balls']), 'state': state}
 
     def chain_view(row, uid=None, admin=False):
         done = set()
@@ -138,36 +157,52 @@ def install_chains(app, db, auth, audit, record):
                 db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
                 db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (balls - price, uid))
                 app.extensions['crafter_author_reward'](uid, 'BALLS', price, 'chain:' + step_id)
-            kind, amount, count = step['kind'], step['amount'], int(step['item_count'])
+            rewards = rewards_of(step)
             out = {'ok': True}
             src = 'chain:' + step_id
-            if kind == 'GRAM':
-                after = gram_of(uid) + Decimal(amount)
+            gram_add, ball_add = Decimal('0'), 0
+            for x in rewards:
+                if x['kind'] == 'GRAM':
+                    gram_add += Decimal(x['amount'])
+                elif x['kind'] == 'BALL':
+                    ball_add += int(x['amount'])
+            if gram_add:
+                after = gram_of(uid) + gram_add
                 db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance", (uid, str(after)))
-            elif kind == 'BALL':
-                new = balls_of(uid) + int(amount)
+            if ball_add:
+                new = balls_of(uid) + ball_add
                 if new > LIMIT:
                     abort(409, description='Баланс шаров превысит максимум')
                 db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
                 db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (new, uid))
-            elif kind == 'PACK':
-                ids = [app.extensions['crafter_grant_pack'](uid, amount, src) for _ in range(count)]
-                out.update(pack_id=ids[0], pack_ids=ids)
-            elif kind == 'STAR':
-                ids = [app.extensions['crafter_grant_star_gift'](uid, amount, src) for _ in range(count)]
-                out.update(gift_ids=ids)
-            elif kind == 'CHEST':
-                out['chest_open'] = app.extensions['crafter_open_chest'](uid, amount, src)
-            else:
-                cid, _, model = amount.partition(':')
-                out['nft'] = app.extensions['crafter_grant_nft'](uid, cid, model, src)
-            title, pic = reward_info(kind, amount, count)
-            result = {'title': title, 'image': step['image'] or pic, 'kind': kind, 'label': step['label']}
+            pack_ids, gift_ids, opens, nfts = [], [], [], []
+            for x in rewards:
+                kind, amount, count = x['kind'], x['amount'], int(x.get('count') or 1)
+                if kind == 'PACK':
+                    pack_ids += [app.extensions['crafter_grant_pack'](uid, amount, src) for _ in range(count)]
+                elif kind == 'STAR':
+                    gift_ids += [app.extensions['crafter_grant_star_gift'](uid, amount, src) for _ in range(count)]
+                elif kind == 'CHEST':
+                    opens += [app.extensions['crafter_open_chest'](uid, amount, src) for _ in range(count)]
+                elif kind == 'NFT':
+                    cid, _, model = amount.partition(':')
+                    nfts.append(app.extensions['crafter_grant_nft'](uid, cid, model, src))
+            if pack_ids:
+                out.update(pack_id=pack_ids[0], pack_ids=pack_ids)
+            if gift_ids:
+                out['gift_ids'] = gift_ids
+            if opens:
+                out.update(chest_open=opens[0], chest_opens=opens)
+            if nfts:
+                out.update(nft=nfts[0], nfts=nfts)
+            view = step_view(step)
+            first = rewards[0]
+            result = {'title': view['reward_title'], 'image': step['image'] or view['image'], 'kind': first['kind'], 'label': step['label'], 'rewards': [{'kind': r_['kind'], 'title': r_['title'], 'image': r_['image'], 'count': r_['count']} for r_ in view['rewards']]}
             db().execute("INSERT INTO offer_chain_claims(user_id,step_id,chain_id,result,created) VALUES(?,?,?,?,?)", (uid, step_id, chain['id'], json.dumps(result, ensure_ascii=False), now))
-            record('chain_claim', {'chain': chain['id'], 'step': step_id, 'kind': kind, 'price_balls': price}, uid=uid)
+            record('chain_claim', {'chain': chain['id'], 'step': step_id, 'kind': rewards[0]['kind'], 'rewards': len(rewards), 'price_balls': price}, uid=uid)
             out.update(result=result, balance={'balls': balls_of(uid)}, gram_balance=str(gram_of(uid)))
-            if 'chest_open' in out:
-                out['balance'] = out['chest_open']['balance']; out['gram_balance'] = out['chest_open']['gram_balance']
+            if opens:
+                out['balance'] = opens[-1]['balance']; out['gram_balance'] = opens[-1]['gram_balance']
         return out
 
     # ---------- administration ----------
@@ -207,6 +242,12 @@ def install_chains(app, db, auth, audit, record):
         elif kind == 'CHEST':
             if not app.extensions['crafter_chest_exists'](amount):
                 abort(400, description='Выберите существующий ящик')
+            try:
+                count = int(str(body.get('count') or 1))
+            except ValueError:
+                abort(400, description='Сколько ящиков: целое число')
+            if not 1 <= count <= 20:
+                abort(400, description='Ящиков в шаге: от 1 до 20')
         elif kind == 'NFT':
             cid, _, model = amount.partition(':')
             if not app.extensions['crafter_nft_short'](cid, model):
@@ -247,7 +288,14 @@ def install_chains(app, db, auth, audit, record):
             abort(400, description='В цепочке от 1 до %d шагов' % MAX_STEPS)
         steps = []
         for i, x in enumerate(steps_in):
-            kind, amount, count = reward_fields(x)
+            raw_rewards = x.get('rewards') if isinstance(x.get('rewards'), list) and x.get('rewards') else [x]
+            if not 1 <= len(raw_rewards) <= 12:
+                abort(400, description='В шаге от 1 до 12 призов')
+            rewards = []
+            for rw in raw_rewards:
+                k_, a_, c_ = reward_fields(rw)
+                rewards.append({'kind': k_, 'amount': a_, 'count': c_})
+            kind, amount, count = rewards[0]['kind'], rewards[0]['amount'], rewards[0]['count']
             try:
                 price = int(str(x.get('price_balls') or 0).strip() or 0)
             except ValueError:
@@ -255,7 +303,7 @@ def install_chains(app, db, auth, audit, record):
             if not 0 <= price <= LIMIT:
                 abort(400, description='Цена шага: от 0 до %d' % LIMIT)
             steps.append((str(x.get('id') or '') or uuid.uuid4().hex[:12], i, ' '.join(str(x.get('label') or '').split())[:24] or 'Шаг ' + str(i + 1),
-                          ' '.join(str(x.get('caption') or '').split())[:40], clean_image(x.get('image'), 'Картинка шага'), kind, amount, count, price))
+                          ' '.join(str(x.get('caption') or '').split())[:40], clean_image(x.get('image'), 'Картинка шага'), kind, amount, count, price, json.dumps(rewards)))
         enabled = 1 if body.get('enabled') in (True, 1, '1', 'true') else 0
         cid = str(body.get('id') or '')
         with db():
@@ -274,11 +322,11 @@ def install_chains(app, db, auth, audit, record):
                 pos = int(db().execute("SELECT COALESCE(MAX(position),0)+1 AS n FROM offer_chains").fetchone()['n'])
                 db().execute("INSERT INTO offer_chains(id,title,subtitle,bg,section_id,enabled,position,starts_at,ends_at,created) VALUES(?,?,?,?,?,?,?,?,?,?)",
                              (cid, title, subtitle, bg, section_id or None, enabled, pos, starts, ends, int(time.time())))
-            for sid, pos, label, caption, image, kind, amount, count, price in steps:
+            for sid, pos, label, caption, image, kind, amount, count, price, rewards_json in steps:
                 if db().execute("SELECT 1 FROM offer_chain_steps WHERE id=? AND chain_id=?", (sid, cid)).fetchone():
-                    db().execute("UPDATE offer_chain_steps SET position=?,label=?,caption=?,image=?,kind=?,amount=?,item_count=?,price_balls=? WHERE id=?", (pos, label, caption, image, kind, amount, count, price, sid))
+                    db().execute("UPDATE offer_chain_steps SET position=?,label=?,caption=?,image=?,kind=?,amount=?,item_count=?,price_balls=?,rewards=? WHERE id=?", (pos, label, caption, image, kind, amount, count, price, rewards_json, sid))
                 else:
-                    db().execute("INSERT INTO offer_chain_steps(id,chain_id,position,label,caption,image,kind,amount,item_count,price_balls) VALUES(?,?,?,?,?,?,?,?,?,?)", (sid, cid, pos, label, caption, image, kind, amount, count, price))
+                    db().execute("INSERT INTO offer_chain_steps(id,chain_id,position,label,caption,image,kind,amount,item_count,price_balls,rewards) VALUES(?,?,?,?,?,?,?,?,?,?,?)", (sid, cid, pos, label, caption, image, kind, amount, count, price, rewards_json))
         audit('Offer chain saved: ' + title)
         return {'ok': True, 'id': cid}
 

@@ -29,6 +29,7 @@ function step(s, i) {
         : '<button type="button" class="chn-take" data-chn-take="' + e(s.id) + '">' + ORN + '<b>' + num(s.price_balls) + '</b></button>';
     return '<div class="chn-step ' + (main ? 'is-main' : 'is-small') + ' st-' + state + '" data-chn-step="' + e(s.id) + '"><div class="chn-label">' + e(s.label) + '</div>' +
         '<div class="chn-pic"><img src="' + e(s.image) + '" alt="" draggable="false"></div>' +
+        ((s.rewards || []).length > 1 ? '<div class="chn-mini">' + s.rewards.slice(0, 6).map(r => '<i><img src="' + e(r.image) + '" alt="" draggable="false"></i>').join('') + ((s.rewards || []).length > 6 ? '<b>+' + (s.rewards.length - 6) + '</b>' : '') + '</div>' : '') +
         '<div class="chn-name"><b>' + e(s.reward_title) + '</b>' + (s.caption ? '<small>' + e(s.caption) + '</small>' : '') + '</div><div class="chn-foot">' + foot + '</div></div>';
 }
 
@@ -65,14 +66,21 @@ function stage(ch, ctx) {
         o.addEventListener('click', ev => { if (ev.target === o || ev.target.tagName === 'BUTTON') { o.classList.remove('is-in'); setTimeout(() => o.remove(), 200); } });
     };
     // the same window as after a purchase in the market: a pack (or the prize) flies up with sparks and rays
-    const reveal = (s, res) => {
+    const reveal = (s, res, rest) => {
         const f = window.crafterFestive;
         if (!f || !f.reveal) { popup(s, res); return; }
-        const r = res.result, isPack = Boolean(res.pack_ids && res.pack_ids.length);
-        const it = {id: 'chain', kind: isPack ? 'PACK' : r.kind, title: r.title, rarity: 'special', bundle: res.pack_ids ? res.pack_ids.length : 1, left: null, mine: 0, price_balls: 0, image_url: r.image,
-            pack: isPack ? {image: r.image, title: r.title, id: ''} : null, card_bg: ch.bg && ch.bg.indexOf('image:') === 0 ? ch.bg : ''};
-        const text = res.nft ? 'NFT уже в вашем инвентаре' + (res.nft.credited ? ': зачислена стоимость ' + res.nft.credited + ' GRAM' : '') : res.gift_ids ? 'Подарок уже в разделе «Мои подарки».' : r.kind === 'BALL' ? 'Шары уже на вашем балансе.' : r.kind === 'GRAM' ? 'GRAM уже на вашем балансе.' : 'Награда получена.';
-        const result = isPack ? {packIds: res.pack_ids, count: res.pack_ids.length, head: 'Получено', title: 'Вы получили: <b>' + e(r.title) + '</b>'} : {head: 'Получено', title: 'Вы получили: ' + e(r.title), text};
+        const list = rest && rest.length ? rest : (res.result.rewards || []);
+        const isPack = Boolean(res.pack_ids && res.pack_ids.length);
+        const firstPack = list.find(r => r.kind === 'PACK');
+        const title = list.map(r => r.title).join(' + ') || res.result.title;
+        const pic = isPack && firstPack ? firstPack.image : (list[0] && list[0].image) || res.result.image;
+        const it = {id: 'chain', kind: isPack ? 'PACK' : list[0] ? list[0].kind : 'GRAM', title, rarity: 'special', bundle: isPack ? res.pack_ids.length : 1, left: null, mine: 0, price_balls: 0, image_url: pic,
+            pack: isPack ? {image: pic, title: firstPack ? firstPack.title : title, id: ''} : null, card_bg: ch.bg && ch.bg.indexOf('image:') === 0 ? ch.bg : ''};
+        const extra = [];
+        if (res.nfts && res.nfts.length) extra.push('NFT уже в вашем инвентаре' + (res.nfts.some(n => n.credited) ? ' (где нельзя выдать — зачислена стоимость в GRAM)' : ''));
+        if (res.gift_ids && res.gift_ids.length) extra.push('Подарки Telegram — в разделе «Мои подарки»');
+        if (list.some(r => r.kind === 'GRAM' || r.kind === 'BALL')) extra.push('GRAM и шары уже на балансе');
+        const result = isPack ? {packIds: res.pack_ids, count: res.pack_ids.length, head: 'Получено', title: 'Вы получили: <b>' + e(title) + '</b>'} : {head: 'Получено', title: 'Вы получили: ' + e(title), text: extra.join('. ') || 'Награда получена.'};
         f.reveal({it}, result, {refresh() {}}, () => {});
     };
     let busy = false;
@@ -87,8 +95,9 @@ function stage(ch, ctx) {
             s.state = 'done'; ch.done++;
             const nx = ch.steps.find(x => x.state === 'locked'); if (nx) nx.state = 'ready';
             draw();
-            if (res.chest_open && window.crafterChests) window.crafterChests.play(res.chest_open, {bg: 'cozy', toast, refresh() {}});
-            else reveal(s, res);
+            if (res.chest_opens && window.crafterChests) await window.crafterChests.playMany(res.chest_opens, {bg: 'cozy', toast, refresh() {}});
+            const rest = (res.result.rewards || []).filter(r => r.kind !== 'CHEST');
+            if (rest.length || !res.chest_opens) reveal(s, res, rest);
         } catch (error) { err.textContent = error.message; toast(error.message); }
         busy = false;
     };

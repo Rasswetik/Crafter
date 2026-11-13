@@ -35,3 +35,22 @@ def test_chain_admin_checks(client):
     bad = client.post('/api/admin/new-year/chains', headers=admin, json={'title': 'x', 'steps': [{'kind': 'PACK', 'amount': 'nope'}]})
     assert bad.status_code == 400
     assert client.post('/api/admin/new-year/chains', headers=admin, json={'title': '', 'steps': []}).status_code == 400
+
+
+def test_a_step_holds_several_prizes(client):
+    admin, player = signed(42), signed(61)
+    client.get('/api/me', headers=player)
+    made = client.post('/api/admin/new-year/chains', headers=admin, json={'title': 'Много призов', 'enabled': True, 'steps': [
+        {'label': 'Шаг 1', 'price_balls': 0, 'rewards': [
+            {'kind': 'PACK', 'amount': 'newyear', 'count': 2}, {'kind': 'CHEST', 'amount': 'snowman', 'count': 2}, {'kind': 'GRAM', 'amount': '1.5'}, {'kind': 'BALL', 'amount': '50'},
+            {'kind': 'NFT', 'amount': 'santahat:Warm Winter'}]}]})
+    assert made.status_code == 200, made.get_data(as_text=True)
+    step = client.get('/api/chains', headers=player).json['chains'][0]['steps'][0]
+    assert len(step['rewards']) == 5 and 'Ящик' not in step['reward_title'] and step['reward_title'].count('+') == 4
+    before = client.get('/api/me', headers=player).json
+    got = client.post('/api/chains/claim', headers=player, json={'step_id': step['id']})
+    assert got.status_code == 200, got.get_data(as_text=True)
+    d = got.json
+    assert len(d['pack_ids']) == 2 and len(d['chest_opens']) == 2 and d['nft']['nft_id'] and len(d['result']['rewards']) == 5
+    assert client.post('/api/admin/new-year/chains', headers=admin, json={'title': 'x', 'steps': [{'rewards': []}]}).status_code == 400
+    assert client.post('/api/admin/new-year/chains', headers=admin, json={'title': 'x', 'steps': [{'rewards': [{'kind': 'CHEST', 'amount': 'nope'}]}]}).status_code == 400

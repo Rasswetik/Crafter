@@ -31,34 +31,27 @@ async function admin(content) {
         try { MODELS[cid] = (await api('admin/new-year/catalog/' + encodeURIComponent(cid) + '/models')).models; } catch (_) { MODELS[cid] = []; }
         if (form) { pull(); draw(); }
     };
-    const blank = () => ({kind: 'GRAM', amount: '0.5', count: 1, price_balls: '0', label: '', caption: '', image: ''});
-    const fresh = () => ({id: '', title: 'Новая акция', subtitle: '', enabled: true, section_id: '', bg: '', starts_at_msk: '', ends_at_msk: '', steps: [Object.assign(blank(), {kind: 'PACK', amount: packs[0]?.id || '', label: 'Шаг 1', price_balls: '0'}), Object.assign(blank(), {label: 'Шаг 2'})]});
+    const blank = () => ({rewards: [], price_balls: '0', label: '', caption: '', image: ''});
+    const fresh = () => ({id: '', title: 'Новая акция', subtitle: '', enabled: true, section_id: '', bg: '', starts_at_msk: '', ends_at_msk: '', steps: [
+        Object.assign(blank(), {label: 'Шаг 1', rewards: [{kind: 'PACK', amount: packs[0]?.id || '', count: 1}]}), Object.assign(blank(), {label: 'Шаг 2', rewards: [{kind: 'GRAM', amount: '0.5', count: 1}]})]});
     const edit = c => ({id: c.id, title: c.title, subtitle: c.subtitle, enabled: c.enabled, section_id: c.section_id, bg: c.bg, starts_at_msk: c.starts_at ? toMsk(c.starts_at) : '', ends_at_msk: c.ends_at ? toMsk(c.ends_at) : '',
-        steps: c.steps.map(s => ({id: s.id, kind: s.kind, amount: s.amount, count: s.count, price_balls: String(s.price_balls), label: s.label, caption: s.caption, image: s.own_image}))});
+        steps: c.steps.map(s => ({id: s.id, rewards: (s.rewards || []).map(r => ({kind: r.kind, amount: r.amount, count: r.count})), price_balls: String(s.price_balls), label: s.label, caption: s.caption, image: s.own_image}))});
     const pull = () => {
         sec.querySelectorAll('[data-chf]').forEach(i => { form[i.dataset.chf] = i.value; });
         sec.querySelectorAll('[data-chs]').forEach(i => { const [n, k] = i.dataset.chs.split('.'); if (form.steps[+n]) form.steps[+n][k] = i.value; });
     };
-    const amountPicker = (s, i) => {
-        const k = s.kind, a = 'data-chs="' + i + '.amount"';
-        if (k === 'PACK') return '<select ' + a + '>' + packs.map(p => '<option value="' + e(p.id) + '"' + (s.amount === p.id ? ' selected' : '') + '>' + e(p.title) + '</option>').join('') + '</select>';
-        if (k === 'STAR') return '<select ' + a + '>' + (window.crafterStarGifts ? window.crafterStarGifts.options(STARS, s.amount) : '') + '</select>';
-        if (k === 'CHEST') return '<select ' + a + '>' + CHESTS.map(c => '<option value="' + e(c.id) + '"' + (s.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select>';
-        if (k === 'NFT') {
-            const [cid, ...rest] = String(s.amount).split(':'), model = rest.join(':'), list = MODELS[cid];
-            if (cid && !list) loadModels(cid);
-            const names = list ? list.map(m => m.name) : [model];
-            if (model && !names.includes(model)) names.unshift(model);
-            return '<select data-nft-col="' + i + '">' + COLS.map(c => '<option value="' + e(c.id) + '"' + (c.id === cid ? ' selected' : '') + '>' + e(c.name) + '</option>').join('') + '</select><select data-nft-model="' + i + '">' + names.map(n => '<option value="' + e(n) + '"' + (n === model ? ' selected' : '') + '>' + e(n) + '</option>').join('') + '</select>';
-        }
-        return '<input ' + a + ' inputmode="decimal" value="' + e(s.amount) + '" placeholder="' + (k === 'BALL' ? '100' : '0.5') + '">';
-    };
+    /* a prize in a step is a cell: a picture, the amount and the name */
+    const rewardInfo = r => r.kind === 'PACK' ? {img: packs.find(p => p.id === r.amount)?.image || '', name: packs.find(p => p.id === r.amount)?.title || 'Пак', n: '×' + r.count}
+        : r.kind === 'CHEST' ? {img: CHESTS.find(c => c.id === r.amount)?.image || '', name: CHESTS.find(c => c.id === r.amount)?.title || 'Ящик', n: '×' + r.count}
+        : r.kind === 'GRAM' ? {img: '/static/assets/gram.svg', name: 'GRAM', n: String(r.amount)} : r.kind === 'BALL' ? {img: '/static/assets/new-year-ornament.svg', name: 'Шары', n: Number(r.amount).toLocaleString('ru-RU')}
+        : r.kind === 'STAR' ? {img: STARS.find(x => x.key === r.amount)?.image || '', name: STARS.find(x => x.key === r.amount)?.name || 'Подарок', n: '×' + r.count}
+        : {img: '', name: String(r.amount).split(':').slice(1).join(':') || 'NFT', n: (COLS.find(c => c.id === String(r.amount).split(':')[0]) || {}).name || 'NFT'};
     const stepCard = (s, i, n) => '<div class="cha-step"><div class="cha-top"><b>' + (i ? 'Шаг ' + (i + 1) : 'Шаг 1 · главная награда') + '</b><span><button type="button" data-st-up="' + i + '"' + (i ? '' : ' disabled') + '>↑</button><button type="button" data-st-down="' + i + '"' + (i < n - 1 ? '' : ' disabled') + '>↓</button><button type="button" class="danger" data-st-del="' + i + '">×</button></span></div>' +
         '<div class="cha-grid"><div class="cha-pic">' + (s.image ? '<img src="' + e(s.image) + '" alt="">' : '<span>PNG</span>') + '<label class="cha-up">Загрузить PNG<input type="file" accept="image/png,image/webp,image/jpeg" hidden data-st-img="' + i + '"></label>' + (s.image ? '<a href="#" data-st-noimg="' + i + '">Убрать</a>' : '') + '</div>' +
-        '<div>' + field('Заголовок', '<input data-chs="' + i + '.label" maxlength="24" value="' + e(s.label) + '" placeholder="Шаг ' + (i + 1) + '">') + field('Подпись', '<input data-chs="' + i + '.caption" maxlength="40" value="' + e(s.caption) + '" placeholder="Например: СЛУЧАЙНО">') + '</div>' +
-        '<div>' + field('Награда', '<select data-st-kind="' + i + '">' + KINDS.map(([v, t]) => '<option value="' + v + '"' + (s.kind === v ? ' selected' : '') + '>' + t + '</option>').join('') + '</select>') + field(s.kind === 'BALL' ? 'Сколько шаров' : s.kind === 'GRAM' ? 'Сколько GRAM' : 'Какая', amountPicker(s, i)) +
-        (s.kind === 'PACK' || s.kind === 'STAR' ? field('Штук', '<input data-chs="' + i + '.count" type="number" min="1" max="20" value="' + e(s.count) + '">') : '') + '</div>' +
-        '<div>' + field('Цена, шаров', '<input data-chs="' + i + '.price_balls" type="number" min="0" value="' + e(s.price_balls) + '">', Number(s.price_balls) > 0 ? '' : 'Бесплатно: на карточке «ПОДАРОК»') + '</div></div></div>';
+        '<div>' + field('Заголовок', '<input data-chs="' + i + '.label" maxlength="24" value="' + e(s.label) + '" placeholder="Шаг ' + (i + 1) + '">') + field('Подпись', '<input data-chs="' + i + '.caption" maxlength="40" value="' + e(s.caption) + '" placeholder="Например: СЛУЧАЙНО">') +
+        field('Цена, шаров', '<input data-chs="' + i + '.price_balls" type="number" min="0" value="' + e(s.price_balls) + '">', Number(s.price_balls) > 0 ? '' : 'Бесплатно: на карточке «ПОДАРОК»') + '</div>' +
+        '<div class="cha-prizes"><label>Призы шага</label><div class="bnd-cells">' + s.rewards.map((r, j) => { const v = rewardInfo(r); return '<div class="bnd-cell"><button type="button" class="bnd-x" data-rw-del="' + i + '.' + j + '" aria-label="Убрать">×</button>' + (v.img ? '<img src="' + e(v.img) + '" alt="">' : '<i class="bnd-gift">🎁</i>') + '<b>' + e(v.n) + '</b><span>' + e(v.name) + '</span></div>'; }).join('') +
+        '<button type="button" class="bnd-cell bnd-plus" data-rw-add="' + i + '" aria-label="Добавить приз"><i>+</i><span>Добавить</span></button></div></div></div></div>';
     const draw = () => {
         const cur = r.chains.find(c => c.id === sel);
         let html = '<h3>Цепочки акций</h3><p class="sub">Первая карточка — главная награда, дальше идут шаги: бесплатные («ПОДАРОК») или за шары. Следующий шаг открывается, когда взят предыдущий. Цепочка появляется плиткой в разделе «Акции» (или в выбранном разделе).</p>' +
@@ -98,19 +91,18 @@ async function admin(content) {
         const move = (i, d) => { pull(); const j = i + d; if (j < 0 || j >= form.steps.length) return; [form.steps[i], form.steps[j]] = [form.steps[j], form.steps[i]]; draw(); };
         sec.querySelectorAll('[data-st-up]').forEach(b => b.addEventListener('click', () => move(+b.dataset.stUp, -1)));
         sec.querySelectorAll('[data-st-down]').forEach(b => b.addEventListener('click', () => move(+b.dataset.stDown, 1)));
-        sec.querySelectorAll('[data-st-kind]').forEach(s => s.addEventListener('change', () => {
-            pull(); const x = form.steps[+s.dataset.stKind]; x.kind = s.value; x.count = 1;
-            x.amount = s.value === 'PACK' ? (packs[0]?.id || '') : s.value === 'STAR' ? (STARS[0]?.key || '') : s.value === 'CHEST' ? (CHESTS[0]?.id || '') : s.value === 'NFT' ? (COLS[0] ? COLS[0].id + ':' : '') : s.value === 'BALL' ? '100' : '0.5'; draw();
+        sec.querySelectorAll('[data-rw-add]').forEach(b => b.addEventListener('click', () => {
+            pull(); const i = +b.dataset.rwAdd;
+            window.crafterRewardPicker.open({packs, chests: CHESTS, stars: STARS, cols: COLS, models: async cid => { await loadModels(cid); return MODELS[cid] || []; }}, x => { form.steps[i].rewards.push(x); draw(); });
         }));
-        sec.querySelectorAll('[data-nft-col]').forEach(s => s.addEventListener('change', async () => { pull(); const x = form.steps[+s.dataset.nftCol]; await loadModels(s.value); x.amount = s.value + ':' + ((MODELS[s.value] || [])[0]?.name || ''); draw(); }));
-        sec.querySelectorAll('[data-nft-model]').forEach(s => s.addEventListener('change', () => { pull(); const x = form.steps[+s.dataset.nftModel]; x.amount = String(x.amount).split(':')[0] + ':' + s.value; draw(); }));
+        sec.querySelectorAll('[data-rw-del]').forEach(b => b.addEventListener('click', () => { pull(); const [i, j] = b.dataset.rwDel.split('.').map(Number); form.steps[i].rewards.splice(j, 1); draw(); }));
         sec.querySelectorAll('[data-st-img]').forEach(i => i.addEventListener('change', async () => { const f = i.files[0]; if (!f) return; pull(); try { form.steps[+i.dataset.stImg].image = await uploadMedia(f); draw(); } catch (err) { toast(err.message); } }));
         sec.querySelectorAll('[data-st-noimg]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); pull(); form.steps[+a.dataset.stNoimg].image = ''; draw(); }));
         sec.querySelector('[data-ch-cancel]')?.addEventListener('click', () => { form = null; draw(); });
         sec.querySelector('[data-ch-save]')?.addEventListener('click', async () => {
             pull();
             const out = await run(() => api('admin/new-year/chains', {id: form.id || undefined, title: form.title, subtitle: form.subtitle, enabled: form.enabled, section_id: form.section_id, bg: form.bg, starts_at_msk: form.starts_at_msk, ends_at_msk: form.ends_at_msk,
-                steps: form.steps.map(s => ({id: s.id || undefined, kind: s.kind, amount: s.amount, count: s.count, price_balls: s.price_balls || 0, label: s.label, caption: s.caption, image: s.image}))}), 'Акция сохранена');
+                steps: form.steps.map(s => ({id: s.id || undefined, rewards: s.rewards, price_balls: s.price_balls || 0, label: s.label, caption: s.caption, image: s.image}))}), 'Акция сохранена');
             if (out) { sel = out.id; form = null; draw(); }
         });
     };
