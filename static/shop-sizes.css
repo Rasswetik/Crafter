@@ -132,3 +132,25 @@
   .si-sz-wide .ny-lot-art{aspect-ratio:1/1;height:auto}
   .si-sz-wide .si-desc{-webkit-line-clamp:3}
 }
+
+/* ---- calmer and crisper: nothing jumps, the packs behind sway softly, the front one stays where it is ---- */
+.si-tile{transition:transform .35s cubic-bezier(.22,.8,.3,1),box-shadow .35s ease,border-color .35s ease;animation:si-tile-in .6s cubic-bezier(.22,.8,.3,1) both;animation-delay:calc(var(--n,0) * 40ms)}
+.si-tile:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgb(var(--ac) / .18),inset 0 1px #ffffff1c;border-color:rgb(var(--ac) / .5)}
+.si-tile:active{transform:translateY(0) scale(.992)}
+@keyframes si-tile-in{from{opacity:0;transform:translateY(10px)}}
+.si-tile .si-solo{animation:si-float 8s ease-in-out infinite}
+.si-fan.spread{animation:si-float 9s ease-in-out infinite}
+@keyframes si-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-2%)}}
+.si-tile .ny-lot-price::after{animation-duration:8s;opacity:.55}
+.si-off,.si-fan-count{animation:none}
+/* the fan: fixed order, the pack under the cursor stays in its place */
+.si-fan.spread img:hover,.si-tile .si-fan.spread img:hover,.si-stage .si-fan.spread img:hover{z-index:var(--z,10)!important;
+  transform:translateX(-50%) translateX(calc(var(--pos) * var(--sp))) translateY(calc(var(--apos) * 2.2%)) rotate(calc(var(--pos) * 5deg))!important}
+.si-fan.spread img{transition:transform .6s cubic-bezier(.22,.8,.3,1),translate .6s ease,rotate .6s ease}
+.si-tile:hover .si-fan.spread img{--sp:17%}
+.si-tile:hover .si-fan.spread img:not(.mid){animation:si-sway 3.2s ease-in-out infinite alternate;animation-delay:calc(var(--apos) * -.45s)}
+@keyframes si-sway{from{rotate:-1.4deg;translate:0 0}to{rotate:1.4deg;translate:0 -1.6%}}
+@keyframes si-fan-in{from{opacity:0;transform:translateX(-50%) translateY(18%) rotate(0) scale(.82)}}
+.si-fan.spread img{animation-duration:.9s;animation-timing-function:cubic-bezier(.22,.8,.3,1)}
+.sz-grid .ny-lot{animation-duration:.5s}
+@media(prefers-reduced-motion:reduce){.si-tile:hover .si-fan.spread img{animation:none!important}}

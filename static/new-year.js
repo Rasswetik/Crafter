@@ -2,7 +2,27 @@
 (function(){
 'use strict';
 const ORNAMENT='/static/assets/new-year-ornament.svg';
-const SEASON_ICON='<img class="ny-nav-icon" src="'+ORNAMENT+'" alt="">';
+
+/* A team of reindeer pulling a sleigh: a small line icon for the menu and a soft scene for the event tile. */
+const DEER = (x, y, s, c, cls) => '<g class="ny-deer ' + cls + '" transform="translate(' + x + ' ' + y + ') scale(' + s + ')" fill="' + c + '"><g class="ny-deer-bob">' +
+    '<path d="M-22 -4C-22 -15 -8 -18 5 -17C16 -16 23 -10 22 -2C21 7 9 11 -4 10C-15 9 -22 5 -22 -4z"/><path d="M15 -13L27 -29L35 -24L25 -6z"/>' +
+    '<ellipse cx="35" cy="-28" rx="9" ry="6.4" transform="rotate(-22 35 -28)"/><circle cx="43" cy="-26.5" r="2.4" fill="#ff4d5e"/>' +
+    '<path d="M32 -34L29 -47M30 -42L22 -45M30 -42L35 -52M37 -33L43 -45M41 -40L48 -42" fill="none" stroke="' + c + '" stroke-width="2.2" stroke-linecap="round"/>' +
+    '<circle cx="-23" cy="-7" r="3.2" fill="#fff3d9"/>' +
+    '<path class="lg l1" d="M14 6L22 25" fill="none" stroke="' + c + '" stroke-width="4.2" stroke-linecap="round"/><path class="lg l2" d="M7 8L10 27" fill="none" stroke="' + c + '" stroke-width="4.2" stroke-linecap="round"/>' +
+    '<path class="lg l3" d="M-12 7L-21 24" fill="none" stroke="' + c + '" stroke-width="4.2" stroke-linecap="round"/><path class="lg l4" d="M-5 9L-9 27" fill="none" stroke="' + c + '" stroke-width="4.2" stroke-linecap="round"/></g></g>';
+const SLEIGH_SCENE = '<svg class="ny-sleigh" viewBox="0 0 280 120" aria-hidden="true" focusable="false">' +
+    '<g fill="#fff"><path class="tw tw1" d="M30 18l2.2 5.8L38 26l-5.8 2.2L30 34l-2.2-5.8L22 26l5.8-2.2z"/><path class="tw tw2" d="M246 14l1.6 4.2L252 20l-4.4 1.6L246 26l-1.6-4.4L240 20l4.4-1.8z"/><circle class="tw tw3" cx="150" cy="12" r="2"/><circle class="tw tw1" cx="96" cy="32" r="1.6"/></g>' +
+    '<g class="ny-sl-body"><path d="M6 94h40M0 102h26M14 86h22" fill="none" stroke="#cfe6ff" stroke-width="2" stroke-linecap="round" opacity=".5"/>' +
+    '<g transform="translate(46 70)"><path d="M-8 22H70q9 0 9-9" fill="none" stroke="#ffd98a" stroke-width="4" stroke-linecap="round"/><path d="M4 12V22M52 12V22" stroke="#ffd98a" stroke-width="3" stroke-linecap="round"/>' +
+    '<path d="M-6 -8H62q8 0 6 8L62 14H0q-6 0-6-6z" fill="#ff5c6e"/><path d="M-6 -8H62q8 0 6 8" fill="none" stroke="#ffb3bb" stroke-width="2.2" stroke-linecap="round"/>' +
+    '<path d="M2 -8Q-6 -34 14 -36Q36 -34 26 -8z" fill="#f4c26b"/><path d="M12 -34q2-6 8-4" fill="none" stroke="#fff3d0" stroke-width="2.4" stroke-linecap="round"/></g>' +
+    '<path d="M118 82L154 86L196 84" fill="none" stroke="#ffd98a" stroke-width="1.8" stroke-dasharray="3 3"/>' +
+    DEER(150, 82, .86, '#e1a263', 'd2') + DEER(210, 78, 1, '#f3bd7d', 'd1') + '</g></svg>';
+const SLEIGH_ICON = '<svg class="ny-nav-sleigh" viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+    '<path d="M2 20h14q3 0 3-3"/><path d="M3 9.5h13l-1 6.5H4z"/><path d="M4.5 9.5Q3 4 7 4t3.5 5.5"/><path d="M19 12.5h2"/>' +
+    '<ellipse cx="25" cy="14" rx="4.4" ry="2.8"/><path d="M28 11.5l1.8-3.6"/><circle cx="30.4" cy="7" r="1.5"/><path d="M29.6 5.4l-.8-3m.8 3l2-1.8"/><path d="M22.4 16.4L21.4 21M27 16.6l1 4.4"/></svg>';
+const SEASON_ICON=SLEIGH_ICON;
 const pending=new Map();
 let busy=false;
 let lastData=null;
@@ -45,7 +65,7 @@ function navSeason(){
 function addSeasonTile(){
     const wrap=document.querySelector('#main .crafter-games');
     if(!wrap||!active()||wrap.querySelector('.ny-game-tile'))return;
-    wrap.insertAdjacentHTML('afterbegin','<button class="crafter-game-tile ny-game-tile" type="button" onclick="go(\'new-year\')"><span class="crafter-game-label"><strong>Событие</strong><span>Новогодний маркет, адвент-календарь и события сообщества</span><span class="crafter-game-open">Открыть</span></span><span class="ny-art" aria-hidden="true"><i class="nyb nyb1"></i><i class="nyb nyb2"></i><i class="nyb nyb3"></i><i class="nys nys1"></i><i class="nys nys2"></i><i class="nys nys3"></i></span></button>');
+    wrap.insertAdjacentHTML('afterbegin','<button class="crafter-game-tile ny-game-tile" type="button" onclick="go(\'new-year\')"><span class="crafter-game-label"><strong>Событие</strong><span>Новогодний маркет, адвент-календарь и события сообщества</span><span class="crafter-game-open">Открыть</span></span><span class="ny-art" aria-hidden="true">'+SLEIGH_SCENE+'</span></button>');
 }
 if(typeof renderGamesHub==='function'){
     const hubBefore=renderGamesHub;

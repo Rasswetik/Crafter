@@ -18,7 +18,7 @@ function artHTML(it, cls) {
     const kinds = packOf(it) && it.contents && it.contents.length > 1 ? it.contents.slice(0, 7) : null;
     if (kinds) {
         const mid = (kinds.length - 1) / 2;
-        const imgs = kinds.map((c, i) => '<img src="' + e(c.pack.image || src) + '" alt="" title="' + e(c.pack.title) + '" style="--pos:' + (i - mid).toFixed(2) + ';--apos:' + Math.abs(i - mid).toFixed(2) + ';--z:' + (20 - Math.round(Math.abs(i - mid) * 2)) + '">').join('');
+        const imgs = kinds.map((c, i) => '<img' + (Math.abs(i - mid) < .6 ? ' class="mid"' : '') + ' src="' + e(c.pack.image || src) + '" alt="" title="' + e(c.pack.title) + '" style="--pos:' + (i - mid).toFixed(2) + ';--apos:' + Math.abs(i - mid).toFixed(2) + ';--z:' + (20 - Math.round(Math.abs(i - mid) * 2)) + '">').join('');
         return '<span class="si-fan spread n' + kinds.length + (cls ? ' ' + cls : '') + '">' + imgs + (Number(it.bundle) > 1 ? '<b class="si-fan-count">×' + it.bundle + '</b>' : '') + '</span>';
     }
     if (packOf(it) && Number(it.bundle) > 1) {
