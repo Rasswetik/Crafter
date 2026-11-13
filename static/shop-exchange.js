@@ -99,7 +99,7 @@ async function admin(content) {
         sec.querySelectorAll('[data-x]').forEach(i => i.addEventListener('input', () => { pull(); const p = sec.querySelector('.ex-big'); if (p && X()) p.innerHTML = X().tile(previewEx(), {preview: true}); }));
         sec.querySelector('[data-x-file]')?.addEventListener('change', async ev => {
             const file = ev.target.files[0]; if (!file) return;
-            if (file.size > 600000) { toast('Файл должен быть не больше 600 КБ'); return; }
+            if (file.size > 15000000) { toast('Файл должен быть не больше 15 МБ'); return; }
             try { const body = new FormData(); body.append('file', file); pull(); f.image = (await api('admin/new-year/shop-media', body)).url; draw(); } catch (err) { toast(err.message); }
         });
         sec.querySelector('[data-x-clear]')?.addEventListener('click', () => { pull(); f.image = ''; draw(); });

@@ -125,7 +125,7 @@ async function admin(content) {
     const toMsk = epoch => new Date((epoch + 3 * 3600) * 1000).toISOString().slice(0, 16);              // unix time -> 'YYYY-MM-DDTHH:MM' in Moscow time
     const mskEpoch = text => text ? Math.floor(Date.parse(text + ':00Z') / 1000) - 3 * 3600 : null;
     const uploadMedia = async file => {
-        if (file.size > 600000) throw new Error('Файл должен быть не больше 600 КБ');
+        if (file.size > 15000000) throw new Error('Файл должен быть не больше 15 МБ');
         const body = new FormData(); body.append('file', file);
         return (await api('admin/new-year/shop-media', body)).url;
     };
@@ -338,7 +338,7 @@ async function admin(content) {
         sec.querySelectorAll('[data-sec-clear]').forEach(b => b.addEventListener('click', () => { const k = b.dataset.secClear; title(); if (k === 'bg') secForm.bg = 'night'; else secForm[k] = k === 'icon' ? 'builtin:star' : ''; redraw(); }));
         sec.querySelectorAll('[data-sec-file]').forEach(inp => inp.addEventListener('change', async () => {
             const file = inp.files[0]; if (!file) return;
-            if (file.size > 600000) { toast('Файл должен быть не больше 600 КБ'); return; }
+            if (file.size > 15000000) { toast('Файл должен быть не больше 15 МБ'); return; }
             const body = new FormData(); body.append('file', file);
             try { const out = await api('admin/new-year/shop-media', body); const k = inp.dataset.secFile; title(); if (k === 'bg') secForm.bg = 'image:' + out.url; else secForm[k] = out.url; redraw(); } catch (err) { toast(err.message); }
         }));

@@ -61,7 +61,7 @@ def test_uploads_are_checked(client):
     assert upload(client, b'<html><script>alert(1)</script></html>', 'x.html').status_code == 415
     assert upload(client, b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>', 'x.svg').status_code == 415
     assert upload(client, b'<svg xmlns="http://www.w3.org/2000/svg" onload="x()"></svg>', 'x.svg').status_code == 415
-    assert upload(client, b'x' * 700000, 'big.png').status_code == 413
+    assert upload(client, b'x' * 16_000_000, 'big.png').status_code == 413
     ok = upload(client, b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>', 'ok.svg')
     assert ok.status_code == 200 and ok.json['mime'] == 'image/svg+xml'
     served = client.get(ok.json['url'])

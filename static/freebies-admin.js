@@ -25,7 +25,7 @@ async function admin(content) {
     const field = (label, input, hint) => '<div class="adm-field"><label>' + label + '</label>' + input + (hint ? '<small class="sub">' + hint + '</small>' : '') + '</div>';
     const chips = (items, on, attr) => '<div class="adm-chips">' + items.map(([v, t]) => '<button type="button" class="' + (String(on) === String(v) ? 'is-on' : '') + '" ' + attr + '="' + e(v) + '">' + e(t) + '</button>').join('') + '</div>';
     const rewardText = x => x.kind === 'GRAM' ? x.amount + ' GRAM' : x.kind === 'BALL' ? Number(x.amount).toLocaleString('ru-RU') + ' шаров' : x.kind === 'PACK' ? (packs.find(p => p.id === x.amount)?.title || 'Пак') + (x.count > 1 ? ' ×' + x.count : '') : (STARS.find(s => s.key === x.amount)?.name || 'Подарок') + (x.count > 1 ? ' ×' + x.count : '');
-    const uploadMedia = async file => { if (file.size > 600000) throw new Error('Файл должен быть не больше 600 КБ'); const b = new FormData(); b.append('file', file); return (await api('admin/new-year/shop-media', b)).url; };
+    const uploadMedia = async file => { if (file.size > 15000000) throw new Error('Файл должен быть не больше 15 МБ'); const b = new FormData(); b.append('file', file); return (await api('admin/new-year/shop-media', b)).url; };
     const pull = () => sec.querySelectorAll('[data-fx]').forEach(i => { (i.dataset.fx.startsWith('e.') ? ef : i.dataset.fx.startsWith('g.') ? gf : sf)[i.dataset.fx.slice(2)] = i.value; });
 
     const rewardPicker = (o, p) => {

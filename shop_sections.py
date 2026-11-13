@@ -23,7 +23,7 @@ BACKGROUNDS = ('village', 'snow', 'night', 'aurora', 'garland', 'frost', 'candy'
                'cabin', 'bauble', 'gifts', 'sparklers', 'champagne', 'northpole', 'wreath', 'skating', 'santa', 'sunrise', 'desert', 'jungle', 'cherry', 'space', 'cyber', 'bubbles', 'storm', 'hex',
                'nikolay', 'goshan', 'gifton', 'collab',
                'fireworks', 'confetti', 'galaxy', 'neon', 'sunset', 'ocean', 'forest', 'mint', 'rose', 'steel', 'lava', 'snowstorm')
-MAX_MEDIA = 600_000
+MAX_MEDIA = 15_000_000
 MAX_SECTIONS = 30
 MEDIA_PATH = re.compile(r'/media/shop/[0-9a-f]{32}')
 UNSAFE_SVG = re.compile(rb'<\s*script|javascript:|\bon[a-z]+\s*=|<\s*foreignobject|<!entity|<\s*iframe|<\s*object|<\s*embed|xlink:href\s*=\s*["\']\s*(?:https?:|//|data:)|href\s*=\s*["\']\s*(?:https?:|//)', re.I)
@@ -164,7 +164,7 @@ def install_shop_sections(app, db, auth, audit):
             abort(400, description='Выберите файл')
         body = upload.read(MAX_MEDIA + 1)
         if not body or len(body) > MAX_MEDIA:
-            abort(413, description='Файл должен быть не больше 600 КБ')
+            abort(413, description='Файл должен быть не больше 15 МБ')
         mime = sniff(body)
         if not mime:
             abort(415, description='Нужна картинка: PNG, JPEG, WEBP, GIF или безопасный SVG')

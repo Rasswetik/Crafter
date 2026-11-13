@@ -62,7 +62,7 @@ async function admin(content) {
             html += '<div class="cxa-card"><h4>' + (form.id ? 'Изменить ящик' : 'Новый ящик') + '</h4>' +
                 '<div class="adm-row3">' + field('Название', '<input data-cf="title" maxlength="40" value="' + e(form.title) + '">') +
                 field('Показывать игрокам', '<div class="adm-chips">' + [['1', 'Да'], ['0', 'Нет']].map(([v, t]) => '<button type="button" class="' + ((form.enabled ? '1' : '0') === v ? 'is-on' : '') + '" data-c-on="' + v + '">' + t + '</button>').join('') + '</div>') + '</div>' +
-                '<div class="adm-row3">' + field('Картинка (для плитки)', '<input type="file" accept="image/png,image/webp" data-up="image">', form.image ? 'Загружена своя. Пусто — пряничный ящик.' : 'PNG/WebP до 600 КБ') +
+                '<div class="adm-row3">' + field('Картинка (для плитки)', '<input type="file" accept="image/png,image/webp" data-up="image">', form.image ? 'Загружена своя. Пусто — пряничный ящик.' : 'PNG/WebP до 15 МБ') +
                 field('Модель .glb', '<input type="file" accept=".glb" data-up="model">', form.model ? 'Загружена своя модель' : 'Пусто — пряничный ящик. До 9 МБ') +
                 field('Облегчённая модель .glb (для телефонов)', '<input type="file" accept=".glb" data-up="model_mobile">', form.model_mobile ? 'Загружена своя' : 'Необязательно') + '</div>' +
                 field('Фон при открытии', '<div class="fm-gal">' + (window.crafterFestive?.bgKeys || []).map(k => '<button type="button" class="fm-sw' + (form.bg === k[0] ? ' is-on' : '') + '" data-c-bg="' + e(k[0]) + '"><span class="fm-swp"><span class="fm-swc">' + (window.crafterScenes ? window.crafterScenes.render(k[0]) : '') + '</span></span><em>' + e(k[1]) + '</em></button>').join('') + '</div>') +
@@ -97,7 +97,7 @@ async function admin(content) {
         sec.querySelectorAll('[data-up]').forEach(i => i.addEventListener('change', async () => {
             const f = i.files[0]; if (!f) return; pull();
             try {
-                form[i.dataset.up] = await upload(f, i.dataset.up === 'image' ? 'admin/new-year/shop-media' : 'admin/new-year/chest-model', i.dataset.up === 'image' ? 600000 : 9000000);
+                form[i.dataset.up] = await upload(f, i.dataset.up === 'image' ? 'admin/new-year/shop-media' : 'admin/new-year/chest-model', i.dataset.up === 'image' ? 15000000 : 9000000);
                 toast('Файл загружен'); draw();
             } catch (err) { toast(err.message); }
         }));
