@@ -99,3 +99,16 @@
 @media(max-width:760px){.chn-t-panel{width:42%;top:22%}.fm-chaincard .chn-t-main{max-width:50%}.chn-t-title{font-size:18px}}
 .fm-chaincard .chn-t-main{top:24%;height:68%}
 .fm-chaincard .chn-t-sub{top:calc(7% + 2.8em)}
+
+/* the prizes fill the panel, whatever the size of the tile */
+.chn-t-panel{container-type:size}
+.chn-t-slide{grid-template-rows:auto minmax(0,1fr) auto;gap:2cqh;padding:5cqh 6cqw 7cqh}
+.chn-t-lab{font-size:clamp(16px,13cqw,40px)}
+.chn-t-prz{gap:2cqh 3cqw;min-height:0}
+.chn-t-prz img{width:min(40cqw,26cqh);height:min(40cqw,26cqh)}
+.chn-t-prz.n1 img{width:min(78cqw,50cqh);height:min(78cqw,50cqh)}
+.chn-t-prz.n2 img{width:min(40cqw,36cqh);height:min(40cqw,36cqh)}
+.chn-t-prz i{font-size:clamp(11px,7.5cqw,22px);padding:.1em .7em}
+.chn-t-free{font-size:clamp(14px,10cqw,30px)}
+.chn-t-price{font-size:clamp(12px,9cqw,24px)}.chn-t-price .chn-ball{width:1.1em;height:1.1em}
+.chn-t-done{font-size:clamp(12px,8.5cqw,22px)}

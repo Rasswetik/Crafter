@@ -27,11 +27,11 @@ async function admin(content) {
         const b = new FormData(); b.append('file', file);
         return (await api(endpoint, b)).url;
     };
-    const fresh = () => ({id: '', title: 'Новый ящик', enabled: true, bg: 'cozy', image: '', model: '', model_mobile: '', rolls: {1: '', 2: '', 3: '50', 4: '30', 5: '15', 6: '5'}, settings: {guaranteed: {GRAM: true, BALL: true, PACK: true, STAR: false}, bonus: {GRAM: '60', BALL: '30', PACK: '10', STAR: ''}, bg_open: '', bg_reward: '', bg_collection: '', image_open: ''},
+    const fresh = () => ({id: '', title: 'Новый ящик', enabled: true, bg: 'cozy', image: '', model: '', model_mobile: '', rolls: {1: '', 2: '', 3: '50', 4: '30', 5: '15', 6: '5'}, settings: {guaranteed: {GRAM: true, BALL: true, PACK: true, STAR: false}, bonus: {GRAM: '60', BALL: '30', PACK: '10', STAR: ''}, bg_open: '', bg_reward: '', bg_collection: '', image_open: '', theme: 'ginger'},
         loot: [{kind: 'GRAM', amount: '0.1', cmin: 1, cmax: 1, weight: '1'}, {kind: 'BALL', amount: '5', cmin: 1, cmax: 1, weight: '1'}, {kind: 'PACK', amount: packs[0]?.id || '', cmin: 1, cmax: 1, weight: '1'}]});
     const edit = c => ({id: c.chest.id, title: c.chest.title, enabled: c.enabled, bg: c.chest.bg, image: c.custom.image, model: c.custom.model, model_mobile: c.custom.model_mobile,
         rolls: Object.fromEntries([1, 2, 3, 4, 5, 6].map(n => [n, c.rolls_raw[n] ? String(c.rolls_raw[n]) : ''])),
-        settings: {guaranteed: Object.fromEntries(KINDS.map(([k]) => [k, (c.settings_raw.guaranteed || []).includes(k)])), bonus: Object.fromEntries(KINDS.map(([k]) => [k, c.settings_raw.bonus[k] ? String(c.settings_raw.bonus[k]) : ''])), bg_open: c.settings_raw.bg_open || '', bg_reward: c.settings_raw.bg_reward || '', bg_collection: c.settings_raw.bg_collection || '', image_open: c.settings_raw.image_open || ''},
+        settings: {guaranteed: Object.fromEntries(KINDS.map(([k]) => [k, (c.settings_raw.guaranteed || []).includes(k)])), bonus: Object.fromEntries(KINDS.map(([k]) => [k, c.settings_raw.bonus[k] ? String(c.settings_raw.bonus[k]) : ''])), bg_open: c.settings_raw.bg_open || '', bg_reward: c.settings_raw.bg_reward || '', bg_collection: c.settings_raw.bg_collection || '', image_open: c.settings_raw.image_open || '', theme: c.settings_raw.theme || (c.chest.id === 'snowman' ? 'snow' : 'ginger')},
         loot: c.loot_raw.map(x => ({...x, cmin: x.cmin, cmax: x.cmax, weight: String(x.weight)}))});
     const pull = () => {
         sec.querySelectorAll('[data-cf]').forEach(i => { form[i.dataset.cf] = i.value; });
@@ -79,7 +79,7 @@ async function admin(content) {
             const rt = Object.values(form.rolls).reduce((s, v) => s + (Number(v) || 0), 0);
             html += '<div class="cxa-card"><h4>' + (form.id ? 'Изменить ящик' : 'Новый ящик') + '</h4>' +
                 '<div class="adm-row3">' + field('Название', '<input data-cf="title" maxlength="40" value="' + e(form.title) + '">') +
-                field('Показывать игрокам', '<div class="adm-chips">' + [['1', 'Да'], ['0', 'Нет']].map(([v, t]) => '<button type="button" class="' + ((form.enabled ? '1' : '0') === v ? 'is-on' : '') + '" data-c-on="' + v + '">' + t + '</button>').join('') + '</div>') + '</div>' +
+                field('Оформление экранов наград', '<div class="adm-chips">' + [['ginger', 'Пряничное'], ['snow', 'Ледяное']].map(([v, t]) => '<button type="button" class="' + (form.settings.theme === v ? 'is-on' : '') + '" data-c-theme="' + v + '">' + t + '</button>').join('') + '</div>') + field('Показывать игрокам', '<div class="adm-chips">' + [['1', 'Да'], ['0', 'Нет']].map(([v, t]) => '<button type="button" class="' + ((form.enabled ? '1' : '0') === v ? 'is-on' : '') + '" data-c-on="' + v + '">' + t + '</button>').join('') + '</div>') + '</div>' +
                 '<div class="adm-row3">' + field('Картинка (для плитки)', '<input type="file" accept="image/png,image/webp" data-up="image">', form.image ? 'Загружена своя. Пусто — пряничный ящик.' : 'PNG/WebP до 15 МБ') +
                 field('Модель .glb', '<input type="file" accept=".glb" data-up="model">', form.model ? 'Загружена своя модель' : 'Пусто — пряничный ящик. До 9 МБ') +
                 field('Облегчённая модель .glb (для телефонов)', '<input type="file" accept=".glb" data-up="model_mobile">', form.model_mobile ? 'Загружена своя' : 'Необязательно') + '</div>' +
@@ -107,6 +107,7 @@ async function admin(content) {
         });
         if (!form) return;
         sec.querySelectorAll('[data-c-sure]').forEach(i => i.addEventListener('change', () => { pull(); form.settings.guaranteed[i.dataset.cSure] = i.checked; draw(); }));
+        sec.querySelectorAll('[data-c-theme]').forEach(b => b.addEventListener('click', () => { pull(); form.settings.theme = b.dataset.cTheme; draw(); }));
         sec.querySelectorAll('[data-c-on]').forEach(b => b.addEventListener('click', () => { pull(); form.enabled = b.dataset.cOn === '1'; draw(); }));
         sec.querySelectorAll('[data-up-bg]').forEach(i => i.addEventListener('change', async () => { const f = i.files[0]; if (!f) return; pull(); try { form.settings[i.dataset.upBg] = await upload(f, 'admin/new-year/shop-media', 15000000); toast('Фон загружен'); draw(); } catch (err) { toast(err.message); } }));
         sec.querySelectorAll('[data-bg-reset]').forEach(a => a.addEventListener('click', ev => { ev.preventDefault(); pull(); form.settings[a.dataset.bgReset] = ''; draw(); }));
@@ -131,7 +132,7 @@ async function admin(content) {
             pull();
             const out = await run(() => api('admin/new-year/chests', {id: form.id || undefined, title: form.title, enabled: form.enabled, bg: form.bg, image: form.image, model: form.model, model_mobile: form.model_mobile,
                 rolls: Object.fromEntries(Object.entries(form.rolls).filter(([, v]) => Number(v) > 0)),
-                settings: {guaranteed: KINDS.map(([k]) => k).filter(k => form.settings.guaranteed[k]), bonus: Object.fromEntries(Object.entries(form.settings.bonus).filter(([, v]) => Number(v) > 0)), bg_open: form.settings.bg_open, bg_reward: form.settings.bg_reward, bg_collection: form.settings.bg_collection, image_open: form.settings.image_open},
+                settings: {guaranteed: KINDS.map(([k]) => k).filter(k => form.settings.guaranteed[k]), bonus: Object.fromEntries(Object.entries(form.settings.bonus).filter(([, v]) => Number(v) > 0)), bg_open: form.settings.bg_open, bg_reward: form.settings.bg_reward, bg_collection: form.settings.bg_collection, image_open: form.settings.image_open, theme: form.settings.theme},
                 loot: form.loot.map(x => ({kind: x.kind, amount: x.amount, cmin: x.cmin, cmax: x.cmax, weight: x.weight}))}), 'Ящик сохранён');
             if (out) { sel = out.id; form = null; draw(); }
         });

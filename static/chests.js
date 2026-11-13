@@ -241,7 +241,7 @@ function play(res, opts = {}) {
     document.querySelector('.cx-play')?.remove();
     const chest = res.chest, items = pieces(res.items || []);
     const el = document.createElement('div');
-    el.className = 'cx-play';
+    el.className = 'cx-play cx-theme-' + (chest.theme || 'ginger');
     const bg = opts.bg || chest.bg || 'cozy';
     const scene = '<div class="cx-bg"><i class="cx-bg-a"></i><i class="cx-bg-b"></i></div>';
     document.body.classList.add('cx-open');
@@ -315,6 +315,7 @@ async function chances(chestId, api) {
     const body = el.querySelector('.cx-ch-body');
     try {
         const d = await api('chests/' + encodeURIComponent(chestId));
+        el.classList.add('cx-theme-' + (d.chest.theme || 'ginger'));
         const top = Math.max(...d.rolls.map(r => r.chance)), word = n => n === 1 ? 'награда' : n < 5 ? 'награды' : 'наград';
         const pc = v => (v < 0.01 ? '<0,01' : v < 1 ? v.toFixed(2).replace('.', ',') : v < 10 ? v.toFixed(1).replace('.', ',') : v.toFixed(v % 1 ? 1 : 0).replace('.', ',')) + '%';
         const label = x => x.kind === 'BALL' ? num(x.amount.split('-')[0]) + (x.amount.includes('-') ? '–' + num(x.amount.split('-')[1]) : '') + ' шаров' : x.kind === 'GRAM' ? num(x.amount.split('-')[0]) + (x.amount.includes('-') ? '–' + num(x.amount.split('-')[1]) : '') + ' GRAM' : (x.kind === 'NFT' ? x.title + ' · ' + x.collection : x.title) + (x.cmax > 1 ? ' ×' + (x.cmin === x.cmax ? x.cmax : x.cmin + '–' + x.cmax) : '');

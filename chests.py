@@ -111,7 +111,7 @@ def install_chests(app, db, auth, audit, record):
             row = {**dict(row), 'image': ''}
         return {'id': row['id'], 'title': row['title'], 'image': row['image'] or '/static/assets/chests/gingerbread.png', 'model': row['model'] or DEFAULT_MODEL,
                 'model_mobile': row['model_mobile'] or row['model'] or DEFAULT_MOBILE, 'bg': row['bg'] or 'night',
-                'bg_open': settings_of(row)['bg_open'], 'bg_reward': settings_of(row)['bg_reward'], 'bg_collection': settings_of(row)['bg_collection'],
+                'bg_open': settings_of(row)['bg_open'], 'bg_reward': settings_of(row)['bg_reward'], 'bg_collection': settings_of(row)['bg_collection'], 'theme': settings_of(row)['theme'] or ('snow' if row['id'] == 'snowman' else 'ginger'),
                 'image_open': settings_of(row)['image_open'] or (DEFAULT_OPEN if row['id'] == 'gingerbread' and row['image'] in ('', '/static/assets/chests/gingerbread.png', '/static/assets/chests/gingerbread.webp') else '')}
 
     def rolls_of(row):
@@ -164,7 +164,7 @@ def install_chests(app, db, auth, audit, record):
         bonus = {k: float(v) for k, v in (raw.get('bonus') or {}).items() if k in KINDS and float(v) > 0}
         guaranteed = [k for k in (raw.get('guaranteed') or []) if k in KINDS and k != 'NFT']
         pic = lambda v: v if isinstance(v, str) and PATH.fullmatch(v) else ''
-        return {'guaranteed': guaranteed, 'bonus': bonus, 'bg_open': pic(raw.get('bg_open')), 'bg_reward': pic(raw.get('bg_reward')), 'bg_collection': pic(raw.get('bg_collection')), 'image_open': pic(raw.get('image_open'))}
+        return {'guaranteed': guaranteed, 'bonus': bonus, 'bg_open': pic(raw.get('bg_open')), 'bg_reward': pic(raw.get('bg_reward')), 'bg_collection': pic(raw.get('bg_collection')), 'image_open': pic(raw.get('image_open')), 'theme': raw.get('theme') if raw.get('theme') in ('ginger', 'snow') else ''}
 
     def roll(row):
         """The list of items that one opening gives (nothing is given yet)."""
@@ -332,7 +332,7 @@ def install_chests(app, db, auth, audit, record):
             settings = {'guaranteed': [k for k in (sraw.get('guaranteed') or []) if k in KINDS],
                         'bonus': {k: float(v) for k, v in (sraw.get('bonus') or {}).items() if k in KINDS and float(v) > 0},
                         'bg_open': clean_path(sraw.get('bg_open'), 'Фон открытия'), 'bg_reward': clean_path(sraw.get('bg_reward'), 'Фон наград'), 'bg_collection': clean_path(sraw.get('bg_collection'), 'Фон акции'),
-                        'image_open': clean_path(sraw.get('image_open'), 'Картинка открытого ящика')}
+                        'image_open': clean_path(sraw.get('image_open'), 'Картинка открытого ящика'), 'theme': sraw.get('theme') if sraw.get('theme') in ('ginger', 'snow') else ''}
         except (TypeError, ValueError):
             abort(400, description='Шансы бонусных наград: числа')
         cid = body.get('id')

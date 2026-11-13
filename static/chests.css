@@ -180,3 +180,29 @@ body.cx-open .crafter-snowfall{display:none!important}
 @keyframes rv-reel{0%{transform:translateY(-1.5%) scale(1.02)}50%{transform:translateY(1.5%) scale(.98)}100%{transform:translateY(-1.5%) scale(1.02)}}
 @keyframes rv-land{0%{transform:scale(.82) rotate(-3deg)}55%{transform:scale(1.14) rotate(1.5deg)}100%{transform:none}}
 .cx-name small{margin-left:8px;padding:2px 10px;border-radius:999px;background:rgba(0,0,0,.35);font-size:.55em;vertical-align:middle;letter-spacing:.06em}
+
+/* ---- the icy theme (Snowman Box): the screens of the rewards in blue and white ---- */
+.cx-theme-snow .cx-rays{background:repeating-conic-gradient(from 0deg,rgba(190,235,255,.55) 0 6deg,transparent 6deg 18deg)}
+.cx-theme-snow .cx-glow{background:radial-gradient(circle,rgba(150,225,255,.7),rgba(80,170,255,.2) 50%,transparent 70%)}
+.cx-theme-snow .cx-aura{background:radial-gradient(circle,rgba(190,240,255,.9),rgba(90,180,255,.3) 50%,transparent 70%)}
+.cx-theme-snow .cx-vig{background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(4,16,60,.5) 100%)}
+.cx-theme-snow .cx-name,.cx-theme-snow .cx-reward h2{color:#fff;text-shadow:0 3px 0 #12306a,0 0 20px rgba(120,200,255,.8)}
+.cx-theme-snow .cx-count{color:#fff;text-shadow:0 4px 0 #12306a,3px 3px 0 #12306a,-3px 3px 0 #12306a,0 0 22px rgba(150,220,255,.8)}
+.cx-theme-snow .cx-name small{background:rgba(10,40,100,.55)}
+.cx-theme-snow .cx-hint b{background:linear-gradient(#3b78d0,#1f4a9a);border-color:rgba(220,244,255,.7);color:#fff}
+.cx-theme-snow .cx-left{background:linear-gradient(180deg,#2c63b8,#16306a);border-color:rgba(220,244,255,.6)}
+.cx-theme-snow .cx-left b{background:radial-gradient(circle at 35% 30%,#fff,#bfe8ff 60%,#7cc4f5);border:2px dashed rgba(255,255,255,.95);color:#12306a}
+.cx-theme-snow .cx-sum h2{background:linear-gradient(180deg,#4a93e6,#1f56a8);color:#fff;text-shadow:0 2px 0 rgba(10,30,80,.6);box-shadow:inset 0 0 0 3px rgba(255,255,255,.35),inset 0 -6px 0 rgba(0,0,0,.2),0 12px 26px rgba(0,20,70,.45)}
+.cx-theme-snow .cx-sum h2::after{background:radial-gradient(circle at 10px 0,#fff 9px,transparent 10px) 0 0/20px 12px repeat-x}
+.cx-theme-snow .cx-cell{border:3px dashed rgba(255,255,255,.9);outline:4px solid #2a63b5;background:radial-gradient(circle at 30% 24%,#e6f6ff,#8ccbf5 58%,#4a98dc);box-shadow:0 12px 26px rgba(0,20,70,.45),inset 0 -8px 14px rgba(20,70,160,.35)}
+.cx-theme-snow .cx-cell b{color:#fff;text-shadow:0 2px 0 #12306a,0 0 6px #12306a,2px 2px 0 #12306a,-2px 2px 0 #12306a}
+.cx-theme-snow .cx-cell small{color:#12306a}
+.cx-theme-snow .cx-btn.green{background:linear-gradient(#9fe3ff,#3aa6ee);color:#0d2c63;text-shadow:0 1px 0 rgba(255,255,255,.6);box-shadow:inset 0 -5px 0 rgba(20,80,170,.35),inset 0 0 0 2px rgba(255,255,255,.5),0 8px 18px rgba(0,20,70,.4)}
+.cx-theme-snow .cx-btn.blue{background:linear-gradient(#3b78d0,#16306a);box-shadow:inset 0 -5px 0 rgba(0,0,0,.3),inset 0 0 0 2px rgba(255,255,255,.28),0 8px 18px rgba(0,20,70,.4)}
+.cx-theme-snow .cx-sum{background:rgba(6,20,70,.5)}
+.cx-theme-snow .cx-tap{color:rgba(230,246,255,.85)}
+.cx-chances.cx-theme-snow .cx-ch-box{background:linear-gradient(170deg,#2c63b8,#10286a);border:3px dashed rgba(230,246,255,.7)}
+.cx-chances.cx-theme-snow .cx-ch-sure{background:rgba(190,230,255,.16)}
+.cx-chances.cx-theme-snow .cx-ch-bars u{background:linear-gradient(90deg,#bfe8ff,#4aa4f0)}
+.cx-chances.cx-theme-snow .cx-ch-loot>div{background:rgba(200,236,255,.14);border-color:rgba(200,236,255,.35)}
+.cx-chances.cx-theme-snow em{color:#d6f2ff}
