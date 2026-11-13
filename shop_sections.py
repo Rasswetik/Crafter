@@ -20,6 +20,7 @@ DEFAULTS = (
 )
 BACKGROUNDS = ('village', 'snow', 'night', 'aurora', 'garland', 'frost', 'candy', 'blue', 'violet', 'crimson', 'emerald', 'gold',
                'tree', 'stars', 'mitten', 'cozy', 'ice', 'pine', 'berry', 'cocoa', 'polar', 'moon',
+               'cabin', 'bauble', 'gifts', 'sparklers', 'champagne', 'northpole', 'wreath', 'skating', 'santa', 'sunrise', 'desert', 'jungle', 'cherry', 'space', 'cyber', 'bubbles', 'storm', 'hex',
                'fireworks', 'confetti', 'galaxy', 'neon', 'sunset', 'ocean', 'forest', 'mint', 'rose', 'steel', 'lava', 'snowstorm')
 MAX_MEDIA = 600_000
 MAX_SECTIONS = 30

@@ -16,6 +16,7 @@ RARITIES = ('auto', 'common', 'rare', 'special', 'epic', 'mythic', 'legend')   #
 CARD_BGS = ('ny-snow', 'ny-candy', 'ny-lights', 'ny-frost', 'ny-ginger', 'ny-bells', 'ny-fire', 'ny-aurora',
             'c-blue', 'c-violet', 'c-crimson', 'c-emerald', 'c-gold', 'c-pink',
             'ny-tree', 'ny-stars', 'ny-mitten', 'ny-cozy', 'ny-ice', 'ny-gold', 'ny-pine', 'ny-berry', 'ny-cocoa', 'ny-polar', 'ny-moon',
+            'ny-cabin', 'ny-bauble', 'ny-gifts', 'ny-sparklers', 'ny-champagne', 'ny-northpole', 'ny-wreath', 'ny-skating', 'ny-santa', 'c-sunrise', 'c-desert', 'c-jungle', 'c-cherry', 'c-space', 'c-cyber', 'c-bubbles', 'c-storm', 'c-hex',
             'ny-fireworks', 'ny-confetti', 'ny-snowstorm', 'c-galaxy', 'c-neon', 'c-sunset', 'c-ocean', 'c-forest', 'c-mint', 'c-rose', 'c-steel', 'c-lava')                  # the background of one offer card
 SIZES = ('small', 'wide', 'tall', 'large', 'banner')     # 1x1, 2x1 stretched, 1x2 long, 2x2 big, a whole row
 ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'

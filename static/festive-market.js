@@ -37,11 +37,11 @@ const ICONS = {
 ICONS.featured = ICONS.star; ICONS.packs = ICONS.pack; ICONS.bundles = ICONS.bundle; ICONS.res = ICONS.gem; ICONS.rewards = ICONS.cup; ICONS.gifts = ICONS.gift;
 const BG_KEYS = [['village', 'Деревня'], ['snow', 'Снегопад'], ['night', 'Звёздная ночь'], ['aurora', 'Северное сияние'], ['garland', 'Гирлянды'], ['frost', 'Мороз'], ['candy', 'Леденцы'],
     ['blue', 'Синий'], ['violet', 'Фиолетовый'], ['crimson', 'Алый'], ['emerald', 'Изумрудный'], ['gold', 'Золотой'],
-    ['fireworks', 'Фейерверк'], ['confetti', 'Конфетти'], ['snowstorm', 'Метель'], ['galaxy', 'Галактика'], ['neon', 'Неон'], ['sunset', 'Закат'], ['ocean', 'Океан'], ['forest', 'Лес'], ['mint', 'Мята'], ['rose', 'Роза'], ['steel', 'Сталь'], ['lava', 'Лава'],
+    ['cabin', 'Домик'], ['bauble', 'Шары на ёлке'], ['gifts', 'Подарки'], ['sparklers', 'Бенгальские огни'], ['champagne', 'Шампанское'], ['northpole', 'Северный полюс'], ['wreath', 'Венок'], ['skating', 'Каток'], ['santa', 'Дед Мороз'], ['sunrise', 'Рассвет'], ['desert', 'Пустыня'], ['jungle', 'Джунгли'], ['cherry', 'Сакура'], ['space', 'Космос'], ['cyber', 'Кибер'], ['bubbles', 'Пузыри'], ['storm', 'Гроза'], ['hex', 'Соты'], ['fireworks', 'Фейерверк'], ['confetti', 'Конфетти'], ['snowstorm', 'Метель'], ['galaxy', 'Галактика'], ['neon', 'Неон'], ['sunset', 'Закат'], ['ocean', 'Океан'], ['forest', 'Лес'], ['mint', 'Мята'], ['rose', 'Роза'], ['steel', 'Сталь'], ['lava', 'Лава'],
     ['tree', 'Ёлка'], ['stars', 'Звёздный'], ['mitten', 'Варежки'], ['cozy', 'Уют'], ['ice', 'Лёд'], ['pine', 'Хвоя'], ['berry', 'Ягоды'], ['cocoa', 'Какао'], ['polar', 'Полярный'], ['moon', 'Лунная ночь']];
 const CARD_BG_KEYS = [['', 'По редкости'], ['ny-snow', 'Снежная ночь'], ['ny-candy', 'Леденцы'], ['ny-lights', 'Гирлянды'], ['ny-frost', 'Иней'], ['ny-ginger', 'Пряник'], ['ny-bells', 'Колокольчики'], ['ny-fire', 'Камин'],
     ['ny-aurora', 'Сияние'], ['c-blue', 'Синий'], ['c-violet', 'Фиолетовый'], ['c-crimson', 'Алый'], ['c-emerald', 'Изумрудный'], ['c-gold', 'Золотой'], ['c-pink', 'Розовый'],
-    ['ny-fireworks', 'Фейерверк'], ['ny-confetti', 'Конфетти'], ['ny-snowstorm', 'Метель'], ['c-galaxy', 'Галактика'], ['c-neon', 'Неон'], ['c-sunset', 'Закат'], ['c-ocean', 'Океан'], ['c-forest', 'Лес'], ['c-mint', 'Мята'], ['c-rose', 'Роза'], ['c-steel', 'Сталь'], ['c-lava', 'Лава'],
+    ['ny-cabin', 'Домик'], ['ny-bauble', 'Шары на ёлке'], ['ny-gifts', 'Подарки'], ['ny-sparklers', 'Бенгальские огни'], ['ny-champagne', 'Шампанское'], ['ny-northpole', 'Северный полюс'], ['ny-wreath', 'Венок'], ['ny-skating', 'Каток'], ['ny-santa', 'Дед Мороз'], ['c-sunrise', 'Рассвет'], ['c-desert', 'Пустыня'], ['c-jungle', 'Джунгли'], ['c-cherry', 'Сакура'], ['c-space', 'Космос'], ['c-cyber', 'Кибер'], ['c-bubbles', 'Пузыри'], ['c-storm', 'Гроза'], ['c-hex', 'Соты'], ['ny-fireworks', 'Фейерверк'], ['ny-confetti', 'Конфетти'], ['ny-snowstorm', 'Метель'], ['c-galaxy', 'Галактика'], ['c-neon', 'Неон'], ['c-sunset', 'Закат'], ['c-ocean', 'Океан'], ['c-forest', 'Лес'], ['c-mint', 'Мята'], ['c-rose', 'Роза'], ['c-steel', 'Сталь'], ['c-lava', 'Лава'],
     ['ny-tree', 'Ёлка'], ['ny-stars', 'Звёзды'], ['ny-mitten', 'Варежки'], ['ny-cozy', 'Уют'], ['ny-ice', 'Лёд'], ['ny-gold', 'Золото'], ['ny-pine', 'Хвоя'], ['ny-berry', 'Ягоды'], ['ny-cocoa', 'Какао'], ['ny-polar', 'Полярный'], ['ny-moon', 'Лунная ночь']];
 const DEFAULT_SECTIONS = [
     {id: 'featured', title: 'Акции', kind: 'smart', rule: 'featured', icon: 'builtin:star', preview: '', bg: 'village', enabled: true},
@@ -170,9 +170,10 @@ function openChances(packs, ctx) {
     document.querySelector('.fm-chances')?.remove();
     const el = document.createElement('div');
     el.className = 'fm-chances';
-    el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i><div class="fm-ch-top"><h2>Шансы на награды</h2><button type="button" class="fm-x" data-fm-x aria-label="Закрыть"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>' +
-        (packs.length > 1 ? '<div class="fm-ch-tabs">' + packs.map((p, i) => '<button type="button" class="fm-ch-tab' + (i ? '' : ' is-on') + '" data-p="' + e(p.id) + '"><img src="' + e(p.image) + '" alt=""><span>' + e(p.title) + '</span></button>').join('') + '</div>' : '') +
-        '<div class="fm-ch-body" data-fm-ch><div class="fm-ch-load"><i></i><i></i><i></i></div></div>';
+    const scene = window.crafterScenes ? '<div class="fm-cbs">' + window.crafterScenes.render('night', {still: true}) + '</div>' : '';
+    el.innerHTML = scene + '<div class="fm-ch-top"><h2>Шансы на награды</h2><button type="button" class="fm-x" data-fm-x aria-label="Закрыть"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>' +
+        '<div class="fm-ch-layout">' + (packs.length > 1 ? '<div class="fm-ch-side">' + packs.map((p, i) => '<button type="button" class="fm-ch-pk' + (i ? '' : ' is-on') + '" data-p="' + e(p.id) + '"><img src="' + e(p.image) + '" alt=""><span>' + e(p.title) + '</span></button>').join('') + '</div>' : '') +
+        '<div class="fm-ch-body" data-fm-ch><div class="fm-ch-load"><i></i><i></i><i></i></div></div></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
     const close = () => { el.classList.remove('is-in'); setTimeout(() => el.remove(), 240); document.removeEventListener('keydown', onKey); };
@@ -182,19 +183,22 @@ function openChances(packs, ctx) {
     const body = el.querySelector('[data-fm-ch]');
     const show = async pack => {
         body.innerHTML = '<div class="fm-ch-load"><i></i><i></i><i></i></div>';
+        body.scrollTop = 0;
         try {
             const d = await chancesData(pack.id, ctx);
             const nft = d.prizes.filter(p => p.kind === 'NFT').sort((a, b) => a.chance - b.chance), gram = d.prizes.filter(p => p.kind !== 'NFT').sort((a, b) => Number(a.amount) - Number(b.amount));
-            const maxCards = Math.max(...d.cards.map(c => c.count));
-            body.innerHTML = '<div class="fm-ch-head"><img src="' + e(d.pack.image || pack.image) + '" alt=""><div><b>' + e(d.pack.title || pack.title) + '</b><small>В паке от ' + Math.min(...d.cards.map(c => c.count)) + ' до ' + maxCards + ' карточек</small></div></div>' +
-                '<h4>Сколько карточек в паке</h4><div class="fm-ch-cards">' + d.cards.map(c => '<span class="fm-ch-chip"><b>' + c.count + '</b> ' + (c.count === 1 ? 'карточка' : c.count < 5 ? 'карточки' : 'карточек') + '<em>' + pct(c.chance) + '</em></span>').join('') + '</div>' +
-                (nft.length ? '<h4>Подарки</h4><div class="fm-ch-grid">' + nft.map((p, i) => '<div class="fm-ch-prize t-' + tierOf(p.chance) + '" style="--i:' + i + '"><em>' + pct(p.chance) + '</em><img src="' + e(p.image) + '" alt="" loading="lazy"><b>' + e(p.model || p.name) + '</b><small>' + e(p.model ? p.name : '') + '</small><u>' + num(p.value) + ' GRAM</u></div>').join('') + '</div>' : '') +
-                (gram.length ? '<h4>Баланс GRAM</h4><div class="fm-ch-cards gram">' + gram.map(p => '<span class="fm-ch-chip t-' + tierOf(p.chance) + '"><b>' + num(p.amount) + '</b> GRAM<em>' + pct(p.chance) + '</em></span>').join('') + '</div>' : '');
+            const counts = d.cards.map(c => c.count), avg = d.cards.reduce((x, c) => x + c.count * c.chance, 0) / 100;
+            const top = Math.max(...d.cards.map(c => c.chance));
+            const cardWord = n => n === 1 ? 'карточка' : n < 5 ? 'карточки' : 'карточек';
+            body.innerHTML = '<div class="fm-ch-hero"><img src="' + e(d.pack.image || pack.image) + '" alt=""><div><b>' + e(d.pack.title || pack.title) + '</b><small>В паке от ' + Math.min(...counts) + ' до ' + Math.max(...counts) + ' карточек · в среднем ' + avg.toFixed(1).replace('.', ',') + '</small></div></div>' +
+                '<section class="fm-ch-sec"><h4>Сколько карточек в паке</h4><div class="fm-ch-bars">' + d.cards.map(c => '<div class="fm-ch-bar"><span>' + c.count + ' ' + cardWord(c.count) + '</span><i><u style="width:' + Math.max(2, c.chance / top * 100).toFixed(1) + '%"></u></i><b>' + pct(c.chance) + '</b></div>').join('') + '</div></section>' +
+                (nft.length ? '<section class="fm-ch-sec"><h4>Подарки <small>шанс на одну карточку</small></h4><div class="fm-ch-gifts">' + nft.map((p, i) => '<div class="fm-ch-gift t-' + tierOf(p.chance) + '" style="--i:' + i + '"><em>' + pct(p.chance) + '</em><img src="' + e(p.image) + '" alt="" loading="lazy"><b>' + e(p.model || p.name) + '</b><small>' + e(p.model ? p.name : '') + '</small><u>' + num(p.value) + ' GRAM</u></div>').join('') + '</div></section>' : '') +
+                (gram.length ? '<section class="fm-ch-sec"><h4>Баланс GRAM <small>шанс на одну карточку</small></h4><div class="fm-ch-gram">' + gram.map(p => '<div class="fm-ch-g t-' + tierOf(p.chance) + '"><b>' + num(p.amount) + '</b><span>GRAM</span><em>' + pct(p.chance) + '</em></div>').join('') + '</div></section>' : '');
         } catch (error) { body.innerHTML = '<p class="fm-ch-err">' + e(error.message) + '</p>'; }
     };
     show(packs[0]);
-    el.querySelectorAll('.fm-ch-tab').forEach(b => b.addEventListener('click', () => {
-        el.querySelectorAll('.fm-ch-tab').forEach(x => x.classList.toggle('is-on', x === b));
+    el.querySelectorAll('.fm-ch-pk').forEach(b => b.addEventListener('click', () => {
+        el.querySelectorAll('.fm-ch-pk').forEach(x => x.classList.toggle('is-on', x === b));
         show(packs.find(p => p.id === b.dataset.p));
     }));
 }

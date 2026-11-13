@@ -1,0 +1,32 @@
+/* phones: no stretched grid rows, no heavy effects (blur, rotating rays, animated scenes): everything stays still and light */
+.fm-root{align-content:start}
+@media(max-width:760px),(pointer:coarse){
+  .fm-rays::before,.fm-rays.big::before{animation:none!important}
+  .fm-glint,.fm-spark,.fm-new,.fm-card .fm-art .si-solo,.fm-heroart{animation:none!important}
+  .sc-tw,.sc-fall,.sc-gust,.sc-rise,.sc-breath,.sc-wave{animation:none!important}
+  .sc-fall,.sc-gust,.sc-rise{display:none}
+  .fm-excol,.au-card,.cg-panel,.fm-arrow,.fm-backbtn,.fm-balpill,.cg-page .nyh-back{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+  #app.new-year-view > .ny-bgblur svg{filter:none!important;opacity:.7}
+  .fm-card,.fm-ex,.fm-ic,.fm-ch-prize{animation-duration:.01s!important;animation-delay:0s!important}
+  .fm-card:hover,.fm-ex:hover{transform:none}
+  .fm-root{contain:layout paint}
+}
+/* the window of a lot on a phone: one column that scrolls, the buy button sticks to the bottom, nothing overlaps */
+@media(max-width:760px){
+  .fm-stage{display:flex;flex-direction:column;gap:14px;padding:66px 14px 0;overflow-x:hidden;overflow-y:auto;-webkit-overflow-scrolling:touch;align-content:normal}
+  .fm-stage>.fm-info,.fm-stage>.fm-hero,.fm-stage>.fm-inc{flex:none;margin:0}
+  .fm-stage .fm-plate{margin-left:-14px}
+  .fm-stage .fm-hero{height:270px;min-height:0}
+  .fm-stage .fm-heroart{width:100%;height:250px}
+  .fm-stage .fm-floor{bottom:2%}
+  .fm-stage .fm-inc-head{margin-top:4px}
+  .fm-stage>.fm-buy{flex:none;position:sticky;bottom:0;width:calc(100% + 28px);margin:auto -14px 0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(180deg,rgba(0,0,0,0),rgba(6,10,40,.65) 38%)}
+  .fm-stage .fm-buybtn{height:64px;font-size:28px}
+  .fm-harrow{width:42px;height:62px;margin-top:-31px}
+  .fm-reveal{padding:18px 14px}
+}
+/* a picture never grows over its frame: the frame is a flex box with a definite height, the picture is limited by it */
+.fm-art,.fm-heroart{display:flex;align-items:center;justify-content:center}
+.fm-art .si-solo,.fm-heroart .si-solo{width:auto;height:auto;max-width:80%;max-height:100%;object-fit:contain}
+.fm-art .si-fan,.fm-heroart .si-fan{width:100%;height:100%}
+.fm-heroart>.fm-pickart{max-height:100%}

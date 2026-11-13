@@ -10,6 +10,8 @@
 @keyframes sc-gust{from{transform:translate3d(60px,-30px,0)}to{transform:translate3d(-120px,650px,0)}}
 .sc-rise{animation:sc-rise var(--t,12s) linear infinite;animation-delay:var(--d,0s)}
 @keyframes sc-rise{from{transform:translate3d(0,0,0);opacity:.9}to{transform:translate3d(20px,-420px,0);opacity:0}}
+.sc-bob{animation:sc-bob 7s ease-in-out infinite;animation-delay:var(--d,0s);transform-origin:50% 0}
+@keyframes sc-bob{0%,100%{transform:rotate(-1.2deg)}50%{transform:rotate(1.2deg)}}
 .sc-breath{animation:sc-breath 9s ease-in-out infinite}
 @keyframes sc-breath{0%,100%{opacity:1}50%{opacity:.62}}
 .sc-wave{animation:sc-wave var(--t,14s) ease-in-out infinite alternate}
