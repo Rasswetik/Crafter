@@ -230,6 +230,8 @@ function play(res, opts = {}) {
         '<div class="cx-reward" hidden></div><div class="cx-left" hidden>ОСТАЛОСЬ НАГРАД <b></b></div><div class="cx-sum" hidden></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
+    if (chest.bg_open) el.querySelector('.cx-bg-a').style.backgroundImage = 'url(' + chest.bg_open + ')';
+    if (chest.bg_reward) el.querySelector('.cx-bg-b').style.backgroundImage = 'url(' + chest.bg_reward + ')';
     const v = viewer(el.querySelector('.cx-model'), chest);
     const reward = el.querySelector('.cx-reward'), left = el.querySelector('.cx-left'), sum = el.querySelector('.cx-sum');
     const packIds = items.flatMap(p => p.item.pack_ids || []);

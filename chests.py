@@ -71,7 +71,8 @@ def install_chests(app, db, auth, audit, record):
         if row['image'] == '/static/assets/chests/gingerbread.webp':          # the first picture of the chest was replaced
             row = {**dict(row), 'image': ''}
         return {'id': row['id'], 'title': row['title'], 'image': row['image'] or '/static/assets/chests/gingerbread.png', 'model': row['model'] or DEFAULT_MODEL,
-                'model_mobile': row['model_mobile'] or row['model'] or DEFAULT_MOBILE, 'bg': row['bg'] or 'night'}
+                'model_mobile': row['model_mobile'] or row['model'] or DEFAULT_MOBILE, 'bg': row['bg'] or 'night',
+                'bg_open': settings_of(row)['bg_open'], 'bg_reward': settings_of(row)['bg_reward']}
 
     def rolls_of(row):
         try:
@@ -118,7 +119,8 @@ def install_chests(app, db, auth, audit, record):
             raw = {}
         bonus = {k: float(v) for k, v in (raw.get('bonus') or {}).items() if k in KINDS and float(v) > 0}
         guaranteed = [k for k in (raw.get('guaranteed') or []) if k in KINDS]
-        return {'guaranteed': guaranteed, 'bonus': bonus}
+        pic = lambda v: v if isinstance(v, str) and PATH.fullmatch(v) else ''
+        return {'guaranteed': guaranteed, 'bonus': bonus, 'bg_open': pic(raw.get('bg_open')), 'bg_reward': pic(raw.get('bg_reward'))}
 
     def roll(row):
         """The list of items that one opening gives (nothing is given yet)."""
@@ -274,7 +276,8 @@ def install_chests(app, db, auth, audit, record):
         sraw = body.get('settings') or {}
         try:
             settings = {'guaranteed': [k for k in (sraw.get('guaranteed') or []) if k in KINDS],
-                        'bonus': {k: float(v) for k, v in (sraw.get('bonus') or {}).items() if k in KINDS and float(v) > 0}}
+                        'bonus': {k: float(v) for k, v in (sraw.get('bonus') or {}).items() if k in KINDS and float(v) > 0},
+                        'bg_open': clean_path(sraw.get('bg_open'), 'Фон открытия'), 'bg_reward': clean_path(sraw.get('bg_reward'), 'Фон наград')}
         except (TypeError, ValueError):
             abort(400, description='Шансы бонусных наград: числа')
         cid = body.get('id')

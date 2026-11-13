@@ -18,7 +18,8 @@ CARD_BGS = ('ny-snow', 'ny-candy', 'ny-lights', 'ny-frost', 'ny-ginger', 'ny-bel
             'ny-tree', 'ny-stars', 'ny-mitten', 'ny-cozy', 'ny-ice', 'ny-gold', 'ny-pine', 'ny-berry', 'ny-cocoa', 'ny-polar', 'ny-moon',
             'ny-cabin', 'ny-bauble', 'ny-gifts', 'ny-sparklers', 'ny-champagne', 'ny-northpole', 'ny-wreath', 'ny-skating', 'ny-santa', 'c-sunrise', 'c-desert', 'c-jungle', 'c-cherry', 'c-space', 'c-cyber', 'c-bubbles', 'c-storm', 'c-hex',
             'ny-nikolay', 'ny-goshan', 'ny-gifton', 'ny-collab',
-            'ny-fireworks', 'ny-confetti', 'ny-snowstorm', 'c-galaxy', 'c-neon', 'c-sunset', 'c-ocean', 'c-forest', 'c-mint', 'c-rose', 'c-steel', 'c-lava')                  # the background of one offer card
+            'ny-fireworks', 'ny-confetti', 'ny-snowstorm', 'c-galaxy', 'c-neon', 'c-sunset', 'c-ocean', 'c-forest', 'c-mint', 'c-rose', 'c-steel', 'c-lava',
+            'c-softsky', 'c-softberry', 'c-softmint', 'c-softgold', 'c-softnight', 'c-softrose', 'c-softocean', 'c-softlilac', 'c-softember', 'c-softcocoa', 'c-softpine', 'c-softslate')                  # the background of one offer card
 SIZES = ('small', 'wide', 'tall', 'large', 'banner')     # 1x1, 2x1 stretched, 1x2 long, 2x2 big, a whole row
 ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 _LIMIT = 10**9
@@ -268,7 +269,7 @@ def install_shop_items(app, db, auth, record, audit):
     @auth(admin=True)
     def admin_shop():
         rows = ordered(db().execute("SELECT * FROM shop_items").fetchall())[:300]
-        return {'items': [view(r) for r in rows], 'order': order_mode(), 'now': int(time.time()), 'sections': app.extensions['crafter_shop_sections'](True)}
+        return {'items': [view(r) for r in rows], 'order': order_mode(), 'now': int(time.time()), 'sections': app.extensions['crafter_shop_sections'](True), 'bg_library': app.extensions['crafter_bg_library']()}
 
     def whole(value, low, high, name):
         try:

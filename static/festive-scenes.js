@@ -216,6 +216,29 @@ SCENES.gifton = id => defs(id, lin(id, [[0, '#0b2d70'], [.55, '#2e73c8'], [1, '#
 SCENES.collab = id => defs(id, lin(id, [[0, '#2a1470'], [1, '#0b2f7a']]) + rad(id + 'a', [[0, '#ff5fb0', .6], [1, '#ff5fb0', 0]]) + rad(id + 'b', [[0, '#4fd6ff', .6], [1, '#4fd6ff', 0]])) + rect('url(#' + id + ')') +
     '<circle cx="300" cy="300" r="260" fill="url(#' + id + 'a)"/><circle cx="520" cy="300" r="260" fill="url(#' + id + 'b)"/><circle cx="300" cy="300" r="170" fill="none" stroke="#ffb3d9" stroke-width="3" opacity=".6"/><circle cx="520" cy="300" r="170" fill="none" stroke="#a8ecff" stroke-width="3" opacity=".6"/>' +
     stars(60, 23, {h: 560}) + sparkle(410, 300, 1.8, '#fff', 0) + sparkle(220, 150, .8, '#ffd3ec', 2) + sparkle(610, 450, .9, '#c4f3ff', 3);
+
+/* clean backgrounds: a calm gradient, one soft light and a quiet pattern (dots, lines, bokeh or stars) */
+const softBg = (c1, c2, glow, pat, seed) => id => {
+    const r = rnd(seed); let p = '';
+    if (pat === 'dots') { for (let y = 20; y < 600; y += 40) for (let x = (y / 40) % 2 ? 20 : 40; x < 800; x += 40) p += '<circle cx="' + x + '" cy="' + y + '" r="2.4" fill="#fff" opacity=".13"/>'; }
+    if (pat === 'lines') { for (let x = -600; x < 800; x += 46) p += '<line x1="' + x + '" y1="600" x2="' + (x + 600) + '" y2="0" stroke="#fff" stroke-width="1.6" opacity=".07"/>'; }
+    if (pat === 'bokeh') { for (let i = 0; i < 14; i++) p += '<circle cx="' + f(r() * 800) + '" cy="' + f(r() * 600) + '" r="' + f(24 + r() * 70) + '" fill="#fff" opacity="' + f(.04 + r() * .07) + '"/>'; }
+    if (pat === 'stars') p += stars(48, seed, {h: 600, size: 1.3, twinkle: .2});
+    return defs(id, lin(id, [[0, c1], [1, c2]], 1, 1) + rad(id + 'g', [[0, glow, .5], [1, glow, 0]], .28, .22, .75) + rad(id + 'v', [[.55, '#000', 0], [1, '#000', .42]], .5, .5, .75)) +
+        rect('url(#' + id + ')') + rect('url(#' + id + 'g)') + p + rect('url(#' + id + 'v)');
+};
+SCENES.softsky = softBg('#2f6fdc', '#0f2a66', '#8fd0ff', 'bokeh', 100);
+SCENES.softberry = softBg('#b8264f', '#4a0f33', '#ff8aa8', 'dots', 101);
+SCENES.softmint = softBg('#1f9d8a', '#0b3d4a', '#8ff0d8', 'lines', 102);
+SCENES.softgold = softBg('#e3a12f', '#7a3b0c', '#ffe08a', 'bokeh', 103);
+SCENES.softnight = softBg('#1b2a6b', '#080d27', '#6f8cff', 'stars', 104);
+SCENES.softrose = softBg('#e0629a', '#6a1f58', '#ffc0dc', 'dots', 105);
+SCENES.softocean = softBg('#0f7fb8', '#061e45', '#7fe0ff', 'lines', 106);
+SCENES.softlilac = softBg('#8a5fe0', '#2a1468', '#d3bfff', 'bokeh', 107);
+SCENES.softember = softBg('#e0602a', '#4a1208', '#ffb070', 'dots', 108);
+SCENES.softcocoa = softBg('#8a5232', '#2d170c', '#e8b98a', 'stars', 109);
+SCENES.softpine = softBg('#1f7a4a', '#082a1e', '#8fe0a8', 'lines', 110);
+SCENES.softslate = softBg('#4a5668', '#12161f', '#a8b8d0', 'bokeh', 111);
 // aliases: card / section keys without a scene of their own
 SCENES.pink = SCENES.rose;
 

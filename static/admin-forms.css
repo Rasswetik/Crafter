@@ -1,0 +1,39 @@
+/* Administrator: clean fields, selects, labels and chips in the New Year panels (shop, packs, freebies, chests, exchange) */
+.ny-admin-section{--af-line:rgba(255,255,255,.13);--af-bg:rgba(255,255,255,.045);--af-hover:rgba(255,255,255,.075);--af-accent:#5b9bff}
+.ny-admin-section h3{font-size:20px;font-weight:650;letter-spacing:-.01em;margin:6px 0 4px}
+.ny-admin-section h4{font-size:14px;font-weight:650;letter-spacing:0;margin:16px 0 6px}
+.ny-admin-section .sub,.ny-admin-section small.sub{font-size:12.5px;font-weight:400;line-height:1.45;color:rgba(255,255,255,.58)}
+.ny-admin-section label,.ny-admin-section .adm-field>label{display:block;font-size:12px;font-weight:600;letter-spacing:.01em;color:rgba(255,255,255,.7);margin:0 0 5px}
+.ny-admin-section input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]),
+.ny-admin-section select,.ny-admin-section textarea{box-sizing:border-box;width:100%;min-height:40px;padding:9px 12px;border-radius:10px;border:1px solid var(--af-line);background:var(--af-bg);color:#fff;font:400 14px/1.35 inherit;font-family:inherit;outline:none;transition:border-color .15s,background .15s,box-shadow .15s;-webkit-appearance:none;appearance:none}
+.ny-admin-section textarea{min-height:78px;resize:vertical}
+.ny-admin-section input:hover,.ny-admin-section select:hover,.ny-admin-section textarea:hover{background:var(--af-hover)}
+.ny-admin-section input:focus,.ny-admin-section select:focus,.ny-admin-section textarea:focus{border-color:var(--af-accent);background:rgba(91,155,255,.08);box-shadow:0 0 0 3px rgba(91,155,255,.18)}
+.ny-admin-section input::placeholder,.ny-admin-section textarea::placeholder{color:rgba(255,255,255,.32)}
+.ny-admin-section select{padding-right:34px;cursor:pointer;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1.5 5 5 5-5' fill='none' stroke='%23ffffff99' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center}
+.ny-admin-section select option{background:#1c2230;color:#fff}
+.ny-admin-section input[type=file]{width:100%;padding:8px;border:1px dashed var(--af-line);border-radius:10px;background:var(--af-bg);color:rgba(255,255,255,.7);font-size:13px;cursor:pointer}
+.ny-admin-section input[type=file]::file-selector-button{margin-right:10px;padding:6px 12px;border:0;border-radius:8px;background:rgba(255,255,255,.14);color:#fff;font:600 12px inherit;font-family:inherit;cursor:pointer}
+.ny-admin-section input[type=checkbox],.ny-admin-section input[type=radio]{width:18px;height:18px;accent-color:var(--af-accent);cursor:pointer;vertical-align:middle}
+.ny-admin-section input[type=range]{accent-color:var(--af-accent)}
+.ny-admin-section input[type=datetime-local]{color-scheme:dark}
+.ny-admin-section .adm-field{margin:0 0 12px}
+.ny-admin-section .adm-row3{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.ny-admin-section .adm-chips{display:flex;flex-wrap:wrap;gap:6px}
+.ny-admin-section .adm-chips button,.ny-admin-section .sb-chips button{min-height:34px;padding:6px 13px;border-radius:9px;border:1px solid var(--af-line);background:var(--af-bg);color:rgba(255,255,255,.85);font:500 13px/1 inherit;font-family:inherit;cursor:pointer;transition:background .15s,border-color .15s}
+.ny-admin-section .adm-chips button:hover,.ny-admin-section .sb-chips button:hover{background:var(--af-hover)}
+.ny-admin-section .adm-chips button.is-on,.ny-admin-section .sb-chips button.is-on{border-color:var(--af-accent);background:rgba(91,155,255,.18);color:#fff}
+.ny-admin-section button.primary{min-height:40px;padding:9px 18px;border-radius:10px;font:600 14px/1 inherit;font-family:inherit}
+.ny-admin-section .sb-quick{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.ny-admin-section .sb-quick label{margin:0}
+.ny-admin-section .sb-quick .sb-q-wide{grid-column:1/-1}
+.ny-admin-section .adm-step{margin:0 0 16px}
+.sb-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.sb-tab{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:6px 12px;border-radius:9px;border:1px solid var(--af-line,rgba(255,255,255,.13));background:var(--af-bg,rgba(255,255,255,.045));color:rgba(255,255,255,.85);font:500 13px/1 inherit;font-family:inherit;cursor:pointer}
+.sb-tab i{font-style:normal;min-width:20px;padding:2px 6px;border-radius:999px;background:rgba(255,255,255,.12);font-size:11px;text-align:center}
+.sb-tab.is-on{border-color:#5b9bff;background:rgba(91,155,255,.18);color:#fff}
+.fm-swlib{position:relative;display:block;padding:0;background:none;border:0}
+.fm-swlibpick{display:block;width:100%;padding:0;border:0;background:none;color:inherit;cursor:pointer;text-align:center}
+.fm-swlibpick .fm-swp{display:block;background-size:cover;background-position:center}
+.fm-swdel{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;border:0;background:rgba(0,0,0,.65);color:#fff;font-size:15px;line-height:1;cursor:pointer;opacity:0;transition:opacity .15s}
+.fm-swlib:hover .fm-swdel{opacity:1}

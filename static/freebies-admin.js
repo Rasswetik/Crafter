@@ -5,14 +5,15 @@ const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? '').replace(/[&
 const toMsk = epoch => new Date((epoch + 3 * 3600) * 1000).toISOString().slice(0, 16);
 const IMG = [['preview_bg', 'Фон иконки события', 'Картинка на плитке в разделе «Событие» (камин)', true], ['preview_gift', 'Подарок на иконке', 'Что лежит поверх фона на плитке', false],
     ['page_bg', 'Фон страницы', 'Фон страницы с подарками (красный узор)', true], ['gift_regular', 'Обычный подарок', 'Коробка обычного подарка', false], ['gift_gold', 'Золотой подарок', 'Коробка золотого подарка', false]];
-const KINDS = [['GRAM', 'GRAM'], ['BALL', 'Новогодние шары'], ['PACK', 'Пак'], ['STAR', 'Подарок Telegram']];
+const KINDS = [['GRAM', 'GRAM'], ['BALL', 'Новогодние шары'], ['PACK', 'Пак'], ['STAR', 'Подарок Telegram'], ['CHEST', 'Ящик']];
 
 async function admin(content) {
     let r;
     try { r = await api('admin/new-year/freebies'); } catch (_) { return; }
-    let packs = [], STARS = [];
+    let packs = [], STARS = [], CHESTS = [];
     try { packs = (await api('admin/new-year/packs')).packs || []; } catch (_) {}
     try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) {}
+    try { CHESTS = (await api('admin/new-year/chests')).chests.map(c => c.chest); } catch (_) {}
     if (!content?.isConnected) return;
     const sec = document.createElement('section');
     sec.className = 'ny-admin-section';
@@ -24,7 +25,7 @@ async function admin(content) {
     const F = () => window.crafterFreebies;
     const field = (label, input, hint) => '<div class="adm-field"><label>' + label + '</label>' + input + (hint ? '<small class="sub">' + hint + '</small>' : '') + '</div>';
     const chips = (items, on, attr) => '<div class="adm-chips">' + items.map(([v, t]) => '<button type="button" class="' + (String(on) === String(v) ? 'is-on' : '') + '" ' + attr + '="' + e(v) + '">' + e(t) + '</button>').join('') + '</div>';
-    const rewardText = x => x.kind === 'GRAM' ? x.amount + ' GRAM' : x.kind === 'BALL' ? Number(x.amount).toLocaleString('ru-RU') + ' шаров' : x.kind === 'PACK' ? (packs.find(p => p.id === x.amount)?.title || 'Пак') + (x.count > 1 ? ' ×' + x.count : '') : (STARS.find(s => s.key === x.amount)?.name || 'Подарок') + (x.count > 1 ? ' ×' + x.count : '');
+    const rewardText = x => x.kind === 'GRAM' ? x.amount + ' GRAM' : x.kind === 'BALL' ? Number(x.amount).toLocaleString('ru-RU') + ' шаров' : x.kind === 'CHEST' ? (CHESTS.find(c => c.id === x.amount)?.title || 'Ящик') : x.kind === 'PACK' ? (packs.find(p => p.id === x.amount)?.title || 'Пак') + (x.count > 1 ? ' ×' + x.count : '') : (STARS.find(s => s.key === x.amount)?.name || 'Подарок') + (x.count > 1 ? ' ×' + x.count : '');
     const uploadMedia = async file => { if (file.size > 15000000) throw new Error('Файл должен быть не больше 15 МБ'); const b = new FormData(); b.append('file', file); return (await api('admin/new-year/shop-media', b)).url; };
     const pull = () => sec.querySelectorAll('[data-fx]').forEach(i => { (i.dataset.fx.startsWith('e.') ? ef : i.dataset.fx.startsWith('g.') ? gf : sf)[i.dataset.fx.slice(2)] = i.value; });
 
@@ -32,11 +33,12 @@ async function admin(content) {
         const k = o.kind, cnt = k === 'PACK' || k === 'STAR';
         return field('Награда', chips(KINDS, k, 'data-' + p + 'kind')) +
             (k === 'PACK' ? field('Какой пак', '<select data-fx="' + p + '.amount">' + packs.map(x => '<option value="' + e(x.id) + '"' + (o.amount === x.id ? ' selected' : '') + '>' + e(x.title) + '</option>').join('') + '</select>')
+                : k === 'CHEST' ? field('Какой ящик', '<select data-fx="' + p + '.amount">' + CHESTS.map(x => '<option value="' + e(x.id) + '"' + (o.amount === x.id ? ' selected' : '') + '>' + e(x.title) + '</option>').join('') + '</select>', 'Ящик откроется, когда игрок возьмёт подарок')
                 : k === 'STAR' ? field('Какой подарок', '<select data-fx="' + p + '.amount">' + (window.crafterStarGifts ? window.crafterStarGifts.options(STARS, o.amount) : '') + '</select>')
                 : field(k === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM', '<input data-fx="' + p + '.amount" inputmode="decimal" value="' + e(o.amount) + '" placeholder="Например: ' + (k === 'BALL' ? '500' : '0.5') + '">')) +
             (cnt ? field('Сколько штук', '<input data-fx="' + p + '.count" type="number" min="1" max="20" value="' + e(o.count) + '">') : '');
     };
-    const setKind = (o, k) => { o.kind = k; o.amount = k === 'PACK' ? (packs[0]?.id || '') : k === 'STAR' ? (STARS[0]?.key || '') : (k === 'BALL' ? '500' : '0.5'); o.count = 1; };
+    const setKind = (o, k) => { o.kind = k; o.amount = k === 'PACK' ? (packs[0]?.id || '') : k === 'STAR' ? (STARS[0]?.key || '') : k === 'CHEST' ? (CHESTS[0]?.id || '') : (k === 'BALL' ? '500' : '0.5'); o.count = 1; };
 
     const eventsStep = () => {
         const rows = r.events.map(ev => '<div class="fba-ev' + (ev.enabled ? '' : ' is-off') + '">' + (F() ? F().card({...ev, now: r.now, ready: 0, claimed: 0}) : '') +

@@ -149,3 +149,4 @@ body.cx-open .crafter-snowfall{display:none!important}
 /* the lot window: the chest is big, a small soft shadow sits right under it instead of the wide floor ellipse */
 .fm-hero:has(.fm-heroart.is-chest) .fm-floor{display:none}
 .fm-heroart.is-chest .cx-host::after{content:"";position:absolute;left:50%;bottom:9%;width:46%;height:5%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.38),transparent 70%);z-index:-1}
+[data-ny-tab="chests"] > [data-pane="chests"].ny-admin-section{display:block!important}

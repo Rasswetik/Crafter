@@ -22,7 +22,8 @@ BACKGROUNDS = ('village', 'snow', 'night', 'aurora', 'garland', 'frost', 'candy'
                'tree', 'stars', 'mitten', 'cozy', 'ice', 'pine', 'berry', 'cocoa', 'polar', 'moon',
                'cabin', 'bauble', 'gifts', 'sparklers', 'champagne', 'northpole', 'wreath', 'skating', 'santa', 'sunrise', 'desert', 'jungle', 'cherry', 'space', 'cyber', 'bubbles', 'storm', 'hex',
                'nikolay', 'goshan', 'gifton', 'collab',
-               'fireworks', 'confetti', 'galaxy', 'neon', 'sunset', 'ocean', 'forest', 'mint', 'rose', 'steel', 'lava', 'snowstorm')
+               'fireworks', 'confetti', 'galaxy', 'neon', 'sunset', 'ocean', 'forest', 'mint', 'rose', 'steel', 'lava', 'snowstorm',
+               'softsky', 'softberry', 'softmint', 'softgold', 'softnight', 'softrose', 'softocean', 'softlilac', 'softember', 'softcocoa', 'softpine', 'softslate')
 MAX_MEDIA = 15_000_000
 MAX_SECTIONS = 30
 MEDIA_PATH = re.compile(r'/media/shop/[0-9a-f]{32}')
@@ -172,6 +173,47 @@ def install_shop_sections(app, db, auth, audit):
         with db():
             db().execute("INSERT INTO shop_media(id,mime,body,created) VALUES(?,?,?,?)", (mid, mime, body, int(time.time())))
         return {'ok': True, 'url': '/media/shop/' + mid, 'mime': mime}
+
+    # ---- the library of own backgrounds: uploaded pictures are remembered and can be picked again for any offer ----
+    LIB_KEY = 'shop_bg_library_v1'
+
+    def library():
+        row = db().execute("SELECT payload FROM settings WHERE key=?", (LIB_KEY,)).fetchone()
+        try:
+            items = json.loads(row['payload']) if row else []
+        except ValueError:
+            items = []
+        return [x for x in items if isinstance(x, dict) and re.fullmatch(r'/media/shop/[0-9a-f]{32}', str(x.get('url', '')))]
+
+    def save_library(items):
+        db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (LIB_KEY, json.dumps(items, ensure_ascii=False)))
+
+    app.extensions['crafter_bg_library'] = library
+
+    @app.post('/api/admin/new-year/shop-bg-library')
+    @auth(admin=True)
+    def admin_bg_library_add():
+        body = request.get_json(silent=True) or {}
+        url = str(body.get('url') or '')
+        if not re.fullmatch(r'/media/shop/[0-9a-f]{32}', url):
+            abort(400, description='Сначала загрузите картинку')
+        name = ' '.join(str(body.get('name') or '').split())[:40] or 'Свой фон'
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            items = [x for x in library() if x['url'] != url]
+            items.insert(0, {'url': url, 'name': name})
+            save_library(items[:60])
+        return {'ok': True, 'library': items[:60]}
+
+    @app.post('/api/admin/new-year/shop-bg-library/delete')
+    @auth(admin=True)
+    def admin_bg_library_delete():
+        url = str((request.get_json(silent=True) or {}).get('url') or '')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            items = [x for x in library() if x['url'] != url]
+            save_library(items)
+        return {'ok': True, 'library': items}
 
     @app.get('/media/shop/<mid>')
     def shop_media(mid):

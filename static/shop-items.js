@@ -118,6 +118,12 @@ async function admin(content) {
     sec.className = 'ny-admin-section si-admin';
     sec.dataset.pane = 'shop';
     content.appendChild(sec);
+    sec.addEventListener('click', async ev => {
+        const d = ev.target.closest('[data-bg-lib-del]'); if (!d) return;
+        ev.preventDefault(); ev.stopPropagation();
+        try { r.bg_library = (await api('admin/new-year/shop-bg-library/delete', {url: d.dataset.bgLibDel})).library; toast('Фон убран из сохранённых'); redrawBoard(); if (typeof draw === 'function') draw(); } catch (err) { toast(err.message); }
+    }, true);
+    sec.addEventListener('click', ev => { const b = ev.target.closest('[data-sb-tab]'); if (!b) return; boardTab = b.dataset.sbTab; selected = null; redrawBoard(); });
     const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: '', size: 'small', view: 'phone', description: '', rarity: 'auto', badge: '', endsH: '', endsAt: null, section_id: '', heading: '', card_bg: '', mode: '', startsMsk: '', endsMsk: ''};
     let secForm = null;
     let editing = null;
@@ -129,7 +135,13 @@ async function admin(content) {
         const body = new FormData(); body.append('file', file);
         return (await api('admin/new-year/shop-media', body)).url;
     };
+    const uploadBg = async file => {                              // an uploaded background is remembered and can be picked again later
+        const url = await uploadMedia(file);
+        try { r.bg_library = (await api('admin/new-year/shop-bg-library', {url, name: file.name.replace(/\.[^.]+$/, '')})).library; } catch (_) {}
+        return url;
+    };
     const cardBgGallery = (cur, attr, fileAttr) => '<div class="fm-gal">' + (window.crafterFestive?.cardBgKeys || []).map(k => '<button type="button" class="fm-sw' + (cur === k[0] ? ' is-on' : '') + '" ' + attr + '="' + e(k[0]) + '"><span class="fm-swp"><span class="fm-swc' + (k[0] && window.crafterScenes ? '' : ' cb-' + e(k[0] || 'none')) + '">' + (k[0] && window.crafterScenes ? window.crafterScenes.render(k[0], {still: true}) : '') + '</span></span><em>' + e(k[1]) + '</em></button>').join('') +
+        (r.bg_library || []).map(x => '<span class="fm-sw fm-swlib' + (cur === 'image:' + x.url ? ' is-on' : '') + '"><button type="button" class="fm-swlibpick" ' + attr + '="image:' + e(x.url) + '"><span class="fm-swp" style="background-image:url(' + e(x.url) + ')"></span><em>' + e(x.name) + '</em></button><button type="button" class="fm-swdel" data-bg-lib-del="' + e(x.url) + '" title="Убрать из сохранённых" aria-label="Убрать из сохранённых">×</button></span>').join('') +
         '<label class="fm-sw fm-swup' + (cur && cur.indexOf('image:') === 0 ? ' is-on' : '') + '"><span class="fm-swp"' + (cur && cur.indexOf('image:') === 0 ? ' style="background-image:url(' + e(cur.slice(6)) + ')"' : '') + '><b>+</b></span><em>Своя картинка</em><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden ' + fileAttr + '></label></div>';
     const secBgGallery = cur => '<div class="fm-gal">' + (window.crafterFestive?.bgKeys || []).map(k => '<button type="button" class="fm-sw' + (cur === k[0] ? ' is-on' : '') + '" data-sf-bg="' + e(k[0]) + '"><span class="fm-swp"><span class="fm-swc">' + (window.crafterScenes ? window.crafterScenes.render(k[0] === 'village' ? 'night' : k[0], {still: true}) : '') + '</span></span><em>' + e(k[1]) + '</em></button>').join('') + '</div>';
     const secTitle = id => ((r.sections || []).find(x => x.id === id) || {}).title || '';
@@ -165,7 +177,10 @@ async function admin(content) {
     const GRIP = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"/><circle cx="15" cy="6" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="18" r="1.8"/><circle cx="15" cy="18" r="1.8"/></svg>';
     const COG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
     const sizeShape = s => '<span class="sz-shape sz-' + s + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>';
-    const boardHTML = () => r.items.map(it => '<div class="sb-cell sb-' + sizeOf(it) + (it.status === 'hidden' ? ' is-hidden' : '') + (selected === it.id ? ' is-sel' : '') + '" data-sb="' + e(it.id) + '">' +
+    let boardTab = '*';                                           // the board shows one section at a time, as a puzzle of that section
+    const visible = () => boardTab === '*' ? r.items : r.items.filter(it => (it.section_id || '') === boardTab);
+    const tabsHTML = () => '<div class="sb-tabs">' + [['*', 'Все', r.items.length], ['', 'Авто', r.items.filter(i => !i.section_id).length]].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title, r.items.filter(i => i.section_id === x.id).length])).map(t => '<button type="button" class="sb-tab' + (boardTab === t[0] ? ' is-on' : '') + '" data-sb-tab="' + e(t[0]) + '">' + e(t[1]) + '<i>' + t[2] + '</i></button>').join('') + '</div>';
+    const boardHTML = () => visible().map(it => '<div class="sb-cell sb-' + sizeOf(it) + (it.status === 'hidden' ? ' is-hidden' : '') + (selected === it.id ? ' is-sel' : '') + '" data-sb="' + e(it.id) + '">' +
         (window.crafterFestive ? window.crafterFestive.card({key: it.id, src: 'shop', it}, {board: true}) : (tiles([it], true)[0] || '')) +
         '<button type="button" class="sb-handle" data-sb-drag aria-label="Перетащить лот" title="Перетащите, чтобы переставить">' + GRIP + '</button>' +
         '<button type="button" class="sb-gear" data-sb-gear aria-label="Настройки лота" title="Настройки лота">' + COG + '</button>' +
@@ -194,11 +209,12 @@ async function admin(content) {
             '<div class="sb-actions"><button type="button" data-sb-act="edit">Изменить всё</button><button type="button" data-sb-act="earlier">← Раньше</button><button type="button" data-sb-act="later">Позже →</button>' +
             '<button type="button" data-sb-act="status">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button><button type="button" class="danger" data-sb-act="delete">Удалить</button></div><p class="sub sb-hint">' + note + '</p></div>';
     };
-    const boardSection = () => '<div class="sb-wrap"><h3>Витрина магазина</h3><p class="sub">Так лоты выглядят у игроков. Меняйте порядок перетаскиванием, как пазл.</p>' +
-        '<div class="sb-board ny-grid" id="sb-board">' + (r.items.length ? boardHTML() : '<p class="sub">Товаров пока нет: добавьте первый ниже.</p>') + '</div><div id="sb-drawer">' + drawerHTML() + '</div></div>';
+    const boardSection = () => '<div class="sb-wrap"><h3>Витрина магазина</h3><p class="sub">Выберите раздел: видны только его лоты, как у игроков. Меняйте порядок перетаскиванием, как пазл. «Авто» — лоты без своего раздела: они попадают в разделы по правилам.</p>' + tabsHTML() +
+        '<div class="sb-board ny-grid" id="sb-board">' + (visible().length ? boardHTML() : '<p class="sub">Товаров пока нет: добавьте первый ниже.</p>') + '</div><div id="sb-drawer">' + drawerHTML() + '</div></div>';
     const redrawBoard = () => {
         const board = sec.querySelector('#sb-board'), drawer = sec.querySelector('#sb-drawer');
-        if (board) board.innerHTML = r.items.length ? boardHTML() : '<p class="sub">Товаров пока нет: добавьте первый ниже.</p>';
+        const tabs = sec.querySelector('.sb-tabs'); if (tabs) tabs.outerHTML = tabsHTML();
+        if (board) board.innerHTML = visible().length ? boardHTML() : '<p class="sub">В этом разделе лотов нет.</p>';
         if (drawer) drawer.innerHTML = drawerHTML();
         bindBoard();
     };
@@ -241,8 +257,9 @@ async function admin(content) {
         const end = async () => {
             window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
             ghost.remove(); cell.classList.remove('is-drag');
-            const ids = [...board.children].map(c => c.dataset.sb).filter(Boolean);
-            if (ids.join() === r.items.map(i => i.id).join()) return;
+            const shown = [...board.children].map(c => c.dataset.sb).filter(Boolean), cur = visible().map(i => i.id);
+            if (shown.join() === cur.join()) return;
+            let k = 0; const ids = r.items.map(i => i.id).map(id => cur.includes(id) ? shown[k++] : id);   // the others keep their places
             r.items = ids.map(id => r.items.find(i => i.id === id)); r.order = 'manual';
             try { await api('admin/new-year/shop-arrange', {ids}); toast('Порядок сохранён'); } catch (err) { toast(err.message); }
             redrawBoard();
@@ -272,7 +289,7 @@ async function admin(content) {
         drawer?.querySelectorAll('[data-sb-rar]').forEach(b => b.addEventListener('click', () => styleIt({rarity: b.dataset.sbRar})));
         drawer?.querySelectorAll('[data-sb-cbg]').forEach(b => b.addEventListener('click', () => styleIt({card_bg: b.dataset.sbCbg})));
         drawer?.querySelector('[data-sb-heading]')?.addEventListener('change', ev => styleIt({heading: ev.target.value}));
-        drawer?.querySelector('[data-sb-cbgfile]')?.addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { styleIt({card_bg: 'image:' + await uploadMedia(file)}); } catch (err) { toast(err.message); } });
+        drawer?.querySelector('[data-sb-cbgfile]')?.addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { styleIt({card_bg: 'image:' + await uploadBg(file)}); } catch (err) { toast(err.message); } });
         drawer?.querySelectorAll('[data-sb-size]').forEach(b => b.addEventListener('click', async () => {
             if (!it) return;
             try { await api('admin/new-year/shop/' + it.id + '/size', {size: b.dataset.sbSize}); it.size = b.dataset.sbSize; redrawBoard(); } catch (err) { toast(err.message); }
@@ -402,7 +419,7 @@ async function admin(content) {
         bindBoard();
         sendPreview();
         sec.querySelectorAll('[data-cbg]').forEach(b => b.addEventListener('click', () => { pull(); f.card_bg = b.dataset.cbg; sec.querySelectorAll('[data-cbg],.fm-swup').forEach(x => x.classList.toggle('is-on', x === b)); sendPreview(); }));
-        sec.querySelector('[data-cbg-file]')?.addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { pull(); f.card_bg = 'image:' + await uploadMedia(file); draw(); } catch (err) { toast(err.message); } });
+        sec.querySelector('[data-cbg-file]')?.addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { pull(); f.card_bg = 'image:' + await uploadBg(file); draw(); } catch (err) { toast(err.message); } });
         sec.querySelectorAll('[data-fsec]').forEach(b => b.addEventListener('click', () => { pull(); f.section_id = b.dataset.fsec; sec.querySelectorAll('[data-fsec]').forEach(x => x.classList.toggle('is-on', x === b)); sendPreview(); }));
         sec.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { pull(); f.mode = b.dataset.mode; draw(); }));
         sec.querySelector('[data-f="endsMsk"]')?.addEventListener('change', () => { f.endsH = ''; });
