@@ -27,45 +27,67 @@ const models = new Map();                                          // a model is
    honey lid, cinnamon body, white icing with drips, candy red handle, bolts and latch, a cute face */
 const PAINT_FRAG = `
 varying vec3 vP; varying vec3 vN;
+float gShiny = 0.0;
+float hash3(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float vnoise(vec3 x) {
+    vec3 i = floor(x), f = fract(x); f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(mix(hash3(i), hash3(i + vec3(1, 0, 0)), f.x), mix(hash3(i + vec3(0, 1, 0)), hash3(i + vec3(1, 1, 0)), f.x), f.y),
+               mix(mix(hash3(i + vec3(0, 0, 1)), hash3(i + vec3(1, 0, 1)), f.x), mix(hash3(i + vec3(0, 1, 1)), hash3(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
 float disc(vec2 p, vec2 c, vec2 r) { vec2 q = (p - c) / r; return 1.0 - smoothstep(0.86, 1.0, length(q)); }
+float flake(vec2 p, vec2 c, float r) {                                   // a six-armed snowflake made of icing
+    vec2 d = p - c; float rad = length(d) / r, an = atan(d.y, d.x);
+    float arm = smoothstep(0.16, 0.05, abs(sin(an * 3.0)) * rad) * step(rad, 1.0);
+    float twig = smoothstep(0.16, 0.05, abs(sin(an * 3.0 + 1.5708 * 0.0)) * abs(fract(rad * 2.4) - 0.5) * 1.4) * step(0.3, rad) * step(rad, 0.92) * 0.0;
+    return max(arm, step(rad, 0.13));
+}
 vec3 gingerPaint(vec3 p, vec3 n) {
-    vec3 honey = vec3(0.86, 0.5, 0.15), cinn = vec3(0.5, 0.21, 0.07), icing = vec3(1.0, 0.96, 0.9), candy = vec3(0.78, 0.07, 0.12), choc = vec3(0.17, 0.07, 0.03);
+    vec3 icing = vec3(1.0, 0.97, 0.93), candy = vec3(0.8, 0.06, 0.1), green = vec3(0.1, 0.5, 0.2), choc = vec3(0.16, 0.07, 0.03);
     float y = p.y, ax = abs(p.x), az = abs(p.z);
-    vec3 col = y > 12.0 ? honey : cinn;
-    // baked look: a little darker towards the seam and the foot, lighter on the tops
-    col *= 0.86 + 0.2 * smoothstep(-0.3, 1.0, n.y);
-    col *= 0.88 + 0.12 * smoothstep(0.0, 4.0, y) * smoothstep(0.0, 2.5, abs(y - 12.0));
-    // fine crumb texture
-    col *= 0.96 + 0.04 * sin(p.x * 7.3) * sin(p.y * 6.1) * sin(p.z * 8.7);
-    // rows of icing pearls on the lid walls and the body walls
-    vec2 c1 = fract(vec2(p.x, y) / 2.6) - 0.5;
-    if (abs(n.z) > 0.85 && y > 13.6 && y < 19.6 && ax < 12.5 && length(c1) < 0.15) col = icing;
-    if (abs(n.z) > 0.85 && y > 3.4 && y < 5.6 && ax < 12.5 && length(c1) < 0.15) col = icing;
-    if (abs(n.x) > 0.85 && y > 3.4 && y < 19.6 && az < 6.4 && length(fract(vec2(p.z, y) / 2.6) - 0.5) < 0.15) col = icing;
-    // white icing on the top of the lid with a scalloped, dripping edge
-    float scal = 21.4 + 1.5 * abs(sin(p.x * 0.62 + p.z * 0.31)) + 1.1 * smoothstep(0.7, 1.0, sin(p.x * 1.4 + 0.8) * 0.5 + 0.5);
-    if (y > scal) col = icing;
-    // piping: at the foot and a zigzag on the seam
-    if (y < 2.4 + 0.5 * abs(sin(p.x * 1.1 + p.z * 0.5))) col = icing;
-    float seam = abs(y - 12.0 - 0.38 * sin(p.x * 3.0 + p.z * 3.0));
-    if (seam < 0.38) col = icing;
-    // the face on the front of the body: two big eyes with shine, a smile and blush
+    // baked dough: soft cloudy colour, spice specks, sugar sparkles
+    float cloud = vnoise(p * 0.55) * 0.6 + vnoise(p * 1.7) * 0.3 + vnoise(p * 5.0) * 0.1;
+    vec3 doughLight = vec3(0.84, 0.5, 0.18), doughDark = vec3(0.52, 0.24, 0.08);
+    vec3 col = y > 12.0 ? mix(doughLight * 0.95, vec3(0.93, 0.62, 0.26), cloud) : mix(doughDark, vec3(0.7, 0.34, 0.12), cloud);
+    float speck = step(0.88, vnoise(p * 6.0)) * (0.35 + 0.65 * vnoise(p * 11.0));
+    col = mix(col, choc, speck * 0.55);
+    float sugar = step(0.93, vnoise(p * 9.0 + 3.0));
+    col += sugar * 0.18;
+    // the edges of the cookie are baked darker (found by how fast the normal turns)
+    float edge = clamp(length(fwidth(n)) * 9.0, 0.0, 1.0);
+    col = mix(col, col * vec3(0.62, 0.45, 0.3), edge * 0.8);
+    col *= 0.88 + 0.2 * smoothstep(-0.3, 1.0, n.y);
+    gShiny = 0.0;
+    // royal icing: the cap of the lid with a wavy dripping edge, the piping at the foot and on the seam, the frame of the front
+    float scal = 21.2 + 1.7 * abs(sin(p.x * 0.6 + p.z * 0.3)) + 1.3 * smoothstep(0.65, 1.0, sin(p.x * 1.35 + 0.7) * 0.5 + 0.5);
+    float ic = 0.0;
+    if (y > scal) ic = 1.0;
+    if (y < 2.3 + 0.55 * abs(sin(p.x * 1.05 + p.z * 0.5))) ic = 1.0;
+    if (abs(y - 12.0 - 0.36 * sin(p.x * 2.9 + p.z * 2.9)) < 0.36) ic = 1.0;
+    // beaded line under the cap and above the foot
+    vec2 bead = fract(vec2(p.x + p.z, y) / vec2(2.2, 1.0)) - 0.5;
+    if (abs(n.z) > 0.8 && abs(y - 17.4) < 0.5 && ax < 12.6 && length(bead * vec2(1.0, 1.4)) < 0.4) ic = 1.0;
+    // a snowflake on the lid walls, a heart-shaped loop of icing is left to the face
+    if (abs(n.z) > 0.8 && ax < 12.0) ic = max(ic, flake(vec2(p.x, y), vec2(0.0, 15.2), 2.3));
+    col = mix(col, icing * (0.96 + 0.04 * vnoise(p * 3.0)), ic);
+    gShiny = max(gShiny, ic);
+    // the face on the front of the body
     if (p.z > 0.0 && n.z > 0.6 && ax < 11.5 && y < 11.4) {
         vec2 f = vec2(p.x, y);
         float eye = max(disc(f, vec2(-4.4, 8.9), vec2(1.3, 1.75)), disc(f, vec2(4.4, 8.9), vec2(1.3, 1.75)));
         float shine = max(disc(f, vec2(-3.95, 9.7), vec2(0.5, 0.62)), disc(f, vec2(4.85, 9.7), vec2(0.5, 0.62)));
         float blush = max(disc(f, vec2(-7.4, 6.9), vec2(1.5, 0.9)), disc(f, vec2(7.4, 6.9), vec2(1.5, 0.9)));
         float sm = (1.0 - smoothstep(0.3, 0.55, abs(length(vec2(f.x * 0.85, f.y - 7.9)) - 3.0))) * step(f.y, 7.2);
-        col = mix(col, vec3(1.0, 0.55, 0.45), blush * 0.7);
+        col = mix(col, vec3(1.0, 0.52, 0.42), blush * 0.6);
         col = mix(col, choc, max(eye, sm));
         col = mix(col, vec3(1.0), shine);
+        gShiny = max(gShiny, max(eye, sm) * 0.8);
     }
-    // candy: the handle in stripes, the latch like a peppermint, bolts like gumdrops
-    float stripe = step(0.5, fract(p.x * 0.34 + atan(y - 26.0, p.z) * 0.8));
-    if (y > 24.1 && ax < 8.4) col = mix(candy, icing, stripe);
-    if (ax > 15.6 && y > 8.4 && y < 17.8) col = mix(candy, icing, step(0.5, fract(atan(y - 13.0, p.z) * 1.6)));
-    float bolt = min(length(vec3(ax - 15.4, y - 3.7, az - 8.3)), length(vec3(ax - 15.4, y - 19.3, az - 8.3)));
-    if (bolt < 2.9) col = mix(candy, vec3(1.0, 0.45, 0.45), smoothstep(1.6, 0.0, bolt) * 0.5);
+    // candy: the handle in stripes, the latch like a peppermint, bolts like gumdrops (red and green)
+    if (y > 24.1 && ax < 8.4) { col = mix(candy, icing, step(0.5, fract(p.x * 0.34 + atan(y - 26.0, p.z) * 0.8))); gShiny = 1.0; }
+    if (ax > 15.6 && y > 8.4 && y < 17.8) { col = mix(green, icing, step(0.5, fract(atan(y - 13.0, p.z) * 1.6))); gShiny = 1.0; }
+    float b1 = length(vec3(ax - 15.4, y - 3.7, az - 8.3)), b2 = length(vec3(ax - 15.4, y - 19.3, az - 8.3));
+    float bolt = min(b1, b2);
+    if (bolt < 2.9) { col = mix(b2 < b1 ? candy : green, vec3(1.0, 0.7, 0.6), smoothstep(1.7, 0.0, bolt) * 0.45); gShiny = 1.0; }
     return pow(col, vec3(2.2));                                                    // the colours above are sRGB, the shader works in linear
 }`;
 function paintModel(gltf) {
@@ -78,9 +100,9 @@ function paintModel(gltf) {
         const mat = m.material;
         mat.onBeforeCompile = sh => {
             sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vP; varying vec3 vN;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvP = position; vN = normal;');
-            sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + PAINT_FRAG).replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = gingerPaint(vP, normalize(vN));');
+            sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + PAINT_FRAG).replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = gingerPaint(vP, normalize(vN));').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = mix(0.9, 0.22, gShiny);');
         };
-        mat.customProgramCacheKey = () => 'ginger-paint-5';
+        mat.customProgramCacheKey = () => 'ginger-paint-6';
         mat.needsUpdate = true;
     });
     return gltf;
