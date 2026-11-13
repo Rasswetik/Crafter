@@ -109,14 +109,15 @@ async function showNewYear(next){
     const main=document.querySelector('#main');
     if(!main)return;
     document.querySelector('#app')?.classList.toggle('fm-full',view==='market');
-    nyBlur(view!=='market');
+    nyBlur(false);
     try{
         const want=view==='market'?'/new-year/market':'/new-year',now=location.pathname.replace(/\/+$/,'');
         if(now.indexOf('/new-year')===0&&now!==want&&!(view==='market'&&now.indexOf('/new-year/market/')===0))history.pushState({crafterPage:'new-year'},'',want);
     }catch(_){}
     main.innerHTML=typeof crafterLoading==='function'?crafterLoading(view==='market'?'ny-market':view==='community'?'ny-goal':'ny-hub'):'';
     try{
-        const [data,shared,packState,shopState,advState,lockReply]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null),api('new-year/locks').catch(()=>null)]);
+        const [data,shared,packState,shopState,advState,lockReply,fbState]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null),api('new-year/locks').catch(()=>null),api('freebies').catch(()=>null)]);
+        window.__fbEvents=(fbState&&fbState.events||[]).map(x=>Object.assign({now:fbState.now},x));
         if(state.page!=='new-year'||!main.isConnected)return;
         lockInfo={locks:(lockReply&&lockReply.locks)||{},now:(lockReply&&lockReply.now)||0,at:Date.now(),hidden:(lockReply&&lockReply.hidden)||[]};
         if(view!=='hub'&&lockLeft(view)){toast('Раздел откроется позже');view='hub';}
@@ -151,7 +152,8 @@ function drawHub(main,data,shared,advState){
         (isHiddenSection('market')?'':'<button type="button" class="nyh-card nyh-market" data-nyh="market" aria-label="Особый маркет">'+art+
         '<span class="nyh-copy"><strong>Особый маркет</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>')+
         (community()&&shared?.event&&!isHiddenSection('community')?community().card(shared):'')+
-        (window.crafterAdvent&&advState?.enabled&&!isHiddenSection('advent')?window.crafterAdvent.card(advState):'')+'</div>';
+        (window.crafterAdvent&&advState?.enabled&&!isHiddenSection('advent')?window.crafterAdvent.card(advState):'')+
+        '</div>';
     ['market','community','advent'].forEach(name=>{
         const card=main.querySelector('[data-nyh="'+name+'"]');if(!card)return;
         if(lockLeft(name)){
@@ -264,7 +266,7 @@ function drawFestive(main,data,shared,packState,shopState){
     const wallet=()=>Number(String(document.querySelector('#app > header > .winter-currency-balance b')?.textContent||'0').replace(/\s/g,'').replace(/\u00a0/g,''))||Number(data.balance?.balls||0);
     const focus=Boolean(window.crafterCmFocusShop);
     window.crafterCmFocusShop=false;
-    const ctx={data,shared,packState,shopState,hero:marketHero(),back:()=>showNewYear('hub'),refresh:()=>showNewYear('market'),balance:wallet,
+    const ctx={data,shared,packState,shopState,freebies:window.__fbEvents||[],hero:marketHero(),back:()=>showNewYear('hub'),refresh:()=>showNewYear('market'),balance:wallet,
         section:focus?'rewards':undefined,lotTile,
         bindLots:root=>root.querySelectorAll('[data-ny-lot]').forEach(btn=>btn.addEventListener('click',()=>openLot(btn.dataset.nyLot)))};
     window.crafterFestive.render(main,ctx);
@@ -466,7 +468,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     content.querySelectorAll(':scope > .ny-admin-section').forEach(x=>{x.dataset.pane='main';});
     const tabs=document.createElement('div');
     tabs.className='ny-tabs';
-    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин'],['exchange','Обмен и коды'],['advent','Адвент']];
+    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин'],['exchange','Обмен и коды'],['freebies','Подарки по дням'],['advent','Адвент']];
     const setTab=name=>{window.crafterNyTab=name;content.dataset.nyTab=name;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('is-on',b.dataset.tab===name));};
     tabs.innerHTML=names.map(([id,label])=>'<button type="button" data-tab="'+id+'">'+label+'</button>').join('');
     tabs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
@@ -475,6 +477,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     window.crafterPacks?.admin?.(content);
     window.crafterShopItems?.admin?.(content);
     window.crafterExchange?.admin?.(content);
+    window.crafterFreebiesAdmin?.admin?.(content);
     window.crafterAdvent?.admin?.(content);
     window.crafterNyLocks?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{

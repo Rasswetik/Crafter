@@ -48,7 +48,7 @@ function time(ts) { const d = new Date(ts * 1000); return d.toLocaleDateString('
 
 function draw(main) {
     const d = info;
-    main.innerHTML = '<div class="au-page"><div class="au-bg" aria-hidden="true"><i></i></div><div class="au-body">' +
+    main.innerHTML = '<div class="au-page"><div class="au-body">' +
         '<div class="au-head"><h1>Раздел автора</h1><p>Игроки вводят ваш код в Особом маркете, и ' + e(d.percent) + '% от всех их покупок возвращается вам: шарами за шары и GRAM за GRAM.</p></div>' +
         '<div class="au-codes">' + d.codes.map(c => '<div class="au-code' + (c.active ? '' : ' is-off') + '"><small>Ваш код</small><b>' + e(c.code) + '</b><span>' + c.supporters + ' игроков поддерживают' + (c.active ? '' : ' · выключен') + '</span><button type="button" data-au-copy="' + e(c.code) + '">Скопировать</button></div>').join('') + '</div>' +
         '<div class="au-tiles">' +
@@ -80,7 +80,7 @@ go = async function (page, ...rest) {
     document.querySelector('#cart-float')?.remove();
     nav(); if (typeof updateBalance === 'function') updateBalance();
     const main = document.querySelector('#main');
-    main.innerHTML = '<div class="au-page"><div class="au-bg"><i></i></div><div class="au-body"><div class="au-head"><h1>Раздел автора</h1></div><div class="au-skel"></div></div></div>';
+    main.innerHTML = '<div class="au-page"><div class="au-body"><div class="au-head"><h1>Раздел автора</h1></div><div class="au-skel"></div></div></div>';
     try { info = await api('author/stats'); } catch (error) { main.innerHTML = '<div class="empty"><h2>Не удалось загрузить</h2><p>' + e(error.message) + '</p></div>'; return; }
     if (state.page === 'author') draw(main);
 };

@@ -191,10 +191,22 @@ SCENES.hex = id => defs(id, lin(id, [[0, '#1b4fd0'], [1, '#08164a']]) + pattern(
 // aliases: card / section keys without a scene of their own
 SCENES.pink = SCENES.rose;
 
+const lite = () => matchMedia('(max-width:760px),(pointer:coarse)').matches;
+const cache = new Map();
+const STILL_CSS = '<style>.sc-fw{opacity:.8}.sc-tw{opacity:.75}.sc-fall,.sc-gust,.sc-rise{display:none}</style>';
 function render(key, opts = {}) {
     const k = norm(key), make = SCENES[k] || SCENES.night;
+    if (opts.still || lite()) {                                      // a still picture: it is drawn once by the browser and costs nothing afterwards
+        let src = cache.get(k);
+        if (!src) {
+            const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">' + STILL_CSS + make('s' + k) + '</svg>';
+            src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+            cache.set(k, src);
+        }
+        return '<img class="sc sc-img sc-' + k + '" src="' + src + '" alt="" draggable="false" decoding="async">';
+    }
     const id = 'sc' + (++counter);
-    return '<svg class="sc sc-' + k + (opts.still ? ' is-still' : '') + '" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' + make(id) + '</svg>';
+    return '<svg class="sc sc-' + k + '" viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' + make(id) + '</svg>';
 }
 const LIGHT = new Set(['frost', 'ice', 'mint', 'rose', 'polar', 'sunset', 'gold', 'forest', 'skating', 'sunrise', 'desert', 'cherry', 'bubbles']);   // text on these needs a darker outline
 window.crafterScenes = {render, norm, has: key => Boolean(SCENES[norm(key)]), light: key => LIGHT.has(norm(key))};

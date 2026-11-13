@@ -1491,6 +1491,8 @@ def create_app(config=None):
     install_shop_sections(app,db,auth,audit)
     from shop_exchange import install_shop_exchange
     install_shop_exchange(app,db,auth,audit,record)
+    from freebies import install_freebies
+    install_freebies(app,db,auth,audit,record)
     install_shop_items(app,db,auth,record,audit)
     from community_events import install_community_events
     install_community_events(app,db,auth,record,audit)

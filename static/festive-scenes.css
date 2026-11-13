@@ -30,3 +30,4 @@
 @media(prefers-reduced-motion:reduce){.sc *{animation:none!important}}
 /* the balance stands in the top right corner of the market (the rail column is not a positioning parent) */
 .fm-root:not(.fm-phone) .fm-rail-col{position:static}
+.sc-img{object-fit:cover}

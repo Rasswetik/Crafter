@@ -115,6 +115,7 @@ const headingOf = it => it.heading || (it.mode === 'choice' ? 'Акция с в�
 
 /* ---------- one offer card ---------- */
 function card(o, opts = {}) {
+    if (o.src === 'fb' && window.crafterFreebies) return window.crafterFreebies.card(o.ev);
     const it = o.it, r = rarityOf(it), size = sizeOf(it), left = it.ends_at ? it.ends_at - nowSec() : null;
     const tab = left !== null ? '<span class="fm-tab" data-fm-end="' + it.ends_at + '">' + leftText(left) + '</span>'
         : it.left !== null && it.left !== undefined ? '<span class="fm-tab">Осталось ' + num(it.left) + '</span>' : '';
@@ -220,6 +221,7 @@ function reveal(o, result, ctx, closeStage) {
     let title, text, buttons;
     if (isPack) {
         title = got ? (it.mode === 'random' ? 'Вам выпал: ' : 'Вы получили: ') + '<b>' + e(got.pack.title) + (total > 1 ? ' ×' + num(total) : '') + '</b>' : 'Вы купили: <b>×' + num(total) + '</b>';
+        if (result.title) title = result.title;
         text = total > 1 ? 'Паки уже в инвентаре («Мои подарки»). Что с ними сделать?' : 'Пак уже в инвентаре («Мои подарки»). Что с ним сделать?';
         buttons = '<button type="button" class="fm-btn green" data-rv-open>' + (total > 1 ? 'Открыть все (' + num(total) + ')' : 'Открыть сейчас') + '</button>' +
             '<button type="button" class="fm-btn blue" data-rv-keep>Оставить в инвентаре</button>';
@@ -232,7 +234,7 @@ function reveal(o, result, ctx, closeStage) {
     const rvScene = cb && !cb.startsWith('image:') && window.crafterScenes;
     const rvBg = rvScene ? '<div class="fm-rv-bg">' + window.crafterScenes.render(cb) + '</div>' : cb ? '<div class="fm-rv-bg ' + (cb.startsWith('image:') ? 'cb-image' : 'cb-' + e(cb)) + '"' + (cb.startsWith('image:') ? ' style="background-image:linear-gradient(rgba(8,12,40,.3),rgba(8,12,40,.55)),url(' + e(cb.slice(6)) + ')"' : '') + '></div>' : '';
     el.innerHTML = rvBg + '<i class="fm-rays big"></i><i class="fm-dots"></i><div class="fm-rv-stage"><div class="fm-rv-burst">' + sparks + '</div><div class="fm-rv-packs' + (spawn.length === 1 ? ' is-one' : '') + '"><i class="fm-rv-aura"></i>' + fan + '</div></div>' +
-        '<div class="fm-rv-panel"><small>Покупка совершена</small><h2>' + title + '</h2><p>' + e(text) + '</p><div class="fm-rv-btns">' + buttons + '</div></div>';
+        '<div class="fm-rv-panel"><small>' + e(result.head || 'Покупка совершена') + '</small><h2>' + title + '</h2><p>' + e(text) + '</p><div class="fm-rv-btns">' + buttons + '</div></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
     const done = () => { el.classList.remove('is-in'); setTimeout(() => { el.remove(); closeStage(); }, 260); ctx.refresh?.(); };
@@ -254,7 +256,41 @@ function reveal(o, result, ctx, closeStage) {
 /* ---------- the window of a lot ---------- */
 const BASE = '/new-year/market';
 const CHEV = d => '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg>';
+/* the window of the freebies: a row of gift boxes on a background that is mirrored again and again */
+function fbStage(o, ctx, opts2 = {}) {
+    document.querySelector('.fm-stage')?.remove();
+    const ev = o.ev, el = document.createElement('div');
+    el.className = 'fm-stage fm-fbstage';
+    el.innerHTML = '<button type="button" class="fm-back" data-fm-close aria-label="Назад"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>' +
+        '<span class="fm-bal">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span><div class="fb-host" data-fb-host></div>';
+    el.style.backgroundImage = 'url(' + ev.page_bg + ')';
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('is-in'));
+    if (window.crafterFreebies?.tileBg) window.crafterFreebies.tileBg(ev.page_bg, innerWidth < 760 ? 520 : 900).then(t => { if (!el.isConnected) return; el.style.backgroundImage = 'url(' + t.url + ')'; el.style.backgroundSize = t.w + 'px ' + t.h + 'px'; el.style.backgroundRepeat = 'repeat'; });
+    window.crafterFreebies?.mount(el.querySelector('[data-fb-host]'), ev, {reload: ctx.refresh});
+    let pushed = false, closed = false;
+    if (!ctx.preview) {
+        try {
+            if (opts2.fromUrl) history.replaceState({crafterPage: 'new-year', fmLot: o.key}, '', BASE + '/' + encodeURIComponent(o.key));
+            else { history.pushState({crafterPage: 'new-year', fmLot: o.key}, '', BASE + '/' + encodeURIComponent(o.key)); pushed = true; }
+        } catch (_) {}
+    }
+    const onPop = () => { if (location.pathname.indexOf(BASE + '/') !== 0) close(true); };
+    const close = fromPop => {
+        if (closed) return; closed = true;
+        el.classList.remove('is-in'); setTimeout(() => el.remove(), 260);
+        document.removeEventListener('keydown', onKey); window.removeEventListener('popstate', onPop);
+        { const t = document.querySelector('[data-fm="fb:' + ev.id + '"]'); if (t && window.crafterFreebies) { const d = document.createElement('div'); d.innerHTML = window.crafterFreebies.card(ev); t.replaceWith(d.firstElementChild); } }
+        if (!ctx.preview && fromPop !== true) { try { if (pushed) history.back(); else history.replaceState({crafterPage: 'new-year'}, '', BASE); } catch (_) {} }
+    };
+    const onKey = ev2 => { if (ev2.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey); window.addEventListener('popstate', onPop);
+    el.querySelector('[data-fm-close]').addEventListener('click', () => close());
+    return el;
+}
+
 function stage(o, ctx, opts2 = {}) {
+    if (o.src === 'fb') return fbStage(o, ctx, opts2);
     const it = o.it, r = rarityOf(it);
     document.querySelector('.fm-stage')?.remove();
     const el = document.createElement('div');
@@ -373,13 +409,14 @@ function render(main, ctx) {
         id: 'cm:' + m.id, kind: 'REWARD', title: m.title, image_url: (m.image_url && /^(https:\/\/|\/static\/)/.test(m.image_url)) ? m.image_url : (m.pack?.image || m.star?.image || '/static/assets/community-reward.svg'),
         price_balls: m.price_balls, size: 'small', bundle: 1, left: m.left, rarity: 'special', badge: 'Награда', description: 'Награда за общую цель сообщества. Тираж ограничен.', contents: null}}));
     const all = items.concat(packs);
+    const fbs = (ctx.freebies || []).map(ev => ({key: 'fb:' + ev.id, src: 'fb', ev, it: {id: 'fb:' + ev.id, kind: 'FREEBIE', title: ev.title, size: 'wide', rarity: 'special', price_balls: 0}}));
     const sections = (ctx.shopState?.sections && ctx.shopState.sections.length ? ctx.shopState.sections : DEFAULT_SECTIONS).filter(s => ctx.showEmpty || s.enabled !== false);
     const customIds = new Set(sections.filter(s => s.kind !== 'exchange' && s.id !== 'gifts').map(s => s.id));
     const mine = o => o.it.section_id && customIds.has(o.it.section_id);
     const isBundle = o => !o.it.mode && (o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1))));
     const lots = ctx.data?.lots || [];
     const rule = {
-        featured: () => all.filter(o => !mine(o) && (o.it.mode || o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge)).concat(rewards),
+        featured: () => fbs.concat(all.filter(o => !mine(o) && (o.it.mode || o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge))).concat(rewards),
         packs: () => all.filter(o => !mine(o) && !o.it.mode && o.it.kind === 'PACK' && !isBundle(o)),
         bundles: () => all.filter(o => !mine(o) && isBundle(o)),
         res: () => all.filter(o => !mine(o) && ['GRAM', 'BALL', 'PROMO', 'STAR'].includes(o.it.kind)),
@@ -509,5 +546,5 @@ function render(main, ctx) {
     return {root, show, open: key => { const o = SEC.flatMap(x => x.list).find(x => x.key === key); if (o && o.it) stage(o, ctx); }};
 }
 
-window.crafterFestive = {render, card, stage, rarityOf, includes, railButton, bgHTML, iconHTML, icons: ICONS, bgKeys: BG_KEYS, cardBgKeys: CARD_BG_KEYS, names: NAMES, setNow: s => { offset = s - Math.floor(Date.now() / 1000); }};
+window.crafterFestive = {render, card, stage, reveal, rarityOf, includes, railButton, bgHTML, iconHTML, icons: ICONS, bgKeys: BG_KEYS, cardBgKeys: CARD_BG_KEYS, names: NAMES, setNow: s => { offset = s - Math.floor(Date.now() / 1000); }};
 })();

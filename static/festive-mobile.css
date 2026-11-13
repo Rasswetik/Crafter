@@ -9,7 +9,7 @@
   #app.new-year-view > .ny-bgblur svg{filter:none!important;opacity:.7}
   .fm-card,.fm-ex,.fm-ic,.fm-ch-prize{animation-duration:.01s!important;animation-delay:0s!important}
   .fm-card:hover,.fm-ex:hover{transform:none}
-  .fm-root{contain:layout paint}
+  .fm-phone > .fm-bg{position:fixed;inset:0;border-radius:0}   /* the background stays on the screen while the list scrolls */
 }
 /* the window of a lot on a phone: one column that scrolls, the buy button sticks to the bottom, nothing overlaps */
 @media(max-width:760px){
