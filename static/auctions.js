@@ -79,7 +79,7 @@ function cardHTML(a, index = 0) {
         <button type="button" class="auc-open" data-open="${esc(a.id)}" aria-label="${esc(a.gift.name)}">
             ${artOf(a.gift, true, a.id)}
             <span class="auc-timer${remaining(a) < 300 ? ' hot' : ''}" data-auc-end="${a.ends_at}">${shortTime(remaining(a))}</span>
-            <span class="auc-name"><b>${esc(a.gift.name)}</b>${collectionIcon(a.gift, 'small')}<i>${a.gift.number ? '#' + esc(a.gift.number) : ''}</i></span>
+            <span class="auc-name"><b>${esc(a.gift.name)}</b><i>${a.gift.number ? '#' + esc(a.gift.number) : ''}</i></span>
         </button>
         <button type="button" class="auc-heart" data-heart="${esc(a.id)}" aria-pressed="${a.favorite}" aria-label="В избранное">${heart(a.favorite)}</button>
         <button type="button" class="auc-bid${a.leading ? ' leading' : ''}" data-open="${esc(a.id)}">
@@ -92,7 +92,13 @@ function render() {
     const main = document.querySelector('#main');
     if (!main || state.page !== 'auctions') return;
     const count = filterCount();
+    const second = state.me?.market_backend === 'thermos' ? 'Thermos' : 'Portals';
     main.innerHTML = `<section class="auc-page">
+        <div class="resale-market-tabs auc-market-tabs" aria-label="Источник лотов">
+            <button type="button" aria-pressed="false" onclick="aucToMarket('crafter')">Craft Market</button>
+            <button type="button" aria-pressed="false" onclick="aucToMarket('portals')">${second}</button>
+            <button type="button" aria-pressed="true">Аукционы</button>
+        </div>
         <div class="auc-head"><h1>Аукционы</h1><button type="button" class="auc-create" id="auc-create">+ Выставить</button></div>
         <div class="auc-tabs" role="tablist">${VIEWS.map(([key, label]) =>
             `<button type="button" role="tab" aria-selected="${ui.view === key}" data-view="${key}">${label}</button>`).join('')}</div>
@@ -203,7 +209,7 @@ function detailHTML(a) {
     return `<div class="auc-detail" data-detail="${esc(a.id)}">
         <div class="auc-hero" data-aid="${esc(a.id)}">${heroArt(g, a.id)}<button type="button" class="auc-close" aria-label="Закрыть"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button><button type="button" class="auc-heart on-hero" data-heart="${esc(a.id)}" aria-pressed="${a.favorite}" aria-label="В избранное">${heart(a.favorite)}</button></div>
         ${ended ? '<div class="auc-ends"><span>Аукцион завершён</span></div>' : timeBlocks(a)}
-        <div class="auc-title"><h2>${esc(g.name)}${collectionIcon(g, 'big')}</h2><i>${g.number ? '#' + esc(g.number) : ''}</i></div>
+        <div class="auc-title"><h2>${esc(g.name)}</h2><i>${g.number ? '#' + esc(g.number) : ''}</i></div>
         <div class="auc-traits">${traitRow('Модель', g.model, r.model)}${traitRow('Фон', g.backdrop, r.backdrop)}${traitRow('Символ', g.symbol, r.symbol)}</div>
         <div class="auc-price-row"><span>${a.current_bid ? 'Текущая ставка' : 'Стартовая цена'}</span><b>${gram(a.current_bid ?? a.start_price)}</b></div>
         ${ended ? '' : `<div class="auc-price-row dim"><span>Минимальная ставка</span><b>${gram(a.min_bid)}</b></div>`}
@@ -303,7 +309,7 @@ function openFilters() {
         <label>ID подарка<input class="auc-input" id="af-number" inputmode="numeric" placeholder="#" value="${esc(f.number)}" maxlength="10"></label>
         <h3>Коллекции <small>${f.collections.size || ''}</small></h3>
         <div class="auc-chips">${ui.collections.length ? ui.collections.map(c =>
-            `<button type="button" class="auc-chip" data-collection="${esc(c.name)}" aria-pressed="${f.collections.has(c.name)}">${esc(c.name)} <small>${c.count}</small></button>`).join('')
+            `<button type="button" class="auc-chip" data-collection="${esc(c.name)}" aria-pressed="${f.collections.has(c.name)}">${collectionIcon({name: c.name}, 'chip')}${esc(c.name)} <small>${c.count}</small></button>`).join('')
             : '<span class="auc-hint">Сейчас нет активных лотов</span>'}</div>
         <div class="auc-action two"><button type="button" class="auc-main ghost" id="af-reset">Сбросить</button><button type="button" class="auc-main" id="af-done">Готово</button></div>
     </div>`);
@@ -465,5 +471,10 @@ resaleMarketTabs = function () {
     return baseTabs().replace(/<\/div>\s*$/, `<button type="button" aria-pressed="false" onclick="go('auctions')">Аукционы</button></div>`);
 };
 window.openAuctions = () => go('auctions');
+window.aucToMarket = source => {
+    // selectResaleMarket ignores the source that is already chosen, but from here we always have to leave the auctions
+    if (state.marketSource === source) state.marketSource = source === 'crafter' ? 'portals' : 'crafter';
+    selectResaleMarket(source);
+};
 window.startAuctionFromGift = id => openCreate(id);
 })();

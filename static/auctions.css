@@ -316,3 +316,26 @@ select.auc-input option,.auc-sort select option{background:#1b1d22;color:#f2f2f2
   #sheet.auc-thin::-webkit-scrollbar-button,#sheet.auc-thin *::-webkit-scrollbar-button,#sheet.auction-sheet::-webkit-scrollbar-button,#sheet.auction-sheet *::-webkit-scrollbar-button{display:none;width:0;height:0}
   #sheet.auc-thin::-webkit-scrollbar-corner,#sheet.auction-sheet::-webkit-scrollbar-corner{background:transparent}
 }
+
+/* ---- no coloured glows under the buttons; a clean look; the market switch on top; no scrollbars on phones ---- */
+.auc-bid,.auc-bid.leading,.auc-create,.auc-main,.auc-main.danger,.auc-main.ghost,.auc-close,.owned-gift-actions .auction-action{animation:none!important}
+.auc-bid,.auc-bid.leading,.auc-create,.auc-main,.auc-main.danger,.auc-main.ghost,.owned-gift-actions .auction-action{box-shadow:inset 0 1px 0 #ffffff30!important}
+.auc-main:disabled{box-shadow:none!important}
+.auc-bid::after,.owned-gift-actions .auction-action::after{display:none!important}
+.auc-field,.auc-chip[aria-pressed="true"],.auc-tabs button[aria-selected="true"]{animation:none!important;box-shadow:none!important}
+.auc-detail .auc-action{box-shadow:none;background:#1e1e1e;margin:0}
+.auc-main.danger{background:#c9444f}
+.auc-bid{background:#0b97ea}.auc-bid.leading{background:#27a468}
+.auc-create,.auc-main{background:#1a8cf0}
+.auc-card{box-shadow:0 8px 20px #0004}
+.auc-market-tabs{margin:2px 0 12px}
+.auc-chip{display:inline-flex;align-items:center;gap:8px}
+.auc-coll.chip{width:24px;height:24px;border-radius:8px;object-fit:cover;flex:none}
+@media(max-width:700px),(pointer:coarse){
+  .auc-page *,.auc-page,#sheet.auction-sheet,#sheet.auction-sheet *,#sheet.auc-thin,#sheet.auc-thin *{scrollbar-width:none!important}
+  .auc-page *::-webkit-scrollbar,.auc-page::-webkit-scrollbar,#sheet.auction-sheet::-webkit-scrollbar,#sheet.auction-sheet *::-webkit-scrollbar,#sheet.auc-thin::-webkit-scrollbar,#sheet.auc-thin *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+}
+
+/* the sort button keeps its caption on one line on phones */
+.auc-sort>button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+@media(max-width:480px){.auc-sort>button{font-size:13px;padding:0 12px}.auc-filter{font-size:13.5px}}
