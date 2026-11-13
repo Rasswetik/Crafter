@@ -84,3 +84,13 @@
 .au-plan{display:grid;gap:6px}.au-plan>div{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.07)}
 .au-plan s{opacity:.6}
 .au-box .adm-check{display:flex;gap:8px;align-items:center;margin-top:8px}
+.au-box .adm-step{margin:0 0 18px}
+.au-box .adm-step>h4{margin:0 0 10px}
+.au-box .adm-row3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:end}
+.au-box label{display:grid;gap:6px;align-content:end;font-size:13px;line-height:1.25;color:rgba(255,255,255,.75)}
+.au-box label input:not([type=checkbox]):not([type=file]),.au-box label select{width:100%;box-sizing:border-box;height:44px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.07);color:#fff;font:600 15px system-ui,sans-serif}
+.au-box label input:focus,.au-box label select:focus{outline:2px solid #5aa2ff;border-color:transparent}
+.au-box .adm-check{display:flex;flex-direction:row;align-items:center;gap:10px;margin-top:10px;font-size:14px;color:#fff}
+.au-box .adm-check input{width:18px;height:18px}
+.au-box .bnd-count{display:flex;justify-content:flex-end;position:sticky;bottom:0;padding:12px 0 2px;background:linear-gradient(180deg,transparent,var(--panel,#161b2b) 40%)}
+@media(max-width:640px){.au-box .adm-row3{grid-template-columns:1fr 1fr}}
