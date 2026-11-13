@@ -30,3 +30,15 @@
     .fm-chestcard .fm-title{max-width:90%}
 }
 .fm-chaincard .fm-tab.fb-tab.is-ready{background:linear-gradient(180deg,#ffe97a,#ffb81f);color:#3a2300}
+/* phone: a long name never climbs over the heading of the card (it stays under it and is cut by lines) */
+@media(max-width:760px){
+  .fm-phone .fm-card .fm-name{top:58px;align-content:end;overflow:hidden;min-height:0}
+  .fm-phone .fm-card .fm-name b{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;font-size:clamp(15px,4.4vw,19px)!important}
+  .fm-phone .fm-card .fm-name p{-webkit-line-clamp:2}
+  .fm-phone .fm-card.fm-s-small .fm-name p,.fm-phone .fm-card.fm-s-tall .fm-name p{display:none}
+}
+/* phone: the scene of the lot window stays on the screen while the window scrolls (it used to scroll away and show a seam at the bottom) */
+@media(max-width:760px){
+  .fm-stage>.fm-cbs,.fm-stage>.fm-rays,.fm-stage>.fm-dots{position:fixed;inset:0;height:100%;pointer-events:none}
+  .fm-stage>.fm-buy{background:linear-gradient(180deg,rgba(0,0,0,0),rgba(6,10,40,.55) 40%)}
+}
