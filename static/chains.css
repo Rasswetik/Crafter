@@ -75,37 +75,27 @@
 .cha-prizes>label{display:block;font-size:12px;font-weight:600;color:rgba(255,255,255,.7);margin-bottom:5px}
 .bnd-gift{font-style:normal;font-size:34px}
 
-/* ---- the window as in the example: the main gift on the left, the other steps as slides on the right ---- */
-.fm-stage.fm-chainstage{display:flex;flex-direction:column;justify-content:flex-start;padding:72px 0 28px;overflow:hidden auto}
-.chn-body{position:relative;z-index:2;flex:1;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr);gap:clamp(12px,3vw,48px);align-items:center;padding:0 max(20px,5vw);min-height:0}
-.chn-main{position:relative;display:grid;grid-template-rows:minmax(0,1fr) auto auto;justify-items:center;align-self:stretch;min-height:min(60vh,520px);cursor:default}
-.chn-main.st-ready{cursor:pointer}
-.chn-main-pic{width:100%;min-height:0;display:grid;place-items:center}
-.chn-main-pic img{max-width:min(92%,520px);max-height:min(52vh,470px);object-fit:contain;filter:drop-shadow(0 18px 20px rgba(26,17,64,.5));animation:si-float 6s ease-in-out infinite}
-.chn-main.st-done .chn-main-pic img{filter:drop-shadow(0 18px 20px rgba(26,17,64,.5)) saturate(.7)}
-.chn-main-info{display:grid;gap:2px;justify-items:center;margin-top:4px;color:#fff;text-align:center;text-shadow:0 3px 0 #1a1140,0 0 10px rgba(26,17,64,.6)}
-.chn-main-info b{font:900 clamp(18px,2.4vw,28px)/1.1 system-ui,sans-serif;text-transform:uppercase}.chn-main-info small{font-weight:800;opacity:.9}
-.chn-foot{width:100%;display:grid;place-items:center;padding:8px 0 0}
-.chn-main .chn-foot{max-width:340px}
-.chn-side{position:relative;display:grid;gap:10px;justify-items:center;align-self:center}
-.chn-slide{width:100%;max-width:440px;display:grid;gap:10px;padding:14px 16px 16px;border-radius:12px;border:4px solid #1a1140;background:linear-gradient(180deg,#ffe56a,#ffc21a);box-shadow:0 10px 0 rgba(26,17,64,.5);color:#3a2300;transform:rotate(1.2deg)}
-.chn-slide.st-ready{cursor:pointer;outline:4px solid #fff;outline-offset:3px;animation:chn-pulse 1.8s ease-in-out infinite}
-.chn-slide.st-locked .chn-prizes{filter:saturate(.5) brightness(.9)}
-.chn-slide-head{display:grid;justify-items:center;gap:2px}.chn-slide-head b{font:900 clamp(24px,3.4vw,38px)/1 system-ui,sans-serif;text-transform:uppercase;color:#fff;text-shadow:3px 3px 0 #1a1140,-1px -1px 0 #1a1140,1px -1px 0 #1a1140,-1px 1px 0 #1a1140}.chn-slide-head small{font-weight:900;color:#7a4a00;text-transform:uppercase}
-.chn-prizes{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 8px;justify-items:center;padding:4px 0}
-.chn-prizes.n1{grid-template-columns:1fr}.chn-prizes.n3,.chn-prizes.n5,.chn-prizes.n6{grid-template-columns:repeat(3,1fr)}
-.chn-prize{position:relative;display:grid;justify-items:center;gap:4px;width:100%}
-.chn-prize img{width:clamp(70px,9vw,110px);height:clamp(70px,9vw,110px);object-fit:contain;filter:drop-shadow(0 6px 5px rgba(80,40,0,.35))}
-.chn-prizes.n1 .chn-prize img{width:clamp(110px,14vw,170px);height:clamp(110px,14vw,170px)}
-.chn-pill{display:inline-grid;place-items:center;min-width:72px;padding:3px 14px;border-radius:999px;background:linear-gradient(#6fa23a,#4a7a22);border:3px solid #2d4a14;color:#fff;font:900 clamp(14px,1.6vw,19px)/1.2 system-ui,sans-serif;text-shadow:0 2px 0 rgba(0,0,0,.4);box-shadow:inset 0 2px 0 rgba(255,255,255,.3)}
-.chn-prize small{font-size:11px;font-weight:800;color:#6a3a00;text-align:center;line-height:1.1;max-width:100%;overflow:hidden;text-overflow:ellipsis}
-.chn-slide .chn-foot{padding-top:2px}
-.chn-take{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-width:70%;min-height:44px;padding:8px 18px;border:3px solid #1a1140;border-radius:12px;background:linear-gradient(#5fe03a,#2fa813);color:#fff;font:900 clamp(16px,1.8vw,22px)/1 system-ui,sans-serif;text-shadow:0 2px 0 rgba(26,17,64,.55);box-shadow:0 5px 0 rgba(26,17,64,.5)}
-.chn-take.is-free{background:none;border:0;box-shadow:none;color:#7de03a;-webkit-text-stroke:1px #1a1140;text-shadow:0 3px 0 #1a1140;font-size:clamp(20px,2.4vw,30px)}
-.chn-lock{display:grid;justify-items:center;gap:4px;color:#7a4a00}.chn-lock em{font-style:normal;font-weight:800;font-size:12px}
-.chn-nav{position:absolute;top:44%;z-index:4;width:44px;height:64px;border:3px solid #1a1140;border-radius:12px;background:#fff;color:#1a1140;font:900 34px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 4px 0 rgba(26,17,64,.5)}
-.chn-nav.l{left:-16px}.chn-nav.r{right:-16px}.chn-nav:disabled{opacity:.35;cursor:default}
-.chn-dots{display:flex;gap:7px;justify-content:center}.chn-dots i{width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,.45);border:2px solid #1a1140;cursor:pointer}.chn-dots i.is-on{background:#fff;transform:scale(1.25)}.chn-dots i.d-done{background:#18c8a8}.chn-dots i.d-ready{background:#ffe24a}
-@media(max-width:860px){.chn-body{grid-template-columns:1fr;align-content:start;gap:8px}.chn-main{min-height:0;grid-template-rows:auto auto auto}.chn-main-pic img{max-height:30vh}.chn-slide{transform:none}.chn-nav.l{left:-8px}.chn-nav.r{right:-8px}}
-.chn-body .chn-foot{background:none;min-height:0;padding:6px 0 0}
-.chn-body .chn-done{max-width:340px;border-radius:8px}
+/* ---- the tile in the market: the main gift on the left, the panels of the other steps change on the right ---- */
+.fm-chaincard .chn-t-main{left:2%;right:auto;top:12%;height:78%;max-width:52%;object-position:left center}
+.fm-chaincard .chn-tile.is-solo .chn-t-main{left:auto;right:6%;max-width:70%}
+.chn-t-title{right:auto;max-width:92%}
+.fm-chaincard .chn-t-steps{display:none}
+.chn-t-panel{position:absolute;right:4%;top:15%;bottom:9%;width:36%;min-width:150px;z-index:3;border-radius:10px;border:3px solid #1a1140;background:linear-gradient(180deg,#ffe56a,#ffc21a);box-shadow:0 6px 0 rgba(26,17,64,.5);overflow:hidden;transform:rotate(1.4deg)}
+.chn-t-slide{position:absolute;inset:0;display:grid;grid-template-rows:auto 1fr auto;justify-items:center;align-items:center;gap:4px;padding:8px 8px 10px;opacity:0;transform:translateX(26%);pointer-events:none}
+.chn-t-slide.is-on{opacity:1;transform:none;transition:opacity .45s ease,transform .5s cubic-bezier(.2,.9,.3,1)}
+.chn-t-slide.is-out{opacity:0;transform:translateX(-26%);transition:opacity .4s ease,transform .45s ease}
+.chn-t-lab{font:900 clamp(14px,1.9vw,24px)/1 system-ui,sans-serif;text-transform:uppercase;color:#fff;text-shadow:2px 2px 0 #1a1140,-1px -1px 0 #1a1140,1px -1px 0 #1a1140,-1px 1px 0 #1a1140}
+.chn-t-prz{display:grid;grid-template-columns:repeat(2,1fr);gap:4px 6px;width:100%;align-self:stretch;align-content:center;justify-items:center}
+.chn-t-prz.n1{grid-template-columns:1fr}
+.chn-t-prz span{position:relative;display:grid;justify-items:center;gap:2px}
+.chn-t-prz img{width:clamp(34px,5vw,62px);height:clamp(34px,5vw,62px);object-fit:contain;filter:drop-shadow(0 4px 3px rgba(80,40,0,.35))}
+.chn-t-prz.n1 img{width:clamp(50px,7vw,88px);height:clamp(50px,7vw,88px)}
+.chn-t-prz i{font-style:normal;padding:1px 9px;border-radius:999px;background:linear-gradient(#6fa23a,#4a7a22);border:2px solid #2d4a14;color:#fff;font:900 clamp(10px,1.2vw,14px)/1.3 system-ui,sans-serif;text-shadow:0 1px 0 rgba(0,0,0,.4)}
+.chn-t-free{font:900 clamp(12px,1.6vw,19px)/1 system-ui,sans-serif;color:#7de03a;-webkit-text-stroke:1px #1a1140;text-shadow:0 2px 0 #1a1140}
+.chn-t-price{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;background:#fff;border:2px solid #1a1140;color:#3a2300;font-weight:900;font-size:clamp(11px,1.4vw,16px)}.chn-t-price .chn-ball{width:16px;height:16px}
+.chn-t-done{padding:1px 12px;border-radius:6px;background:#18c8a8;color:#fff;font:900 clamp(10px,1.3vw,15px)/1.4 system-ui,sans-serif;text-shadow:0 1px 0 rgba(0,0,0,.3)}
+.chn-t-dots{position:absolute;left:0;right:0;bottom:2px;display:flex;justify-content:center;gap:4px;z-index:2}.chn-t-dots i{width:6px;height:6px;border-radius:50%;background:rgba(26,17,64,.35)}.chn-t-dots i.is-on{background:#1a1140}
+.chn-t-slide{padding-bottom:16px}
+@media(max-width:760px){.chn-t-panel{width:42%;top:22%}.fm-chaincard .chn-t-main{max-width:50%}.chn-t-title{font-size:18px}}
+.fm-chaincard .chn-t-main{top:24%;height:68%}
+.fm-chaincard .chn-t-sub{top:calc(7% + 2.8em)}
