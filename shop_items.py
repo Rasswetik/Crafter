@@ -129,7 +129,7 @@ def install_shop_items(app, db, auth, record, audit):
                 'per_user': row['per_user'], 'bundle': int(row['bundle'] or 1), 'mine': mine, 'status': row['status'],
                 'size': row['size'] if row['size'] in SIZES else 'small', 'description': row['description'] or '',
                 'rarity': row['rarity'] if row['rarity'] in RARITIES else 'auto', 'badge': row['badge'] or '',
-                'ends_at': int(row['ends_at']) if row['ends_at'] else None, 'section_id': row['section_id'] or '', 'heading': row['heading'] or '', 'card_bg': row['card_bg'] or '',
+                'ends_at': int(row['ends_at']) if row['ends_at'] else None, 'section_id': row['section_id'] or '', 'heading': row['heading'] or '', 'card_bg': row['card_bg'] or (('image:' + chest['bg_collection']) if chest and chest.get('bg_collection') else ''),
                 'starts_at': int(row['starts_at']) if row['starts_at'] else None, 'mode': row['mode'] or ''}
 
     def order_mode():
@@ -428,7 +428,7 @@ def install_shop_items(app, db, auth, record, audit):
             abort(400, description='Раздел не найден')
         heading = ' '.join(str(body.get('heading') or '').split())[:30]
         card_bg = str(body.get('card_bg') or '').strip()
-        if card_bg and card_bg not in CARD_BGS and not re.fullmatch(r'image:/media/shop/[0-9a-f]{32}', card_bg):
+        if card_bg and card_bg not in CARD_BGS and not re.fullmatch(r'image:(/media/shop/[0-9a-f]{32}|/static/assets/chests/[A-Za-z0-9_.-]+)', card_bg):
             abort(400, description='Фон карточки: выберите готовый или загрузите картинку')
         return (kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, mix, size, description, rarity, badge, ends_at, section_id or None, heading, card_bg, starts_at, mode)
 
@@ -502,7 +502,7 @@ def install_shop_items(app, db, auth, record, audit):
                 put('heading', ' '.join(str(body['heading'] or '').split())[:30])
             if 'card_bg' in body:
                 card_bg = str(body['card_bg'] or '').strip()
-                if card_bg and card_bg not in CARD_BGS and not re.fullmatch(r'image:/media/shop/[0-9a-f]{32}', card_bg):
+                if card_bg and card_bg not in CARD_BGS and not re.fullmatch(r'image:(/media/shop/[0-9a-f]{32}|/static/assets/chests/[A-Za-z0-9_.-]+)', card_bg):
                     abort(400, description='Фон карточки: выберите готовый или загрузите картинку')
                 put('card_bg', card_bg)
             if 'title' in body:

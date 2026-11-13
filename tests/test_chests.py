@@ -61,3 +61,17 @@ def test_direct_nft_goes_to_the_inventory(client):
     got = client.post('/api/promocodes/redeem', headers=player, json={'code': code}).json['chest_open']['items'][0]
     assert got['kind'] == 'NFT' and got['title'] == 'Warm Winter' and got['collection'] == 'Santa Hat' and got['nft_id']
     assert client.post('/api/admin/new-year/chests', headers=admin, json={'title': 'bad', 'rolls': {'1': 1}, 'loot': [{'kind': 'NFT', 'amount': 'nope:x', 'weight': 1}]}).status_code == 400
+
+
+def test_snowman_box_follows_its_sheet(client):
+    admin, player = signed(42), signed(57)
+    client.get('/api/me', headers=player)
+    info = client.get('/api/chests/snowman', headers=player).json
+    once = {(x['kind'], x['amount']): x['chance'] for x in info['loot']}
+    assert info['chest']['title'] == 'Snowman Box' and info['chest']['bg_collection']
+    assert abs(once[('GRAM', '0.1')] - 49.060744) < .01 and abs(once[('PACK', 'snowman')] - 26.667351) < .01
+    assert abs(once[('NFT', 'vicecream:Iceman')] - 0.359309) < .001 and abs(once[('NFT', 'snowmittens:Mistletoe')] - 0.022497) < .001
+    assert not [x for x in info['loot'] if x['amount'] in ('gifton', 'goshan', 'nikolay')]
+    for _ in range(60):
+        kinds = [i['kind'] for i in client.post('/api/admin/new-year/chests/snowman/preview', headers=admin).json['items']]
+        assert 3 <= len(kinds) <= 6 and kinds[:3] == ['GRAM', 'BALL', 'PACK']

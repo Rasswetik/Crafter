@@ -116,7 +116,8 @@ async function showNewYear(next){
     }catch(_){}
     main.innerHTML=typeof crafterLoading==='function'?crafterLoading(view==='market'?'ny-market':view==='community'?'ny-goal':'ny-hub'):'';
     try{
-        const [data,shared,packState,shopState,advState,lockReply,fbState]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null),api('new-year/locks').catch(()=>null),api('freebies').catch(()=>null)]);
+        const [data,shared,packState,shopState,advState,lockReply,fbState,chainState]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null),api('new-year/locks').catch(()=>null),api('freebies').catch(()=>null),api('chains').catch(()=>null)]);
+        window.__chains=(chainState&&chainState.chains)||[];
         window.__fbEvents=(fbState&&fbState.events||[]).map(x=>Object.assign({now:fbState.now},x));
         if(state.page!=='new-year'||!main.isConnected)return;
         lockInfo={locks:(lockReply&&lockReply.locks)||{},now:(lockReply&&lockReply.now)||0,at:Date.now(),hidden:(lockReply&&lockReply.hidden)||[]};
@@ -266,7 +267,7 @@ function drawFestive(main,data,shared,packState,shopState){
     const wallet=()=>Number(String(document.querySelector('#app > header > .winter-currency-balance b')?.textContent||'0').replace(/\s/g,'').replace(/\u00a0/g,''))||Number(data.balance?.balls||0);
     const focus=Boolean(window.crafterCmFocusShop);
     window.crafterCmFocusShop=false;
-    const ctx={data,shared,packState,shopState,freebies:window.__fbEvents||[],hero:marketHero(),back:()=>showNewYear('hub'),refresh:()=>showNewYear('market'),balance:wallet,
+    const ctx={data,shared,packState,shopState,freebies:window.__fbEvents||[],chains:window.__chains||[],hero:marketHero(),back:()=>showNewYear('hub'),refresh:()=>showNewYear('market'),balance:wallet,
         section:focus?'rewards':undefined,lotTile,
         bindLots:root=>root.querySelectorAll('[data-ny-lot]').forEach(btn=>btn.addEventListener('click',()=>openLot(btn.dataset.nyLot)))};
     window.crafterFestive.render(main,ctx);
@@ -468,7 +469,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     content.querySelectorAll(':scope > .ny-admin-section').forEach(x=>{x.dataset.pane='main';});
     const tabs=document.createElement('div');
     tabs.className='ny-tabs';
-    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин'],['exchange','Обмен и коды'],['freebies','Подарки по дням'],['chests','Ящики'],['advent','Адвент']];
+    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин'],['exchange','Обмен и коды'],['freebies','Подарки по дням'],['chests','Ящики'],['chains','Цепочки акций'],['advent','Адвент']];
     const setTab=name=>{window.crafterNyTab=name;content.dataset.nyTab=name;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('is-on',b.dataset.tab===name));};
     tabs.innerHTML=names.map(([id,label])=>'<button type="button" data-tab="'+id+'">'+label+'</button>').join('');
     tabs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
@@ -479,6 +480,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     window.crafterExchange?.admin?.(content);
     window.crafterFreebiesAdmin?.admin?.(content);
     window.crafterChestsAdmin?.admin?.(content);
+    window.crafterChainsAdmin?.admin?.(content);
     window.crafterAdvent?.admin?.(content);
     window.crafterNyLocks?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{

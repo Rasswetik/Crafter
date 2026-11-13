@@ -119,6 +119,7 @@ const headingOf = it => it.heading || (it.mode === 'choice' ? 'Акция с в�
 /* ---------- one offer card ---------- */
 function card(o, opts = {}) {
     if (o.src === 'fb' && window.crafterFreebies) return window.crafterFreebies.card(o.ev);
+    if (o.src === 'ch' && window.crafterChains) return window.crafterChains.card(o.ch);
     const it = o.it, r = rarityOf(it), size = sizeOf(it), left = it.ends_at ? it.ends_at - nowSec() : null;
     const tab = left !== null ? '<span class="fm-tab" data-fm-end="' + it.ends_at + '">' + leftText(left) + '</span>'
         : it.left !== null && it.left !== undefined ? '<span class="fm-tab">Осталось ' + num(it.left) + '</span>' : '';
@@ -240,6 +241,25 @@ function reveal(o, result, ctx, closeStage) {
         '<div class="fm-rv-panel"><small>' + e(result.head || 'Покупка совершена') + '</small><h2>' + title + '</h2><p>' + e(text) + '</p><div class="fm-rv-btns">' + buttons + '</div></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
+    // a random pack: the packs of the offer flash by like a reel, slow down and stop on the one that dropped
+    const pool = (it.contents || []).map(c => c.pack.image).filter(Boolean);
+    if (it.mode === 'random' && got && pool.length > 1 && !matchMedia('(prefers-reduced-motion: reduce)').matches && !ctx.preview) {
+        const slots = [...el.querySelectorAll('.fm-rv-pack')], finalSrc = got.pack.image;
+        el.classList.add('is-rolling');
+        let i = Math.floor(Math.random() * pool.length), wait = 60;
+        const spin = () => {
+            if (wait > 430) {                                                // the last step: it stops on the real pack
+                slots.forEach(img => { img.src = finalSrc; });
+                el.classList.remove('is-rolling'); el.classList.add('is-landed');
+                return;
+            }
+            i = (i + 1) % pool.length;
+            slots.forEach(img => { img.src = pool[i]; });
+            wait *= 1.13;
+            setTimeout(spin, wait);
+        };
+        setTimeout(spin, 320);
+    }
     const done = () => { el.classList.remove('is-in'); setTimeout(() => { el.remove(); closeStage(); }, 260); ctx.refresh?.(); };
     el.querySelector('[data-rv-keep]')?.addEventListener('click', done);
     el.querySelector('[data-rv-open]')?.addEventListener('click', async () => {
@@ -294,6 +314,7 @@ function fbStage(o, ctx, opts2 = {}) {
 
 function stage(o, ctx, opts2 = {}) {
     if (o.src === 'fb') return fbStage(o, ctx, opts2);
+    if (o.src === 'ch') return window.crafterChains.stage(o.ch, ctx);
     const it = o.it, r = rarityOf(it);
     document.querySelector('.fm-stage')?.remove();
     const el = document.createElement('div');
@@ -422,6 +443,7 @@ function render(main, ctx) {
         price_balls: m.price_balls, size: 'small', bundle: 1, left: m.left, rarity: 'special', badge: 'Награда', description: 'Награда за общую цель сообщества. Тираж ограничен.', contents: null}}));
     const all = items.concat(packs);
     const fbs = (ctx.freebies || []).map(ev => ({key: 'fb:' + ev.id, src: 'fb', ev, it: {id: 'fb:' + ev.id, kind: 'FREEBIE', title: ev.title, size: 'wide', rarity: 'special', price_balls: 0}}));
+    const chs = (ctx.chains || []).map(ch => ({key: 'ch:' + ch.id, src: 'ch', ch, it: {id: 'ch:' + ch.id, kind: 'CHAIN', title: ch.title, size: 'wide', rarity: 'special', price_balls: 0, section_id: ch.section_id || ''}}));
     const sections = (ctx.shopState?.sections && ctx.shopState.sections.length ? ctx.shopState.sections : DEFAULT_SECTIONS).filter(s => ctx.showEmpty || s.enabled !== false);
     const customIds = new Set(sections.filter(s => s.kind !== 'exchange' && s.id !== 'gifts').map(s => s.id));
     const mine = o => o.it.section_id && customIds.has(o.it.section_id);
@@ -430,7 +452,7 @@ function render(main, ctx) {
     const isBundle = o => !o.it.mode && (o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1))));
     const lots = ctx.data?.lots || [];
     const rule = {
-        featured: () => fbs.concat(all.filter(o => !mine(o) && (o.it.mode || o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge))).concat(rewards),
+        featured: () => fbs.concat(chs.filter(o => !mine(o))).concat(all.filter(o => !mine(o) && (o.it.mode || o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge))).concat(rewards),
         packs: () => all.filter(o => !mine(o) && !o.it.mode && o.it.kind === 'PACK' && !isBundle(o) && !isCollab(o)),
         collab: () => all.filter(o => !mine(o) && isCollab(o)),
         bundles: () => all.filter(o => !mine(o) && isBundle(o)),
@@ -439,7 +461,7 @@ function render(main, ctx) {
         gifts: () => lots,
     };
     const exAll = ctx.shopState?.exchanges || [];
-    const SEC = sections.map(s => ({s, list: s.kind === 'exchange' ? exAll.filter(x => x.section_id === s.id).map(x => ({key: 'ex:' + x.id, src: 'ex', ex: x})) : s.kind === 'custom' ? all.filter(o => o.it.section_id === s.id) : (rule[s.rule] ? rule[s.rule]() : []).concat(s.rule !== 'gifts' ? all.filter(o => o.it.section_id === s.id) : [])})).filter(x => x.list.length || ctx.showEmpty);
+    const SEC = sections.map(s => ({s, list: s.kind === 'exchange' ? exAll.filter(x => x.section_id === s.id).map(x => ({key: 'ex:' + x.id, src: 'ex', ex: x})) : s.kind === 'custom' ? all.concat(chs).filter(o => o.it.section_id === s.id) : (rule[s.rule] ? rule[s.rule]() : []).concat(s.rule !== 'gifts' ? all.filter(o => o.it.section_id === s.id) : [])})).filter(x => x.list.length || ctx.showEmpty);
     const railW = 224;
     let active = ctx.section && SEC.some(x => x.s.id === ctx.section) ? ctx.section : (SEC[0] ? SEC[0].s.id : '');
     const root = document.createElement('div');

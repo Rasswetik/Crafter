@@ -169,3 +169,13 @@ body.cx-open .crafter-snowfall{display:none!important}
 @keyframes cxs-pop{0%{transform:scale(.8,.86) translateY(8%)}55%{transform:scale(1.1,1.06) translateY(-4%)}100%{transform:scale(1) translateY(0)}}
 .fm-heroart.is-chest .cx-sprite img{max-width:90%;max-height:100%}
 @media(prefers-reduced-motion:reduce){.cx-sprite,.cx-sprite *{animation:none!important}}
+
+/* random pack: the reel */
+.fm-reveal.is-rolling .fm-rv-panel{opacity:0;transform:translateY(16px);pointer-events:none}
+.fm-reveal .fm-rv-panel{transition:opacity .45s ease .1s,transform .45s ease .1s}
+.fm-reveal.is-rolling .fm-rv-packs{animation:rv-reel .16s linear infinite}
+.fm-reveal.is-rolling .fm-rv-pack{filter:blur(1.4px) brightness(1.15)}
+.fm-reveal.is-rolling .fm-rv-packs::after{content:"?";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font:900 clamp(60px,14vw,120px)/1 system-ui,sans-serif;color:#fff;text-shadow:0 6px 0 rgba(0,0,0,.35),0 0 30px rgba(255,255,255,.8);opacity:.0}
+.fm-reveal.is-landed .fm-rv-packs{animation:rv-land .6s cubic-bezier(.2,1.7,.4,1) both}
+@keyframes rv-reel{0%{transform:translateY(-1.5%) scale(1.02)}50%{transform:translateY(1.5%) scale(.98)}100%{transform:translateY(-1.5%) scale(1.02)}}
+@keyframes rv-land{0%{transform:scale(.82) rotate(-3deg)}55%{transform:scale(1.14) rotate(1.5deg)}100%{transform:none}}

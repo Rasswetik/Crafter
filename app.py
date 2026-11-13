@@ -1493,6 +1493,8 @@ def create_app(config=None):
     install_shop_exchange(app,db,auth,audit,record)
     from chests import install_chests
     install_chests(app,db,auth,audit,record)
+    from chains import install_chains
+    install_chains(app,db,auth,audit,record)
     from freebies import install_freebies
     install_freebies(app,db,auth,audit,record)
     install_shop_items(app,db,auth,record,audit)

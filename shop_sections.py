@@ -190,6 +190,11 @@ def install_shop_sections(app, db, auth, audit):
 
     app.extensions['crafter_bg_library'] = library
 
+    @app.get('/api/admin/new-year/shop-bg-library')
+    @auth(admin=True)
+    def admin_bg_library_list():
+        return {'library': library()}
+
     @app.post('/api/admin/new-year/shop-bg-library')
     @auth(admin=True)
     def admin_bg_library_add():
