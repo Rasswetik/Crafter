@@ -12,6 +12,7 @@ from flask import abort, g, request
 
 KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO', 'BUNDLE')
 PROMO_KINDS = ('GRAM', 'BALL', 'PACK', 'STAR')
+RARITIES = ('auto', 'common', 'rare', 'epic', 'mythic', 'legend')   # the colour and the name of an offer; auto = by price
 SIZES = ('small', 'wide', 'tall', 'large', 'banner')     # 1x1, 2x1 stretched, 1x2 long, 2x2 big, a whole row
 ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 _LIMIT = 10**9
@@ -44,6 +45,9 @@ def install_shop_items(app, db, auth, record, audit):
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS position INTEGER")
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS size TEXT NOT NULL DEFAULT 'small'")
             database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''")
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS rarity TEXT NOT NULL DEFAULT 'auto'")
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS badge TEXT NOT NULL DEFAULT ''")
+            database.execute("ALTER TABLE shop_items ADD COLUMN IF NOT EXISTS ends_at BIGINT")
         else:
             cols = [r['name'] for r in database.execute("PRAGMA table_info(shop_items)").fetchall()]
             if 'bundle' not in cols:
@@ -58,6 +62,12 @@ def install_shop_items(app, db, auth, record, audit):
                 database.execute("ALTER TABLE shop_items ADD COLUMN size TEXT NOT NULL DEFAULT 'small'")
             if 'description' not in cols:
                 database.execute("ALTER TABLE shop_items ADD COLUMN description TEXT NOT NULL DEFAULT ''")
+            if 'rarity' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN rarity TEXT NOT NULL DEFAULT 'auto'")
+            if 'badge' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN badge TEXT NOT NULL DEFAULT ''")
+            if 'ends_at' not in cols:
+                database.execute("ALTER TABLE shop_items ADD COLUMN ends_at BIGINT")
 
     import json
 
@@ -94,7 +104,9 @@ def install_shop_items(app, db, auth, record, audit):
                 'discount_percent': (round((1 - int(row['price_balls']) / int(row['old_price_balls'])) * 100) if row['old_price_balls'] and int(row['old_price_balls']) > int(row['price_balls']) else None),
                 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
                 'per_user': row['per_user'], 'bundle': int(row['bundle'] or 1), 'mine': mine, 'status': row['status'],
-                'size': row['size'] if row['size'] in SIZES else 'small', 'description': row['description'] or ''}
+                'size': row['size'] if row['size'] in SIZES else 'small', 'description': row['description'] or '',
+                'rarity': row['rarity'] if row['rarity'] in RARITIES else 'auto', 'badge': row['badge'] or '',
+                'ends_at': int(row['ends_at']) if row['ends_at'] else None}
 
     def order_mode():
         row = db().execute("SELECT payload FROM settings WHERE key='shop_items_order_v1'").fetchone()
@@ -111,8 +123,9 @@ def install_shop_items(app, db, auth, record, audit):
     @app.get('/api/shop-items')
     @auth()
     def shop_items():
-        rows = ordered(db().execute("SELECT * FROM shop_items WHERE status='active'").fetchall())
-        return {'items': [view(r, g.user['id']) for r in rows]}
+        now = int(time.time())
+        rows = ordered(db().execute("SELECT * FROM shop_items WHERE status='active' AND (ends_at IS NULL OR ends_at>?)", (now,)).fetchall())
+        return {'items': [view(r, g.user['id']) for r in rows], 'now': now}
 
     @app.post('/api/shop-items/buy')
     @auth()
@@ -132,6 +145,8 @@ def install_shop_items(app, db, auth, record, audit):
             row = db().execute("SELECT * FROM shop_items WHERE id=? AND status='active'", (iid,)).fetchone()
             if not row:
                 abort(409, description='Товар недоступен')
+            if row['ends_at'] and int(row['ends_at']) <= int(time.time()):
+                abort(409, description='Акция уже закончилась')
             if row['stock'] is not None and int(row['sold']) >= int(row['stock']):
                 abort(409, description='Товар закончился')
             if row['per_user'] is not None:
@@ -210,7 +225,7 @@ def install_shop_items(app, db, auth, record, audit):
     @auth(admin=True)
     def admin_shop():
         rows = ordered(db().execute("SELECT * FROM shop_items").fetchall())[:300]
-        return {'items': [view(r) for r in rows], 'order': order_mode()}
+        return {'items': [view(r) for r in rows], 'order': order_mode(), 'now': int(time.time())}
 
     def whole(value, low, high, name):
         try:
@@ -319,7 +334,17 @@ def install_shop_items(app, db, auth, record, audit):
         if size not in SIZES:
             abort(400, description='Размер плитки: обычная, широкая, длинная, большая или баннер')
         description = ' '.join(str(body.get('description') or '').split())[:240]
-        return (kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, mix, size, description)
+        rarity = str(body.get('rarity') or 'auto')
+        if rarity not in RARITIES:
+            abort(400, description='Редкость: авто, обычная, особая, эпическая, мифическая или легендарная')
+        badge = ' '.join(str(body.get('badge') or '').split())[:14]
+        ends_at = None
+        hours = body.get('ends_in_hours')
+        if str(hours if hours is not None else '').strip() not in ('', '0'):
+            ends_at = int(time.time()) + whole(hours, 1, 24 * 120, 'Срок акции в часах') * 3600
+        elif str(body.get('ends_at') or '').strip() not in ('', '0', 'None'):
+            ends_at = whole(body.get('ends_at'), 1, 4102444800, 'Время окончания')
+        return (kind, promo if kind == 'PROMO' else '', amount, title, image, price, old_price, stock, per_user, bundle, mix, size, description, rarity, badge, ends_at)
 
     @app.post('/api/admin/new-year/shop')
     @auth(admin=True)
@@ -330,7 +355,7 @@ def install_shop_items(app, db, auth, record, audit):
             position = None
             if order_mode() == 'manual':
                 position = int(db().execute("SELECT COALESCE(MAX(position),0)+1 AS n FROM shop_items").fetchone()['n'])
-            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,old_price_balls,stock,per_user,bundle,contents,size,description,position,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            db().execute("INSERT INTO shop_items(id,kind,promo_kind,amount,title,image_url,price_balls,old_price_balls,stock,per_user,bundle,contents,size,description,rarity,badge,ends_at,position,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                          (iid,) + vals + (position, int(time.time())))
         audit('Shop item created: ' + vals[3])
         return {'ok': True, 'id': iid}
@@ -340,7 +365,7 @@ def install_shop_items(app, db, auth, record, audit):
     def admin_shop_edit(iid):
         vals = parse_item(request.get_json(silent=True) or {})
         with db():
-            if not db().execute("UPDATE shop_items SET kind=?,promo_kind=?,amount=?,title=?,image_url=?,price_balls=?,old_price_balls=?,stock=?,per_user=?,bundle=?,contents=?,size=?,description=? WHERE id=?",
+            if not db().execute("UPDATE shop_items SET kind=?,promo_kind=?,amount=?,title=?,image_url=?,price_balls=?,old_price_balls=?,stock=?,per_user=?,bundle=?,contents=?,size=?,description=?,rarity=?,badge=?,ends_at=? WHERE id=?",
                                 vals + (iid,)).rowcount:
                 abort(404, description='Товар не найден')
         audit('Shop item edited: ' + vals[3])

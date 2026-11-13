@@ -492,5 +492,5 @@ async function admin(content) {
     window.crafterPackList = r.packs;
 }
 
-window.crafterPacks = {tiles, bind, open, openMany, admin, contentsHtml, bindContents, granted, pickGift, packTiles};
+window.crafterPacks = {tiles, bind, buy: buySheet, open, openMany, admin, contentsHtml, bindContents, granted, pickGift, packTiles};
 })();

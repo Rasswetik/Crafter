@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Предпросмотр маркета</title>
+<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/new-year.css">
+<link rel="stylesheet" href="/static/shop-sale.css">
+<link rel="stylesheet" href="/static/shop-sizes.css">
+<link rel="stylesheet" href="/static/festive-market.css">
+</head>
+<body class="fmpv-body">
+<main id="main"></main>
+<script>
+/* the page is a drawing board: it needs no login. The administrator sends the offers with postMessage. */
+window.esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]; }); };
+window.state = {me: {}};
+window.toast = function () {};
+window.api = function () { return Promise.reject(new Error('Это предпросмотр')); };
+</script>
+<script src="/static/shop-items.js?v=sizes5"></script>
+<script src="/static/festive-market.js?v=2"></script>
+<script>
+(function () {
+    var main = document.getElementById('main');
+    var rar = new URLSearchParams(location.search).get('rarity');
+    var pack = '/static/assets/packs/';
+    var sample = [
+        {id: 's1', kind: 'BUNDLE', title: 'Набор на старт', price_balls: 1500, old_price_balls: 1920, discount_percent: 22, size: 'wide', rarity: rar || 'auto', badge: 'НОВОЕ', bundle: 6, description: 'По одному паку каждого вида. Всё сразу за одну покупку.',
+            contents: [{pack: {id: 'a', title: 'New Year', image: pack + 'new-year-pack.webp'}, count: 1}, {pack: {id: 'b', title: 'Snowman', image: pack + 'snowman-pack.webp'}, count: 1}, {pack: {id: 'c', title: 'Winter', image: pack + 'winter-pack.webp'}, count: 1}, {pack: {id: 'd', title: 'Christmas', image: pack + 'christmas-pack.webp'}, count: 1}], left: null, mine: 0},
+        {id: 's2', kind: 'PACK', title: 'Gingerbread House', price_balls: 1800, old_price_balls: 2250, discount_percent: 20, size: 'small', bundle: 1, amount: 'gingerbread', pack: {id: 'gingerbread', title: 'Gingerbread House', image: pack + 'gingerbread-pack.webp'}, image_url: pack + 'gingerbread-pack.webp', description: '', left: null, mine: 0},
+        {id: 's3', kind: 'GRAM', title: '5 GRAM', amount: '5', price_balls: 3500, size: 'small', bundle: 1, left: null, mine: 0}
+    ];
+    function show(items, select) {
+        var ctx = {shopState: {items: items, now: Math.floor(Date.now() / 1000)}, packState: null, shared: null, data: {lots: []}, preview: true,
+            balance: function () { return 12500; }, lotTile: function () { return ''; }, bindLots: function () {}};
+        var r = window.crafterFestive.render(main, ctx);
+        if (select) r.open(select);
+    }
+    window.addEventListener('message', function (ev) {
+        if (ev.origin !== location.origin) return;
+        var d = ev.data;
+        if (d && d.type === 'fm-preview' && Array.isArray(d.items)) { document.querySelector('.fm-stage') && document.querySelector('.fm-stage').remove(); show(d.items); }
+    });
+    show(sample);
+})();
+</script>
+</body>
+</html>

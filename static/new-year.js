@@ -242,7 +242,17 @@ function marketHero(){
     return '<section class="nym-hero"><div class="nym-scene" aria-hidden="true">'+villageScene()+'</div>'+
         '<div class="nym-copy"><h1>Новогодний маркет</h1></div></section>';
 }
+function drawFestive(main,data,shared,packState,shopState){
+    const wallet=()=>Number(String(document.querySelector('#app > header > .winter-currency-balance b')?.textContent||'0').replace(/\s/g,'').replace(/\u00a0/g,''))||Number(data.balance?.balls||0);
+    const focus=Boolean(window.crafterCmFocusShop);
+    window.crafterCmFocusShop=false;
+    const ctx={data,shared,packState,shopState,hero:marketHero(),back:()=>showNewYear('hub'),refresh:()=>showNewYear('market'),balance:wallet,
+        section:focus?'rewards':undefined,lotTile,
+        bindLots:root=>root.querySelectorAll('[data-ny-lot]').forEach(btn=>btn.addEventListener('click',()=>openLot(btn.dataset.nyLot)))};
+    window.crafterFestive.render(main,ctx);
+}
 function drawMarket(main,data,shared,packState,shopState){
+    if(window.crafterFestive)return drawFestive(main,data,shared,packState,shopState);
     const packTiles=window.crafterPacks&&packState?window.crafterPacks.tiles(packState):[];
     const shopTiles=window.crafterShopItems&&shopState?window.crafterShopItems.tiles(shopState.items):[];
     const rewards=packTiles.concat(shopTiles,community()&&shared?.event?community().tiles(shared):[]);

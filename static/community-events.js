@@ -374,5 +374,5 @@ async function admin(content) {
         run(() => api('admin/new-year/community/milestones/' + b.dataset.cmDel + '/delete', {}), 'Награда удалена')));
 }
 
-window.crafterCommunity = {card, page, tiles, bindShop, checkCeremony, marketArt, admin, codeBlock, bindCode};
+window.crafterCommunity = {card, page, tiles, bindShop, claim: claimSheet, checkCeremony, marketArt, admin, codeBlock, bindCode};
 })();

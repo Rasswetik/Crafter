@@ -900,3 +900,25 @@ def test_shop_can_be_rearranged_in_one_request(client):
     assert client.get('/api/admin/new-year/shop', headers=admin).json['order'] == 'manual'
     assert client.post('/api/admin/new-year/shop-arrange', headers=admin, json={'ids': 'x'}).status_code == 400
     assert client.post('/api/admin/new-year/shop-arrange', headers=signed(43), json={'ids': ids}).status_code == 403
+
+
+def test_shop_offer_has_rarity_badge_and_an_end_time(client):
+    admin = signed(42)
+    client.get('/api/me', headers=admin)
+    made = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': '1', 'price_balls': '10', 'rarity': 'epic',
+                                                                         'badge': '  НОВОЕ   тест  ', 'ends_in_hours': 48})
+    assert made.status_code == 200, made.get_data(as_text=True)
+    iid = made.json['id']
+    item = next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == iid)
+    assert item['rarity'] == 'epic' and item['badge'] == 'НОВОЕ тест'
+    assert 47 * 3600 < item['ends_at'] - int(time.time()) <= 48 * 3600
+    assert client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': '1', 'price_balls': '10', 'rarity': 'rainbow'}).status_code == 400
+    plain = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': '2', 'price_balls': '10'}).json['id']
+    row = next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == plain)
+    assert row['rarity'] == 'auto' and row['badge'] == '' and row['ends_at'] is None
+    with sqlite3.connect(client.application.config['DATABASE']) as db:               # the offer is over
+        db.execute('UPDATE shop_items SET ends_at=? WHERE id=?', (int(time.time()) - 5, iid))
+    assert iid not in [i['id'] for i in client.get('/api/shop-items', headers=admin).json['items']]
+    bought = client.post('/api/shop-items/buy', headers=admin, json={'item_id': iid, 'request_id': 'late-offer-1'})
+    assert bought.status_code == 409
+    assert iid in [i['id'] for i in client.get('/api/admin/new-year/shop', headers=admin).json['items']]       # the administrator still sees it
