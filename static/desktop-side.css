@@ -14,3 +14,9 @@
   #crafter-desktop-sidebar.side-mini .desktop-sidebar-link,#crafter-desktop-sidebar.side-mini .desktop-sidebar-secondary{font-size:0!important;gap:0!important;justify-content:center!important;padding-left:0!important;padding-right:0!important}
   #crafter-desktop-sidebar.side-mini .desktop-sidebar-divider{margin:10px 4px}
 }
+/* folded panel: the avatar without a frame */
+@media(min-width:1024px){
+  #crafter-desktop-sidebar.side-mini .desktop-sidebar-account{border:0!important;background:none!important;box-shadow:none!important;padding:0!important;min-height:0}
+  #crafter-desktop-sidebar.side-mini .desktop-sidebar-avatar,#crafter-desktop-sidebar.side-mini .desktop-sidebar-avatar .avatar{width:46px;height:46px;border:0!important;box-shadow:none!important;border-radius:50%;background:none!important;overflow:hidden}
+  #crafter-desktop-sidebar.side-mini .desktop-sidebar-avatar img{border-radius:50%}
+}

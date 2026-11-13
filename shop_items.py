@@ -15,7 +15,8 @@ PROMO_KINDS = ('GRAM', 'BALL', 'PACK', 'STAR')
 RARITIES = ('auto', 'common', 'rare', 'special', 'epic', 'mythic', 'legend')   # the colour and the name of an offer; auto = by price
 CARD_BGS = ('ny-snow', 'ny-candy', 'ny-lights', 'ny-frost', 'ny-ginger', 'ny-bells', 'ny-fire', 'ny-aurora',
             'c-blue', 'c-violet', 'c-crimson', 'c-emerald', 'c-gold', 'c-pink',
-            'ny-tree', 'ny-stars', 'ny-mitten', 'ny-cozy', 'ny-ice', 'ny-gold', 'ny-pine', 'ny-berry', 'ny-cocoa', 'ny-polar', 'ny-moon')                  # the background of one offer card
+            'ny-tree', 'ny-stars', 'ny-mitten', 'ny-cozy', 'ny-ice', 'ny-gold', 'ny-pine', 'ny-berry', 'ny-cocoa', 'ny-polar', 'ny-moon',
+            'ny-fireworks', 'ny-confetti', 'ny-snowstorm', 'c-galaxy', 'c-neon', 'c-sunset', 'c-ocean', 'c-forest', 'c-mint', 'c-rose', 'c-steel', 'c-lava')                  # the background of one offer card
 SIZES = ('small', 'wide', 'tall', 'large', 'banner')     # 1x1, 2x1 stretched, 1x2 long, 2x2 big, a whole row
 ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 _LIMIT = 10**9
@@ -144,7 +145,7 @@ def install_shop_items(app, db, auth, record, audit):
     def shop_items():
         now = int(time.time())
         rows = ordered(db().execute("SELECT * FROM shop_items WHERE status='active' AND (ends_at IS NULL OR ends_at>?) AND (starts_at IS NULL OR starts_at<=?)", (now, now)).fetchall())
-        return {'items': [view(r, g.user['id']) for r in rows], 'now': now, 'sections': app.extensions['crafter_shop_sections'](False)}
+        return {'items': [view(r, g.user['id']) for r in rows], 'now': now, 'sections': app.extensions['crafter_shop_sections'](False), **app.extensions['crafter_exchange_public'](g.user['id'])}
 
     @app.post('/api/shop-items/buy')
     @auth()
@@ -190,6 +191,8 @@ def install_shop_items(app, db, auth, record, audit):
                 db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
                 db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (balls - price, uid))
             balls -= price
+            if price:
+                app.extensions['crafter_author_reward'](uid, 'BALLS', price, 'shop:' + iid)
             result = {'ok': True, 'kind': row['kind'], 'title': row['title'], 'balance': {'balls': balls}}
             now = int(time.time())
             if row['kind'] == 'GRAM':
@@ -454,27 +457,81 @@ def install_shop_items(app, db, auth, record, audit):
         audit('Shop item size: ' + row['title'] + ' -> ' + size)
         return {'ok': True}
 
+    def msk_time(value):                                     # 'YYYY-MM-DDTHH:MM' in Moscow time (UTC+3) -> unix time
+        import calendar
+        m = re.fullmatch(r'(\d{4})-(\d\d)-(\d\d)[T ](\d\d):(\d\d)', str(value).strip())
+        if not m:
+            abort(400, description='Время: дата и часы по Москве')
+        try:
+            return calendar.timegm(tuple(int(x) for x in m.groups()) + (0,)) - 3 * 3600
+        except (ValueError, OverflowError):
+            abort(400, description='Время: такой даты нет')
+
     @app.post('/api/admin/new-year/shop/<iid>/style')
     @auth(admin=True)
     def admin_shop_style(iid):
+        """Quick editing from the board: any field of an offer (price, texts, limits, times, section, rarity, background)."""
         body = request.get_json(silent=True) or {}
-        sets, vals = [], []
-        if 'rarity' in body:
-            if body['rarity'] not in RARITIES:
-                abort(400, description='Неизвестная редкость')
-            sets.append('rarity=?'); vals.append(body['rarity'])
-        if 'heading' in body:
-            sets.append('heading=?'); vals.append(' '.join(str(body['heading'] or '').split())[:30])
-        if 'card_bg' in body:
-            card_bg = str(body['card_bg'] or '').strip()
-            if card_bg and card_bg not in CARD_BGS and not re.fullmatch(r'image:/media/shop/[0-9a-f]{32}', card_bg):
-                abort(400, description='Фон карточки: выберите готовый или загрузите картинку')
-            sets.append('card_bg=?'); vals.append(card_bg)
-        if not sets:
-            abort(400, description='Нечего менять')
         with db():
-            if not db().execute('UPDATE shop_items SET ' + ','.join(sets) + ' WHERE id=?', tuple(vals) + (iid,)).rowcount:
+            row = db().execute("SELECT * FROM shop_items WHERE id=?", (iid,)).fetchone()
+            if not row:
                 abort(404, description='Товар не найден')
+            sets, vals = [], []
+
+            def put(column, value):
+                sets.append(column + '=?'); vals.append(value)
+            if 'rarity' in body:
+                if body['rarity'] not in RARITIES:
+                    abort(400, description='Неизвестная редкость')
+                put('rarity', body['rarity'])
+            if 'heading' in body:
+                put('heading', ' '.join(str(body['heading'] or '').split())[:30])
+            if 'card_bg' in body:
+                card_bg = str(body['card_bg'] or '').strip()
+                if card_bg and card_bg not in CARD_BGS and not re.fullmatch(r'image:/media/shop/[0-9a-f]{32}', card_bg):
+                    abort(400, description='Фон карточки: выберите готовый или загрузите картинку')
+                put('card_bg', card_bg)
+            if 'title' in body:
+                title = ' '.join(str(body['title'] or '').split())[:80]
+                if not title:
+                    abort(400, description='Название не может быть пустым')
+                put('title', title)
+            price = int(row['price_balls'])
+            if 'price_balls' in body:
+                price = whole(body['price_balls'], 0, _LIMIT, 'Цена')
+                put('price_balls', price)
+            if 'old_price_balls' in body or 'price_balls' in body:
+                old_raw = body.get('old_price_balls', row['old_price_balls'])
+                old = None if str(old_raw if old_raw is not None else '').strip() in ('', '0', 'None') else whole(old_raw, 1, _LIMIT, 'Старая цена')
+                if old is not None and old <= price:
+                    abort(400, description='Старая цена должна быть больше текущей: иначе скидки нет')
+                put('old_price_balls', old)
+            if 'badge' in body:
+                put('badge', ' '.join(str(body['badge'] or '').split())[:14])
+            if 'description' in body:
+                put('description', ' '.join(str(body['description'] or '').split())[:240])
+            if 'stock' in body:
+                put('stock', None if str(body['stock'] or '').strip() in ('', '0') else whole(body['stock'], 1, 1000000, 'Количество'))
+            if 'per_user' in body:
+                put('per_user', None if str(body['per_user'] or '').strip() in ('', '0') else whole(body['per_user'], 1, 1000, 'Лимит на игрока'))
+            starts = int(row['starts_at']) if row['starts_at'] else None
+            ends = int(row['ends_at']) if row['ends_at'] else None
+            if 'starts_at_msk' in body:
+                starts = msk_time(body['starts_at_msk']) if str(body['starts_at_msk'] or '').strip() else None
+                put('starts_at', starts)
+            if 'ends_at_msk' in body:
+                ends = msk_time(body['ends_at_msk']) if str(body['ends_at_msk'] or '').strip() else None
+                put('ends_at', ends)
+            if starts and ends and ends <= starts:
+                abort(400, description='Конец акции должен быть позже начала')
+            if 'section_id' in body:
+                sid = str(body['section_id'] or '').strip()
+                if sid and not app.extensions['crafter_shop_section_exists'](sid):
+                    abort(400, description='Раздел не найден')
+                put('section_id', sid or None)
+            if not sets:
+                abort(400, description='Нечего менять')
+            db().execute('UPDATE shop_items SET ' + ','.join(sets) + ' WHERE id=?', tuple(vals) + (iid,))
         return {'ok': True}
 
     @app.post('/api/admin/new-year/shop/<iid>/section')

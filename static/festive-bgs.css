@@ -58,3 +58,20 @@
 .fm-choiceart img{position:absolute;left:50%;bottom:4%;height:80%;max-width:60%;object-fit:contain;filter:drop-shadow(0 10px 12px rgba(0,0,0,.45));transform:translateX(-50%) translateX(calc((var(--i) - (var(--n) - 1) / 2) * 30%)) rotate(calc((var(--i) - (var(--n) - 1) / 2) * 8deg));z-index:calc(10 - var(--i))}
 .fm-card.is-vis .fm-choiceart img{animation:fm-bobc 6s ease-in-out infinite;animation-delay:calc(var(--i) * -1.2s)}
 @keyframes fm-bobc{50%{translate:0 -6px}}
+/* the lot window: a hidden dialog must not block the clicks (display:grid used to beat the hidden attribute) */
+.fm-confirm[hidden]{display:none!important}
+/* PC: the offers stand in one row, big, vertically in the middle of the market */
+.fm-root:not(.fm-phone){--ch:clamp(440px,calc(100dvh - 210px),680px)}
+.fm-root:not(.fm-phone) .fm-main{align-self:stretch;display:flex;flex-direction:column;justify-content:center;min-height:calc(100dvh - 90px)}
+.fm-root:not(.fm-phone) .fm-card{height:var(--ch);width:calc(var(--ch) * .64 * var(--u) + (var(--u) - 1) * 16px)}
+.fm-root:not(.fm-phone) .fm-card.is-board{width:100%;height:100%}
+.fm-root:not(.fm-phone) .fm-title{font-size:clamp(24px,calc(var(--ch) * .055),38px)}
+.fm-root:not(.fm-phone) .fm-name b{font-size:clamp(15px,calc(var(--ch) * .036),22px)}
+.fm-root:not(.fm-phone) .fm-name small{font-size:clamp(12px,calc(var(--ch) * .026),15px)}
+.fm-root:not(.fm-phone) .fm-price{height:clamp(56px,calc(var(--ch) * .12),80px);font-size:clamp(24px,calc(var(--ch) * .055),36px)}
+.fm-root:not(.fm-phone) .fm-art{top:calc(var(--ch) * .15);bottom:calc(var(--ch) * .27)}
+.fm-root:not(.fm-phone) .fm-s-small .fm-art,.fm-root:not(.fm-phone) .fm-s-tall .fm-art{bottom:calc(var(--ch) * .3)}
+.sb-quick{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:10px}
+.sb-quick label{display:grid;gap:4px;font-size:12px;font-weight:700;color:#9fb2d6}
+.sb-quick input,.sb-quick textarea{width:100%;max-width:none}
+.sb-quick .sb-q-wide{grid-column:1/-1}

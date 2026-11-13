@@ -37,9 +37,11 @@ const ICONS = {
 ICONS.featured = ICONS.star; ICONS.packs = ICONS.pack; ICONS.bundles = ICONS.bundle; ICONS.res = ICONS.gem; ICONS.rewards = ICONS.cup; ICONS.gifts = ICONS.gift;
 const BG_KEYS = [['village', 'Деревня'], ['snow', 'Снегопад'], ['night', 'Звёздная ночь'], ['aurora', 'Северное сияние'], ['garland', 'Гирлянды'], ['frost', 'Мороз'], ['candy', 'Леденцы'],
     ['blue', 'Синий'], ['violet', 'Фиолетовый'], ['crimson', 'Алый'], ['emerald', 'Изумрудный'], ['gold', 'Золотой'],
+    ['fireworks', 'Фейерверк'], ['confetti', 'Конфетти'], ['snowstorm', 'Метель'], ['galaxy', 'Галактика'], ['neon', 'Неон'], ['sunset', 'Закат'], ['ocean', 'Океан'], ['forest', 'Лес'], ['mint', 'Мята'], ['rose', 'Роза'], ['steel', 'Сталь'], ['lava', 'Лава'],
     ['tree', 'Ёлка'], ['stars', 'Звёздный'], ['mitten', 'Варежки'], ['cozy', 'Уют'], ['ice', 'Лёд'], ['pine', 'Хвоя'], ['berry', 'Ягоды'], ['cocoa', 'Какао'], ['polar', 'Полярный'], ['moon', 'Лунная ночь']];
 const CARD_BG_KEYS = [['', 'По редкости'], ['ny-snow', 'Снежная ночь'], ['ny-candy', 'Леденцы'], ['ny-lights', 'Гирлянды'], ['ny-frost', 'Иней'], ['ny-ginger', 'Пряник'], ['ny-bells', 'Колокольчики'], ['ny-fire', 'Камин'],
     ['ny-aurora', 'Сияние'], ['c-blue', 'Синий'], ['c-violet', 'Фиолетовый'], ['c-crimson', 'Алый'], ['c-emerald', 'Изумрудный'], ['c-gold', 'Золотой'], ['c-pink', 'Розовый'],
+    ['ny-fireworks', 'Фейерверк'], ['ny-confetti', 'Конфетти'], ['ny-snowstorm', 'Метель'], ['c-galaxy', 'Галактика'], ['c-neon', 'Неон'], ['c-sunset', 'Закат'], ['c-ocean', 'Океан'], ['c-forest', 'Лес'], ['c-mint', 'Мята'], ['c-rose', 'Роза'], ['c-steel', 'Сталь'], ['c-lava', 'Лава'],
     ['ny-tree', 'Ёлка'], ['ny-stars', 'Звёзды'], ['ny-mitten', 'Варежки'], ['ny-cozy', 'Уют'], ['ny-ice', 'Лёд'], ['ny-gold', 'Золото'], ['ny-pine', 'Хвоя'], ['ny-berry', 'Ягоды'], ['ny-cocoa', 'Какао'], ['ny-polar', 'Полярный'], ['ny-moon', 'Лунная ночь']];
 const DEFAULT_SECTIONS = [
     {id: 'featured', title: 'Акции', kind: 'smart', rule: 'featured', icon: 'builtin:star', preview: '', bg: 'village', enabled: true},
@@ -65,7 +67,13 @@ function bgHTML(key) {
     let kids = '';
     if (false) for (let i = 0; i < 38; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 37 + 7) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (9 + i % 7) + 's;--d:-' + ((i * 1.7) % 11).toFixed(1) + 's;--dx:' + (i % 2 ? 24 : -24) + 'px"></i>';
     if (['snow', 'tree', 'pine', 'ice', 'polar', 'moon', 'cozy', 'cocoa'].includes(k)) for (let i = 0; i < 26; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 41 + 9) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (10 + i % 6) + 's;--d:-' + ((i * 1.9) % 12).toFixed(1) + 's;--dx:' + (i % 2 ? 20 : -20) + 'px"></i>';
-    if (k === 'night' || k === 'stars' || k === 'moon') for (let i = 0; i < 46; i++) kids += '<i class="fm-star" style="--x:' + ((i * 53 + 11) % 100) + '%;--y:' + ((i * 29 + 5) % 100) + '%;--s:' + (1 + i % 3) + 'px;--d:-' + ((i * .7) % 5).toFixed(1) + 's"></i>';
+    if (k === 'fireworks') {
+        const cols = ['#ff5c6e', '#ffd27a', '#6ac7ff', '#9be37f', '#c39bff', '#ff9ad5'];
+        for (let i = 0; i < 9; i++) kids += '<i class="fm-fw" style="--x:' + ((i * 37 + 12) % 88 + 6) + '%;--y:' + ((i * 23 + 10) % 48 + 8) + '%;--s:' + (110 + (i * 29) % 90) + 'px;--c:' + cols[i % cols.length] + ';--d:-' + ((i * 0.9) % 5).toFixed(1) + 's"></i><i class="fm-fw b" style="--x:' + ((i * 37 + 12) % 88 + 6) + '%;--y:' + ((i * 23 + 10) % 48 + 8) + '%;--s:' + (70 + (i * 17) % 60) + 'px;--c:#fff;--d:-' + ((i * 0.9 + .3) % 5).toFixed(1) + 's"></i>';
+    }
+    if (k === 'confetti') for (let i = 0; i < 34; i++) kids += '<i class="fm-conf" style="--x:' + ((i * 29 + 5) % 100) + '%;--c:' + ['#ff5c6e', '#ffd27a', '#6ac7ff', '#9be37f', '#c39bff'][i % 5] + ';--t:' + (7 + i % 6) + 's;--d:-' + ((i * 1.3) % 9).toFixed(1) + 's;--r:' + (i * 47 % 360) + 'deg"></i>';
+    if (k === 'snowstorm') for (let i = 0; i < 70; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 31 + 3) % 100) + '%;--s:' + (2 + i % 5) + 'px;--t:' + (4 + i % 5) + 's;--d:-' + ((i * 0.7) % 6).toFixed(1) + 's;--dx:' + (i % 2 ? 90 : -60) + 'px"></i>';
+    if (k === 'night' || k === 'stars' || k === 'moon' || k === 'galaxy' || k === 'fireworks') for (let i = 0; i < 46; i++) kids += '<i class="fm-star" style="--x:' + ((i * 53 + 11) % 100) + '%;--y:' + ((i * 29 + 5) % 100) + '%;--s:' + (1 + i % 3) + 'px;--d:-' + ((i * .7) % 5).toFixed(1) + 's"></i>';
     if (k === 'aurora') kids = '<i class="fm-blob a"></i><i class="fm-blob b"></i><i class="fm-blob c"></i>';
     if (k === 'garland') { let b = ''; for (let i = 0; i < 18; i++) b += '<i class="fm-bulb" style="--x:' + (i * 5.8).toFixed(1) + '%;--c:' + ['#ff5c6e', '#ffd27a', '#6ac7ff', '#9be37f', '#c39bff'][i % 5] + ';--d:-' + ((i * .45) % 3).toFixed(1) + 's"></i>'; kids = '<span class="fm-wire"></span>' + b; }
     if (k === 'frost') for (let i = 0; i < 9; i++) kids += '<i class="fm-crystal" style="--x:' + ((i * 41 + 9) % 100) + '%;--y:' + ((i * 23 + 13) % 100) + '%;--s:' + (50 + (i * 37) % 90) + 'px;--r:' + (i * 31 % 90) + 'deg"></i>';
@@ -356,7 +364,7 @@ function render(main, ctx) {
         price_balls: m.price_balls, size: 'small', bundle: 1, left: m.left, rarity: 'special', badge: 'Награда', description: 'Награда за общую цель сообщества. Тираж ограничен.', contents: null}}));
     const all = items.concat(packs);
     const sections = (ctx.shopState?.sections && ctx.shopState.sections.length ? ctx.shopState.sections : DEFAULT_SECTIONS).filter(s => ctx.showEmpty || s.enabled !== false);
-    const customIds = new Set(sections.filter(s => s.kind === 'custom').map(s => s.id));
+    const customIds = new Set(sections.filter(s => s.kind !== 'exchange' && s.id !== 'gifts').map(s => s.id));
     const mine = o => o.it.section_id && customIds.has(o.it.section_id);
     const isBundle = o => !o.it.mode && (o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1))));
     const lots = ctx.data?.lots || [];
@@ -368,23 +376,21 @@ function render(main, ctx) {
         rewards: () => rewards,
         gifts: () => lots,
     };
-    const SEC = sections.map(s => ({s, list: s.kind === 'custom' ? all.filter(o => o.it.section_id === s.id) : (rule[s.rule] ? rule[s.rule]() : [])})).filter(x => x.list.length || ctx.showEmpty);
-    const RK = 'crafter:fm-rail';
-    let railW = 210;
-    try { railW = Math.max(72, Math.min(320, Number(localStorage.getItem(RK)) || 210)); } catch (_) {}
+    const exAll = ctx.shopState?.exchanges || [];
+    const SEC = sections.map(s => ({s, list: s.kind === 'exchange' ? exAll.filter(x => x.section_id === s.id).map(x => ({key: 'ex:' + x.id, src: 'ex', ex: x})) : s.kind === 'custom' ? all.filter(o => o.it.section_id === s.id) : (rule[s.rule] ? rule[s.rule]() : []).concat(s.rule !== 'gifts' ? all.filter(o => o.it.section_id === s.id) : [])})).filter(x => x.list.length || ctx.showEmpty);
+    const railW = 224;
     let active = ctx.section && SEC.some(x => x.s.id === ctx.section) ? ctx.section : (SEC[0] ? SEC[0].s.id : '');
     const root = document.createElement('div');
     root.className = 'fm-root';
     root.innerHTML = '<div class="fm-bg"></div><div class="fm-rail-col">' + (ctx.back ? '<div class="fm-head"><button type="button" class="fm-backbtn" data-fm-back aria-label="К событиям" title="К событиям"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg><span>События</span></button><span class="fm-balpill" title="Баланс шаров">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span></div>' : '') + '<div class="fm-rail" role="navigation" aria-label="Разделы маркета"><i class="fm-ind"></i>' +
         SEC.map(x => '<div class="fm-sec-wrap" data-wrap="' + e(x.s.id) + '">' + railButton(x.s) + (x.s.rule !== 'featured' && x.list.length ? '<em>' + x.list.length + '</em>' : '') + '</div>').join('') + '</div>' +
-        '<button type="button" class="fm-fold" data-fm-fold aria-label="Свернуть панель разделов" title="Свернуть или развернуть панель"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button></div>' +
-        '<div class="fm-grip" data-fm-grip title="Потяните, чтобы изменить ширину"></div><div class="fm-main"></div>';
+        '</div>' +
+        '<div class="fm-main"></div>';
     const rail = root.querySelector('.fm-rail'), ind = root.querySelector('.fm-ind'), host = root.querySelector('.fm-main');
     const phone = () => (ctx.force ? ctx.force === 'phone' : innerWidth < 760);
     const apply = () => {
         root.classList.toggle('fm-phone', phone());
         root.style.setProperty('--rail', railW + 'px');
-        root.classList.toggle('is-mini', !phone() && railW < 136);
         place();
     };
     const place = () => {
@@ -421,12 +427,14 @@ function render(main, ctx) {
         rail.querySelectorAll('.fm-sec-wrap').forEach(w => w.classList.toggle('is-on', w.dataset.wrap === id));
         place();
         if (!entry) { host.innerHTML = '<p class="ny-quiet">Совсем скоро здесь появятся новогодние предложения.</p>'; return; }
-        const gifts = entry.s.rule === 'gifts' && entry.s.kind !== 'custom';
-        host.innerHTML = '<div class="fm-view' + (first ? '' : ' fm-enter') + '">' + (gifts
+        const gifts = entry.s.rule === 'gifts' && entry.s.kind !== 'custom' && entry.s.kind !== 'exchange';
+        const exch = entry.s.kind === 'exchange' && window.crafterFestiveExchange;
+        host.innerHTML = '<div class="fm-view' + (first ? '' : ' fm-enter') + '">' + (exch ? window.crafterFestiveExchange.html(entry.list.map(o => o.ex), ctx) : gifts
             ? '<div class="ny-grid fm-gifts">' + entry.list.map(l => ctx.lotTile(l)).join('') + '</div>'
             : entry.list.length ? (markSeen(entry.list), '') + '<div class="fm-wrap"><button type="button" class="fm-arrow l" data-fm-go="-1" aria-label="Назад">‹</button><div class="fm-row">' + entry.list.map(x => card(x, {fresh: freshKeys.has(x.key)})).join('') + '</div><button type="button" class="fm-arrow r" data-fm-go="1" aria-label="Вперёд">›</button></div>'
             : '<p class="ny-quiet">В этом разделе пока ничего нет.</p>') + '</div>';
         setBg(entry.s.bg || 'night');
+        if (exch) window.crafterFestiveExchange.bind(host, ctx, entry.list.map(o => o.ex), () => show(id, true));
         const row = host.querySelector('.fm-row');
         if (row) {
             const find = key => entry.list.find(x => x.key === key);
@@ -455,17 +463,6 @@ function render(main, ctx) {
         r.className = 'fm-rip'; r.style.left = (ev.clientX - box.left) + 'px'; r.style.top = (ev.clientY - box.top) + 'px';
         w.appendChild(r); setTimeout(() => r.remove(), 600);
     };
-    // the panel of sections: fold it to icons only or pull its edge to change the width
-    const setRail = (w, save) => { railW = Math.max(72, Math.min(320, Math.round(w))); apply(); if (save) { try { localStorage.setItem(RK, String(railW)); } catch (_) {} } };
-    root.querySelector('[data-fm-fold]').addEventListener('click', () => setRail(railW < 136 ? 210 : 72, true));
-    root.querySelector('[data-fm-grip]').addEventListener('pointerdown', ev => {
-        ev.preventDefault();
-        const left = root.getBoundingClientRect().left;
-        root.classList.add('is-sizing');
-        const move = e2 => setRail(Math.max(72, e2.clientX - left - 6), false);
-        const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); root.classList.remove('is-sizing'); if (railW < 112) railW = 72; setRail(railW, true); };
-        window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
-    });
     main.innerHTML = '<div class="new-year-page fm-page"></div>';
     main.querySelector('.fm-page').appendChild(root);
     root.querySelector('[data-fm-back]')?.addEventListener('click', ctx.back);

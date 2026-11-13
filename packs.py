@@ -803,6 +803,8 @@ def install_packs(app, db, auth, record, audit):
                 db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
                 db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (balls - price, uid))
             upid = grant(uid, pid, 'shop', 'buy:' + rid)
+            if price and app.extensions.get('crafter_author_reward'):
+                app.extensions['crafter_author_reward'](uid, 'BALLS', price, 'pack:' + pid)
             record('pack_buy', {'pack': pid, 'price_balls': price}, uid=uid)
         warm([pid])
         return {'ok': True, 'user_pack_id': upid, 'balance': {'balls': balls - price}}

@@ -129,7 +129,7 @@ async function admin(content) {
         '<label class="fm-sw fm-swup' + (cur && cur.indexOf('image:') === 0 ? ' is-on' : '') + '"><span class="fm-swp"' + (cur && cur.indexOf('image:') === 0 ? ' style="background-image:url(' + e(cur.slice(6)) + ')"' : '') + '><b>+</b></span><em>Своя картинка</em><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden ' + fileAttr + '></label></div>';
     const secBgGallery = cur => '<div class="fm-gal">' + (window.crafterFestive?.bgKeys || []).map(k => '<button type="button" class="fm-sw' + (cur === k[0] ? ' is-on' : '') + '" data-sf-bg="' + e(k[0]) + '"><span class="fm-swp"><span class="fm-swc"><span class="fm-bgx bg-' + (k[0] === 'village' ? 'villagepv' : e(k[0])) + '"></span></span></span><em>' + e(k[1]) + '</em></button>').join('') + '</div>';
     const secTitle = id => ((r.sections || []).find(x => x.id === id) || {}).title || '';
-    const sectionChips = (cur, attr) => [['', 'Авто (по правилам)']].concat((r.sections || []).filter(x => x.kind === 'custom').map(x => [x.id, x.title])).map(c => '<button type="button" class="' + (cur === c[0] ? 'is-on' : '') + '" ' + attr + '="' + e(c[0]) + '">' + e(c[1]) + '</button>').join('');
+    const sectionChips = (cur, attr) => [['', 'Авто (по правилам)']].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title])).map(c => '<button type="button" class="' + (cur === c[0] ? 'is-on' : '') + '" ' + attr + '="' + e(c[0]) + '">' + e(c[1]) + '</button>').join('');
     const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
     const range = (key, label, min, max, val, fmt) => '<div class="adm-range"><div class="adm-range-top"><label>' + label + '</label><b data-out="' + key + '">' + fmt(Number(val)) + '</b></div>' +
         '<input type="range" data-f="' + key + '" data-fmt="' + (key === 'per' ? 'per' : 'bundle') + '" min="' + min + '" max="' + max + '" step="1" value="' + val + '" style="--p:' + ((val - min) / (max - min) * 100) + '%"></div>';
@@ -173,6 +173,17 @@ async function admin(content) {
         return '<div class="sb-drawer"><div class="sb-drawer-top"><b>' + e(it.title) + '</b><button type="button" class="sb-x" data-sb-close aria-label="Закрыть">×</button></div>' +
             '<div class="sb-sizes">' + SIZES.map(s => '<button type="button" class="sz-opt' + (sizeOf(it) === s[0] ? ' is-on' : '') + '" data-sb-size="' + s[0] + '">' + sizeShape(s[0]) + '<b>' + s[1] + '</b><small>' + s[2] + '</small></button>').join('') + '</div>' +
             '<div class="sb-set"><label>Раздел</label><div class="sb-chips">' + sectionChips(it.section_id || '', 'data-sb-sec') + '</div></div>' +
+            '<div class="sb-set"><label>Название и цена</label><div class="sb-quick">' +
+            '<label>Название<input type="text" data-sb-q="title" maxlength="80" value="' + e(it.title) + '"></label>' +
+            '<label>Цена, шаров<input type="number" min="0" data-sb-q="price_balls" value="' + e(String(it.price_balls)) + '"></label>' +
+            '<label>Старая цена (скидка)<input type="number" min="0" data-sb-q="old_price_balls" value="' + e(it.old_price_balls ? String(it.old_price_balls) : '') + '" placeholder="Без скидки"></label>' +
+            '<label>Значок<input type="text" data-sb-q="badge" maxlength="14" value="' + e(it.badge || '') + '" placeholder="НОВОЕ, ХИТ"></label>' +
+            '<label>Сколько всего<input type="number" min="0" data-sb-q="stock" value="' + (it.stock === null || it.stock === undefined ? '' : e(String(it.stock))) + '" placeholder="Без ограничений"></label>' +
+            '<label>На одного игрока<input type="number" min="0" data-sb-q="per_user" value="' + (it.per_user === null || it.per_user === undefined ? '' : e(String(it.per_user))) + '" placeholder="Без ограничений"></label>' +
+            '<label>Появится (МСК)<input type="datetime-local" data-sb-q="starts_at_msk" value="' + (it.starts_at ? toMsk(it.starts_at) : '') + '"></label>' +
+            '<label>Закончится (МСК)<input type="datetime-local" data-sb-q="ends_at_msk" value="' + (it.ends_at ? toMsk(it.ends_at) : '') + '"></label>' +
+            '<label class="sb-q-wide">Описание<textarea data-sb-q="description" maxlength="240" rows="2">' + e(it.description || '') + '</textarea></label></div>' +
+            '<button type="button" class="primary" data-sb-save>Сохранить</button></div>' +
             '<div class="sb-set"><label>Редкость</label><div class="sb-chips">' + RARS.map(x => '<button type="button" class="' + ((it.rarity || 'auto') === x[0] ? 'is-on' : '') + '" data-sb-rar="' + x[0] + '">' + x[1] + '</button>').join('') + '</div></div>' +
             '<div class="sb-set"><label>Заголовок акции</label><input type="text" data-sb-heading maxlength="30" value="' + e(it.heading || '') + '" placeholder="Например: Зимняя ярмарка"></div>' +
             '<div class="sb-set"><label>Фон карточки</label>' + cardBgGallery(it.card_bg || '', 'data-sb-cbg', 'data-sb-cbgfile') + '</div>' +
@@ -245,6 +256,15 @@ async function admin(content) {
         drawer?.querySelector('[data-sb-price]')?.addEventListener('click', () => run(() => api('admin/new-year/shop-order', {mode: 'price'}), 'Порядок: по возрастанию цены'));
         const styleIt = async (patch) => { try { await api('admin/new-year/shop/' + it.id + '/style', patch); Object.assign(it, patch); redrawBoard(); } catch (err) { toast(err.message); } };
         drawer?.querySelectorAll('[data-sb-sec]').forEach(b => b.addEventListener('click', async () => { try { await api('admin/new-year/shop/' + it.id + '/section', {section_id: b.dataset.sbSec}); it.section_id = b.dataset.sbSec; redrawBoard(); toast('Раздел изменён'); } catch (err) { toast(err.message); } }));
+        drawer?.querySelector('[data-sb-save]')?.addEventListener('click', async () => {
+            const patch = {};
+            drawer.querySelectorAll('[data-sb-q]').forEach(i => { patch[i.dataset.sbQ] = i.value; });
+            try {
+                await api('admin/new-year/shop/' + it.id + '/style', patch);
+                const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.sections = fresh.sections || r.sections;
+                redrawBoard(); toast('Сохранено');
+            } catch (err) { toast(err.message); }
+        });
         drawer?.querySelectorAll('[data-sb-rar]').forEach(b => b.addEventListener('click', () => styleIt({rarity: b.dataset.sbRar})));
         drawer?.querySelectorAll('[data-sb-cbg]').forEach(b => b.addEventListener('click', () => styleIt({card_bg: b.dataset.sbCbg})));
         drawer?.querySelector('[data-sb-heading]')?.addEventListener('change', ev => styleIt({heading: ev.target.value}));
@@ -273,10 +293,10 @@ async function admin(content) {
         '<label class="fm-upbtn">Загрузить<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-sec-file="' + key + '" hidden></label>' + (val && val.indexOf('/media/') === 0 ? '<button type="button" data-sec-clear="' + key + '">Убрать</button>' : '') + '</div></div>';
     const bgName = s => ((window.crafterFestive?.bgKeys || []).find(k => k[0] === s.bg) || [0, s.bg.indexOf('image:') === 0 ? 'своя картинка' : s.bg])[1];
     const sectionsHTML = () => {
-        const list = (r.sections || []).map(s => '<div class="fm-srow' + (s.enabled ? '' : ' is-off') + '"><span class="fm-sico">' + icoOf(s.icon) + '</span><b>' + e(s.title) + '</b><small>' + (s.kind === 'custom' ? 'свой раздел' : 'встроенный') + ' · фон: ' + e(bgName(s)) + (s.enabled ? '' : ' · скрыт') + '</small>' +
+        const list = (r.sections || []).map(s => '<div class="fm-srow' + (s.enabled ? '' : ' is-off') + '"><span class="fm-sico">' + icoOf(s.icon) + '</span><b>' + e(s.title) + '</b><small>' + (s.kind === 'custom' ? 'свой раздел' : s.kind === 'exchange' ? 'раздел обмена' : 'встроенный') + ' · фон: ' + e(bgName(s)) + (s.enabled ? '' : ' · скрыт') + '</small>' +
             (s.preview ? '<img class="fm-spv" src="' + e(s.preview) + '" alt="">' : '') +
             '<span class="fm-sbt"><button type="button" data-sec-up="' + e(s.id) + '" aria-label="Выше">↑</button><button type="button" data-sec-down="' + e(s.id) + '" aria-label="Ниже">↓</button><button type="button" data-sec-edit="' + e(s.id) + '">Изменить</button>' +
-            (s.kind === 'custom' ? '<button type="button" data-sec-del="' + e(s.id) + '">Удалить</button>' : '') + '</span></div>').join('');
+            (s.kind !== 'smart' ? '<button type="button" data-sec-del="' + e(s.id) + '">Удалить</button>' : '') + '</span></div>').join('');
         let form = '';
         if (secForm) {
             const bgs = window.crafterFestive?.bgKeys || [];
@@ -290,13 +310,14 @@ async function admin(content) {
                 '<button class="primary" type="button" id="sec-save">Сохранить раздел</button> <button type="button" id="sec-cancel">Отмена</button></div>';
         }
         return '<h3 style="margin-top:26px">Разделы маркета</h3><p class="sub">Кнопки слева в маркете. У каждого раздела свой значок, картинка справа от кнопки и свой фон. Лоты кладутся в раздел в форме товара ниже.</p><div class="fm-slist">' + list + '</div>' +
-            (secForm ? '' : '<button type="button" id="sec-add">+ Добавить раздел</button>') + form;
+            (secForm ? '' : '<button type="button" id="sec-add">+ Добавить раздел</button> <button type="button" id="sec-add-ex">+ Раздел обмена</button>') + form;
     };
     const bindSections = () => {
         const reload = async () => { try { r.sections = (await api('admin/new-year/shop')).sections || r.sections; } catch (_) {} };
         const title = () => { const i = sec.querySelector('[data-sf="title"]'); if (i && secForm) secForm.title = i.value; };
         const redraw = () => { pull(); draw(); };
         sec.querySelector('#sec-add')?.addEventListener('click', () => { secForm = {title: '', icon: 'builtin:star', preview: '', bg: 'night', enabled: true}; redraw(); });
+        sec.querySelector('#sec-add-ex')?.addEventListener('click', () => { secForm = {title: 'Обмен', icon: 'builtin:gem', preview: '', bg: 'blue', enabled: true, kind: 'exchange'}; redraw(); });
         sec.querySelector('#sec-cancel')?.addEventListener('click', () => { secForm = null; redraw(); });
         sec.querySelectorAll('[data-sec-edit]').forEach(b => b.addEventListener('click', () => { const s = r.sections.find(x => x.id === b.dataset.secEdit); secForm = {id: s.id, title: s.title, icon: s.icon, preview: s.preview, bg: s.bg, enabled: s.enabled}; redraw(); sec.querySelector('.fm-sform')?.scrollIntoView({behavior: 'smooth', block: 'center'}); }));
         sec.querySelectorAll('[data-sec-del]').forEach(b => b.addEventListener('click', async () => { if (!confirm('Удалить раздел? Его лоты вернутся в автоматические разделы.')) return; try { await api('admin/new-year/shop-sections/' + b.dataset.secDel + '/delete', {}); await reload(); toast('Раздел удалён'); redraw(); } catch (err) { toast(err.message); } }));

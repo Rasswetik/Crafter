@@ -1,0 +1,41 @@
+/* more backgrounds: fireworks, confetti, blizzard, galaxy, neon, sunset, ocean, forest, mint, rose, steel, lava */
+/* sections */
+.fm-bgx.bg-fireworks{background:radial-gradient(120% 90% at 50% 100%,#2a1458,#0b0c36 60%,#04051c)}
+.fm-fw{position:absolute;left:var(--x);top:var(--y);width:var(--s);height:var(--s);margin:calc(var(--s) / -2) 0 0 calc(var(--s) / -2);border-radius:50%;opacity:0;
+  background:repeating-conic-gradient(var(--c) 0 4deg,transparent 4deg 22.5deg);-webkit-mask-image:radial-gradient(circle,transparent 24%,#000 26%,#000 58%,transparent 62%);mask-image:radial-gradient(circle,transparent 24%,#000 26%,#000 58%,transparent 62%);
+  filter:drop-shadow(0 0 6px var(--c));animation:fm-fw 4.2s cubic-bezier(.15,.7,.3,1) infinite;animation-delay:var(--d);will-change:transform,opacity}
+.fm-fw.b{background:repeating-conic-gradient(var(--c) 0 6deg,transparent 6deg 36deg);transform:rotate(11deg)}
+@keyframes fm-fw{0%{opacity:0;transform:scale(.05)}8%{opacity:1}55%{opacity:.9}100%{opacity:0;transform:scale(1)}}
+.fm-bgx.bg-confetti{background:linear-gradient(160deg,#5b3df0,#d4388f 60%,#ff8a3d)}
+.fm-conf{position:absolute;top:-16px;left:var(--x);width:9px;height:16px;background:var(--c);transform:rotate(var(--r));animation:fm-confall var(--t) linear infinite;animation-delay:var(--d);will-change:transform}
+@keyframes fm-confall{to{transform:translate3d(30px,640px,0) rotate(calc(var(--r) + 540deg))}}
+.fm-bgx.bg-snowstorm{background:linear-gradient(180deg,#5f84b8,#27406e 60%,#122244)}
+.fm-bgx.bg-galaxy{background:radial-gradient(60% 50% at 25% 30%,rgba(190,80,255,.55),transparent 70%),radial-gradient(55% 45% at 78% 65%,rgba(60,140,255,.5),transparent 70%),linear-gradient(180deg,#06051c,#150b3a)}
+.fm-bgx.bg-neon{background:linear-gradient(rgba(255,0,200,.18) 1px,transparent 1px) 0 0/40px 40px,linear-gradient(90deg,rgba(0,220,255,.18) 1px,transparent 1px) 0 0/40px 40px,radial-gradient(80% 60% at 50% 0,#4b1380,#0a0620)}
+.fm-bgx.bg-sunset{background:linear-gradient(180deg,#3b2a8a,#c8387a 45%,#ff9a3d 78%,#ffd27a)}
+.fm-bgx.bg-ocean{background:linear-gradient(180deg,#0a6aa8,#0a3d7a 60%,#06204a)}
+.fm-bgx.bg-ocean::before{content:"";position:absolute;inset:0;background:repeating-radial-gradient(circle at 50% 120%,rgba(255,255,255,.12) 0 3px,transparent 3px 34px);opacity:.8}
+.fm-bgx.bg-forest{background:linear-gradient(180deg,#1c5a34,#0b2e1b 70%,#06180e)}
+.fm-bgx.bg-mint{background:linear-gradient(160deg,#c8fff0,#5fd8b8 60%,#1fa088)}
+.fm-bgx.bg-rose{background:linear-gradient(160deg,#ffd0e6,#ff6aa8 60%,#b0246a)}
+.fm-bgx.bg-steel{background:linear-gradient(160deg,#7d8aa6,#3a4560 60%,#1a2136)}
+.fm-bgx.bg-lava{background:radial-gradient(90% 60% at 50% 110%,#ffb03a,#e8421a 45%,#3a0b08 85%)}
+/* cards and the window of a lot */
+.cb-ny-fireworks,.fm-stage.cb-ny-fireworks{background:radial-gradient(120% 90% at 50% 100%,#2a1458,#0b0c36 60%,#04051c)!important}
+.cb-ny-fireworks::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 28% 30%,#ff5c6e 0 3px,transparent 4px),radial-gradient(circle at 68% 24%,#ffd27a 0 3px,transparent 4px),radial-gradient(circle at 52% 52%,#6ac7ff 0 3px,transparent 4px),radial-gradient(circle at 80% 58%,#c39bff 0 3px,transparent 4px),radial-gradient(circle at 18% 64%,#9be37f 0 3px,transparent 4px);filter:blur(.5px) drop-shadow(0 0 8px #fff);opacity:.9;animation:fm-twinkle 2.6s ease-in-out infinite}
+.cb-ny-fireworks::after{content:"";position:absolute;inset:0;background:repeating-conic-gradient(from 10deg at 28% 30%,rgba(255,92,110,.45) 0 3deg,transparent 3deg 24deg),repeating-conic-gradient(from 4deg at 68% 24%,rgba(255,210,122,.45) 0 3deg,transparent 3deg 24deg);-webkit-mask-image:radial-gradient(circle at 28% 30%,#000 0 14%,transparent 15%),radial-gradient(circle at 68% 24%,#000 0 14%,transparent 15%);-webkit-mask-composite:source-over;pointer-events:none}
+.cb-ny-confetti,.fm-stage.cb-ny-confetti{background:linear-gradient(160deg,#5b3df0,#d4388f 60%,#ff8a3d)!important}
+.cb-ny-confetti::before{content:"";position:absolute;inset:0;background:linear-gradient(45deg,#ffd27a 0 3px,transparent 3px) 0 0/38px 38px,linear-gradient(135deg,#6ac7ff 0 3px,transparent 3px) 13px 9px/46px 46px,linear-gradient(80deg,#9be37f 0 3px,transparent 3px) 5px 22px/52px 52px;opacity:.9}
+.cb-ny-snowstorm,.fm-stage.cb-ny-snowstorm{background:linear-gradient(180deg,#6a8cc0,#27406e 60%,#122244)!important}
+.cb-ny-snowstorm::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,#fff 0 2px,transparent 3px) 0 0/30px 30px,radial-gradient(circle,rgba(255,255,255,.8) 0 1.6px,transparent 2.6px) 11px 17px/22px 22px,radial-gradient(circle,rgba(255,255,255,.7) 0 1.2px,transparent 2px) 5px 8px/17px 17px}
+.fm-card.is-vis .cb-ny-snowstorm::before{animation:fm-snowbg 6s linear infinite}
+.cb-c-galaxy,.fm-stage.cb-c-galaxy{background:radial-gradient(60% 50% at 25% 30%,rgba(190,80,255,.6),transparent 70%),radial-gradient(55% 45% at 78% 65%,rgba(60,140,255,.55),transparent 70%),linear-gradient(180deg,#06051c,#150b3a)!important}
+.cb-c-neon,.fm-stage.cb-c-neon{background:linear-gradient(rgba(255,0,200,.22) 1px,transparent 1px) 0 0/30px 30px,linear-gradient(90deg,rgba(0,220,255,.22) 1px,transparent 1px) 0 0/30px 30px,radial-gradient(80% 60% at 50% 0,#4b1380,#0a0620)!important}
+.cb-c-sunset,.fm-stage.cb-c-sunset{background:linear-gradient(180deg,#3b2a8a,#c8387a 45%,#ff9a3d 78%,#ffd27a)!important}
+.cb-c-ocean,.fm-stage.cb-c-ocean{background:linear-gradient(180deg,#0a6aa8,#0a3d7a 60%,#06204a)!important}
+.cb-c-forest,.fm-stage.cb-c-forest{background:linear-gradient(180deg,#1c5a34,#0b2e1b 70%,#06180e)!important}
+.cb-c-mint,.fm-stage.cb-c-mint{background:linear-gradient(160deg,#c8fff0,#5fd8b8 60%,#1fa088)!important}
+.cb-c-rose,.fm-stage.cb-c-rose{background:linear-gradient(160deg,#ffd0e6,#ff6aa8 60%,#b0246a)!important}
+.cb-c-steel,.fm-stage.cb-c-steel{background:linear-gradient(160deg,#7d8aa6,#3a4560 60%,#1a2136)!important}
+.cb-c-lava,.fm-stage.cb-c-lava{background:radial-gradient(90% 60% at 50% 110%,#ffb03a,#e8421a 45%,#3a0b08 85%)!important}
+@media(prefers-reduced-motion:reduce){.fm-fw,.fm-conf{animation:none!important}}

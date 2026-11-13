@@ -19,7 +19,8 @@ DEFAULTS = (
     ('gifts', 'Подарки', 'gifts', 'builtin:gift', 'snow'),
 )
 BACKGROUNDS = ('village', 'snow', 'night', 'aurora', 'garland', 'frost', 'candy', 'blue', 'violet', 'crimson', 'emerald', 'gold',
-               'tree', 'stars', 'mitten', 'cozy', 'ice', 'pine', 'berry', 'cocoa', 'polar', 'moon')
+               'tree', 'stars', 'mitten', 'cozy', 'ice', 'pine', 'berry', 'cocoa', 'polar', 'moon',
+               'fireworks', 'confetti', 'galaxy', 'neon', 'sunset', 'ocean', 'forest', 'mint', 'rose', 'steel', 'lava', 'snowstorm')
 MAX_MEDIA = 600_000
 MAX_SECTIONS = 30
 MEDIA_PATH = re.compile(r'/media/shop/[0-9a-f]{32}')
@@ -69,7 +70,7 @@ def install_shop_sections(app, db, auth, audit):
         return [view(r) for r in rows if all_sections or r['enabled']]
 
     app.extensions['crafter_shop_sections'] = sections
-    app.extensions['crafter_shop_section_exists'] = lambda sid: bool(db().execute("SELECT 1 FROM shop_sections WHERE id=? AND kind='custom'", (sid,)).fetchone())
+    app.extensions['crafter_shop_section_exists'] = lambda sid: bool(db().execute("SELECT 1 FROM shop_sections WHERE id=? AND kind IN ('custom','smart') AND id<>'gifts'", (sid,)).fetchone())
 
     def clean_title(value):
         title = ' '.join(str(value or '').split())[:24]
@@ -109,9 +110,10 @@ def install_shop_sections(app, db, auth, audit):
                 if db().execute("SELECT COUNT(*) AS n FROM shop_sections").fetchone()['n'] >= MAX_SECTIONS:
                     abort(409, description='Разделов не может быть больше %d' % MAX_SECTIONS)
                 sid = uuid.uuid4().hex[:12]
+                kind = 'exchange' if body.get('kind') == 'exchange' else 'custom'
                 position = int(db().execute("SELECT COALESCE(MAX(position),0)+1 AS n FROM shop_sections").fetchone()['n'])
                 db().execute("INSERT INTO shop_sections(id,title,kind,rule,icon,preview,bg,position,enabled,created) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                             (sid, title, 'custom', '', icon, preview, bg, position, enabled, int(time.time())))
+                             (sid, title, kind, '', icon, preview, bg, position, enabled, int(time.time())))
         audit('Shop section saved: ' + title)
         return {'ok': True, 'id': sid}
 
@@ -122,9 +124,10 @@ def install_shop_sections(app, db, auth, audit):
             row = db().execute("SELECT kind,title FROM shop_sections WHERE id=?", (sid,)).fetchone()
             if not row:
                 abort(404, description='Раздел не найден')
-            if row['kind'] != 'custom':
+            if row['kind'] not in ('custom', 'exchange'):
                 abort(409, description='Встроенный раздел нельзя удалить: его можно выключить')
             db().execute("UPDATE shop_items SET section_id=NULL WHERE section_id=?", (sid,))
+            db().execute("DELETE FROM shop_exchanges WHERE section_id=?", (sid,))
             db().execute("DELETE FROM shop_sections WHERE id=?", (sid,))
         audit('Shop section deleted: ' + row['title'])
         return {'ok': True}
