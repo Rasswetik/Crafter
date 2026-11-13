@@ -75,8 +75,10 @@ function stage(ch, ctx) {
         const result = isPack ? {packIds: res.pack_ids, count: res.pack_ids.length, head: 'Получено', title: 'Вы получили: <b>' + e(r.title) + '</b>'} : {head: 'Получено', title: 'Вы получили: ' + e(r.title), text};
         f.reveal({it}, result, {refresh() {}}, () => {});
     };
+    let busy = false;
     const claim = async s => {
-        err.textContent = '';
+        if (busy) return;
+        busy = true; err.textContent = '';
         try {
             const res = await api('chains/claim', {step_id: s.id});
             if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
@@ -88,13 +90,15 @@ function stage(ch, ctx) {
             if (res.chest_open && window.crafterChests) window.crafterChests.play(res.chest_open, {bg: 'cozy', toast, refresh() {}});
             else reveal(s, res);
         } catch (error) { err.textContent = error.message; toast(error.message); }
+        busy = false;
     };
     let pending = null;
     ask.querySelector('.chn-no').addEventListener('click', () => { ask.hidden = true; pending = null; });
     ask.querySelector('.chn-yes').addEventListener('click', () => { const s = pending; ask.hidden = true; pending = null; if (s) claim(s); });
     function bind() {
-        el.querySelectorAll('[data-chn-take]').forEach(b => b.addEventListener('click', () => {
-            const s = ch.steps.find(x => x.id === b.dataset.chnTake); if (!s) return;
+        // the whole ready card is the button: a tap anywhere on it takes the step (the foot of the card may be out of sight on a small screen)
+        el.querySelectorAll('.chn-step.st-ready').forEach(card => card.addEventListener('click', () => {
+            const s = ch.steps.find(x => x.id === card.dataset.chnStep); if (!s || busy) return;
             if (s.price_balls) { pending = s; ask.querySelector('[data-chn-what]').innerHTML = e(s.reward_title) + ' · ' + ORN + '<b>' + num(s.price_balls) + '</b>'; ask.hidden = false; } else claim(s);
         }));
     }

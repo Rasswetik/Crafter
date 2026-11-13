@@ -64,3 +64,7 @@
 .chn-step.is-main .chn-pic{padding:0}.chn-step.is-main .chn-pic img{top:56px;height:calc(100% - 62px)}
 .chn-name,.chn-foot{flex:none}
 .fm-stage.fm-chainstage .chn-head{display:flex;flex-direction:column;align-items:flex-start;gap:0}
+.fm-stage.fm-chainstage{overflow-y:auto;overflow-x:hidden;justify-content:flex-start}
+.fm-stage.fm-chainstage .chn-head{margin-top:auto}.fm-stage.fm-chainstage .chn-err{margin-bottom:auto}
+.chn-step.st-ready{cursor:pointer}.chn-step.st-ready .chn-take{pointer-events:none}
+.chn-err:not(:empty){padding:10px max(20px,5vw);color:#fff;background:rgba(190,30,60,.75);font-weight:800}
