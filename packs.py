@@ -607,6 +607,28 @@ def install_packs(app, db, auth, record, audit):
 
 
     # ---- premium packs: ten gifts each, their own tables, seeded once after every general tuning ----
+    def premium_prizes(pack_id, gifts, gram_table, share):
+        """The prize rows of a premium pack: the balance ladder, then the gifts with chances spread by value."""
+        pos = 0
+        for amount, weight in gram_table:
+            put_prize(pack_id, pos, 'GRAM', amount, '', 'GRAM', '', amount, weight)
+            pos += 1
+        found = []
+        for cid, model, value in gifts:
+            col = catalog().get(cid)
+            if not col:
+                continue
+            name = singular(col.get('name') or cid)
+            m = catalog_model(cid, model)
+            picture = m['image'] if m else 'https://api.changes.tg/model/%s/%s.png?size=128' % (quote(name), quote(model))
+            found.append((cid, name, picture, value, model))
+        gram = sum(w for _, w in gram_table)
+        total = share / (1 - share) * gram
+        inv = [1 / max(float(g[3]), 1.0) for g in found]
+        for g, w in zip(found, inv):
+            put_prize(pack_id, pos, 'NFT', '', g[0], g[1], g[2], g[3], round(total * w / (sum(inv) or 1), 6), g[4])
+            pos += 1
+
     def seed_premium_pack(pack_id, title, image, gifts, gram_table, cards, share, flag):
         if db().execute("SELECT 1 FROM settings WHERE key=?", (flag,)).fetchone():
             return
@@ -614,36 +636,18 @@ def install_packs(app, db, auth, record, audit):
             if not pack_row(pack_id):
                 db().execute("INSERT INTO packs(id,title,image_url,card_weights,for_sale,price_balls,enabled,created) VALUES(?,?,?,?,?,?,?,?)",
                              (pack_id, title, image, json.dumps(cards), 0, 0, 1, int(time.time())))
-                pos = 0
-                for amount, weight in gram_table:
-                    put_prize(pack_id, pos, 'GRAM', amount, '', 'GRAM', '', amount, weight)
-                    pos += 1
-                found = []
-                for cid, model, value in gifts:
-                    col = catalog().get(cid)
-                    if not col:
-                        continue
-                    name = singular(col.get('name') or cid)
-                    m = catalog_model(cid, model)
-                    picture = m['image'] if m else 'https://api.changes.tg/model/%s/%s.png?size=128' % (quote(name), quote(model))
-                    found.append((cid, name, picture, value, model))
-                gram = sum(w for _, w in gram_table)
-                total = share / (1 - share) * gram
-                inv = [1 / max(float(g[3]), 1.0) for g in found]
-                for g, w in zip(found, inv):
-                    put_prize(pack_id, pos, 'NFT', '', g[0], g[1], g[2], g[3], round(total * w / (sum(inv) or 1), 6), g[4])
-                    pos += 1
+                premium_prizes(pack_id, gifts, gram_table, share)
             db().execute("INSERT INTO settings(key,payload) VALUES(?,'1') ON CONFLICT(key) DO NOTHING", (flag,))
 
-    # Gingerbread House: an opening is worth about 0.5 TON, gifts are worth 11-55, the ladder reaches 100 GRAM
+    # Gingerbread House: the top pack. An opening is worth about 1000 balls (the other packs 250-400), that is about 1.6 GRAM.
     GINGERBREAD_GIFTS = (('snowglobe', 'Ginger House', '25'), ('gingercookie', 'Original', '55'), ('jinglebells', 'Gingerbread', '27'),
                          ('winterwreath', 'Gingerbread', '19'), ('hangingstar', 'Gingerbread', '33'), ('holidaydrink', 'Ginger Joker', '11'),
                          ('candycane', 'Amber Glitter', '20'), ('xmasstocking', 'Caramel Fest', '20'), ('spicedwine', 'Chocolate Cherry', '16'),
                          ('eternalcandle', 'Hot Cocoa', '18'))
-    GINGERBREAD_GRAM = (('0.1', 640), ('0.2', 165), ('0.3', 78), ('0.5', 46), ('0.75', 25), ('1', 17), ('1.5', 8.5), ('2', 4.6), ('3', 2.4),
-                        ('5', 1.1), ('10', .4), ('20', .13), ('50', .03), ('100', .007))
-    GINGERBREAD_CARDS = {'1': 50, '2': 32, '3': 12, '4': 5, '5': 1}          # 1.75 cards per opening
-    GINGERBREAD_NFT_SHARE = 0.0025                                            # one card in 400 is a gift: about one pack in 230
+    GINGERBREAD_GRAM = (('0.2', 470), ('0.3', 230), ('0.5', 140), ('0.75', 70), ('1', 52), ('1.5', 24), ('2', 13), ('3', 7), ('5', 3.4),
+                        ('10', 1.2), ('20', .4), ('50', .09), ('100', .02), ('250', .004))
+    GINGERBREAD_CARDS = {'1': 20, '2': 32, '3': 28, '4': 14, '5': 6}         # 2.54 cards per opening, never a 0.1 card
+    GINGERBREAD_NFT_SHARE = 0.009                                            # a gift on one card in 110: about one pack in 44
 
     # Honey Holidays: an opening is worth about 0.3 TON, gifts are worth 11-55, the ladder reaches 50 GRAM
     HONEY_GIFTS = (('gingercookie', 'Golden Boy', '55'), ('candycane', 'Honeycomb', '20'), ('winterwreath', 'Honey Dew', '19'),
@@ -658,6 +662,18 @@ def install_packs(app, db, auth, record, audit):
     def seed_gingerbread_pack():
         seed_premium_pack('gingerbread', 'Gingerbread House', '/static/assets/packs/gingerbread-pack.webp', GINGERBREAD_GIFTS,
                           GINGERBREAD_GRAM, GINGERBREAD_CARDS, GINGERBREAD_NFT_SHARE, 'packs_gingerbread_v1')
+
+    def buff_gingerbread_pack():
+        """Once more: Gingerbread House is the top pack (about 1000 balls). An existing pack gets the new card counts and prize table."""
+        flag = 'packs_gingerbread_v2'
+        if db().execute("SELECT 1 FROM settings WHERE key=?", (flag,)).fetchone():
+            return
+        with db():
+            if pack_row('gingerbread'):
+                db().execute("DELETE FROM pack_prizes WHERE pack_id=?", ('gingerbread',))
+                db().execute("UPDATE packs SET card_weights=? WHERE id=?", (json.dumps(GINGERBREAD_CARDS), 'gingerbread'))
+                premium_prizes('gingerbread', GINGERBREAD_GIFTS, GINGERBREAD_GRAM, GINGERBREAD_NFT_SHARE)
+            db().execute("INSERT INTO settings(key,payload) VALUES(?,'1') ON CONFLICT(key) DO NOTHING", (flag,))
 
     def seed_honey_pack():
         seed_premium_pack('honey', 'Honey Holidays', '/static/assets/packs/honey-pack.webp', HONEY_GIFTS,
@@ -679,6 +695,7 @@ def install_packs(app, db, auth, record, audit):
         seed_silverfrost_pack()
         tune_packs_better()
         seed_gingerbread_pack()
+        buff_gingerbread_pack()
         seed_honey_pack()
 
     def grant(uid, pack_id, source, request_id=None):

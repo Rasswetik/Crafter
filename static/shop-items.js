@@ -55,8 +55,8 @@ function describe(it) {
     return 'Вы получите уникальный промокод на ' + what + '. Его активируете только вы, один раз.';
 }
 
-function tiles(items) {
-    return (items || []).filter(it => !unavailable(it)).map((it, i) =>
+function tiles(items, all) {
+    return (items || []).filter(it => all || !unavailable(it)).map((it, i) =>
         '<button type="button" class="ny-lot cm-tile si-tile si-sz-' + sizeOf(it) + '" data-si="' + e(it.id) + '" style="--ac:' + accentOf(it) + ';--n:' + Math.min(i, 14) + '"><div class="ny-lot-art">' + artHTML(it) + offHTML(it) + '</div>' +
         '<div class="ny-lot-name">' + e(it.title) + '</div>' + (sizeOf(it) === 'small' || sizeOf(it) === 'tall' ? '' : '<div class="si-desc">' + e(describe(it)) + '</div>') +
         '<div class="ny-lot-id">' + (it.left !== null ? 'Осталось ' + num(it.left) : (it.kind === 'PACK' || it.kind === 'STAR') && it.bundle > 1 ? it.bundle + ' шт. в наборе' : LABEL[it.kind]) + '</div>' +
@@ -136,6 +136,106 @@ async function admin(content) {
     const list = () => r.items.map(it => '<div class="ny-admin-row"><div class="cm-admin-pic"><img src="' + e(art(it)) + '" alt=""></div><div><b>' + e(it.title) + '</b><small>' + e(LABEL[it.kind]) + ' · ' +
         (it.price_balls ? num(it.price_balls) + ' шаров' + (it.discount_percent > 0 ? ' (скидка −' + it.discount_percent + '%, было ' + num(it.old_price_balls) + ')' : '') : 'бесплатно') + ' · продано ' + it.sold + (it.stock !== null ? '/' + it.stock : '') + (it.bundle > 1 ? ' · ' + it.bundle + ' пака за покупку' : '') + (it.per_user !== null ? ' · лимит ' + it.per_user : '') + (it.status === 'hidden' ? ' · скрыт' : '') + ' · размер: ' + e((SIZES.find(s => s[0] === sizeOf(it)) || SIZES[0])[1]) + '</small></div>' +
         '<span><select class="si-size-select" data-si-size="' + e(it.id) + '" aria-label="Размер плитки">' + SIZES.map(s => '<option value="' + s[0] + '"' + (sizeOf(it) === s[0] ? ' selected' : '') + '>' + s[1] + '</option>').join('') + '</select> <button type="button" data-si-up="' + e(it.id) + '" aria-label="Выше">↑</button> <button type="button" data-si-down="' + e(it.id) + '" aria-label="Ниже">↓</button> <button type="button" data-si-edit="' + e(it.id) + '">Изменить</button> <button type="button" data-si-st="' + e(it.id) + '" data-next="' + (it.status === 'active' ? 'hidden' : 'active') + '">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button> <button type="button" data-si-del="' + e(it.id) + '">Удалить</button></span></div>').join('');
+    let selected = null;
+    const GRIP = '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><circle cx="9" cy="6" r="1.8"/><circle cx="15" cy="6" r="1.8"/><circle cx="9" cy="12" r="1.8"/><circle cx="15" cy="12" r="1.8"/><circle cx="9" cy="18" r="1.8"/><circle cx="15" cy="18" r="1.8"/></svg>';
+    const COG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+    const sizeShape = s => '<span class="sz-shape sz-' + s + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>';
+    const boardHTML = () => r.items.map(it => '<div class="sb-cell sb-' + sizeOf(it) + (it.status === 'hidden' ? ' is-hidden' : '') + (selected === it.id ? ' is-sel' : '') + '" data-sb="' + e(it.id) + '">' +
+        (tiles([it], true)[0] || '') +
+        '<button type="button" class="sb-handle" data-sb-drag aria-label="Перетащить лот" title="Перетащите, чтобы переставить">' + GRIP + '</button>' +
+        '<button type="button" class="sb-gear" data-sb-gear aria-label="Настройки лота" title="Настройки лота">' + COG + '</button>' +
+        (it.status === 'hidden' ? '<span class="sb-badge">скрыт</span>' : '') + '<button type="button" hidden data-si-edit="' + e(it.id) + '"></button></div>').join('');
+    const drawerHTML = () => {
+        const it = r.items.find(x => x.id === selected);
+        const note = r.order === 'manual' ? 'Порядок: ваш. <button type="button" class="sb-link" data-sb-price>Вернуть по цене</button>' : 'Порядок: по возрастанию цены. Потяните любую плитку за ⠿, и порядок станет вашим.';
+        if (!it) return '<p class="sub sb-hint">Тяните плитки за значок ⠿, чтобы переставить их. Двойное нажатие или ⚙ открывает настройки лота. ' + note + '</p>';
+        return '<div class="sb-drawer"><div class="sb-drawer-top"><b>' + e(it.title) + '</b><button type="button" class="sb-x" data-sb-close aria-label="Закрыть">×</button></div>' +
+            '<div class="sb-sizes">' + SIZES.map(s => '<button type="button" class="sz-opt' + (sizeOf(it) === s[0] ? ' is-on' : '') + '" data-sb-size="' + s[0] + '">' + sizeShape(s[0]) + '<b>' + s[1] + '</b><small>' + s[2] + '</small></button>').join('') + '</div>' +
+            '<div class="sb-actions"><button type="button" data-sb-act="edit">Изменить</button><button type="button" data-sb-act="earlier">← Раньше</button><button type="button" data-sb-act="later">Позже →</button>' +
+            '<button type="button" data-sb-act="status">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button><button type="button" class="danger" data-sb-act="delete">Удалить</button></div><p class="sub sb-hint">' + note + '</p></div>';
+    };
+    const boardSection = () => '<div class="sb-wrap"><h3>Витрина магазина</h3><p class="sub">Так лоты выглядят у игроков. Меняйте порядок перетаскиванием, как пазл.</p>' +
+        '<div class="sb-board ny-grid" id="sb-board">' + (r.items.length ? boardHTML() : '<p class="sub">Товаров пока нет: добавьте первый ниже.</p>') + '</div><div id="sb-drawer">' + drawerHTML() + '</div></div>';
+    const redrawBoard = () => {
+        const board = sec.querySelector('#sb-board'), drawer = sec.querySelector('#sb-drawer');
+        if (board) board.innerHTML = r.items.length ? boardHTML() : '<p class="sub">Товаров пока нет: добавьте первый ниже.</p>';
+        if (drawer) drawer.innerHTML = drawerHTML();
+        bindBoard();
+    };
+    const open = id => { selected = id; redrawBoard(); sec.querySelector('#sb-drawer')?.scrollIntoView({behavior: 'smooth', block: 'nearest'}); };
+    const startDrag = (ev, cell) => {
+        const board = sec.querySelector('#sb-board');
+        if (!board || ev.button > 0) return;
+        ev.preventDefault();
+        const box = cell.getBoundingClientRect(), grab = {x: ev.clientX - box.left, y: ev.clientY - box.top};
+        const ghost = cell.cloneNode(true);
+        ghost.classList.add('sb-ghost'); ghost.removeAttribute('data-sb');
+        ghost.style.cssText = 'position:fixed;left:' + box.left + 'px;top:' + box.top + 'px;width:' + box.width + 'px;height:' + box.height + 'px;z-index:99999;pointer-events:none';
+        document.body.appendChild(ghost);
+        cell.classList.add('is-drag');
+        let scroller = null;
+        for (let n = sec.parentElement; n && n !== document.body; n = n.parentElement) { const o = getComputedStyle(n).overflowY; if ((o === 'auto' || o === 'scroll') && n.scrollHeight > n.clientHeight) { scroller = n; break; } }
+        const flip = mutate => {
+            const cells = [...board.children], before = new Map(cells.map(c => [c, c.getBoundingClientRect()]));
+            mutate();
+            cells.forEach(c => {
+                if (c === cell) return;
+                const a = before.get(c), b = c.getBoundingClientRect(), dx = a.left - b.left, dy = a.top - b.top;
+                if (!dx && !dy) return;
+                c.style.transition = 'none'; c.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+                requestAnimationFrame(() => { c.style.transition = 'transform .3s cubic-bezier(.22,.8,.3,1)'; c.style.transform = ''; });
+            });
+        };
+        const move = ev2 => {
+            ghost.style.left = (ev2.clientX - grab.x) + 'px'; ghost.style.top = (ev2.clientY - grab.y) + 'px';
+            const step = ev2.clientY < 70 ? -16 : ev2.clientY > innerHeight - 70 ? 16 : 0;
+            if (step) (scroller || window).scrollBy(0, step);
+            const hit = document.elementsFromPoint(ev2.clientX, ev2.clientY).find(n => n !== cell && n.classList && n.classList.contains('sb-cell') && board.contains(n));
+            if (!hit) return;
+            const hb = hit.getBoundingClientRect();
+            const after = hb.width > hb.height * 1.3 ? ev2.clientX > hb.left + hb.width / 2 : ev2.clientY > hb.top + hb.height / 2 || (hb.width <= hb.height * 1.3 && ev2.clientX > hb.left + hb.width / 2 && ev2.clientY > hb.top + hb.height * .25);
+            const ref = after ? hit.nextSibling : hit;
+            if (ref === cell || (after && hit.nextSibling === cell)) return;
+            flip(() => board.insertBefore(cell, ref));
+        };
+        const end = async () => {
+            window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', end); window.removeEventListener('pointercancel', end);
+            ghost.remove(); cell.classList.remove('is-drag');
+            const ids = [...board.children].map(c => c.dataset.sb).filter(Boolean);
+            if (ids.join() === r.items.map(i => i.id).join()) return;
+            r.items = ids.map(id => r.items.find(i => i.id === id)); r.order = 'manual';
+            try { await api('admin/new-year/shop-arrange', {ids}); toast('Порядок сохранён'); } catch (err) { toast(err.message); }
+            redrawBoard();
+        };
+        window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
+    };
+    const bindBoard = () => {
+        sec.querySelectorAll('.sb-cell').forEach(cell => {
+            cell.addEventListener('dblclick', () => open(cell.dataset.sb));
+            cell.querySelector('[data-sb-gear]')?.addEventListener('click', () => open(cell.dataset.sb));
+            cell.querySelector('[data-sb-drag]')?.addEventListener('pointerdown', ev => startDrag(ev, cell));
+        });
+        const it = r.items.find(x => x.id === selected), drawer = sec.querySelector('#sb-drawer');
+        drawer?.querySelector('[data-sb-close]')?.addEventListener('click', () => { selected = null; redrawBoard(); });
+        drawer?.querySelector('[data-sb-price]')?.addEventListener('click', () => run(() => api('admin/new-year/shop-order', {mode: 'price'}), 'Порядок: по возрастанию цены'));
+        drawer?.querySelectorAll('[data-sb-size]').forEach(b => b.addEventListener('click', async () => {
+            if (!it) return;
+            try { await api('admin/new-year/shop/' + it.id + '/size', {size: b.dataset.sbSize}); it.size = b.dataset.sbSize; redrawBoard(); } catch (err) { toast(err.message); }
+        }));
+        drawer?.querySelectorAll('[data-sb-act]').forEach(b => b.addEventListener('click', async () => {
+            if (!it) return;
+            const act = b.dataset.sbAct;
+            try {
+                if (act === 'edit') { sec.querySelector('[data-si-edit="' + it.id + '"]')?.click(); return; }
+                if (act === 'status') { const next = it.status === 'active' ? 'hidden' : 'active'; await api('admin/new-year/shop/' + it.id + '/status', {status: next}); it.status = next; redrawBoard(); return; }
+                if (act === 'delete') { if (!confirm('Удалить лот «' + it.title + '»?')) return; await api('admin/new-year/shop/' + it.id + '/delete', {}); r.items = r.items.filter(x => x.id !== it.id); selected = null; redrawBoard(); toast('Лот удалён'); return; }
+                const at = r.items.indexOf(it), to = act === 'earlier' ? at - 1 : at + 1;
+                if (to < 0 || to >= r.items.length) return;
+                await api('admin/new-year/shop/' + it.id + '/move', {direction: act === 'earlier' ? 'up' : 'down'});
+                r.items.splice(to, 0, r.items.splice(at, 1)[0]); r.order = 'manual'; redrawBoard();
+            } catch (err) { toast(err.message); }
+        }));
+    };
     const draw = () => {
         const kinds = KIND_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length));
         const step2 = f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + PROMO_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length)).map(k => tile(f.promo === k[0], 'data-promo="' + k[0] + '"', k[2], k[1])).join('') + '</div></div>' : '';
@@ -148,7 +248,7 @@ async function admin(content) {
             ? '<div class="adm-step"><h4>Какой подарок</h4><div class="adm-field"><select data-f="amount">' + window.crafterStarGifts.options(STARS, f.amount) + '</select></div></div>'
             : '<div class="adm-step"><h4>' + (eff() === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM') + '</h4><div class="adm-field"><input data-f="amount" inputmode="decimal" value="' + e(f.amount) + '">' +
               '<div class="adm-chips">' + (eff() === 'BALL' ? ['50', '100', '500', '1000'] : ['0.5', '1', '2', '5', '10']).map(v => '<button type="button" data-chip="amount" data-v="' + v + '">' + v + '</button>').join('') + '</div></div></div>';
-        sec.innerHTML = '<h3>Новый товар</h3><p class="sub">Товар за новогодние шары. Появится в новогоднем маркете рядом с подарками.</p>' +
+        sec.innerHTML = boardSection() + '<h3 style="margin-top:26px">Новый товар</h3><p class="sub">Товар за новогодние шары. Появится в новогоднем маркете рядом с подарками.</p>' +
             '<div class="adm-step"><h4>Что продаём</h4><div class="adm-tiles">' + kinds.map(k => tile(f.kind === k[0], 'data-kind="' + k[0] + '"', k[3], k[1], k[2])).join('') + '</div></div>' +
             step2 + what +
             '<div class="adm-step"><h4>Условия</h4><div class="adm-row3">' +
@@ -167,13 +267,14 @@ async function admin(content) {
             '<div class="adm-step"><h4>Как будет выглядеть</h4><div class="sz-views"><button type="button" class="sz-view' + (f.view === 'phone' ? ' is-on' : '') + '" data-view="phone">Телефон</button><button type="button" class="sz-view' + (f.view === 'pc' ? ' is-on' : '') + '" data-view="pc">Компьютер</button></div>' +
             '<div class="sz-stage sz-' + f.view + '"><div class="ny-grid sz-grid">' + preview() + '<div class="sz-ghost"></div><div class="sz-ghost"></div><div class="sz-ghost"></div><div class="sz-ghost"></div><div class="sz-ghost"></div></div></div></div>' +
             '<button class="primary" type="button" id="si-add">' + (editing ? 'Сохранить изменения' : 'Добавить товар') + '</button>' + (editing ? ' <button type="button" id="si-cancel">Отмена</button>' : '') +
-            '<h3 style="margin-top:26px">Товары</h3><p class="sub">Порядок на маркете: ' + (r.order === 'manual' ? 'как вы расставили (стрелки ↑ ↓). <button type="button" id="si-order">Вернуть: по возрастанию цены</button>' : 'по возрастанию цены (по умолчанию). Стрелки ↑ ↓ переключат на ручной порядок.') + '</p><div class="ny-admin-list">' + (list() || '<p class="sub">Товаров пока нет.</p>') + '</div>';
+            '';
         sec.querySelectorAll('input[data-f]').forEach(i => { i.setAttribute('autocomplete', 'off'); i.setAttribute('name', 'shop-' + i.dataset.f); });
         bind();
     };
     const pull = () => sec.querySelectorAll('[data-f]').forEach(i => { f[i.dataset.f] = i.value; });
     const run = async (fn, ok) => { try { await fn(); toast(ok); content.innerHTML = ''; window.renderAdminNewYear?.(content); } catch (err) { toast(err.message); } };
     const bind = () => {
+        bindBoard();
         sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelectorAll('[data-mix-inc]').forEach(b => b.addEventListener('click', () => { pull(); const t = Object.values(f.mix).reduce((x, n) => x + n, 0); if (t < 500) f.mix[b.dataset.mixInc] = (f.mix[b.dataset.mixInc] || 0) + 1; draw(); }));

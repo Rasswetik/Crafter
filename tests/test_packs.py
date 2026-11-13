@@ -829,13 +829,13 @@ def test_gingerbread_pack_is_seeded_with_ten_gifts_and_a_balance_ladder(client):
     gifts = [p for p in data['prizes'] if p['kind'] == 'NFT']
     assert len(gifts) == 10 and data['pack']['title'] == 'Gingerbread House'
     assert {p['model'] for p in gifts} >= {'Ginger House', 'Original', 'Hot Cocoa', 'Ginger Joker'}
-    assert max(float(p['value']) for p in data['prizes']) == 100.0
+    assert max(float(p['value']) for p in data['prizes']) == 250.0
     nft_share = sum(p['chance'] for p in gifts)
-    assert 0.2 < nft_share < 0.4                                  # a gift on about one card in 400
+    assert 0.7 < nft_share < 1.1                                  # a gift on about one card in 110
     cards = {c['count']: c['chance'] for c in data['cards']}
     expected = sum(k * v for k, v in cards.items()) / 100
     value = sum(float(p['value']) * p['chance'] / 100 for p in data['prizes']) * expected
-    assert 0.40 <= value <= 0.52                                  # an opening is worth about 0.5 TON
+    assert 1.45 <= value <= 1.8                                   # about 1000 balls: three times a standard pack
 
 
 def test_honey_holidays_pack_is_worth_about_a_third_of_a_ton(client):
@@ -887,3 +887,16 @@ def test_shop_item_description_is_editable_and_limited(client):
     assert len(item['description']) == 240
     cleared = client.post('/api/admin/new-year/shop/%s/edit' % iid, headers=admin, json={'kind': 'GRAM', 'amount': '1', 'price_balls': '10'})
     assert next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == iid)['description'] == ''
+
+
+def test_shop_can_be_rearranged_in_one_request(client):
+    admin = signed(42)
+    client.get('/api/me', headers=admin)
+    ids = [client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': str(n), 'price_balls': str(10 * n)}).json['id'] for n in (1, 2, 3)]
+    assert [i['id'] for i in client.get('/api/shop-items', headers=admin).json['items']] == ids          # by price
+    answer = client.post('/api/admin/new-year/shop-arrange', headers=admin, json={'ids': [ids[2], ids[0], 'unknown']})
+    assert answer.status_code == 200
+    assert [i['id'] for i in client.get('/api/shop-items', headers=admin).json['items']] == [ids[2], ids[0], ids[1]]
+    assert client.get('/api/admin/new-year/shop', headers=admin).json['order'] == 'manual'
+    assert client.post('/api/admin/new-year/shop-arrange', headers=admin, json={'ids': 'x'}).status_code == 400
+    assert client.post('/api/admin/new-year/shop-arrange', headers=signed(43), json={'ids': ids}).status_code == 403

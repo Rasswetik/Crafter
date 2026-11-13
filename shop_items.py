@@ -381,6 +381,22 @@ def install_shop_items(app, db, auth, record, audit):
             db().execute("INSERT INTO settings(key,payload) VALUES('shop_items_order_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps({'mode': 'manual'}),))
         return {'ok': True}
 
+    @app.post('/api/admin/new-year/shop-arrange')
+    @auth(admin=True)
+    def admin_shop_arrange():
+        wanted = (request.get_json(silent=True) or {}).get('ids')
+        if not isinstance(wanted, list) or len(wanted) > 500 or any(not isinstance(i, str) for i in wanted):
+            abort(400, description='ids: список товаров в нужном порядке')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            known = [r['id'] for r in ordered(db().execute("SELECT * FROM shop_items").fetchall())]
+            chosen = [i for i in dict.fromkeys(wanted) if i in known]
+            for number, item in enumerate(chosen + [i for i in known if i not in chosen], 1):
+                db().execute("UPDATE shop_items SET position=? WHERE id=?", (number, item))
+            db().execute("INSERT INTO settings(key,payload) VALUES('shop_items_order_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps({'mode': 'manual'}),))
+        audit('Shop items rearranged')
+        return {'ok': True}
+
     @app.post('/api/admin/new-year/shop-order')
     @auth(admin=True)
     def admin_shop_order():
