@@ -152,12 +152,93 @@ function drawHub(main,data,shared,advState){
     },1000);
 }
 const SEASON_GIFTS=['candycane','cookieheart','gingercookie','holidaydrink','jinglebells','partysparkler','santahat','sleighbell','snowglobe','snowmittens','spicedwine','winterwreath','xmasstocking'];
+
+/* The banner of the New Year market: a decorated night village, drawn in SVG (houses, a chapel, firs with garlands, the aurora, the moon,
+   smoke, lights, falling snow and a small sleigh crossing the sky). Everything is generated here, nothing is loaded. */
+function villageScene(){
+    let seed=17;
+    const rnd=()=>(seed=seed*16807%2147483647)/2147483647;
+    const f=v=>Number(v).toFixed(1);
+    const COL=['#ff5c6e','#ffd27a','#6ac7ff','#b58cff','#7ae0a8'];
+    let stars='';
+    for(let i=0;i<80;i++)stars+='<circle class="nyv-tw" cx="'+f(rnd()*1200)+'" cy="'+f(rnd()*170)+'" r="'+f(.5+rnd()*1.4)+'" style="animation-delay:-'+f(rnd()*5)+'s;animation-duration:'+f(2.4+rnd()*3.2)+'s"/>';
+    const house=(x,base,w,h,body,shade,roof,wins,chimney)=>{
+        const top=base-h,rh=h*.64,peak=top-rh,cx=x+w/2;
+        let out='<g class="nyv-house"><rect x="'+f(x)+'" y="'+f(top)+'" width="'+f(w)+'" height="'+f(h)+'" fill="'+body+'"/><rect x="'+f(x+w*.74)+'" y="'+f(top)+'" width="'+f(w*.26)+'" height="'+f(h)+'" fill="'+shade+'"/>';
+        if(chimney){
+            const cxm=x+w*.7;
+            out+='<rect x="'+f(cxm)+'" y="'+f(peak+rh*.3)+'" width="'+f(w*.12)+'" height="'+f(rh*.6)+'" fill="#7a4b3a"/><rect x="'+f(cxm-3)+'" y="'+f(peak+rh*.26)+'" width="'+f(w*.12+6)+'" height="7" rx="3" fill="#f4f8ff"/>';
+            for(let k=0;k<3;k++)out+='<circle class="nyv-smoke" cx="'+f(cxm+w*.06)+'" cy="'+f(peak+rh*.22)+'" r="'+f(w*.045)+'" style="animation-delay:-'+f(k*2.2+rnd())+'s"/>';
+        }
+        out+='<path d="M'+f(x-9)+' '+f(top+4)+'L'+f(cx)+' '+f(peak)+'L'+f(x+w+9)+' '+f(top+4)+'Z" fill="'+roof+'"/>';
+        out+='<path d="M'+f(x-10)+' '+f(top-1)+'L'+f(cx)+' '+f(peak-6)+'L'+f(x+w+10)+' '+f(top-1)+'Q'+f(x+w*.86)+' '+f(top+9)+' '+f(x+w*.7)+' '+f(top+1)+'T'+f(x+w*.42)+' '+f(top+1)+'T'+f(x+w*.14)+' '+f(top+3)+'T'+f(x-10)+' '+f(top-1)+'Z" fill="#f6faff"/>';
+        for(let k=0;k<6;k++){const px=x-4+k*(w+8)/5.2;out+='<path d="M'+f(px)+' '+f(top+3)+'l3.4 0-1.7 '+f(5+rnd()*6)+'z" fill="#d6ecff" opacity=".9"/>';}
+        wins.forEach(([fx,fy])=>{
+            const wx=x+w*fx,wy=top+h*fy,ww=w*.2,wh=h*.27;
+            out+='<circle class="nyv-win-glow" cx="'+f(wx+ww/2)+'" cy="'+f(wy+wh/2)+'" r="'+f(ww*1.25)+'" fill="url(#nyv-glow)"/><rect class="nyv-win" x="'+f(wx)+'" y="'+f(wy)+'" width="'+f(ww)+'" height="'+f(wh)+'" rx="2" fill="#ffd27a" style="animation-delay:-'+f(rnd()*5)+'s"/><path d="M'+f(wx+ww/2)+' '+f(wy)+'v'+f(wh)+'M'+f(wx)+' '+f(wy+wh/2)+'h'+f(ww)+'" stroke="#b06a1c" stroke-width="1.2"/>';
+        });
+        out+='<rect x="'+f(cx-w*.09)+'" y="'+f(base-h*.4)+'" width="'+f(w*.18)+'" height="'+f(h*.4)+'" rx="'+f(w*.09)+'" fill="#5a2d1a"/><circle cx="'+f(cx)+'" cy="'+f(base-h*.27)+'" r="'+f(w*.055)+'" fill="none" stroke="#e0425a" stroke-width="2.6"/><circle cx="'+f(cx)+'" cy="'+f(base-h*.27)+'" r="'+f(w*.055)+'" fill="none" stroke="#2f8a4a" stroke-width="1" stroke-dasharray="2 3"/>';
+        return out+'</g>';
+    };
+    const fir=(cx,base,s,deco,star)=>{
+        let out='<g transform="translate('+f(cx)+' '+f(base)+') scale('+s+')"><rect x="-4" y="6" width="8" height="12" fill="#4a2c1a"/><path d="M0 -64L15 -37H7L20 -15H9L25 8H-25L-9 -15H-20L-7 -37H-15Z" fill="#1f6a5d"/><path d="M0 -64L15 -37H7L20 -15H9L25 8H-25L-9 -15H-20L-7 -37H-15Z" fill="#2c8a74" opacity=".35" transform="translate(5 0)"/>';
+        out+='<path d="M0 -64L7 -50L0 -53L-7 -50Z M-15 -37L-9 -27L-4 -31L2 -27L8 -31L15 -37L7 -37L0 -34L-7 -37Z M-20 -15L-14 -6L-8 -10L-1 -5L6 -10L12 -6L20 -15L9 -15L0 -11L-9 -15Z" fill="#f2f8ff"/>';
+        if(deco){
+            out+='<path d="M-11 -34Q0 -26 11 -34M-17 -13Q0 -3 17 -13M-22 6Q0 16 22 6" fill="none" stroke="#ffd98a" stroke-width="1.3" opacity=".9"/>';
+            [[-8,-31],[7,-30],[0,-22],[-14,-10],[3,-8],[14,-9],[-19,8],[-6,12],[9,11],[19,6]].forEach((p,i)=>{
+                out+='<circle class="nyv-bulb" cx="'+p[0]+'" cy="'+p[1]+'" r="2.3" fill="'+COL[i%COL.length]+'" style="animation-delay:-'+f(rnd()*3)+'s"/>';
+            });
+        }
+        if(star)out+='<circle cx="0" cy="-66" r="13" fill="url(#nyv-glow)"/><path class="nyv-star" d="M0 -76l3 7 8 .8-6 5.4 1.8 7.8L0 -61l-6.8 4 1.8-7.8-6-5.4 8-.8z" fill="#ffe08a"/>';
+        return out+'</g>';
+    };
+    const lamp=x=>'<g><circle class="nyv-win-glow" cx="'+x+'" cy="262" r="26" fill="url(#nyv-glow)"/><rect x="'+(x-1.5)+'" y="266" width="3" height="40" fill="#2b2f44"/><rect x="'+(x-5)+'" y="256" width="10" height="13" rx="2.5" fill="#ffd27a" class="nyv-win" style="animation-delay:-'+f(rnd()*4)+'s"/><path d="M'+(x-7)+' 256l7-7 7 7z" fill="#2b2f44"/></g>';
+    const garland=(x1,y1,cxm,cym,x2,y2,n)=>{
+        let out='<path d="M'+x1+' '+y1+'Q'+cxm+' '+cym+' '+x2+' '+y2+'" fill="none" stroke="#3a3350" stroke-width="1.4"/>';
+        for(let i=1;i<n;i++){const t=i/n,x=(1-t)*(1-t)*x1+2*(1-t)*t*cxm+t*t*x2,y=(1-t)*(1-t)*y1+2*(1-t)*t*cym+t*t*y2;
+            out+='<circle class="nyv-bulb" cx="'+f(x)+'" cy="'+f(y+2)+'" r="2.6" fill="'+COL[i%COL.length]+'" style="animation-delay:-'+f(rnd()*3)+'s"/>';}
+        return out;
+    };
+    let flakes='';
+    for(let i=0;i<34;i++)flakes+='<circle class="nyv-flake" cx="'+f(rnd()*1200)+'" cy="-10" r="'+f(1.2+rnd()*2.4)+'" style="animation-duration:'+f(7+rnd()*8)+'s;animation-delay:-'+f(rnd()*12)+'s;--dx:'+f(-30+rnd()*60)+'px"/>';
+    const sleigh=SLEIGH_SCENE.replace('<svg class="ny-sleigh" viewBox="0 0 280 120" aria-hidden="true" focusable="false">','<svg x="0" y="0" width="170" height="73" viewBox="0 0 280 120" overflow="visible">');
+    return '<svg viewBox="0 0 1200 340" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><defs>'+
+        '<linearGradient id="nyv-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#070b2c"/><stop offset=".55" stop-color="#1c2468"/><stop offset=".85" stop-color="#5b3a86"/><stop offset="1" stop-color="#b86a8f"/></linearGradient>'+
+        '<radialGradient id="nyv-glow"><stop offset="0" stop-color="#ffd98a" stop-opacity=".85"/><stop offset="1" stop-color="#ffd98a" stop-opacity="0"/></radialGradient>'+
+        '<radialGradient id="nyv-moon"><stop offset="0" stop-color="#fff4cf" stop-opacity=".55"/><stop offset="1" stop-color="#fff4cf" stop-opacity="0"/></radialGradient>'+
+        '<linearGradient id="nyv-aur" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#5dffc0" stop-opacity="0"/><stop offset=".45" stop-color="#4fe0c8" stop-opacity=".55"/><stop offset="1" stop-color="#7a6bff" stop-opacity="0"/></linearGradient>'+
+        '<linearGradient id="nyv-shade" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#050824" stop-opacity=".82"/><stop offset=".5" stop-color="#050824" stop-opacity=".42"/><stop offset="1" stop-color="#050824" stop-opacity="0"/></linearGradient>'+
+        '<linearGradient id="nyv-snow" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f4f8ff"/><stop offset="1" stop-color="#b9c8ef"/></linearGradient>'+
+        '<filter id="nyv-blur" x="-20%" y="-50%" width="140%" height="200%"><feGaussianBlur stdDeviation="16"/></filter></defs>'+
+        '<rect width="1200" height="340" fill="url(#nyv-sky)"/>'+
+        '<g class="nyv-aurora" filter="url(#nyv-blur)"><path d="M-40 120C160 20 320 150 520 70S860 30 1240 110V190C900 120 700 190 500 140S120 100-40 190Z" fill="url(#nyv-aur)"/><path class="nyv-aur2" d="M300 90C500 10 700 110 900 50S1120 40 1240 80V150C1040 100 860 150 700 120S440 80 300 150Z" fill="url(#nyv-aur)" opacity=".7"/></g>'+
+        stars+
+        '<circle cx="985" cy="74" r="120" fill="url(#nyv-moon)"/><circle cx="985" cy="74" r="35" fill="#fff6d8"/><circle cx="974" cy="66" r="6" fill="#efe2b4" opacity=".7"/><circle cx="996" cy="86" r="4.5" fill="#efe2b4" opacity=".6"/><circle cx="992" cy="60" r="3" fill="#efe2b4" opacity=".6"/>'+
+        '<g class="nyv-fly">'+sleigh+'</g>'+
+        '<rect width="1200" height="340" fill="url(#nyv-shade)"/>'+
+        '<path d="M0 238L110 168L185 214L320 118L450 218L560 172L690 230L830 146L970 216L1090 164L1200 220V340H0Z" fill="#2a3680"/>'+
+        '<path d="M320 118L296 152L314 146L328 160L346 144L364 156L344 134Z M830 146L808 176L824 170L838 182L856 168L870 178L850 160Z M110 168L92 192L108 188L122 198L136 186Z" fill="#c9d8ff" opacity=".85"/>'+
+        '<path d="M0 266Q140 226 300 256T600 248T900 254T1200 240V340H0Z" fill="#1c2766"/>'+
+        fir(70,278,.75,false)+fir(150,284,.6,false)+fir(430,270,.7,false)+fir(520,276,.55,false)+fir(700,274,.62,false)+fir(1170,276,.72,false)+
+        house(205,298,92,64,'#e6b980','#c79a62','#b8374a',[[.18,.3],[.6,.3]],true)+
+        house(330,300,70,52,'#8fc1dd','#6fa2c2','#2f4f95',[[.2,.28],[.62,.28]],true)+
+        '<g class="nyv-house"><rect x="578" y="206" width="46" height="94" fill="#d9c7ad"/><rect x="610" y="206" width="14" height="94" fill="#b8a688"/><path d="M570 210L601 118L632 210Z" fill="#b8374a"/><path d="M570 206L601 114L632 206Q616 216 601 208T570 206Z" fill="#f6faff"/><rect x="598" y="92" width="6" height="30" fill="#d9c7ad"/><path d="M601 70v26M591 80h20" stroke="#ffe08a" stroke-width="3" stroke-linecap="round"/><circle cx="601" cy="226" r="11" fill="#ffd27a" class="nyv-win" style="animation-delay:-1.4s"/><circle cx="601" cy="226" r="26" fill="url(#nyv-glow)" class="nyv-win-glow"/><rect x="592" y="262" width="18" height="38" rx="9" fill="#5a2d1a"/></g>'+
+        house(660,300,96,68,'#d88a8a','#b46868','#2f6f5c',[[.16,.3],[.6,.3]],true)+
+        house(790,302,74,54,'#e8cf93','#c9ad6a','#7d3a8a',[[.2,.28],[.62,.28]],true)+
+        garland(222,244,265,262,330,250,7)+garland(400,252,520,272,578,250,9)+garland(624,250,640,262,688,248,5)+garland(756,246,775,262,790,258,5)+
+        lamp(180)+lamp(440)+lamp(740)+lamp(860)+
+        fir(1020,296,1.55,true,true)+
+        '<g><rect x="975" y="286" width="22" height="18" rx="2" fill="#e0425a"/><rect x="984" y="286" width="4" height="18" fill="#ffe08a"/><rect x="1036" y="290" width="26" height="14" rx="2" fill="#4a8ee8"/><rect x="1047" y="290" width="4" height="14" fill="#fff"/><rect x="1004" y="294" width="16" height="12" rx="2" fill="#8a5be0"/></g>'+
+        fir(930,302,.9,true)+fir(1100,304,.95,true)+
+        '<path d="M0 304Q200 282 430 300T840 296T1200 300V340H0Z" fill="url(#nyv-snow)"/><path d="M0 322Q260 308 520 320T1200 318V340H0Z" fill="#dfe8ff"/>'+
+        '<g transform="translate(120 300)"><circle cx="0" cy="-8" r="15" fill="#fff"/><circle cx="0" cy="-30" r="11" fill="#fff"/><circle cx="0" cy="-47" r="8" fill="#fff"/><path d="M0 -47l11 2-11 2z" fill="#ff8a3d"/><circle cx="-3" cy="-49" r="1.2" fill="#222"/><circle cx="3" cy="-49" r="1.2" fill="#222"/><path d="M-9 -38Q0 -33 9 -38" stroke="#e0425a" stroke-width="3.4" fill="none" stroke-linecap="round"/><rect x="-7" y="-60" width="14" height="9" rx="2" fill="#2b2f44"/><rect x="-10" y="-52" width="20" height="3" fill="#2b2f44"/></g>'+
+        '<path d="M250 318v-14M262 318v-14M274 318v-14M246 310h32M246 316h32" stroke="#b07a4a" stroke-width="3" opacity=".9"/>'+
+        flakes+'</svg>';
+}
 function marketHero(){
-    const pool=SEASON_GIFTS.slice().sort(()=>Math.random()-.5).slice(0,4);
-    return '<section class="nym-hero"><div class="nym-glow" aria-hidden="true"></div>'+
+    return '<section class="nym-hero"><div class="nym-scene" aria-hidden="true">'+villageScene()+'</div>'+
         '<div class="nym-copy"><span class="nym-chip">Crafter · Winter Event</span><h1>Новогодний маркет</h1>'+
-        '<p>Подарки, паки и награды за новогодние шары</p></div>'+
-        '<div class="nym-gifts" aria-hidden="true">'+pool.map((slug,i)=>'<img class="g'+(i+1)+'" src="https://fragment.com/file/gifts/'+slug+'/thumb.webp" alt="" onerror="this.remove()">').join('')+'</div></section>';
+        '<p>Подарки, паки и награды за новогодние шары</p></div></section>';
 }
 function drawMarket(main,data,shared,packState,shopState){
     const packTiles=window.crafterPacks&&packState?window.crafterPacks.tiles(packState):[];
