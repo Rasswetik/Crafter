@@ -128,7 +128,7 @@ function card(o, opts = {}) {
     const scene = cbg && !cbg.startsWith('image:') && window.crafterScenes ? '<div class="fm-cbs">' + window.crafterScenes.render(cbg) + '</div>' : '';
     const cbClass = cbg ? (cbg.startsWith('image:') ? ' cb-image' : (scene ? ' has-cbs' + (window.crafterScenes.light(cbg) ? ' is-light' : '') : ' cb-' + cbg)) : '';
     const cbStyle = cbg.startsWith('image:') ? ' style="background-image:linear-gradient(rgba(8,12,40,.18),rgba(8,12,40,.5)),url(' + e(cbg.slice(6)) + ')"' : '';
-    return '<div class="fm-card r-' + r + ' fm-s-' + size + (opts.board ? ' is-board' : '') + (opts.fresh ? ' is-fresh' : '') + '" data-fm="' + e(o.key) + '" style="--u:' + WIDTH[size] + '" tabindex="0" role="button" aria-label="' + e(it.title) + '">' +
+    return '<div class="fm-card r-' + r + (it.chest ? ' fm-chestcard' : '') + ' fm-s-' + size + (opts.board ? ' is-board' : '') + (opts.fresh ? ' is-fresh' : '') + '" data-fm="' + e(o.key) + '" style="--u:' + WIDTH[size] + '" tabindex="0" role="button" aria-label="' + e(it.title) + '">' +
         tab + (it.badge ? '<span class="fm-new">' + e(it.badge) + '</span>' : '') +
         '<div class="fm-body' + cbClass + '"' + cbStyle + '>' + scene + '<i class="fm-rays"></i><i class="fm-dots"></i><i class="fm-glint"></i>' +
         '<h3 class="fm-title">' + e(headingOf(it)) + '</h3>' +

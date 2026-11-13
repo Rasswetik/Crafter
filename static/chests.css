@@ -141,3 +141,8 @@ body.cx-open .crafter-snowfall{display:none!important}
 .cxa-loot{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.cxa-loot span{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:9px;background:#ffffff12;font-size:12px}.cxa-loot img{width:18px;height:18px;object-fit:contain}
 .cxa-rolls{display:flex;flex-wrap:wrap;gap:10px}.cxa-rolls label{display:flex;align-items:center;gap:6px;font-size:13px}.cxa-rolls input[type=number]{width:84px}
 .cxa-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0;padding:8px;border-radius:12px;background:#ffffff0a}.cxa-row input,.cxa-row select{min-width:0;max-width:190px}.cxa-w input{width:84px}.cxa-pct{min-width:54px;text-align:right}.cxa-cnt input{width:54px}
+
+/* a chest on a card stands in the middle and is big, whatever the size of the tile */
+.fm-card.fm-chestcard .fm-art,.fm-root .fm-card.fm-chestcard .fm-art{left:4%!important;right:4%!important;width:auto!important;top:12%!important;bottom:26%!important;display:flex;align-items:center;justify-content:center}
+.fm-card.fm-chestcard.fm-s-small .fm-art{bottom:30%!important}
+.fm-card.fm-chestcard .fm-art img{width:auto!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain;transform:scale(1.12);filter:drop-shadow(0 14px 16px rgba(0,0,0,.35))}
