@@ -107,7 +107,7 @@ async function showNewYear(next){
     if(next)view=next;
     const main=document.querySelector('#main');
     if(!main)return;
-    main.innerHTML='<div class="new-year-page"><div class="ny-hero"><small>CRAFTER · WINTER EVENT</small><h1>Событие</h1><p>Загружаем праздничные разделы...</p></div></div>';
+    main.innerHTML=typeof crafterLoading==='function'?crafterLoading(view==='market'?'ny-market':view==='community'?'ny-goal':'ny-hub'):'';
     try{
         const [data,shared,packState,shopState,advState,lockReply]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null),api('new-year/locks').catch(()=>null)]);
         if(state.page!=='new-year'||!main.isConnected)return;
@@ -175,7 +175,7 @@ function villageScene(){
         for(let k=0;k<6;k++){const px=x-4+k*(w+8)/5.2;out+='<path d="M'+f(px)+' '+f(top+3)+'l3.4 0-1.7 '+f(5+rnd()*6)+'z" fill="#d6ecff" opacity=".9"/>';}
         wins.forEach(([fx,fy])=>{
             const wx=x+w*fx,wy=top+h*fy,ww=w*.2,wh=h*.27;
-            out+='<circle class="nyv-win-glow" cx="'+f(wx+ww/2)+'" cy="'+f(wy+wh/2)+'" r="'+f(ww*1.25)+'" fill="url(#nyv-glow)"/><rect class="nyv-win" x="'+f(wx)+'" y="'+f(wy)+'" width="'+f(ww)+'" height="'+f(wh)+'" rx="2" fill="#ffd27a" style="animation-delay:-'+f(rnd()*5)+'s"/><path d="M'+f(wx+ww/2)+' '+f(wy)+'v'+f(wh)+'M'+f(wx)+' '+f(wy+wh/2)+'h'+f(ww)+'" stroke="#b06a1c" stroke-width="1.2"/>';
+            out+='<circle class="nyv-win-glow" cx="'+f(wx+ww/2)+'" cy="'+f(wy+wh/2)+'" r="'+f(ww*1.25)+'" fill="url(#nyv-glow)"/><rect class="nyv-win" x="'+f(wx)+'" y="'+f(wy)+'" width="'+f(ww)+'" height="'+f(wh)+'" rx="2" fill="#ffd27a" style="animation-delay:-'+f(rnd()*6)+'s;animation-duration:'+f(2.6+rnd()*5)+'s"/><path d="M'+f(wx+ww/2)+' '+f(wy)+'v'+f(wh)+'M'+f(wx)+' '+f(wy+wh/2)+'h'+f(ww)+'" stroke="#b06a1c" stroke-width="1.2"/>';
         });
         out+='<rect x="'+f(cx-w*.09)+'" y="'+f(base-h*.4)+'" width="'+f(w*.18)+'" height="'+f(h*.4)+'" rx="'+f(w*.09)+'" fill="#5a2d1a"/><circle cx="'+f(cx)+'" cy="'+f(base-h*.27)+'" r="'+f(w*.055)+'" fill="none" stroke="#e0425a" stroke-width="2.6"/><circle cx="'+f(cx)+'" cy="'+f(base-h*.27)+'" r="'+f(w*.055)+'" fill="none" stroke="#2f8a4a" stroke-width="1" stroke-dasharray="2 3"/>';
         return out+'</g>';
@@ -200,7 +200,9 @@ function villageScene(){
         return out;
     };
     let flakes='';
-    for(let i=0;i<34;i++)flakes+='<circle class="nyv-flake" cx="'+f(rnd()*1200)+'" cy="-10" r="'+f(1.2+rnd()*2.4)+'" style="animation-duration:'+f(7+rnd()*8)+'s;animation-delay:-'+f(rnd()*12)+'s;--dx:'+f(-30+rnd()*60)+'px"/>';
+    for(let i=0;i<78;i++)flakes+='<circle class="nyv-flake" cx="'+f(rnd()*1200)+'" cy="-10" r="'+f(1.3+rnd()*(i%5===0?4:2.6))+'" style="animation-duration:'+f(7+rnd()*8)+'s;animation-delay:-'+f(rnd()*12)+'s;--dx:'+f(-30+rnd()*60)+'px"/>';
+    const fw=(x,y,c,delay)=>{let l='';for(let i=0;i<14;i++)l+='<line x1="0" y1="-7" x2="0" y2="-'+(i%2?20:28)+'" stroke="'+c+'" stroke-width="2.2" stroke-linecap="round" transform="rotate('+(i*360/14)+')"/>';return '<g class="nyv-fw" transform="translate('+x+' '+y+')" style="animation-delay:'+delay+'s">'+l+'<circle r="3" fill="'+c+'"/></g>';};
+    const stall=(x,base,c1)=>{let st='';for(let i=0;i<6;i++)st+='<path d="M'+(x+i*10)+' '+(base-44)+'h10v9a5 5 0 0 1-10 0z" fill="'+(i%2?'#fff6ee':c1)+'"/>';return '<g><rect x="'+(x+3)+'" y="'+(base-36)+'" width="4" height="36" fill="#5b3a26"/><rect x="'+(x+53)+'" y="'+(base-36)+'" width="4" height="36" fill="#5b3a26"/><rect x="'+(x+6)+'" y="'+(base-28)+'" width="48" height="20" fill="#2a1912"/><rect class="nyv-win" x="'+(x+9)+'" y="'+(base-25)+'" width="42" height="13" rx="2" fill="#ffd27a" style="animation-delay:-'+f(rnd()*4)+'s"/><circle class="nyv-win-glow" cx="'+(x+30)+'" cy="'+(base-19)+'" r="34" fill="url(#nyv-glow)"/><rect x="'+(x+8)+'" y="'+(base-8)+'" width="44" height="8" fill="#7a4b3a"/><path d="M'+(x-3)+' '+(base-44)+'L'+(x+30)+' '+(base-58)+'L'+(x+63)+' '+(base-44)+'z" fill="#b8374a"/><path d="M'+(x-4)+' '+(base-45)+'L'+(x+30)+' '+(base-60)+'L'+(x+64)+' '+(base-45)+'q-16 6-34 2t-34-2z" fill="#f6faff"/>'+st+'<circle class="nyv-bulb" cx="'+(x+8)+'" cy="'+(base-30)+'" r="2.4" fill="#ff5c6e"/><circle class="nyv-bulb" cx="'+(x+52)+'" cy="'+(base-30)+'" r="2.4" fill="#6ac7ff" style="animation-delay:-1.3s"/></g>';};
     const sleigh=SLEIGH_SCENE.replace('<svg class="ny-sleigh" viewBox="0 0 280 120" aria-hidden="true" focusable="false">','<svg x="0" y="0" width="170" height="73" viewBox="0 0 280 120" overflow="visible">');
     return '<svg viewBox="0 0 1200 340" preserveAspectRatio="xMidYMax slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" focusable="false"><defs>'+
         '<linearGradient id="nyv-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#070b2c"/><stop offset=".55" stop-color="#1c2468"/><stop offset=".85" stop-color="#5b3a86"/><stop offset="1" stop-color="#b86a8f"/></linearGradient>'+
@@ -214,7 +216,7 @@ function villageScene(){
         '<g class="nyv-aurora" filter="url(#nyv-blur)"><path d="M-40 120C160 20 320 150 520 70S860 30 1240 110V190C900 120 700 190 500 140S120 100-40 190Z" fill="url(#nyv-aur)"/><path class="nyv-aur2" d="M300 90C500 10 700 110 900 50S1120 40 1240 80V150C1040 100 860 150 700 120S440 80 300 150Z" fill="url(#nyv-aur)" opacity=".7"/></g>'+
         stars+
         '<circle cx="985" cy="74" r="120" fill="url(#nyv-moon)"/><circle cx="985" cy="74" r="35" fill="#fff6d8"/><circle cx="974" cy="66" r="6" fill="#efe2b4" opacity=".7"/><circle cx="996" cy="86" r="4.5" fill="#efe2b4" opacity=".6"/><circle cx="992" cy="60" r="3" fill="#efe2b4" opacity=".6"/>'+
-        '<g class="nyv-fly">'+sleigh+'</g>'+
+        '<g class="nyv-fly">'+sleigh+'</g>'+fw(760,70,'#ffd36b',0)+fw(1090,118,'#7cc8ff',2.8)+fw(880,42,'#ff7a9a',5.2)+
         '<rect width="1200" height="340" fill="url(#nyv-shade)"/>'+
         '<path d="M0 238L110 168L185 214L320 118L450 218L560 172L690 230L830 146L970 216L1090 164L1200 220V340H0Z" fill="#2a3680"/>'+
         '<path d="M320 118L296 152L314 146L328 160L346 144L364 156L344 134Z M830 146L808 176L824 170L838 182L856 168L870 178L850 160Z M110 168L92 192L108 188L122 198L136 186Z" fill="#c9d8ff" opacity=".85"/>'+
@@ -225,6 +227,7 @@ function villageScene(){
         '<g class="nyv-house"><rect x="578" y="206" width="46" height="94" fill="#d9c7ad"/><rect x="610" y="206" width="14" height="94" fill="#b8a688"/><path d="M570 210L601 118L632 210Z" fill="#b8374a"/><path d="M570 206L601 114L632 206Q616 216 601 208T570 206Z" fill="#f6faff"/><rect x="598" y="92" width="6" height="30" fill="#d9c7ad"/><path d="M601 70v26M591 80h20" stroke="#ffe08a" stroke-width="3" stroke-linecap="round"/><circle cx="601" cy="226" r="11" fill="#ffd27a" class="nyv-win" style="animation-delay:-1.4s"/><circle cx="601" cy="226" r="26" fill="url(#nyv-glow)" class="nyv-win-glow"/><rect x="592" y="262" width="18" height="38" rx="9" fill="#5a2d1a"/></g>'+
         house(660,300,96,68,'#d88a8a','#b46868','#2f6f5c',[[.16,.3],[.6,.3]],true)+
         house(790,302,74,54,'#e8cf93','#c9ad6a','#7d3a8a',[[.2,.28],[.62,.28]],true)+
+        stall(420,300,'#2f7be0')+stall(494,302,'#8a5be0')+stall(870,302,'#e0425a')+
         garland(222,244,265,262,330,250,7)+garland(400,252,520,272,578,250,9)+garland(624,250,640,262,688,248,5)+garland(756,246,775,262,790,258,5)+
         lamp(180)+lamp(440)+lamp(740)+lamp(860)+
         fir(1020,296,1.55,true,true)+
@@ -237,8 +240,7 @@ function villageScene(){
 }
 function marketHero(){
     return '<section class="nym-hero"><div class="nym-scene" aria-hidden="true">'+villageScene()+'</div>'+
-        '<div class="nym-copy"><span class="nym-chip">Crafter · Winter Event</span><h1>Новогодний маркет</h1>'+
-        '<p>Подарки, паки и награды за новогодние шары</p></div></section>';
+        '<div class="nym-copy"><h1>Новогодний маркет</h1></div></section>';
 }
 function drawMarket(main,data,shared,packState,shopState){
     const packTiles=window.crafterPacks&&packState?window.crafterPacks.tiles(packState):[];

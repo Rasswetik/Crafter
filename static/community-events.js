@@ -110,79 +110,123 @@ const seenKey = () => 'crafter-cm-seen-' + uid();
 function seen() { try { return JSON.parse(localStorage.getItem(seenKey()) || '[]'); } catch (_) { return []; } }
 function remember(id) { try { const s = seen(); if (!s.includes(id)) { s.push(id); localStorage.setItem(seenKey(), JSON.stringify(s)); } } catch (_) {} }
 const unseen = data => data?.event?.enabled ? data.milestones.find(m => m.reached && !seen().includes(m.id)) : null;
-function bar(ev, value, H) {
-    return '<div class="cm-tube" style="height:' + H + 'px"><div class="cm-glass"></div>' +
-        '<div class="cm-fill" style="height:' + pct(value, ev.target).toFixed(2) + '%">' +
-        Array.from({length: 8}, (_, i) => '<u style="--x:' + ((i * 37 + 11) % 80 + 8) + '%;--d:' + (-(i * 1.3) % 6) + 's;--s:' + (3 + i % 4) + 'px"></u>').join('') +
-        '</div><i class="cm-cap"></i></div>';
+const CG_COLORS = ['#ffd36b', '#7cc8ff', '#ff7a9a', '#9be37f', '#c39bff', '#ffffff'];
+const CG_REDUCED = () => matchMedia('(prefers-reduced-motion: reduce)').matches || document.documentElement.dataset.crafterAnimations === 'off';
+function burst(host, strong) {
+    const n = strong ? 24 : 10;
+    for (let i = 0; i < n; i++) {
+        const s = document.createElement('i');
+        s.className = 'cg-spark';
+        const a = (i / n) * 360 + Math.random() * 14, d = (strong ? 58 : 34) + Math.random() * (strong ? 52 : 22);
+        s.style.cssText = '--a:' + a.toFixed(0) + 'deg;--d:' + d.toFixed(0) + 'px;--c:' + CG_COLORS[i % CG_COLORS.length] + ';--s:' + (3 + Math.random() * 4).toFixed(1) + 'px;--t:' + (0.75 + Math.random() * 0.55).toFixed(2) + 's';
+        host.appendChild(s);
+        setTimeout(() => s.remove(), 1700);
+    }
+    const ring = document.createElement('i');
+    ring.className = 'cg-ring';
+    host.appendChild(ring);
+    setTimeout(() => ring.remove(), 1200);
 }
 function page(main, data, nav, opts = {}) {
-    const ev = data.event, ms = data.milestones, fresh = opts.plain ? null : unseen(data);
-    const wide = window.innerWidth >= 900;
-    const H = wide ? Math.max(ms.length * 46 + 60, Math.min(380, window.innerHeight - 360)) : Math.max(380, ms.length * 52 + 60);
-    const from = fresh ? Math.max(0, ...ms.filter(m => m.reached && m.id !== fresh.id && seen().includes(m.id)).map(m => m.threshold)) : data.progress;
-    // Rewards alternate: the first on the right, the next on the left, and so on. Each side keeps its own spacing.
-    const pos = ms.map((m, i) => ({m, side: i % 2 === 0 ? 'r' : 'l', ty: H * (1 - Math.min(1, m.threshold / ev.target))}));
-    for (const side of ['l', 'r']) {
-        const col = pos.filter(x => x.side === side).sort((x, y) => x.ty - y.ty);
-        let last = -999;
-        col.forEach(x => { x.cy = Math.max(x.ty, last + 66, 30); last = x.cy; });
-        for (let i = col.length - 1, lim = H - 30; i >= 0; i--) { col[i].cy = Math.min(col[i].cy, lim); lim = col[i].cy - 66; }
-    }
-    const p = pct(data.progress, ev.target);
-    const next = ms.filter(m => !m.reached).sort((x, y) => x.threshold - y.threshold)[0];
-    const on = x => x.m.reached && !(fresh && x.m.id === fresh.id) ? 'is-on' : '';
-    const SW = 296, TX = 92, TW = 112;
-    const conn = pos.map(x => {
-        const x0 = x.side === 'r' ? TX + TW : TX, x1 = x.side === 'r' ? SW - 62 : 62, mid = (x0 + x1) / 2;
-        return '<path class="' + on(x) + '" d="M' + x0 + ' ' + x.ty.toFixed(1) + 'C' + mid + ' ' + x.ty.toFixed(1) + ' ' + mid + ' ' + x.cy.toFixed(1) + ' ' + x1 + ' ' + x.cy.toFixed(1) + '"/>';
-    }).join('');
-    main.innerHTML = '<div class="new-year-page cm-page">' +
-        '<button type="button" class="nyh-back" data-cm-back>‹ События</button>' +
-        '<section class="cm-panel"><div class="cm-snow" aria-hidden="true">' + Array.from({length: 14}, (_, i) =>
+    const ev = data.event, ms = data.milestones.slice().sort((a, b) => a.threshold - b.threshold);
+    const total = Math.max(1, ev.target), frac = Math.min(1, Math.max(0, data.progress / total)), p = pct(data.progress, ev.target);
+    const seenIds = seen(), still = opts.plain || CG_REDUCED();
+    const fresh = opts.plain ? [] : ms.filter(m => m.reached && !m.code && !seenIds.includes(m.id));
+    const stateOf = m => m.code ? 'claimed' : m.reached ? (m.left ? 'ready' : 'gone') : 'locked';
+    const next = ms.find(m => !m.reached);
+    const noun = NOUN[ev.metric] || '';
+    const status = m => ({claimed: 'Получено', ready: 'Забрать', gone: 'Разобрано', locked: 'ещё ' + num(Math.max(0, m.threshold - data.progress))})[stateOf(m)];
+    const readyCount = ms.filter(m => stateOf(m) === 'ready').length;
+    main.innerHTML = '<div class="new-year-page cg-page"><button type="button" class="nyh-back" data-cm-back>‹ События</button>' +
+        '<section class="cg-panel"><div class="cg-snow" aria-hidden="true">' + Array.from({length: 18}, (_, i) =>
             '<i style="--x:' + ((i * 53 + 9) % 100) + '%;--s:' + (2 + i % 3) + 'px;--t:' + (7 + i % 6) + 's;--d:' + (-(i * 2) % 9) + 's"></i>').join('') + '</div>' +
-        '<div class="cm-side"><div class="cm-head"><small>События сообщества</small>' +
-        '<h1>Набираем <b>' + num(ev.target) + '</b> ' + (NOUN[ev.metric] || '') + '</h1>' +
+        '<div class="cg-head"><small>События сообщества</small><h1>Набираем <b>' + num(ev.target) + '</b> ' + noun + '</h1>' +
         (ev.description ? '<p>' + e(ev.description) + '</p>' : '') +
-        '<div class="cm-now"><b>' + num(data.progress) + '</b> из ' + num(ev.target) + ' · ' + p.toFixed(p < 10 ? 1 : 0) + '%</div>' +
-        (next ? '<div class="cm-next">До следующей награды: <b>' + num(Math.max(0, next.threshold - data.progress)) + '</b></div>' : '<div class="cm-next is-done">Все награды открыты</div>') + '</div>' +
-        '<div class="cm-legend">' + ms.map(m => '<button type="button" class="cm-lg' + (m.reached ? ' is-on' : '') + '" data-cm-prize="' + e(m.id) + '"><span class="cm-pic"><img src="' + e(img(m)) + '" alt=""></span>' +
-            '<span class="cm-info"><b>' + e(m.title) + '</b><small>' + num(m.threshold) + ' ' + (NOUN[ev.metric] || '') + ' · ' + e(priceText(m)) + '</small></span>' +
-            '<em>' + (m.code ? 'Получено' : m.reached ? (m.left ? 'Доступно' : 'Разобрано') : LOCK) + '</em></button>').join('') + '</div></div>' +
-        '<div class="cm-stage cm-stage2" style="height:' + (H + 104) + 'px"><div class="cm-glowring" aria-hidden="true"></div>' +
-        '<svg class="cm-topper" viewBox="-30 -30 60 60" aria-hidden="true"><path d="M0-26 7-9 26-7 12 6 16 25 0 16-16 25-12 6-26-7-7-9Z" fill="#ffe9a8" stroke="#fff6cf" stroke-width="2" stroke-linejoin="round"/></svg>' +
-        '<div class="cm-inner" style="height:' + H + 'px">' + bar(ev, fresh ? from : data.progress, H) +
-        '<div class="cm-tickmarks">' + pos.map(x => '<i class="' + on(x) + '" style="top:' + x.ty.toFixed(1) + 'px"></i>').join('') + '</div>' +
-        pos.map(x => '<span class="cm-chip ' + on(x) + '" style="top:' + x.ty.toFixed(1) + 'px">' + num(x.m.threshold) + '</span>').join('') +
-        '<svg class="cm-conn2" width="' + SW + '" height="' + H + '" viewBox="0 0 ' + SW + ' ' + H + '" aria-hidden="true">' + conn + '</svg>' +
-        pos.map(x => prize(x.m, x.cy, x.side)).join('') + '</div></div>' +
-        '<div class="cm-done" hidden></div></section></div>';
+        '<div class="cg-stats"><div class="cg-now"><b data-cg-count>' + (still ? num(data.progress) : '0') + '</b><span>из ' + num(ev.target) + ' · ' + p.toFixed(p < 10 ? 1 : 0) + '%</span></div>' +
+        (next ? '<div class="cg-next">До следующей награды: <b>' + num(Math.max(0, next.threshold - data.progress)) + '</b></div>' : '<div class="cg-next is-done">Все награды открыты</div>') + '</div></div>' +
+        '<div class="cg-board"><div class="cg-scroll"><div class="cg-inner" id="cg-inner"><svg class="cg-conn" id="cg-conn" aria-hidden="true"></svg>' +
+        ms.map(m => '<button type="button" class="cg-prize is-locked" data-cg="' + e(m.id) + '" aria-label="' + e(m.title) + '"><span class="cg-pic"><img src="' + e(img(m)) + '" alt="" loading="lazy"></span>' +
+            '<i class="cg-badge">' + LOCK + '</i><span class="cg-lab"></span></button>').join('') +
+        '<div class="cg-track"><div class="cg-fill" style="width:' + (still ? (frac * 100).toFixed(2) : 0) + '%"><i class="cg-shine"></i><b class="cg-knob"></b></div>' +
+        ms.map(m => '<i class="cg-tick" data-cgt="' + e(m.id) + '"></i>').join('') + '</div>' +
+        '<div class="cg-marks">' + ms.map(m => '<span data-cgm="' + e(m.id) + '">' + num(m.threshold) + '</span>').join('') + '</div>' +
+        '<svg class="cg-end' + (frac >= 1 ? ' is-on' : '') + '" viewBox="-30 -30 60 60" aria-hidden="true"><path d="M0-26 7-9 26-7 12 6 16 25 0 16-16 25-12 6-26-7-7-9Z" fill="#ffe9a8" stroke="#fff6cf" stroke-width="2" stroke-linejoin="round"/></svg>' +
+        '</div></div></div>' +
+        '<div class="cg-cta" data-cg-cta' + (readyCount ? '' : ' hidden') + '><span><b>' + (fresh.length ? 'Награда открыта!' : 'Есть награды для вас') + '</b> Заберите их в маркете</span><button type="button" class="ny-action" data-cg-market>В маркет</button></div>' +
+        '<div class="cg-legend">' + ms.map(m => '<button type="button" class="cg-card is-' + stateOf(m) + '" data-cgl="' + e(m.id) + '"><span class="cg-pic"><img src="' + e(img(m)) + '" alt="" loading="lazy"></span>' +
+            '<span class="cg-info"><b>' + e(m.title) + '</b><small>' + num(m.threshold) + ' ' + noun + ' · ' + e(priceText(m)) + '</small></span><em>' + status(m) + '</em></button>').join('') + '</div></section></div>';
     main.querySelector('[data-cm-back]').addEventListener('click', nav.back);
-    main.querySelectorAll('[data-cm-prize]').forEach(b => b.addEventListener('click', () =>
-        claimSheet(ms.find(m => m.id === b.dataset.cmPrize), () => window.crafterNewYearShow?.('community'))));
-    if (fresh) celebrate(main, data, fresh, nav);
-}
-function prize(m, cy, side) {
-    const state = m.code ? 'is-claimed' : m.reached ? 'is-reached' : 'is-locked';
-    return '<button type="button" class="cm-prize ' + state + '" data-cm-prize="' + e(m.id) + '" style="top:' + (cy - 31).toFixed(1) + 'px;left:' + (side === 'r' ? 234 : 0) + 'px" aria-label="' + e(m.title) + '">' +
-        '<img src="' + e(img(m)) + '" alt="" loading="lazy">' +
-        (m.code ? '<i class="cm-badge ok">✓</i>' : m.reached ? '' : '<i class="cm-badge">' + LOCK + '</i>') + '</button>';
-}
-function celebrate(main, data, fresh, nav) {
-    remember(fresh.id);
-    const ev = data.event, fill = main.querySelector('.cm-fill'), stage = main.querySelector('.cm-stage'), done = main.querySelector('.cm-done');
-    setTimeout(() => { fill.style.transition = 'height 2.4s cubic-bezier(.3,.7,.2,1)'; fill.style.height = pct(fresh.threshold, ev.target) + '%'; }, 500);
-    setTimeout(() => stage.classList.add('is-hit'), 2900);
-    setTimeout(() => stage.classList.add('is-gone'), 3500);
-    setTimeout(() => {
-        done.innerHTML = '<h2>Цель события достигнута</h2><div class="cm-done-pic"><img src="' + e(img(fresh)) + '" alt=""></div>' +
-            '<p>Заберите подарок в магазине</p><button type="button" class="ny-action">В магазин</button>' +
-            '<button type="button" class="cm-link">Показать шкалу</button>';
-        done.hidden = false;
-        requestAnimationFrame(() => done.classList.add('is-on'));
-        done.querySelector('.ny-action').addEventListener('click', () => { window.crafterCmFocusShop = true; nav.market(); });
-        done.querySelector('.cm-link').addEventListener('click', () => page(main, data, nav, {plain: true}));
-    }, 4300);
+    const inner = main.querySelector('#cg-inner'), conn = main.querySelector('#cg-conn'), fill = main.querySelector('.cg-fill'), count = main.querySelector('[data-cg-count]');
+    const els = new Map(ms.map(m => [m.id, main.querySelector('[data-cg="' + m.id + '"]')]));
+    const ROW = 96, PIC = 64;
+    const layout = () => {
+        if (!inner.isConnected) { window.removeEventListener('resize', layout); return; }
+        const rows = ms.length > 1 ? 2 : 1, A = rows * ROW + 8, need = Math.ceil(ms.length / rows) * 72 + 56;
+        inner.style.minWidth = need + 'px';
+        const W = inner.clientWidth, TRACK = A + 26;
+        inner.style.height = (TRACK + 74) + 'px';
+        const lanes = [[], []];
+        ms.forEach((m, i) => lanes[i % rows].push({m, x: Math.min(W - 40, Math.max(40, m.threshold / total * W)), tick: Math.min(W, m.threshold / total * W), row: i % rows}));
+        lanes.forEach(lane => {
+            for (let i = 1; i < lane.length; i++) lane[i].x = Math.max(lane[i].x, lane[i - 1].x + 68);
+            for (let i = lane.length - 2; i >= 0; i--) lane[i].x = Math.min(lane[i].x, lane[i + 1].x - 68);
+        });
+        let paths = '';
+        lanes.flat().forEach(({m, x, tick, row}) => {
+            const top = A - (row + 1) * ROW + 10, el = els.get(m.id);
+            el.style.left = x + 'px'; el.style.top = top + 'px';
+            const y0 = top + PIC + 4, y1 = TRACK, mid = y0 + (y1 - y0) * .55;
+            paths += '<path data-cgp="' + e(m.id) + '" class="' + (el.classList.contains('is-locked') ? '' : 'is-on') + '" d="M' + x.toFixed(1) + ' ' + y0 + 'C' + x.toFixed(1) + ' ' + mid + ' ' + tick.toFixed(1) + ' ' + mid + ' ' + tick.toFixed(1) + ' ' + y1 + '"/>';
+            const t = main.querySelector('[data-cgt="' + m.id + '"]'), lab = main.querySelector('[data-cgm="' + m.id + '"]');
+            t.style.left = tick + 'px'; lab.style.left = tick + 'px';
+        });
+        conn.setAttribute('width', W); conn.setAttribute('height', TRACK + 4); conn.setAttribute('viewBox', '0 0 ' + W + ' ' + (TRACK + 4)); conn.innerHTML = paths;
+        main.querySelector('.cg-track').style.top = TRACK + 'px';
+        main.querySelector('.cg-marks').style.top = (TRACK + 36) + 'px';
+        main.querySelector('.cg-end').style.top = (TRACK - 15) + 'px';
+    };
+    const apply = m => {
+        const el = els.get(m.id), st = stateOf(m);
+        el.classList.remove('is-locked', 'is-ready', 'is-claimed', 'is-gone'); el.classList.add('is-' + st);
+        el.querySelector('.cg-badge').innerHTML = st === 'claimed' ? '✓' : st === 'locked' ? LOCK : '';
+        el.querySelector('.cg-lab').textContent = st === 'ready' ? 'Забрать' : st === 'gone' ? 'Разобрано' : '';
+        main.querySelector('[data-cgp="' + m.id + '"]')?.classList.toggle('is-on', st !== 'locked');
+        main.querySelector('[data-cgt="' + m.id + '"]')?.classList.toggle('is-on', st !== 'locked');
+        main.querySelector('[data-cgm="' + m.id + '"]')?.classList.toggle('is-on', st !== 'locked');
+    };
+    layout();
+    window.addEventListener('resize', layout);
+    const wake = m => {
+        apply(m);
+        const el = els.get(m.id), isFresh = fresh.includes(m);
+        el.classList.add('is-waking');
+        setTimeout(() => el.classList.remove('is-waking'), 1300);
+        burst(el, isFresh);
+        if (isFresh) remember(m.id);
+    };
+    if (still) ms.forEach(m => { if (m.reached) apply(m); });
+    else {
+        const t0 = performance.now(), dur = 900 + 1900 * frac, done = new Set();
+        const frame = now => {
+            if (!main.isConnected) return;
+            const k = Math.min(1, (now - t0) / dur), eased = 1 - Math.pow(1 - k, 3), f = frac * eased;
+            fill.style.width = (f * 100).toFixed(2) + '%';
+            count.textContent = num(Math.round(data.progress * eased));
+            ms.forEach(m => { if (m.reached && !done.has(m.id) && f >= m.threshold / total - 1e-6) { done.add(m.id); wake(m); } });
+            if (k < 1) requestAnimationFrame(frame);
+            else { if (frac >= 1) main.querySelector('.cg-end')?.classList.add('is-on'); ms.forEach(m => { if (m.reached && !done.has(m.id)) wake(m); }); }
+        };
+        setTimeout(() => requestAnimationFrame(frame), 250);
+    }
+    const open = id => {
+        const m = ms.find(x => x.id === id);
+        if (!m) return;
+        if (stateOf(m) === 'ready') { window.crafterCmFocusShop = true; nav.market(); return; }
+        claimSheet(m, () => window.crafterNewYearShow?.('community'));
+    };
+    main.querySelectorAll('[data-cg]').forEach(b => b.addEventListener('click', () => open(b.dataset.cg)));
+    main.querySelectorAll('[data-cgl]').forEach(b => b.addEventListener('click', () => open(b.dataset.cgl)));
+    main.querySelector('[data-cg-market]')?.addEventListener('click', () => { window.crafterCmFocusShop = true; nav.market(); });
 }
 
 /* ---------- shop tiles (shown inside the market grid) ---------- */

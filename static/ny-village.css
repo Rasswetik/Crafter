@@ -37,3 +37,20 @@
   .nym-scene svg{position:absolute;right:-10px;top:0;width:auto;height:100%;aspect-ratio:1200/340}
   .nym-copy{max-width:66%}
 }
+
+/* the banner shows only the title; the village is livelier */
+.nym-hero{min-height:270px}
+.nym-copy{max-width:60%}
+.nym-hero h1{font-size:clamp(30px,4.6vw,56px);line-height:1.04;letter-spacing:-1px;text-shadow:0 3px 24px rgba(0,0,20,.85),0 0 2px rgba(0,0,20,.6)}
+.nyv-win{animation:nyv-flicker 4s ease-in-out infinite}
+.nyv-win-glow{animation:nyv-flicker 4s ease-in-out infinite}
+@keyframes nyv-flicker{0%,100%{opacity:1}22%{opacity:.3}30%{opacity:1}64%{opacity:.55}72%{opacity:1}}
+.nyv-fw{opacity:0;transform-box:fill-box;transform-origin:center;animation:nyv-fw 7s ease-out infinite}
+@keyframes nyv-fw{0%{opacity:0;transform:scale(.2)}8%{opacity:1}30%{opacity:.9;transform:scale(1)}45%{opacity:0;transform:scale(1.25)}100%{opacity:0;transform:scale(1.25)}}
+.nyv-flake{opacity:.9}
+@media(max-width:560px){.nym-hero{min-height:250px}.nym-copy{max-width:70%}}
+@media(prefers-reduced-motion:reduce){.nyv-fw{animation:none!important;opacity:0}}
+
+/* the title fits one line on big screens */
+.nym-hero h1{font-size:clamp(28px,3.7vw,48px)}
+@media(max-width:560px){.nym-hero h1{font-size:clamp(28px,9vw,36px)}}

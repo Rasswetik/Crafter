@@ -134,6 +134,10 @@ function nav(){document.querySelector('#nav').innerHTML=[['market','market','М�
 function crafterLoading(page = '') {
     const block = (kind) => '<i class="skeleton-block skeleton-' + kind + '"></i>';
     const grid = page === 'market' || page === 'gifts';
+    const cols = window.innerWidth >= 1100 ? 5 : window.innerWidth >= 700 ? 3 : 2;
+    if (page === 'ny-market') return `<div class="crafter-skeleton sk-event" role="status" aria-label="Загрузка">${block('hero')}<div class="skeleton-grid sk-tiles" style="--c:${cols}">${block('tile').repeat(cols * 2)}</div></div>`;
+    if (page === 'ny-goal') return `<div class="crafter-skeleton sk-event" role="status" aria-label="Загрузка"><div class="sk-goal">${block('line')}${block('title')}${block('bar')}<div class="sk-rewards">${block('pic').repeat(4)}</div></div></div>`;
+    if (page === 'ny-hub') return `<div class="crafter-skeleton sk-event" role="status" aria-label="Загрузка">${block('banner').repeat(3)}</div>`;
     return `<div class="crafter-skeleton" role="status" aria-label="Загрузка">
         ${block(grid ? 'search' : 'title')}
         ${grid ? '<div class="skeleton-filters">' + block('chip').repeat(3) + '</div>' : ''}
