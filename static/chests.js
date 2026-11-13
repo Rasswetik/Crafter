@@ -148,7 +148,7 @@ function viewer(host, chest, opts = {}) {
         const fit = () => {
             const w = Math.max(60, host.clientWidth), h = Math.max(60, host.clientHeight);
             renderer.setSize(w, h, false); cam.aspect = w / h;
-            const r = 1.75, fov = cam.fov * Math.PI / 180, dist = Math.max(r / Math.sin(fov / 2) / Math.min(1, cam.aspect * 1.05), r / Math.sin(fov / 2) * .78);
+            const r = opts.drag ? 1.22 : 1.75, fov = cam.fov * Math.PI / 180, dist = Math.max(r / Math.sin(fov / 2) / Math.min(1, cam.aspect * 1.05), r / Math.sin(fov / 2) * .78);
             cam.position.set(0, dist * .17, dist * .98); cam.lookAt(0, -.05, 0); cam.updateProjectionMatrix();
         };
         fit(); ro = new ResizeObserver(fit); ro.observe(host);

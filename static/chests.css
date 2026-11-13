@@ -146,3 +146,6 @@ body.cx-open .crafter-snowfall{display:none!important}
 .fm-card.fm-chestcard .fm-art,.fm-root .fm-card.fm-chestcard .fm-art{left:4%!important;right:4%!important;width:auto!important;top:12%!important;bottom:26%!important;display:flex;align-items:center;justify-content:center}
 .fm-card.fm-chestcard.fm-s-small .fm-art{bottom:30%!important}
 .fm-card.fm-chestcard .fm-art img{width:auto!important;height:100%!important;max-width:100%!important;max-height:100%!important;object-fit:contain;transform:scale(1.12);filter:drop-shadow(0 14px 16px rgba(0,0,0,.35))}
+/* the lot window: the chest is big, a small soft shadow sits right under it instead of the wide floor ellipse */
+.fm-hero:has(.fm-heroart.is-chest) .fm-floor{display:none}
+.fm-heroart.is-chest .cx-host::after{content:"";position:absolute;left:50%;bottom:9%;width:46%;height:5%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.38),transparent 70%);z-index:-1}
