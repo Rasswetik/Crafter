@@ -47,3 +47,25 @@ def test_freebies_open_in_time_and_leave_a_receipt(client):
     assert client.get('/api/freebies', headers=player).json['events'] == []
     assert client.post('/api/admin/new-year/freebies/event', headers=player, json={'title': 'x'}).status_code == 403
     assert client.post('/api/admin/new-year/freebies/event/%s/delete' % ev, headers=admin).status_code == 200
+
+
+def test_freebies_event_has_its_own_period(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+
+    def made(**kw):
+        ev = client.post('/api/admin/new-year/freebies/event', headers=admin, json={'title': 'Подарки', 'enabled': True, **kw})
+        assert ev.status_code == 200, ev.get_data(as_text=True)
+        client.post('/api/admin/new-year/freebies/gift', headers=admin, json={'event_id': ev.json['id'], 'label': 'День 1', 'unlock_at_msk': _msk(-3600), 'kind': 'BALL', 'amount': '10'})
+        return ev.json['id']
+    ended = made(ends_at_msk=_msk(-60))                                  # the box opened long ago, the event is over
+    assert client.get('/api/freebies', headers=player).json['events'] == []
+    gid = client.get('/api/admin/new-year/freebies', headers=admin).json['events'][0]['gifts'][0]['id']
+    assert client.post('/api/freebies/claim', headers=player, json={'gift_id': gid}).status_code == 409
+    client.post('/api/admin/new-year/freebies/event/%s/delete' % ended, headers=admin)
+    made(starts_at_msk=_msk(3600), ends_at_msk=_msk(7200))               # not started yet
+    assert client.get('/api/freebies', headers=player).json['events'] == []
+    running = made(starts_at_msk=_msk(-3600), ends_at_msk=_msk(7200))   # running: opened boxes can be taken until the end
+    shown = client.get('/api/freebies', headers=player).json['events']
+    assert [x['id'] for x in shown] == [running] and shown[0]['ends_at']
+    assert client.post('/api/admin/new-year/freebies/event', headers=admin, json={'title': 'x', 'starts_at_msk': _msk(100), 'ends_at_msk': _msk(50)}).status_code == 400

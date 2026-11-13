@@ -188,6 +188,34 @@ SCENES.bubbles = id => defs(id, lin(id, [[0, '#8aeeff'], [1, '#1b7ac4']])) + rec
 })();
 SCENES.storm = id => defs(id, lin(id, [[0, '#33405e'], [1, '#0b101e']]) + blur(id + 'b', 18)) + rect('url(#' + id + ')') + '<g filter="url(#' + id + 'b)" fill="#8fa0c8" opacity=".35"><ellipse cx="200" cy="140" rx="230" ry="70"/><ellipse cx="560" cy="110" rx="270" ry="80"/><ellipse cx="420" cy="230" rx="300" ry="60"/></g><path class="sc-tw" style="--t:6s" d="M430 230 L380 360 H430 L395 480 L500 320 H445 L480 230Z" fill="#fff6cf" opacity=".9"/><g stroke="#cfe0ff" stroke-width="1.2" opacity=".3">' + Array.from({length: 24}, (_, i) => '<line x1="' + (i * 36) + '" y1="' + (300 + (i * 37) % 120) + '" x2="' + (i * 36 - 18) + '" y2="' + (340 + (i * 37) % 120) + '"/>').join('') + '</g>';
 SCENES.hex = id => defs(id, lin(id, [[0, '#1b4fd0'], [1, '#08164a']]) + pattern(id + 'p', 60, 52, '<path d="M30 0 L60 15 V37 L30 52 L0 37 V15Z" fill="none" stroke="#9ed0ff" stroke-width="1.2" opacity=".35"/>') + rad(id + 'g', [[0, '#7cc8ff', .5], [1, '#7cc8ff', 0]], .5, .3, .6)) + rect('url(#' + id + ')') + rect('url(#' + id + 'p)') + rect('url(#' + id + 'g)');
+
+SCENES.nikolay = id => defs(id, lin(id, [[0, '#8fc6f2'], [.6, '#cfe8fb'], [1, '#f2f8ff']]) + rad(id + 'g', [[0, '#fff', .8], [1, '#fff', 0]], .7, .15, .5)) + rect('url(#' + id + ')') + '<circle cx="560" cy="120" r="160" fill="url(#' + id + 'g)"/>' +
+    hills('#b9d6ee', 430, 40, 3, .8) + pineRow('#2f6a55', 470, 150, 4, '#fff', 60) +
+    '<g><rect x="520" y="372" width="170" height="104" fill="#6b4a32"/><path d="M505 380 L605 306 L705 380Z" fill="#fff"/><path d="M515 380 L605 316 L695 380 L690 384 L605 326 L520 384Z" fill="#8a6a4a"/><g class="sc-breath"><rect x="545" y="404" width="34" height="34" fill="#ffc861"/><rect x="630" y="404" width="34" height="34" fill="#ffc861"/><circle cx="562" cy="421" r="40" fill="#ffc861" opacity=".22"/><circle cx="647" cy="421" r="40" fill="#ffc861" opacity=".22"/></g><rect x="595" y="428" width="26" height="48" fill="#4a2f1c"/></g>' +
+    pineRow('#1d5240', 560, 230, 8, '#fff', 100) + hills('#ffffff', 580, 22, 5) + snow(22, 6, {slow: 20}) + '<rect x="0" y="0" width="800" height="600" fill="none" stroke="#c98a3a" stroke-width="10" opacity=".55"/>';
+SCENES.goshan = id => defs(id, lin(id, [[0, '#081a4a'], [1, '#1f4aa0']])) + rect('url(#' + id + ')') + (() => {
+    const r = rnd(41); const px = 16; let s = '<g shape-rendering="crispEdges">';
+    for (let i = 0; i < 40; i++) s += '<rect class="sc-tw" x="' + Math.round(r() * 49) * px + '" y="' + Math.round(r() * 20) * px + '" width="4" height="4" fill="#fff" style="--d:-' + f(r() * 5) + 's;--t:4s"/>';
+    s += '<rect x="640" y="64" width="64" height="64" fill="#fff2b0"/><rect x="624" y="80" width="16" height="32" fill="#fff2b0"/><rect x="704" y="80" width="16" height="32" fill="#fff2b0"/>';
+    const steps = [[0, 400], [96, 368], [192, 336], [288, 368], [384, 320], [480, 352], [576, 384], [672, 352], [768, 400]];
+    for (let i = 0; i < steps.length - 1; i++) s += '<rect x="' + steps[i][0] + '" y="' + steps[i][1] + '" width="' + (steps[i + 1][0] - steps[i][0]) + '" height="' + (600 - steps[i][1]) + '" fill="#2b4f9a"/>';
+    for (let i = 0; i < steps.length - 1; i++) s += '<rect x="' + steps[i][0] + '" y="' + steps[i][1] + '" width="' + (steps[i + 1][0] - steps[i][0]) + '" height="16" fill="#e8f1ff"/>';
+    s += '<rect y="464" width="800" height="136" fill="#1f6a3a"/><rect y="464" width="800" height="16" fill="#f4f8ff"/>';
+    const tree = (x, y, h) => { let t = '<rect x="' + (x + 24) + '" y="' + (y + h - 16) + '" width="16" height="16" fill="#5a3a22"/>'; for (let i = 0; i < 4; i++) t += '<rect x="' + (x + i * 8) + '" y="' + (y + i * 24) + '" width="' + (64 - i * 16) + '" height="24" fill="#1d8a45"/><rect x="' + (x + i * 8) + '" y="' + (y + i * 24) + '" width="' + (64 - i * 16) + '" height="8" fill="#fff"/>'; return t; };
+    [40, 160, 560, 700].forEach((x, k) => { s += tree(x, 340 + (k % 2) * 30, 110); });
+    s += '<rect x="300" y="380" width="160" height="96" fill="#8a3a22"/><rect x="288" y="364" width="184" height="24" fill="#e84a3a"/><rect x="304" y="348" width="152" height="16" fill="#e84a3a"/><rect x="320" y="332" width="120" height="16" fill="#fff"/><rect class="sc-breath" x="324" y="408" width="32" height="32" fill="#ffd27a"/><rect class="sc-breath" x="404" y="408" width="32" height="32" fill="#ffd27a"/><rect x="368" y="424" width="24" height="52" fill="#4a2414"/>';
+    for (let i = 0; i < 18; i++) s += '<rect class="sc-fall" x="' + Math.round(r() * 49) * px + '" y="0" width="6" height="6" fill="#fff" opacity=".9" style="--t:' + f(12 + r() * 10) + 's;--d:-' + f(r() * 20) + 's;--dx:0px"/>';
+    return s + '</g>';
+})();
+SCENES.gifton = id => defs(id, lin(id, [[0, '#0b2d70'], [.55, '#2e73c8'], [1, '#8fd0ff']]) + lin(id + 'b', [[0, '#fff', 0], [.5, '#fff', .22], [1, '#fff', 0]], 1, 0)) + rect('url(#' + id + ')') +
+    '<g><polygon points="120,0 220,0 520,600 380,600" fill="url(#' + id + 'b)"/><polygon points="420,0 480,0 760,600 680,600" fill="url(#' + id + 'b)" opacity=".7"/><polygon points="-40,0 40,0 240,600 140,600" fill="url(#' + id + 'b)" opacity=".5"/></g>' + (() => {
+        const r = rnd(9); let s = '<g stroke="#fff" stroke-linecap="round" fill="none" opacity=".55">';
+        for (let i = 0; i < 8; i++) { const x = r() * 800, y = r() * 520, k = .5 + r() * .9; s += '<g transform="translate(' + f(x) + ' ' + f(y) + ') scale(' + f(k) + ')" stroke-width="3">'; for (let a = 0; a < 6; a++) s += '<g transform="rotate(' + a * 60 + ')"><line y2="-44"/><path d="M0-24 L-9-35 M0-24 L9-35"/></g>'; s += '</g>'; }
+        return s + '</g>';
+    })() + sparkle(150, 140, 1.1, '#fff', 0) + sparkle(640, 90, .8, '#e6f4ff', 2) + sparkle(470, 340, .7, '#fff', 4) + hills('#cfe6ff', 540, 30, 3, .85) + hills('#f4faff', 580, 20, 6);
+SCENES.collab = id => defs(id, lin(id, [[0, '#2a1470'], [1, '#0b2f7a']]) + rad(id + 'a', [[0, '#ff5fb0', .6], [1, '#ff5fb0', 0]]) + rad(id + 'b', [[0, '#4fd6ff', .6], [1, '#4fd6ff', 0]])) + rect('url(#' + id + ')') +
+    '<circle cx="300" cy="300" r="260" fill="url(#' + id + 'a)"/><circle cx="520" cy="300" r="260" fill="url(#' + id + 'b)"/><circle cx="300" cy="300" r="170" fill="none" stroke="#ffb3d9" stroke-width="3" opacity=".6"/><circle cx="520" cy="300" r="170" fill="none" stroke="#a8ecff" stroke-width="3" opacity=".6"/>' +
+    stars(60, 23, {h: 560}) + sparkle(410, 300, 1.8, '#fff', 0) + sparkle(220, 150, .8, '#ffd3ec', 2) + sparkle(610, 450, .9, '#c4f3ff', 3);
 // aliases: card / section keys without a scene of their own
 SCENES.pink = SCENES.rose;
 

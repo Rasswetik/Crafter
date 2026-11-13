@@ -37,15 +37,18 @@ const ICONS = {
 ICONS.featured = ICONS.star; ICONS.packs = ICONS.pack; ICONS.bundles = ICONS.bundle; ICONS.res = ICONS.gem; ICONS.rewards = ICONS.cup; ICONS.gifts = ICONS.gift;
 const BG_KEYS = [['village', 'Деревня'], ['snow', 'Снегопад'], ['night', 'Звёздная ночь'], ['aurora', 'Северное сияние'], ['garland', 'Гирлянды'], ['frost', 'Мороз'], ['candy', 'Леденцы'],
     ['blue', 'Синий'], ['violet', 'Фиолетовый'], ['crimson', 'Алый'], ['emerald', 'Изумрудный'], ['gold', 'Золотой'],
-    ['cabin', 'Домик'], ['bauble', 'Шары на ёлке'], ['gifts', 'Подарки'], ['sparklers', 'Бенгальские огни'], ['champagne', 'Шампанское'], ['northpole', 'Северный полюс'], ['wreath', 'Венок'], ['skating', 'Каток'], ['santa', 'Дед Мороз'], ['sunrise', 'Рассвет'], ['desert', 'Пустыня'], ['jungle', 'Джунгли'], ['cherry', 'Сакура'], ['space', 'Космос'], ['cyber', 'Кибер'], ['bubbles', 'Пузыри'], ['storm', 'Гроза'], ['hex', 'Соты'], ['fireworks', 'Фейерверк'], ['confetti', 'Конфетти'], ['snowstorm', 'Метель'], ['galaxy', 'Галактика'], ['neon', 'Неон'], ['sunset', 'Закат'], ['ocean', 'Океан'], ['forest', 'Лес'], ['mint', 'Мята'], ['rose', 'Роза'], ['steel', 'Сталь'], ['lava', 'Лава'],
+    ['cabin', 'Домик'], ['bauble', 'Шары на ёлке'], ['gifts', 'Подарки'], ['sparklers', 'Бенгальские огни'], ['champagne', 'Шампанское'], ['northpole', 'Северный полюс'], ['wreath', 'Венок'], ['skating', 'Каток'], ['santa', 'Дед Мороз'], ['sunrise', 'Рассвет'], ['desert', 'Пустыня'], ['jungle', 'Джунгли'], ['cherry', 'Сакура'], ['space', 'Космос'], ['cyber', 'Кибер'], ['bubbles', 'Пузыри'], ['storm', 'Гроза'], ['hex', 'Соты'], ['collab', 'Коллаборация'], ['nikolay', 'Николай'], ['goshan', 'Гошан'], ['gifton', 'GiftTon'],
+    ['fireworks', 'Фейерверк'], ['confetti', 'Конфетти'], ['snowstorm', 'Метель'], ['galaxy', 'Галактика'], ['neon', 'Неон'], ['sunset', 'Закат'], ['ocean', 'Океан'], ['forest', 'Лес'], ['mint', 'Мята'], ['rose', 'Роза'], ['steel', 'Сталь'], ['lava', 'Лава'],
     ['tree', 'Ёлка'], ['stars', 'Звёздный'], ['mitten', 'Варежки'], ['cozy', 'Уют'], ['ice', 'Лёд'], ['pine', 'Хвоя'], ['berry', 'Ягоды'], ['cocoa', 'Какао'], ['polar', 'Полярный'], ['moon', 'Лунная ночь']];
 const CARD_BG_KEYS = [['', 'По редкости'], ['ny-snow', 'Снежная ночь'], ['ny-candy', 'Леденцы'], ['ny-lights', 'Гирлянды'], ['ny-frost', 'Иней'], ['ny-ginger', 'Пряник'], ['ny-bells', 'Колокольчики'], ['ny-fire', 'Камин'],
     ['ny-aurora', 'Сияние'], ['c-blue', 'Синий'], ['c-violet', 'Фиолетовый'], ['c-crimson', 'Алый'], ['c-emerald', 'Изумрудный'], ['c-gold', 'Золотой'], ['c-pink', 'Розовый'],
-    ['ny-cabin', 'Домик'], ['ny-bauble', 'Шары на ёлке'], ['ny-gifts', 'Подарки'], ['ny-sparklers', 'Бенгальские огни'], ['ny-champagne', 'Шампанское'], ['ny-northpole', 'Северный полюс'], ['ny-wreath', 'Венок'], ['ny-skating', 'Каток'], ['ny-santa', 'Дед Мороз'], ['c-sunrise', 'Рассвет'], ['c-desert', 'Пустыня'], ['c-jungle', 'Джунгли'], ['c-cherry', 'Сакура'], ['c-space', 'Космос'], ['c-cyber', 'Кибер'], ['c-bubbles', 'Пузыри'], ['c-storm', 'Гроза'], ['c-hex', 'Соты'], ['ny-fireworks', 'Фейерверк'], ['ny-confetti', 'Конфетти'], ['ny-snowstorm', 'Метель'], ['c-galaxy', 'Галактика'], ['c-neon', 'Неон'], ['c-sunset', 'Закат'], ['c-ocean', 'Океан'], ['c-forest', 'Лес'], ['c-mint', 'Мята'], ['c-rose', 'Роза'], ['c-steel', 'Сталь'], ['c-lava', 'Лава'],
+    ['ny-cabin', 'Домик'], ['ny-bauble', 'Шары на ёлке'], ['ny-gifts', 'Подарки'], ['ny-sparklers', 'Бенгальские огни'], ['ny-champagne', 'Шампанское'], ['ny-northpole', 'Северный полюс'], ['ny-wreath', 'Венок'], ['ny-skating', 'Каток'], ['ny-santa', 'Дед Мороз'], ['c-sunrise', 'Рассвет'], ['c-desert', 'Пустыня'], ['c-jungle', 'Джунгли'], ['c-cherry', 'Сакура'], ['c-space', 'Космос'], ['c-cyber', 'Кибер'], ['c-bubbles', 'Пузыри'], ['c-storm', 'Гроза'], ['c-hex', 'Соты'], ['ny-collab', 'Коллаборация'], ['ny-nikolay', 'Николай'], ['ny-goshan', 'Гошан'], ['ny-gifton', 'GiftTon'],
+    ['ny-fireworks', 'Фейерверк'], ['ny-confetti', 'Конфетти'], ['ny-snowstorm', 'Метель'], ['c-galaxy', 'Галактика'], ['c-neon', 'Неон'], ['c-sunset', 'Закат'], ['c-ocean', 'Океан'], ['c-forest', 'Лес'], ['c-mint', 'Мята'], ['c-rose', 'Роза'], ['c-steel', 'Сталь'], ['c-lava', 'Лава'],
     ['ny-tree', 'Ёлка'], ['ny-stars', 'Звёзды'], ['ny-mitten', 'Варежки'], ['ny-cozy', 'Уют'], ['ny-ice', 'Лёд'], ['ny-gold', 'Золото'], ['ny-pine', 'Хвоя'], ['ny-berry', 'Ягоды'], ['ny-cocoa', 'Какао'], ['ny-polar', 'Полярный'], ['ny-moon', 'Лунная ночь']];
 const DEFAULT_SECTIONS = [
     {id: 'featured', title: 'Акции', kind: 'smart', rule: 'featured', icon: 'builtin:star', preview: '', bg: 'village', enabled: true},
     {id: 'packs', title: 'Паки', kind: 'smart', rule: 'packs', icon: 'builtin:pack', preview: '', bg: 'night', enabled: true},
+    {id: 'collabs', title: 'Коллаборации', kind: 'smart', rule: 'collab', icon: 'builtin:crown', preview: '', bg: 'collab', enabled: true},
     {id: 'bundles', title: 'Наборы', kind: 'smart', rule: 'bundles', icon: 'builtin:bundle', preview: '', bg: 'candy', enabled: true},
     {id: 'res', title: 'Ресурсы', kind: 'smart', rule: 'res', icon: 'builtin:gem', preview: '', bg: 'emerald', enabled: true},
     {id: 'rewards', title: 'Награды', kind: 'smart', rule: 'rewards', icon: 'builtin:cup', preview: '', bg: 'gold', enabled: true},
@@ -413,11 +416,14 @@ function render(main, ctx) {
     const sections = (ctx.shopState?.sections && ctx.shopState.sections.length ? ctx.shopState.sections : DEFAULT_SECTIONS).filter(s => ctx.showEmpty || s.enabled !== false);
     const customIds = new Set(sections.filter(s => s.kind !== 'exchange' && s.id !== 'gifts').map(s => s.id));
     const mine = o => o.it.section_id && customIds.has(o.it.section_id);
+    const COLLAB = ['gifton', 'goshan', 'nikolay'];                    // packs of collaborations stand in their own section
+    const isCollab = o => o.it.kind === 'PACK' && !o.it.mode && COLLAB.includes(String(o.it.amount));
     const isBundle = o => !o.it.mode && (o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1))));
     const lots = ctx.data?.lots || [];
     const rule = {
         featured: () => fbs.concat(all.filter(o => !mine(o) && (o.it.mode || o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge))).concat(rewards),
-        packs: () => all.filter(o => !mine(o) && !o.it.mode && o.it.kind === 'PACK' && !isBundle(o)),
+        packs: () => all.filter(o => !mine(o) && !o.it.mode && o.it.kind === 'PACK' && !isBundle(o) && !isCollab(o)),
+        collab: () => all.filter(o => !mine(o) && isCollab(o)),
         bundles: () => all.filter(o => !mine(o) && isBundle(o)),
         res: () => all.filter(o => !mine(o) && ['GRAM', 'BALL', 'PROMO', 'STAR'].includes(o.it.kind)),
         rewards: () => rewards,

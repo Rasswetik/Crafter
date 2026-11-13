@@ -21,6 +21,7 @@ DEFAULTS = (
 BACKGROUNDS = ('village', 'snow', 'night', 'aurora', 'garland', 'frost', 'candy', 'blue', 'violet', 'crimson', 'emerald', 'gold',
                'tree', 'stars', 'mitten', 'cozy', 'ice', 'pine', 'berry', 'cocoa', 'polar', 'moon',
                'cabin', 'bauble', 'gifts', 'sparklers', 'champagne', 'northpole', 'wreath', 'skating', 'santa', 'sunrise', 'desert', 'jungle', 'cherry', 'space', 'cyber', 'bubbles', 'storm', 'hex',
+               'nikolay', 'goshan', 'gifton', 'collab',
                'fireworks', 'confetti', 'galaxy', 'neon', 'sunset', 'ocean', 'forest', 'mint', 'rose', 'steel', 'lava', 'snowstorm')
 MAX_MEDIA = 600_000
 MAX_SECTIONS = 30
@@ -61,6 +62,13 @@ def install_shop_sections(app, db, auth, audit):
             for number, (sid, title, rule, icon, bg) in enumerate(DEFAULTS):
                 db().execute("INSERT INTO shop_sections(id,title,kind,rule,icon,preview,bg,position,enabled,created) VALUES(?,?,?,?,?,?,?,?,?,?)",
                              (sid, title, 'smart', rule, icon, '', bg, number, 1, now))
+        if not db().execute("SELECT 1 FROM shop_sections WHERE id='collabs'").fetchone():          # the section of collaborations stands after the packs
+            row = db().execute("SELECT position FROM shop_sections WHERE id='packs'").fetchone()
+            if row:
+                at = int(row['position'])
+                db().execute("UPDATE shop_sections SET position=position+1 WHERE position>?", (at,))
+                db().execute("INSERT INTO shop_sections(id,title,kind,rule,icon,preview,bg,position,enabled,created) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                             ('collabs', 'Коллаборации', 'smart', 'collab', 'builtin:crown', '', 'collab', at + 1, 1, int(time.time())))
 
     def view(row):
         return {'id': row['id'], 'title': row['title'], 'kind': row['kind'], 'rule': row['rule'], 'icon': row['icon'],

@@ -30,7 +30,8 @@ def install_freebies(app, db, auth, audit, record):
             CREATE TABLE IF NOT EXISTS freebie_events (
                 id TEXT PRIMARY KEY, title TEXT NOT NULL, enabled BIGINT NOT NULL DEFAULT 1,
                 preview_bg TEXT NOT NULL DEFAULT '', preview_gift TEXT NOT NULL DEFAULT '', page_bg TEXT NOT NULL DEFAULT '',
-                gift_regular TEXT NOT NULL DEFAULT '', gift_gold TEXT NOT NULL DEFAULT '', position BIGINT NOT NULL DEFAULT 0, created BIGINT NOT NULL
+                gift_regular TEXT NOT NULL DEFAULT '', gift_gold TEXT NOT NULL DEFAULT '', position BIGINT NOT NULL DEFAULT 0, created BIGINT NOT NULL,
+                starts_at BIGINT, ends_at BIGINT
             );
             CREATE TABLE IF NOT EXISTS freebie_gifts (
                 id TEXT PRIMARY KEY, event_id TEXT NOT NULL, position BIGINT NOT NULL DEFAULT 0, label TEXT NOT NULL DEFAULT '',
@@ -42,6 +43,15 @@ def install_freebies(app, db, auth, audit, record):
                 PRIMARY KEY(user_id, gift_id)
             );
         """)
+        database = db()                                            # events made before the period existed
+        if hasattr(database, 'connection') and database.connection is not None:
+            database.execute("ALTER TABLE freebie_events ADD COLUMN IF NOT EXISTS starts_at BIGINT")
+            database.execute("ALTER TABLE freebie_events ADD COLUMN IF NOT EXISTS ends_at BIGINT")
+        else:
+            cols = [r['name'] for r in database.execute("PRAGMA table_info(freebie_events)").fetchall()]
+            for col in ('starts_at', 'ends_at'):
+                if col not in cols:
+                    database.execute("ALTER TABLE freebie_events ADD COLUMN %s BIGINT" % col)
 
     def msk_time(value):                                       # 'YYYY-MM-DDTHH:MM' in Moscow time -> unix time
         import calendar
@@ -75,7 +85,8 @@ def install_freebies(app, db, auth, audit, record):
         return out
 
     def event_view(row, gifts, claims, now, admin=False):
-        out = {'id': row['id'], 'title': row['title'], 'enabled': bool(row['enabled'])}
+        out = {'id': row['id'], 'title': row['title'], 'enabled': bool(row['enabled']),
+               'starts_at': int(row['starts_at']) if row['starts_at'] else None, 'ends_at': int(row['ends_at']) if row['ends_at'] else None}
         for key in DEFAULTS:
             out[key] = img(row, key)
             if admin:
@@ -99,7 +110,7 @@ def install_freebies(app, db, auth, audit, record):
         claims = {}
         for r in db().execute("SELECT gift_id,result FROM freebie_claims WHERE user_id=?", (uid,)).fetchall():
             claims[r['gift_id']] = json.loads(r['result'])
-        events = db().execute("SELECT * FROM freebie_events WHERE enabled=1 ORDER BY position, created").fetchall()
+        events = db().execute("SELECT * FROM freebie_events WHERE enabled=1 AND (starts_at IS NULL OR starts_at<=?) AND (ends_at IS NULL OR ends_at>?) ORDER BY position, created", (now, now)).fetchall()
         return {'now': now, 'events': [event_view(e, gifts_of(e['id']), claims, now) for e in events if gifts_of(e['id'])]}
 
     def receipt(kind, amount, count):
@@ -125,9 +136,11 @@ def install_freebies(app, db, auth, audit, record):
             done = db().execute("SELECT result FROM freebie_claims WHERE user_id=? AND gift_id=?", (uid, gid)).fetchone()
             if done:
                 return {'ok': True, 'result': json.loads(done['result']), 'again': True}
-            row = db().execute("SELECT g.*,e.enabled AS ev_on FROM freebie_gifts g JOIN freebie_events e ON e.id=g.event_id WHERE g.id=?", (gid,)).fetchone()
+            row = db().execute("SELECT g.*,e.enabled AS ev_on,e.starts_at AS ev_start,e.ends_at AS ev_end FROM freebie_gifts g JOIN freebie_events e ON e.id=g.event_id WHERE g.id=?", (gid,)).fetchone()
             if not row or not row['ev_on']:
                 abort(404, description='Подарок не найден')
+            if (row['ev_end'] and int(row['ev_end']) <= int(time.time())) or (row['ev_start'] and int(row['ev_start']) > int(time.time())):
+                abort(409, description='Это событие сейчас закрыто')
             if int(row['unlock_at']) > int(time.time()):
                 abort(409, description='Этот подарок ещё не открылся')
             kind, amount, count = row['kind'], row['amount'], int(row['count'])
@@ -191,17 +204,21 @@ def install_freebies(app, db, auth, audit, record):
             abort(400, description='Введите заголовок')
         imgs = {k: clean_image(body.get(k)) for k in DEFAULTS}
         enabled = 1 if body.get('enabled') in (True, 1, '1', 'true') else 0
+        starts = msk_time(body.get('starts_at_msk')) if str(body.get('starts_at_msk') or '').strip() else None
+        ends = msk_time(body.get('ends_at_msk')) if str(body.get('ends_at_msk') or '').strip() else None
+        if starts and ends and ends <= starts:
+            abort(400, description='Конец события должен быть позже начала')
         eid = body.get('id')
         with db():
             if eid:
-                if not db().execute("UPDATE freebie_events SET title=?,enabled=?,preview_bg=?,preview_gift=?,page_bg=?,gift_regular=?,gift_gold=? WHERE id=?",
-                                    (title, enabled, imgs['preview_bg'], imgs['preview_gift'], imgs['page_bg'], imgs['gift_regular'], imgs['gift_gold'], str(eid))).rowcount:
+                if not db().execute("UPDATE freebie_events SET title=?,enabled=?,preview_bg=?,preview_gift=?,page_bg=?,gift_regular=?,gift_gold=?,starts_at=?,ends_at=? WHERE id=?",
+                                    (title, enabled, imgs['preview_bg'], imgs['preview_gift'], imgs['page_bg'], imgs['gift_regular'], imgs['gift_gold'], starts, ends, str(eid))).rowcount:
                     abort(404, description='Событие не найдено')
             else:
                 eid = uuid.uuid4().hex[:12]
                 pos = int(db().execute("SELECT COALESCE(MAX(position),0)+1 AS n FROM freebie_events").fetchone()['n'])
-                db().execute("INSERT INTO freebie_events(id,title,enabled,preview_bg,preview_gift,page_bg,gift_regular,gift_gold,position,created) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                             (eid, title, enabled, imgs['preview_bg'], imgs['preview_gift'], imgs['page_bg'], imgs['gift_regular'], imgs['gift_gold'], pos, int(time.time())))
+                db().execute("INSERT INTO freebie_events(id,title,enabled,preview_bg,preview_gift,page_bg,gift_regular,gift_gold,position,created,starts_at,ends_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
+                             (eid, title, enabled, imgs['preview_bg'], imgs['preview_gift'], imgs['page_bg'], imgs['gift_regular'], imgs['gift_gold'], pos, int(time.time()), starts, ends))
         audit('Freebies event saved: ' + title)
         return {'ok': True, 'id': eid}
 

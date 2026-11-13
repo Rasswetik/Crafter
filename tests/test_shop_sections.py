@@ -18,7 +18,7 @@ def test_default_sections_exist_and_can_be_restyled(client):
     admin = signed(42)
     client.get('/api/me', headers=admin)
     sections = client.get('/api/shop-items', headers=admin).json['sections']
-    assert [s['id'] for s in sections] == ['featured', 'packs', 'bundles', 'res', 'rewards', 'gifts']
+    assert [s['id'] for s in sections] == ['featured', 'packs', 'collabs', 'bundles', 'res', 'rewards', 'gifts']
     assert all(s['kind'] == 'smart' for s in sections)
     saved = client.post('/api/admin/new-year/shop-sections', headers=admin,
                         json={'id': 'packs', 'title': 'Все паки', 'icon': 'builtin:tree', 'bg': 'aurora', 'enabled': True})

@@ -93,7 +93,7 @@ PACK_BACKDROPS = {
 
 
 # The accent colour of a pack (r g b): the opening screen glows with it instead of one common blue.
-PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'gifton': '70 150 255', 'goshan': '230 90 90', 'honey': '240 190 60'}
+PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'gifton': '70 150 255', 'nikolay': '60 170 110', 'goshan': '230 90 90', 'honey': '240 190 60'}
 DEFAULT_ACCENT = '59 134 238'
 
 
@@ -679,6 +679,19 @@ def install_packs(app, db, auth, record, audit):
     GOSHAN_CARDS = {'1': 44, '2': 32, '3': 17, '4': 7}                        # 1.87 cards per opening
     GOSHAN_NFT_SHARE = 0.003
 
+    # Nikolay Pack: the snowy forest pack. An opening is worth about 0.3 GRAM (TON)
+    NIKOLAY_GIFTS = (('snowglobe', 'Winter', '25'), ('candycane', 'Amber Glitter', '20'), ('eternalcandle', 'Hot Cocoa', '18'),
+                     ('jinglebells', 'Cozy Winter', '27'), ('winterwreath', 'Holly Leaves', '19'), ('santahat', 'Mistletoe', '20'),
+                     ('hangingstar', 'Gingerbread', '33'), ('gingercookie', 'Original', '55'), ('snowmittens', 'Honey Wine', '13'),
+                     ('holidaydrink', 'Gold Dust', '11'))
+    NIKOLAY_GRAM = (('0.1', 1000), ('0.15', 38.6), ('0.2', 22.3), ('0.3', 12.5), ('0.5', 7.7), ('0.75', 4.2), ('1', 2.4), ('1.5', 1.5),
+                    ('2', .83), ('3', .45), ('5', .24), ('10', .09), ('20', .03), ('50', .01))
+    NIKOLAY_CARDS = {'1': 52, '2': 30, '3': 14, '4': 4}                       # 1.70 cards per opening
+    NIKOLAY_NFT_SHARE = 0.003
+
+    def seed_nikolay_pack():
+        seed_premium_pack('nikolay', 'Nikolay', '/static/assets/packs/nikolay-pack.webp', NIKOLAY_GIFTS, NIKOLAY_GRAM, NIKOLAY_CARDS, NIKOLAY_NFT_SHARE, 'packs_nikolay_v1')
+
     def seed_gifton_pack():
         seed_premium_pack('gifton', 'GiftTon', '/static/assets/packs/gifton-pack.webp', GIFTTON_GIFTS, GIFTTON_GRAM, GIFTTON_CARDS, GIFTTON_NFT_SHARE, 'packs_gifton_v1')
 
@@ -725,6 +738,7 @@ def install_packs(app, db, auth, record, audit):
         seed_honey_pack()
         seed_gifton_pack()
         seed_goshan_pack()
+        seed_nikolay_pack()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""
