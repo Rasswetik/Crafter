@@ -48,13 +48,15 @@ def install_chests(app, db, auth, audit, record):
                 id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, chest_id TEXT NOT NULL, source TEXT NOT NULL DEFAULT '', result TEXT NOT NULL, created BIGINT NOT NULL
             );
         """)
+        db().execute('BEGIN IMMEDIATE')                           # several workers start together: only one of them seeds the first chest
         if not db().execute("SELECT 1 FROM chests LIMIT 1").fetchone():
             now = int(time.time())
-            db().execute("INSERT INTO chests(id,title,image,model,model_mobile,bg,rolls,settings,enabled,created) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                         ('gingerbread', 'Ginger Box', '/static/assets/chests/gingerbread.png', '', '', 'cozy', json.dumps(DEFAULT_ROLLS), json.dumps(DEFAULT_SETTINGS), 1, now))
-            for i, (kind, amount, cmin, cmax, weight) in enumerate(DEFAULT_LOOT):
-                db().execute("INSERT INTO chest_loot(id,chest_id,position,kind,amount,cmin,cmax,weight) VALUES(?,?,?,?,?,?,?,?)",
-                             (uuid.uuid4().hex[:12], 'gingerbread', i, kind, amount, cmin, cmax, str(weight)))
+            made = db().execute("INSERT INTO chests(id,title,image,model,model_mobile,bg,rolls,settings,enabled,created) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                                ('gingerbread', 'Ginger Box', '/static/assets/chests/gingerbread.png', '', '', 'cozy', json.dumps(DEFAULT_ROLLS), json.dumps(DEFAULT_SETTINGS), 1, now))
+            if made.rowcount:
+                for i, (kind, amount, cmin, cmax, weight) in enumerate(DEFAULT_LOOT):
+                    db().execute("INSERT INTO chest_loot(id,chest_id,position,kind,amount,cmin,cmax,weight) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                                 (uuid.uuid4().hex[:12], 'gingerbread', i, kind, amount, cmin, cmax, str(weight)))
 
     # ---------- helpers ----------
     def balls_of(uid):
