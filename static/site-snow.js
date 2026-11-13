@@ -25,7 +25,7 @@
         if(!current.enabled||reduced()){removeSnow();return;}
         const narrow=window.matchMedia('(max-width: 600px)').matches;
         const count=({light:15,normal:31,heavy:51})[current.density];
-        const flakes=narrow?Math.min(count,32):count;
+        const flakes=narrow?Math.min(count,14):count;
         const configKey=[current.density,current.speed,current.size,narrow].join(':');
         if(root&&lastConfig===configKey){
             root.classList.toggle('crafter-snow-paused',document.hidden);

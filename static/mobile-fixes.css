@@ -1,0 +1,32 @@
+/* Phone: nothing hides under the floating menu, fewer heavy effects (they made the screens lag), the tiles of the market do not overlap */
+@media (max-width:760px){
+    #main{padding-bottom:calc(116px + env(safe-area-inset-bottom))}
+    /* the garland and the glass of the menu are expensive to repaint on phones */
+    #winter-garland,#winter-garland *{animation:none!important;filter:none!important}
+    #winter-garland{top:-10px!important;transform:scaleY(.72);transform-origin:top left;opacity:.9}
+    #nav,#nav *,.fm-balpill,.fm-back,.fm-bal{-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+    #nav .nav-main,#nav .games-entry,#nav .profile-nav{background-color:rgba(26,28,40,.94)!important}
+    .crafter-snowflake{will-change:auto!important}
+    /* the market */
+    .fm-root{padding-bottom:calc(120px + env(safe-area-inset-bottom))}
+    .fm-chaincard .chn-t-title{top:15%;font-size:clamp(16px,5.4vw,24px)}
+    .fm-chaincard .chn-t-sub{top:calc(15% + 2.3em)}
+    .fm-chaincard .chn-t-main{top:30%;height:62%}
+    .fm-chaincard .chn-t-panel{top:24%;bottom:7%}
+    .fm-chaincard .fm-tab{z-index:6}
+    /* the window of a lot: the list under the picture is not hidden by the buy button */
+    .fm-stage .fm-inc{padding-bottom:108px}
+    .fm-stage .fm-info{padding-right:12px}
+    /* the chest screens */
+    .cx-model{height:56vh}.cx-name{font-size:clamp(18px,6vw,26px)}
+    .cx-sum{padding-bottom:calc(30px + env(safe-area-inset-bottom))}
+    .cx-hint{bottom:calc(26px + env(safe-area-inset-bottom))}
+    .cx-left{right:12px;bottom:calc(22px + env(safe-area-inset-bottom))}
+}
+@media (max-width:760px){
+    .fm-card.fm-chestcard .fm-name{position:absolute!important;left:14px!important;right:150px!important;top:auto!important;bottom:16px!important;max-width:none!important;z-index:4}
+    .fm-card.fm-chestcard .fm-name p{display:none!important}
+    .fm-chestcard .fm-art{top:20%!important;bottom:34%!important}
+    .fm-chestcard .fm-title{max-width:90%}
+}
+.fm-chaincard .fm-tab.fb-tab.is-ready{background:linear-gradient(180deg,#ffe97a,#ffb81f);color:#3a2300}

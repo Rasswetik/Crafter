@@ -53,3 +53,26 @@
 .bnd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px}.bnd-opt img{width:70px;height:70px;object-fit:contain}.bnd-opt span{font-size:12px;text-align:center}
 .bnd-one{display:grid;place-items:center;margin:6px 0 12px}.bnd-one img{width:120px;height:120px;object-fit:contain}
 .bnd-count{display:grid;gap:8px}.bnd-count input{width:100%;min-height:42px;padding:8px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.06);color:#fff;font:15px inherit;font-family:inherit}
+
+/* phone */
+@media (max-width:760px){
+    .ny-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;width:100%;box-sizing:border-box;overflow:visible!important}
+    .ny-tabs button{min-width:0;padding:9px 4px;font-size:12px;line-height:1.15;white-space:normal}
+    .ny-admin-section{padding-left:12px;padding-right:12px}
+    .ny-admin-section .adm-row3{grid-template-columns:1fr}
+    .cxa-row{flex-direction:column;align-items:stretch}.cxa-row input,.cxa-row select{max-width:none;width:100%}
+    .cha-grid{grid-template-columns:1fr!important}
+    .bnd-cell{width:calc(50% - 6px)}
+    .sb-tabs{overflow-x:auto;flex-wrap:nowrap;padding-bottom:4px}.sb-tab{flex:none}
+}
+@media (max-width:760px){
+    .sb-board{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:14px!important}
+    .sb-board .sb-cell{width:100%!important;max-width:100%!important;min-width:0!important;grid-column:auto!important;grid-row:auto!important}
+    .sb-board .fm-card{width:100%!important;max-width:100%!important;min-width:0!important;--u:1}
+    .sb-board .fm-card.fm-chestcard .fm-name{position:absolute!important;left:14px!important;right:150px!important;top:auto!important;bottom:16px!important}
+    .sb-board .fm-card.fm-chestcard .fm-name p{display:none!important}
+    .sb-board .fm-card.fm-chestcard .fm-art{top:20%!important;bottom:34%!important}
+}
+.admin-content{grid-template-columns:minmax(0,1fr)!important}
+.admin-content>*{min-width:0;max-width:100%}
+.ny-admin-section{min-width:0}
