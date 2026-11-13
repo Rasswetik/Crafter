@@ -97,6 +97,25 @@ def install_chests(app, db, auth, audit, record):
                                  (uuid.uuid4().hex[:12], 'snowman', i, kind, amount, cnt_min, cnt_max, str(weight)))
             db().execute("INSERT INTO settings(key,payload) VALUES('chest_snowman_v1','1') ON CONFLICT(key) DO NOTHING")
 
+    REIN_NFT = (('snowmittens', 'Rudolph', 16), ('candycane', 'Cherry Charm', 14), ('xmasstocking', 'Caramel Fest', 12), ('springbasket', 'Penguin', 10), ('spicedwine', 'Gluhwein', 9),
+                ('winterwreath', 'Holly Leaves', 8), ('santahat', 'Warm Winter', 7), ('holidaydrink', 'Ginger Joker', 6), ('eternalcandle', 'Red Melter', 5), ('snowglobe', 'Crimson Cabin', 4),
+                ('jinglebells', 'Nutcracker', 3), ('hangingstar', 'Christmas', 2.5), ('gingercookie', 'Cookie Claus', 1.5), ('snowmittens', 'Mistletoe', 1), ('jinglebells', 'Cozy Winter', 1))
+    REIN_PACKS = (('newyear', 25), ('christmas', 20), ('winter', 15), ('snowman', 15), ('honey', 10), ('gingerbread', 10), ('silverfrost', 5))
+    REIN_LOOT = ([x for x in DEFAULT_LOOT if x[0] in ('GRAM', 'BALL')] + [('PACK', a, 1, 1, w) for a, w in REIN_PACKS] + [('NFT', c + ':' + m, 1, 1, w) for c, m, w in REIN_NFT])
+    with app.app_context(), db():
+        db().execute('BEGIN IMMEDIATE')
+        if not db().execute("SELECT 1 FROM settings WHERE key='chest_reindeer_v1'").fetchone():
+            st = {'guaranteed': ['GRAM', 'BALL', 'PACK'], 'bonus': {'GRAM': 55, 'BALL': 30, 'PACK': 12, 'NFT': 3}, 'theme': 'forest',
+                  'bg_open': '/static/assets/chests/reindeer-bg-idle.webp', 'bg_reward': '/static/assets/chests/reindeer-bg-opening.webp', 'bg_collection': '/static/assets/chests/reindeer-bg-collection.webp',
+                  'image_open': '/static/assets/chests/reindeer-open.png'}
+            made = db().execute("INSERT INTO chests(id,title,image,model,model_mobile,bg,rolls,settings,enabled,created) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                                ('reindeer', 'Reindeer Box', '/static/assets/chests/reindeer.png', '', '', 'night', json.dumps(DEFAULT_ROLLS), json.dumps(st), 1, int(time.time())))
+            if made.rowcount:
+                for i, (kind, amount, cnt_min, cnt_max, weight) in enumerate(REIN_LOOT):
+                    db().execute("INSERT INTO chest_loot(id,chest_id,position,kind,amount,cnt_min,cnt_max,weight) VALUES(?,?,?,?,?,?,?,?)",
+                                 (uuid.uuid4().hex[:12], 'reindeer', i, kind, amount, cnt_min, cnt_max, str(weight)))
+            db().execute("INSERT INTO settings(key,payload) VALUES('chest_reindeer_v1','1') ON CONFLICT(key) DO NOTHING")
+
     # ---------- helpers ----------
     def balls_of(uid):
         row = db().execute("SELECT balls FROM new_year_wallets WHERE user_id=?", (uid,)).fetchone()
@@ -111,7 +130,7 @@ def install_chests(app, db, auth, audit, record):
             row = {**dict(row), 'image': ''}
         return {'id': row['id'], 'title': row['title'], 'image': row['image'] or '/static/assets/chests/gingerbread.png', 'model': row['model'] or DEFAULT_MODEL,
                 'model_mobile': row['model_mobile'] or row['model'] or DEFAULT_MOBILE, 'bg': row['bg'] or 'night',
-                'bg_open': settings_of(row)['bg_open'], 'bg_reward': settings_of(row)['bg_reward'], 'bg_collection': settings_of(row)['bg_collection'], 'theme': settings_of(row)['theme'] or ('snow' if row['id'] == 'snowman' else 'ginger'),
+                'bg_open': settings_of(row)['bg_open'], 'bg_reward': settings_of(row)['bg_reward'], 'bg_collection': settings_of(row)['bg_collection'], 'theme': settings_of(row)['theme'] or ({'snowman': 'snow', 'reindeer': 'forest'}.get(row['id']) or 'ginger'),
                 'image_open': settings_of(row)['image_open'] or (DEFAULT_OPEN if row['id'] == 'gingerbread' and row['image'] in ('', '/static/assets/chests/gingerbread.png', '/static/assets/chests/gingerbread.webp') else '')}
 
     def rolls_of(row):
@@ -164,7 +183,7 @@ def install_chests(app, db, auth, audit, record):
         bonus = {k: float(v) for k, v in (raw.get('bonus') or {}).items() if k in KINDS and float(v) > 0}
         guaranteed = [k for k in (raw.get('guaranteed') or []) if k in KINDS and k != 'NFT']
         pic = lambda v: v if isinstance(v, str) and PATH.fullmatch(v) else ''
-        return {'guaranteed': guaranteed, 'bonus': bonus, 'bg_open': pic(raw.get('bg_open')), 'bg_reward': pic(raw.get('bg_reward')), 'bg_collection': pic(raw.get('bg_collection')), 'image_open': pic(raw.get('image_open')), 'theme': raw.get('theme') if raw.get('theme') in ('ginger', 'snow') else ''}
+        return {'guaranteed': guaranteed, 'bonus': bonus, 'bg_open': pic(raw.get('bg_open')), 'bg_reward': pic(raw.get('bg_reward')), 'bg_collection': pic(raw.get('bg_collection')), 'image_open': pic(raw.get('image_open')), 'theme': raw.get('theme') if raw.get('theme') in ('ginger', 'snow', 'forest') else ''}
 
     def roll(row):
         """The list of items that one opening gives (nothing is given yet)."""
@@ -332,7 +351,7 @@ def install_chests(app, db, auth, audit, record):
             settings = {'guaranteed': [k for k in (sraw.get('guaranteed') or []) if k in KINDS],
                         'bonus': {k: float(v) for k, v in (sraw.get('bonus') or {}).items() if k in KINDS and float(v) > 0},
                         'bg_open': clean_path(sraw.get('bg_open'), 'Фон открытия'), 'bg_reward': clean_path(sraw.get('bg_reward'), 'Фон наград'), 'bg_collection': clean_path(sraw.get('bg_collection'), 'Фон акции'),
-                        'image_open': clean_path(sraw.get('image_open'), 'Картинка открытого ящика'), 'theme': sraw.get('theme') if sraw.get('theme') in ('ginger', 'snow') else ''}
+                        'image_open': clean_path(sraw.get('image_open'), 'Картинка открытого ящика'), 'theme': sraw.get('theme') if sraw.get('theme') in ('ginger', 'snow', 'forest') else ''}
         except (TypeError, ValueError):
             abort(400, description='Шансы бонусных наград: числа')
         cid = body.get('id')

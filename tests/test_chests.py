@@ -96,3 +96,16 @@ def test_several_chests_in_one_offer_and_in_a_bundle(client):
     assert len(res['chest_opens']) == 3 and res['pack_ids'] and res['gram'] == '1'
     bad = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BUNDLE', 'price_balls': 0, 'contents': {'chests': [{'chest_id': 'nope', 'count': 1}]}})
     assert bad.status_code == 400
+
+
+def test_reindeer_box_follows_its_sheet(client):
+    admin, player = signed(42), signed(59)
+    client.get('/api/me', headers=player)
+    info = client.get('/api/chests/reindeer', headers=player).json
+    once = {(x['kind'], x['amount']): x['chance'] for x in info['loot']}
+    assert info['chest']['title'] == 'Reindeer Box' and info['chest']['theme'] == 'forest' and info['chest']['bg_collection'] and info['chest']['image_open']
+    assert abs(once[('PACK', 'newyear')] - 26.667351) < .01 and abs(once[('NFT', 'snowmittens:Rudolph')] - 0.359309) < .001
+    assert len([x for x in info['loot'] if x['kind'] == 'NFT']) == 15 and not [x for x in info['loot'] if x['amount'] in ('gifton', 'goshan', 'nikolay')]
+    for _ in range(40):
+        kinds = [i['kind'] for i in client.post('/api/admin/new-year/chests/reindeer/preview', headers=admin).json['items']]
+        assert 3 <= len(kinds) <= 6 and kinds[:3] == ['GRAM', 'BALL', 'PACK']
