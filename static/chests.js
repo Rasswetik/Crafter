@@ -39,8 +39,8 @@ vec3 gingerPaint(vec3 p, vec3 n) {
     col *= 0.96 + 0.04 * sin(p.x * 7.3) * sin(p.y * 6.1) * sin(p.z * 8.7);
     // rows of icing pearls on the lid walls and the body walls
     vec2 c1 = fract(vec2(p.x, y) / 2.6) - 0.5;
-    if (n.z > 0.85 && p.z > 0.0 && y > 13.6 && y < 19.6 && ax < 12.5 && length(c1) < 0.15) col = icing;
-    if (n.z > 0.85 && p.z > 0.0 && y > 3.4 && y < 5.6 && ax < 12.5 && length(c1) < 0.15) col = icing;
+    if (abs(n.z) > 0.85 && y > 13.6 && y < 19.6 && ax < 12.5 && length(c1) < 0.15) col = icing;
+    if (abs(n.z) > 0.85 && y > 3.4 && y < 5.6 && ax < 12.5 && length(c1) < 0.15) col = icing;
     if (abs(n.x) > 0.85 && y > 3.4 && y < 19.6 && az < 6.4 && length(fract(vec2(p.z, y) / 2.6) - 0.5) < 0.15) col = icing;
     // white icing on the top of the lid with a scalloped, dripping edge
     float scal = 21.4 + 1.5 * abs(sin(p.x * 0.62 + p.z * 0.31)) + 1.1 * smoothstep(0.7, 1.0, sin(p.x * 1.4 + 0.8) * 0.5 + 0.5);
@@ -80,7 +80,7 @@ function paintModel(gltf) {
             sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vP; varying vec3 vN;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvP = position; vN = normal;');
             sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + PAINT_FRAG).replace('#include <color_fragment>', '#include <color_fragment>\ndiffuseColor.rgb = gingerPaint(vP, normalize(vN));');
         };
-        mat.customProgramCacheKey = () => 'ginger-paint-4';
+        mat.customProgramCacheKey = () => 'ginger-paint-5';
         mat.needsUpdate = true;
     });
     return gltf;
