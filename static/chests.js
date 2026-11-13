@@ -119,7 +119,26 @@ function flat(host, chest) {                                        // no WebGL:
     setTimeout(() => img.classList.remove('is-hop'), 1300);
     return {ready: Promise.resolve(), dispose() {}, async open() { img.classList.add('is-shake'); await sleep(520); return 0; }};
 }
+/* two pictures: a closed chest hops and breathes, then charges (squash and shake) and the open one pops in */
+function sprite(host, chest) {
+    host.innerHTML = '<div class="cx-sprite"><img class="cx-sp-closed" src="' + e(chest.image) + '" alt="" draggable="false"><img class="cx-sp-open" src="' + e(chest.image_open) + '" alt="" draggable="false"></div>';
+    const box = host.firstChild;
+    box.classList.add('is-hop');
+    const idle = setTimeout(() => { box.classList.remove('is-hop'); box.classList.add('is-idle'); }, reduced() ? 0 : 1250);
+    return {
+        ready: Promise.resolve(), dispose() { clearTimeout(idle); },
+        async open() {
+            box.classList.remove('is-hop', 'is-idle'); void box.offsetWidth;
+            box.classList.add('is-charge');
+            await sleep(reduced() ? 80 : 620);                      // it shakes, then: bam
+            box.classList.remove('is-charge'); box.classList.add('is-open');
+            await sleep(reduced() ? 60 : 280);
+            return 0;
+        }
+    };
+}
 function viewer(host, chest, opts = {}) {
+    if (chest.image_open) return sprite(host, chest);
     if (!webgl()) return flat(host, chest);
     let dead = false, raf = 0, ro = null, renderer = null;
     const ctl = {dispose() { dead = true; cancelAnimationFrame(raf); ro && ro.disconnect(); if (renderer) { renderer.dispose(); renderer.domElement.remove(); } }, open: async () => 0, ready: null};

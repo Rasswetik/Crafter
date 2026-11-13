@@ -152,3 +152,20 @@ body.cx-open .crafter-snowfall{display:none!important}
 [data-ny-tab="chests"] > [data-pane="chests"].ny-admin-section{display:block!important}
 .cx-count.is-nft{font-size:clamp(26px,6.4vw,46px);max-width:92vw;overflow-wrap:anywhere}
 .cx-nftnote{font:700 12px/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#fff3dc;opacity:.9;text-shadow:0 2px 0 rgba(0,0,0,.4)}
+
+/* the chest as two pictures (closed / open) with a hop, a breathing idle and a charge before it opens */
+.cx-sprite{position:relative;width:100%;height:100%;display:grid;place-items:center;transform-origin:50% 90%}
+.cx-sprite img{grid-area:1/1;max-width:82%;max-height:96%;object-fit:contain;filter:drop-shadow(0 16px 14px rgba(40,10,0,.35));pointer-events:none;user-select:none}
+.cx-sprite .cx-sp-open{opacity:0;transform:scale(.88);transition:none}
+.cx-sprite.is-hop{animation:cxs-hop 1.15s cubic-bezier(.3,.7,.4,1) both}
+.cx-sprite.is-idle{animation:cxs-idle 3.2s ease-in-out infinite}
+.cx-sprite.is-charge{animation:cxs-charge .62s cubic-bezier(.4,0,.6,1) both}
+.cx-sprite.is-open{animation:none}
+.cx-sprite.is-open .cx-sp-closed{opacity:0}
+.cx-sprite.is-open .cx-sp-open{opacity:1;animation:cxs-pop .42s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes cxs-hop{0%{transform:translateY(8%) scale(1.06,.92)}30%{transform:translateY(-16%) scale(.96,1.05) rotate(-3deg)}62%{transform:translateY(0) scale(1.07,.93)}80%{transform:translateY(-3%) scale(.98,1.02)}100%{transform:none}}
+@keyframes cxs-idle{0%,100%{transform:translateY(0) scale(1,1) rotate(0)}30%{transform:translateY(-2.2%) scale(.99,1.012) rotate(-.6deg)}60%{transform:translateY(0) scale(1.012,.99) rotate(.5deg)}80%{transform:translateY(-1%) rotate(0)}}
+@keyframes cxs-charge{0%{transform:scale(1)}18%{transform:scale(1.07,.9) translateX(-1.5%)}34%{transform:scale(.96,1.07) translateX(1.5%) rotate(2deg)}50%{transform:scale(1.06,.92) translateX(-2%) rotate(-2.4deg)}68%{transform:scale(.97,1.06) translateX(2%) rotate(2deg)}86%{transform:scale(1.08,.9) translateX(-1%)}100%{transform:scale(1.14,.86) translateY(3%)}}
+@keyframes cxs-pop{0%{transform:scale(.8,.86) translateY(8%)}55%{transform:scale(1.1,1.06) translateY(-4%)}100%{transform:scale(1) translateY(0)}}
+.fm-heroart.is-chest .cx-sprite img{max-width:90%;max-height:100%}
+@media(prefers-reduced-motion:reduce){.cx-sprite,.cx-sprite *{animation:none!important}}

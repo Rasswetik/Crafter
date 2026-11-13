@@ -27,11 +27,11 @@ async function admin(content) {
         const b = new FormData(); b.append('file', file);
         return (await api(endpoint, b)).url;
     };
-    const fresh = () => ({id: '', title: 'Новый ящик', enabled: true, bg: 'cozy', image: '', model: '', model_mobile: '', rolls: {1: '', 2: '', 3: '50', 4: '30', 5: '15', 6: '5'}, settings: {guaranteed: {GRAM: true, BALL: true, PACK: true, STAR: false}, bonus: {GRAM: '60', BALL: '30', PACK: '10', STAR: ''}, bg_open: '', bg_reward: ''},
+    const fresh = () => ({id: '', title: 'Новый ящик', enabled: true, bg: 'cozy', image: '', model: '', model_mobile: '', rolls: {1: '', 2: '', 3: '50', 4: '30', 5: '15', 6: '5'}, settings: {guaranteed: {GRAM: true, BALL: true, PACK: true, STAR: false}, bonus: {GRAM: '60', BALL: '30', PACK: '10', STAR: ''}, bg_open: '', bg_reward: '', image_open: ''},
         loot: [{kind: 'GRAM', amount: '0.1', cmin: 1, cmax: 1, weight: '1'}, {kind: 'BALL', amount: '5', cmin: 1, cmax: 1, weight: '1'}, {kind: 'PACK', amount: packs[0]?.id || '', cmin: 1, cmax: 1, weight: '1'}]});
     const edit = c => ({id: c.chest.id, title: c.chest.title, enabled: c.enabled, bg: c.chest.bg, image: c.custom.image, model: c.custom.model, model_mobile: c.custom.model_mobile,
         rolls: Object.fromEntries([1, 2, 3, 4, 5, 6].map(n => [n, c.rolls_raw[n] ? String(c.rolls_raw[n]) : ''])),
-        settings: {guaranteed: Object.fromEntries(KINDS.map(([k]) => [k, (c.settings_raw.guaranteed || []).includes(k)])), bonus: Object.fromEntries(KINDS.map(([k]) => [k, c.settings_raw.bonus[k] ? String(c.settings_raw.bonus[k]) : ''])), bg_open: c.settings_raw.bg_open || '', bg_reward: c.settings_raw.bg_reward || ''},
+        settings: {guaranteed: Object.fromEntries(KINDS.map(([k]) => [k, (c.settings_raw.guaranteed || []).includes(k)])), bonus: Object.fromEntries(KINDS.map(([k]) => [k, c.settings_raw.bonus[k] ? String(c.settings_raw.bonus[k]) : ''])), bg_open: c.settings_raw.bg_open || '', bg_reward: c.settings_raw.bg_reward || '', image_open: c.settings_raw.image_open || ''},
         loot: c.loot_raw.map(x => ({...x, cmin: x.cmin, cmax: x.cmax, weight: String(x.weight)}))});
     const pull = () => {
         sec.querySelectorAll('[data-cf]').forEach(i => { form[i.dataset.cf] = i.value; });
@@ -83,7 +83,7 @@ async function admin(content) {
                 '<div class="adm-row3">' + field('Картинка (для плитки)', '<input type="file" accept="image/png,image/webp" data-up="image">', form.image ? 'Загружена своя. Пусто — пряничный ящик.' : 'PNG/WebP до 15 МБ') +
                 field('Модель .glb', '<input type="file" accept=".glb" data-up="model">', form.model ? 'Загружена своя модель' : 'Пусто — пряничный ящик. До 9 МБ') +
                 field('Облегчённая модель .glb (для телефонов)', '<input type="file" accept=".glb" data-up="model_mobile">', form.model_mobile ? 'Загружена своя' : 'Необязательно') + '</div>' +
-                '<div class="adm-row3">' + [['bg_open', 'Фон, пока ящик закрыт', 'Тёмный фон с свечением (по умолчанию стоит ваш)'], ['bg_reward', 'Фон, когда листаются награды', 'Оранжевый с наковальнями (по умолчанию)']].map(([k, t, h]) =>
+                '<div class="adm-row3">' + [['image_open', 'Картинка открытого ящика', 'Показывается при открытии (закрытый — «Картинка для плитки»). Если есть обе, ящик анимируется картинками, а не 3D'], ['bg_open', 'Фон, пока ящик закрыт', 'Тёмный фон с свечением (по умолчанию стоит ваш)'], ['bg_reward', 'Фон, когда листаются награды', 'Оранжевый с наковальнями (по умолчанию)']].map(([k, t, h]) =>
                     field(t, '<input type="file" accept="image/png,image/webp,image/jpeg" data-up-bg="' + k + '">', form.settings[k] ? 'Загружен свой фон. <a href="#" data-bg-reset="' + k + '">Вернуть стандартный</a>' : h)).join('') + '</div>' +
                 '<h4>Сколько наград выпадет всего</h4><p class="sub">Вес — относительный: 50 и 30 значат 50% и 30%. Пустое поле — такого количества не бывает. Одна награда — одна выдача: сумма GRAM, пачка шаров или один пак.</p>' +
                 '<div class="cxa-rolls">' + [1, 2, 3, 4, 5, 6].map(n => '<label>' + n + ' <input data-cr="' + n + '" type="number" min="0" step="any" value="' + e(form.rolls[n]) + '"><b>' + pct(Number(form.rolls[n]) || 0, rt) + '</b></label>').join('') + '</div>' +
@@ -131,7 +131,7 @@ async function admin(content) {
             pull();
             const out = await run(() => api('admin/new-year/chests', {id: form.id || undefined, title: form.title, enabled: form.enabled, bg: form.bg, image: form.image, model: form.model, model_mobile: form.model_mobile,
                 rolls: Object.fromEntries(Object.entries(form.rolls).filter(([, v]) => Number(v) > 0)),
-                settings: {guaranteed: KINDS.map(([k]) => k).filter(k => form.settings.guaranteed[k]), bonus: Object.fromEntries(Object.entries(form.settings.bonus).filter(([, v]) => Number(v) > 0)), bg_open: form.settings.bg_open, bg_reward: form.settings.bg_reward},
+                settings: {guaranteed: KINDS.map(([k]) => k).filter(k => form.settings.guaranteed[k]), bonus: Object.fromEntries(Object.entries(form.settings.bonus).filter(([, v]) => Number(v) > 0)), bg_open: form.settings.bg_open, bg_reward: form.settings.bg_reward, image_open: form.settings.image_open},
                 loot: form.loot.map(x => ({kind: x.kind, amount: x.amount, cmin: x.cmin, cmax: x.cmax, weight: x.weight}))}), 'Ящик сохранён');
             if (out) { sel = out.id; form = null; draw(); }
         });
