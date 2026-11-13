@@ -144,6 +144,7 @@ function card(o, opts = {}) {
 function includes(o) {
     const it = o.it, out = [];
     (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.id}));
+    (it.chests_in || []).forEach(c => out.push({img: c.chest.image, label: c.chest.title, count: '×' + c.count}));
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
     if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: 'Новогодние шары', count: num(it.balls)});
     if (!out.length) {
@@ -403,7 +404,10 @@ function stage(o, ctx, opts2 = {}) {
         try {
             const res = await perform(o, ctx, choice ? choice[pick].pack.id : undefined);
             hide();
-            if (res.chest) window.crafterChests.play(res.chest, {bg: it.card_bg || res.chest.chest.bg, refresh: ctx.refresh, toast, onDone: () => close()});
+            if (res.chests) {
+                await window.crafterChests.playMany(res.chests, {bg: it.card_bg || res.chests[0].chest.bg, refresh: ctx.refresh, toast});
+                if (res.rest) reveal(o, res.rest, ctx, () => close()); else close();
+            } else if (res.chest) window.crafterChests.play(res.chest, {bg: it.card_bg || res.chest.chest.bg, refresh: ctx.refresh, toast, onDone: () => close()});
             else reveal(o, res, ctx, () => close());
         } catch (error) { hide(); err.textContent = error.message; }
         yes.disabled = false;
@@ -425,6 +429,11 @@ async function perform(o, ctx, choice) {
     const res = await api('shop-items/buy', {item_id: it.id, request_id: rid, choice});
     if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
     if (res.gram_balance !== undefined && state?.me) { state.me.balance = res.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
+    if (res.chest_opens && res.chest_opens.length) {                  // several chests: they open one after another, then the rest of the purchase is shown
+        const ids = res.pack_id ? (res.pack_ids || [res.pack_id]) : null;
+        const rest = ids ? {packIds: ids, count: ids.length} : (res.gram || res.balls_gain) ? {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : 'Зачислено шаров: ' + num(res.balls_gain), text: 'Баланс уже обновлён.'} : null;
+        return {chests: res.chest_opens, rest};
+    }
     if (res.pack_id) { const ids = res.pack_ids || [res.pack_id]; return {packIds: ids, count: ids.length, picked: res.picked}; }
     if (res.chest_open) return {chest: res.chest_open};
     if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};

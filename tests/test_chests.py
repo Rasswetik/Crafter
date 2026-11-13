@@ -75,3 +75,24 @@ def test_snowman_box_follows_its_sheet(client):
     for _ in range(60):
         kinds = [i['kind'] for i in client.post('/api/admin/new-year/chests/snowman/preview', headers=admin).json['items']]
         assert 3 <= len(kinds) <= 6 and kinds[:3] == ['GRAM', 'BALL', 'PACK']
+
+
+def test_several_chests_in_one_offer_and_in_a_bundle(client):
+    admin, player = signed(42), signed(58)
+    client.get('/api/me', headers=player)
+    many = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'CHEST', 'amount': 'gingerbread', 'bundle': 3, 'price_balls': 0, 'size': 'small'})
+    assert many.status_code == 200, many.get_data(as_text=True)
+    bundle = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BUNDLE', 'price_balls': 0, 'size': 'small', 'contents': {
+        'packs': [{'pack_id': 'newyear', 'count': 1}], 'gram': '1', 'balls': '20', 'chests': [{'chest_id': 'snowman', 'count': 2}, {'chest_id': 'gingerbread', 'count': 1}]}})
+    assert bundle.status_code == 200, bundle.get_data(as_text=True)
+    items = client.get('/api/shop-items', headers=player).json['items']
+    lot = next(x for x in items if x['kind'] == 'CHEST')
+    assert lot['bundle'] == 3 and lot['title'].endswith('×3')
+    got = client.post('/api/shop-items/buy', headers=player, json={'item_id': lot['id'], 'request_id': 'chest-many-0001'}).json
+    assert len(got['chest_opens']) == 3
+    b = next(x for x in items if x['kind'] == 'BUNDLE')
+    assert sum(c['count'] for c in b['chests_in']) == 3
+    res = client.post('/api/shop-items/buy', headers=player, json={'item_id': b['id'], 'request_id': 'bundle-chests-1'}).json
+    assert len(res['chest_opens']) == 3 and res['pack_ids'] and res['gram'] == '1'
+    bad = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BUNDLE', 'price_balls': 0, 'contents': {'chests': [{'chest_id': 'nope', 'count': 1}]}})
+    assert bad.status_code == 400

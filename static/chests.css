@@ -179,3 +179,4 @@ body.cx-open .crafter-snowfall{display:none!important}
 .fm-reveal.is-landed .fm-rv-packs{animation:rv-land .6s cubic-bezier(.2,1.7,.4,1) both}
 @keyframes rv-reel{0%{transform:translateY(-1.5%) scale(1.02)}50%{transform:translateY(1.5%) scale(.98)}100%{transform:translateY(-1.5%) scale(1.02)}}
 @keyframes rv-land{0%{transform:scale(.82) rotate(-3deg)}55%{transform:scale(1.14) rotate(1.5deg)}100%{transform:none}}
+.cx-name small{margin-left:8px;padding:2px 10px;border-radius:999px;background:rgba(0,0,0,.35);font-size:.55em;vertical-align:middle;letter-spacing:.06em}

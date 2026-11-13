@@ -246,7 +246,7 @@ function play(res, opts = {}) {
     const scene = '<div class="cx-bg"><i class="cx-bg-a"></i><i class="cx-bg-b"></i></div>';
     document.body.classList.add('cx-open');
     el.innerHTML = scene + '<i class="cx-vig"></i><i class="cx-rays"></i><div class="cx-glow"></div><div class="cx-model"></div>' +
-        '<div class="cx-name">' + e(chest.title) + '</div><div class="cx-hint"><b>Нажмите, чтобы открыть</b></div>' +
+        '<div class="cx-name">' + e(chest.title) + (opts.progress ? ' <small>' + e(opts.progress) + '</small>' : '') + '</div><div class="cx-hint"><b>Нажмите, чтобы открыть</b></div>' +
         '<div class="cx-reward" hidden></div><div class="cx-left" hidden>ОСТАЛОСЬ НАГРАД <b></b></div><div class="cx-sum" hidden></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
@@ -327,5 +327,11 @@ async function chances(chestId, api) {
     } catch (err) { body.innerHTML = '<p class="cx-ch-load">' + e(err.message || 'Не удалось загрузить') + '</p>'; }
 }
 
-window.crafterChests = {viewer, play, chances, webgl, model: url => loadLibs().then(() => loadModel(url))};
+/* several chests in a row: each one opens on its own screen, the next one starts when the previous is closed */
+async function playMany(list, opts = {}) {
+    for (let i = 0; i < list.length; i++) {
+        await new Promise(done => play(list[i], {...opts, progress: list.length > 1 ? (i + 1) + ' / ' + list.length : '', refresh: i === list.length - 1 ? opts.refresh : undefined, onDone: done}));
+    }
+}
+window.crafterChests = {viewer, play, playMany, chances, webgl, model: url => loadLibs().then(() => loadModel(url))};
 })();
