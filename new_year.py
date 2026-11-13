@@ -377,7 +377,7 @@ def install_new_year(app, db, auth, record, audit):
                 if previous['lot_id']!=lot_id:abort(409,description='Номер покупки уже использован')
                 return json.loads(previous['result'])
             if not enabled():
-                abort(409,description='Новогодний маркет сейчас выключен')
+                abort(409,description='Особый маркет сейчас выключен')
             lot=db().execute("SELECT * FROM new_year_lots WHERE id=? AND status='active'",
                              (lot_id,)).fetchone()
             if not lot:

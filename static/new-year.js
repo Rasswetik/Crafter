@@ -107,6 +107,11 @@ async function showNewYear(next){
     if(next)view=next;
     const main=document.querySelector('#main');
     if(!main)return;
+    document.querySelector('#app')?.classList.toggle('fm-full',view==='market');
+    try{
+        const want=view==='market'?'/new-year/market':'/new-year',now=location.pathname.replace(/\/+$/,'');
+        if(now.indexOf('/new-year')===0&&now!==want&&!(view==='market'&&now.indexOf('/new-year/market/')===0))history.pushState({crafterPage:'new-year'},'',want);
+    }catch(_){}
     main.innerHTML=typeof crafterLoading==='function'?crafterLoading(view==='market'?'ny-market':view==='community'?'ny-goal':'ny-hub'):'';
     try{
         const [data,shared,packState,shopState,advState,lockReply]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null),api('new-year/locks').catch(()=>null)]);
@@ -131,8 +136,8 @@ async function showNewYear(next){
 function drawHub(main,data,shared,advState){
     const art=community()?.marketArt?.()||'';
     main.innerHTML='<div class="new-year-page ny-hubpage">'+
-        '<button type="button" class="nyh-card nyh-market" data-nyh="market" aria-label="Новогодний маркет">'+art+
-        '<span class="nyh-copy"><strong>Новогодний маркет</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>'+
+        '<button type="button" class="nyh-card nyh-market" data-nyh="market" aria-label="Особый маркет">'+art+
+        '<span class="nyh-copy"><strong>Особый маркет</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>'+
         (community()&&shared?.event?community().card(shared):'')+
         (window.crafterAdvent&&advState?.enabled?window.crafterAdvent.card(advState):'')+'</div>';
     ['market','community','advent'].forEach(name=>{
@@ -241,7 +246,7 @@ function villageScene(){
 }
 function marketHero(){
     return '<section class="nym-hero"><div class="nym-scene" aria-hidden="true">'+villageScene()+'</div>'+
-        '<div class="nym-copy"><h1>Новогодний маркет</h1></div></section>';
+        '<div class="nym-copy"><h1>Особый маркет</h1></div></section>';
 }
 function drawFestive(main,data,shared,packState,shopState){
     const wallet=()=>Number(String(document.querySelector('#app > header > .winter-currency-balance b')?.textContent||'0').replace(/\s/g,'').replace(/\u00a0/g,''))||Number(data.balance?.balls||0);
@@ -357,6 +362,7 @@ go=async function(page,...args){
     if(state.crafting)return;
     if(state.page==='arena'&&typeof leaveArena==='function')leaveArena();
     view=window.__nyOpen==='advent'?'advent':'hub';window.__nyOpen=null;
+    {const m=/^\/new-year\/market(?:\/([^/]+))?\/?$/.exec(location.pathname);if(m){view='market';window.__fmLot=m[1]?decodeURIComponent(m[1]):'';}}
     state.page='new-year';state.gamesMode=false;
     document.querySelector('#app')?.classList.remove('games-view','arena-view','staking-view','craft-view','cart-view');
     document.querySelector('#app')?.classList.add('new-year-view');
@@ -376,6 +382,12 @@ async function pollSeason(){
     }catch(_){}
 }
 setInterval(pollSeason,30000);
+window.addEventListener('popstate',()=>{                      // Back and Forward between the hub, the market and a lot
+    if(state?.page!=='new-year')return;
+    const p=location.pathname.replace(/\/+$/,'');
+    if(p==='/new-year'&&view==='market')showNewYear('hub');
+    else if(p.indexOf('/new-year/market')===0&&view!=='market'){const m=/^\/new-year\/market\/([^/]+)$/.exec(p);if(m)window.__fmLot=decodeURIComponent(m[1]);showNewYear('market');}
+});
 
 function formFields(form){return Object.fromEntries(new FormData(form));}
 function adminLot(lot){

@@ -1,7 +1,7 @@
 /* Admin → Новый год: when each section of the New Year page opens. Until then its button is grey with a countdown. */
 (function () {
 'use strict';
-const NAMES = {market: 'Новогодний маркет', community: 'События сообщества', advent: 'Адвент-календарь'};
+const NAMES = {market: 'Особый маркет', community: 'События сообщества', advent: 'Адвент-календарь'};
 const local = ts => { if (!ts) return ''; const d = new Date(ts * 1000), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()); };
 async function admin(content) {
     let r;

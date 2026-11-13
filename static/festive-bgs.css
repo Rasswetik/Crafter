@@ -1,0 +1,60 @@
+/* more New Year backgrounds for offers (cb-*, also the window of a lot) and for sections (bg-*); the gallery of the administrator */
+.cb-ny-tree,.fm-stage.cb-ny-tree{background:linear-gradient(180deg,#0f5237,#082a1d)!important}
+.cb-ny-tree::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,#ffd27a 0 2.5px,transparent 3.5px) 0 0/38px 38px,radial-gradient(circle,#ff6a7e 0 2.5px,transparent 3.5px) 19px 19px/38px 38px;opacity:.7;-webkit-mask-image:linear-gradient(180deg,#000,transparent 85%);mask-image:linear-gradient(180deg,#000,transparent 85%)}
+.cb-ny-stars,.fm-stage.cb-ny-stars{background:radial-gradient(120% 90% at 50% 0,#2e2c86,#0d1042 60%,#05061f)!important}
+.cb-ny-stars::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,#fff 0 1.4px,transparent 2px) 0 0/44px 44px,radial-gradient(circle,rgba(255,255,255,.8) 0 1px,transparent 1.6px) 17px 29px/29px 29px,radial-gradient(circle,#ffe9a0 0 2.2px,transparent 3px) 8px 14px/71px 71px}
+.cb-ny-mitten,.fm-stage.cb-ny-mitten{background:radial-gradient(circle,#fff 0 3px,transparent 3.6px) 0 0/26px 26px,radial-gradient(circle,#fff 0 3px,transparent 3.6px) 13px 13px/26px 26px,linear-gradient(165deg,#c8283c,#8a1428)!important}
+.cb-ny-cozy,.fm-stage.cb-ny-cozy{background:repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 8px,transparent 8px 28px),repeating-linear-gradient(0deg,rgba(255,255,255,.07) 0 8px,transparent 8px 28px),linear-gradient(165deg,#a8643a,#4d2a17)!important}
+.cb-ny-ice,.fm-stage.cb-ny-ice{background:linear-gradient(160deg,#b4f3ff,#43acec 55%,#1b5fb8)!important}
+.cb-ny-ice .fm-title,.cb-ny-ice .fm-name b{-webkit-text-stroke-color:#0f4c8f}
+.cb-ny-ice::before{content:"";position:absolute;inset:0;background:conic-gradient(from 20deg at 30% 20%,rgba(255,255,255,.35),transparent 18%,rgba(255,255,255,.25) 36%,transparent 55%,rgba(255,255,255,.3) 75%,transparent)}
+.cb-ny-gold,.fm-stage.cb-ny-gold{background:radial-gradient(90% 70% at 50% 0,#fff3b8,#eaaa26 55%,#8a5208)!important}
+.cb-ny-gold::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,#fff 0 1.6px,transparent 2.4px) 0 0/36px 36px,radial-gradient(circle,#fff6c9 0 1.2px,transparent 2px) 14px 22px/24px 24px;opacity:.8}
+.cb-ny-pine,.fm-stage.cb-ny-pine{background:linear-gradient(180deg,#1a4130,#0a1d15)!important}
+.cb-ny-pine::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,#fff 0 1.6px,transparent 2.4px) 0 0/40px 40px,radial-gradient(circle,rgba(255,255,255,.7) 0 1.2px,transparent 2px) 20px 20px/28px 28px;opacity:.75}
+.cb-ny-berry,.fm-stage.cb-ny-berry{background:radial-gradient(circle at 30% 30%,#e8405c 0 4px,transparent 5px) 0 0/34px 34px,radial-gradient(circle at 70% 70%,#2c8a54 0 3px,transparent 4px) 0 0/34px 34px,linear-gradient(165deg,#7a1230,#38061a)!important}
+.cb-ny-cocoa,.fm-stage.cb-ny-cocoa{background:radial-gradient(circle,rgba(255,255,255,.85) 0 5px,transparent 6px) 0 0/46px 46px,linear-gradient(165deg,#74402a,#2a1409)!important}
+.cb-ny-polar,.fm-stage.cb-ny-polar{background:linear-gradient(180deg,#0a1f4a,#2a7fb8 68%,#eaf7ff)!important}
+.cb-ny-moon,.fm-stage.cb-ny-moon{background:radial-gradient(circle at 78% 20%,#fff6c9 0 26px,rgba(255,246,201,.28) 27px 62px,transparent 64px),linear-gradient(180deg,#08123a,#1b2a6b)!important}
+/* sections */
+.fm-bgx.bg-tree{background:linear-gradient(180deg,#0f5237,#06241a)}
+.fm-bgx.bg-tree::before{content:"";position:absolute;inset:0;background:radial-gradient(circle,#ffd27a 0 3px,transparent 4px) 0 0/54px 54px,radial-gradient(circle,#ff6a7e 0 3px,transparent 4px) 27px 27px/54px 54px;opacity:.55;-webkit-mask-image:linear-gradient(180deg,#000,transparent 80%);mask-image:linear-gradient(180deg,#000,transparent 80%)}
+.fm-bgx.bg-stars{background:radial-gradient(120% 90% at 50% 0,#2e2c86,#0d1042 60%,#05061f)}
+.fm-bgx.bg-mitten{background:radial-gradient(circle,#fff 0 4px,transparent 4.6px) 0 0/34px 34px,radial-gradient(circle,#fff 0 4px,transparent 4.6px) 17px 17px/34px 34px,linear-gradient(165deg,#b82236,#5e0c1c)}
+.fm-bgx.bg-cozy{background:repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 12px,transparent 12px 40px),repeating-linear-gradient(0deg,rgba(255,255,255,.07) 0 12px,transparent 12px 40px),linear-gradient(165deg,#9a5a34,#3d2012)}
+.fm-bgx.bg-ice{background:linear-gradient(160deg,#b4f3ff,#43acec 55%,#154f9a)}
+.fm-bgx.bg-pine{background:linear-gradient(180deg,#1a4130,#08170f)}
+.fm-bgx.bg-berry{background:radial-gradient(circle at 30% 30%,#e8405c 0 5px,transparent 6px) 0 0/48px 48px,radial-gradient(circle at 70% 70%,#2c8a54 0 4px,transparent 5px) 0 0/48px 48px,linear-gradient(165deg,#7a1230,#2e0414)}
+.fm-bgx.bg-cocoa{background:radial-gradient(circle,rgba(255,255,255,.8) 0 7px,transparent 8px) 0 0/64px 64px,linear-gradient(165deg,#74402a,#22100a)}
+.fm-bgx.bg-polar{background:linear-gradient(180deg,#0a1f4a,#2a7fb8 68%,#d4eeff)}
+.fm-bgx.bg-moon{background:radial-gradient(circle at 80% 18%,#fff6c9 0 34px,rgba(255,246,201,.25) 35px 80px,transparent 82px),linear-gradient(180deg,#08123a,#1b2a6b)}
+.fm-bgx.bg-villagepv{background:linear-gradient(180deg,#0a1240,#27408f 62%,#c8a05a 62.5%,#7a5a2a)}
+/* the gallery of backgrounds in the administrator */
+.fm-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:12px;margin-top:6px}
+.fm-sw{position:relative;display:grid;gap:6px;justify-items:stretch;padding:0;border:0;background:none;color:inherit;text-align:center;cursor:pointer}
+.fm-swp{position:relative;display:block;height:78px;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.16);background:#222a48 center/cover;transition:transform .2s,border-color .2s,box-shadow .2s}
+.fm-swc{position:absolute;inset:0;display:block;overflow:hidden}
+.fm-swc.cb-none{background:linear-gradient(165deg,#2f7bff,#4fd6ff)}
+.fm-sw em{font-style:normal;font-size:12px;font-weight:700;color:#c3ccea;line-height:1.2}
+.fm-sw:hover .fm-swp{transform:translateY(-2px);border-color:rgba(255,255,255,.5)}
+.fm-sw.is-on .fm-swp{border-color:#fff;box-shadow:0 0 0 3px #4aa8ff}
+.fm-sw.is-on::after{content:"✓";position:absolute;right:6px;top:6px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:#4aa8ff;color:#fff;font-size:13px;font-weight:900}
+.fm-swup .fm-swp{display:grid;place-items:center;border-style:dashed;font-size:30px;color:#9fb2d6}
+.fm-swup b{font-weight:400}
+.fm-special{margin:12px 0;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04)}
+.fm-special summary{cursor:pointer;font-weight:800}
+.fm-special .adm-field{margin-top:12px}
+.si-editing{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0;padding:12px 16px;border-radius:14px;background:rgba(74,168,255,.14);border:1px solid rgba(74,168,255,.5)}
+.si-editing b{color:#9ed3ff}
+.sb-set{margin-top:12px}.sb-set>label{display:block;margin-bottom:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9fb2d6}
+.sb-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sb-chips button{padding:7px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:inherit;font-weight:700;font-size:13px}
+.sb-chips button.is-on{background:#2b7be033;border-color:#4aa8ff;color:#9ed3ff}
+.sb-set input[type=text],.sb-set input:not([type]){width:100%;max-width:360px}
+.sb-sec{position:absolute;left:8px;bottom:8px;z-index:5;padding:3px 9px;border-radius:999px;background:rgba(10,14,44,.82);color:#fff;font-size:11px;font-weight:800;pointer-events:none}
+.adm-chips button.is-on{background:#2b7be033;border-color:#4aa8ff;color:#9ed3ff}
+/* the art of a choice offer: the packs stand in a fan */
+.fm-choiceart{position:relative;width:100%;height:100%}
+.fm-choiceart img{position:absolute;left:50%;bottom:4%;height:80%;max-width:60%;object-fit:contain;filter:drop-shadow(0 10px 12px rgba(0,0,0,.45));transform:translateX(-50%) translateX(calc((var(--i) - (var(--n) - 1) / 2) * 30%)) rotate(calc((var(--i) - (var(--n) - 1) / 2) * 8deg));z-index:calc(10 - var(--i))}
+.fm-card.is-vis .fm-choiceart img{animation:fm-bobc 6s ease-in-out infinite;animation-delay:calc(var(--i) * -1.2s)}
+@keyframes fm-bobc{50%{translate:0 -6px}}

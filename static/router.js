@@ -7,7 +7,7 @@ const MAP = {market: '/market', gifts: '/gifts', games: '/hub', craft: '/craft',
 const REV = Object.fromEntries(Object.entries(MAP).map(([page, path]) => [path, page]));
 const deep = () => /^\/(collections|auctions)\//.test(location.pathname);
 const clean = () => location.pathname.replace(/\/+$/, '') || '/';
-window.crafterRouteView = () => REV[clean()] || null;
+window.crafterRouteView = () => REV[clean()] || (clean().indexOf('/new-year/') === 0 ? 'new-year' : null);
 window.crafterPagePath = () => MAP[state.page] || '/';
 let silent = false;
 const before = go;
@@ -15,7 +15,7 @@ go = async function (page, ...rest) {
     const result = await before.call(this, page, ...rest);
     try {
         const path = MAP[state.page];
-        if (!silent && path && !deep() && clean() !== path) {
+        if (!silent && path && !deep() && clean() !== path && !(path === '/new-year' && clean().indexOf('/new-year/') === 0)) {
             const keep = path === '/new-year' ? location.search : '';
             history[location.pathname === '/' ? 'replaceState' : 'pushState']({crafterPage: state.page}, '', path + keep);
         }
@@ -27,7 +27,7 @@ const settle = setInterval(() => {
     if (document.querySelector('#splash')) return;
     clearInterval(settle);
     const path = MAP[state.page];
-    if (path && clean() !== path && !deep()) {
+    if (path && clean() !== path && !deep() && !(path === '/new-year' && clean().indexOf('/new-year/') === 0)) {
         try { history.replaceState({crafterPage: state.page}, '', path); } catch (_) {}
     }
 }, 300);

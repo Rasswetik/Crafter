@@ -102,13 +102,13 @@ function buySheet(p, refresh) {
 async function packInfo(upid) {
     try { return ((await api('packs')).mine || []).find(m => m.id === upid)?.pack || null; } catch (_) { return null; }
 }
-async function openMany(ids, refresh) {
-    if (ids.length < 2) { await open(ids[0], refresh); return; }
+async function openMany(ids, refresh, firstPre) {
+    if (ids.length < 2) { await open(ids[0], refresh, firstPre ? {pre: firstPre} : undefined); return; }
     const batch = {skip: false, results: []};
     const ahead = {};                                             // the next pack is requested while this one plays: no waiting between packs
     for (let i = 0; i < ids.length && !batch.skip; i++) {
         if (i + 1 < ids.length) { ahead[i + 1] = api('packs/open', {user_pack_id: ids[i + 1]}); ahead[i + 1].catch(() => {}); }
-        await open(ids[i], null, {index: i + 1, total: ids.length, batch, pre: ahead[i]});
+        await open(ids[i], null, {index: i + 1, total: ids.length, batch, pre: ahead[i] || (i === 0 ? firstPre : undefined)});
         if (batch.skip) {                                         // held for 5 seconds: everything that is left opens at once, in ONE request
             const left = ids.slice(i + 1);
             if (left.length) {

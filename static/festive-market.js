@@ -36,9 +36,11 @@ const ICONS = {
 };
 ICONS.featured = ICONS.star; ICONS.packs = ICONS.pack; ICONS.bundles = ICONS.bundle; ICONS.res = ICONS.gem; ICONS.rewards = ICONS.cup; ICONS.gifts = ICONS.gift;
 const BG_KEYS = [['village', 'Деревня'], ['snow', 'Снегопад'], ['night', 'Звёздная ночь'], ['aurora', 'Северное сияние'], ['garland', 'Гирлянды'], ['frost', 'Мороз'], ['candy', 'Леденцы'],
-    ['blue', 'Синий'], ['violet', 'Фиолетовый'], ['crimson', 'Алый'], ['emerald', 'Изумрудный'], ['gold', 'Золотой']];
+    ['blue', 'Синий'], ['violet', 'Фиолетовый'], ['crimson', 'Алый'], ['emerald', 'Изумрудный'], ['gold', 'Золотой'],
+    ['tree', 'Ёлка'], ['stars', 'Звёздный'], ['mitten', 'Варежки'], ['cozy', 'Уют'], ['ice', 'Лёд'], ['pine', 'Хвоя'], ['berry', 'Ягоды'], ['cocoa', 'Какао'], ['polar', 'Полярный'], ['moon', 'Лунная ночь']];
 const CARD_BG_KEYS = [['', 'По редкости'], ['ny-snow', 'Снежная ночь'], ['ny-candy', 'Леденцы'], ['ny-lights', 'Гирлянды'], ['ny-frost', 'Иней'], ['ny-ginger', 'Пряник'], ['ny-bells', 'Колокольчики'], ['ny-fire', 'Камин'],
-    ['ny-aurora', 'Сияние'], ['c-blue', 'Синий'], ['c-violet', 'Фиолетовый'], ['c-crimson', 'Алый'], ['c-emerald', 'Изумрудный'], ['c-gold', 'Золотой'], ['c-pink', 'Розовый']];
+    ['ny-aurora', 'Сияние'], ['c-blue', 'Синий'], ['c-violet', 'Фиолетовый'], ['c-crimson', 'Алый'], ['c-emerald', 'Изумрудный'], ['c-gold', 'Золотой'], ['c-pink', 'Розовый'],
+    ['ny-tree', 'Ёлка'], ['ny-stars', 'Звёзды'], ['ny-mitten', 'Варежки'], ['ny-cozy', 'Уют'], ['ny-ice', 'Лёд'], ['ny-gold', 'Золото'], ['ny-pine', 'Хвоя'], ['ny-berry', 'Ягоды'], ['ny-cocoa', 'Какао'], ['ny-polar', 'Полярный'], ['ny-moon', 'Лунная ночь']];
 const DEFAULT_SECTIONS = [
     {id: 'featured', title: 'Акции', kind: 'smart', rule: 'featured', icon: 'builtin:star', preview: '', bg: 'village', enabled: true},
     {id: 'packs', title: 'Паки', kind: 'smart', rule: 'packs', icon: 'builtin:pack', preview: '', bg: 'night', enabled: true},
@@ -61,8 +63,9 @@ function bgHTML(key) {
     if (key === 'village' && window.crafterVillage) return '<div class="fm-bgx bg-village">' + window.crafterVillage() + '</div>';
     const k = key === 'village' ? 'night' : (key || 'night');
     let kids = '';
-    if (k === 'snow') for (let i = 0; i < 38; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 37 + 7) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (9 + i % 7) + 's;--d:-' + ((i * 1.7) % 11).toFixed(1) + 's;--dx:' + (i % 2 ? 24 : -24) + 'px"></i>';
-    if (k === 'night') for (let i = 0; i < 46; i++) kids += '<i class="fm-star" style="--x:' + ((i * 53 + 11) % 100) + '%;--y:' + ((i * 29 + 5) % 100) + '%;--s:' + (1 + i % 3) + 'px;--d:-' + ((i * .7) % 5).toFixed(1) + 's"></i>';
+    if (false) for (let i = 0; i < 38; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 37 + 7) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (9 + i % 7) + 's;--d:-' + ((i * 1.7) % 11).toFixed(1) + 's;--dx:' + (i % 2 ? 24 : -24) + 'px"></i>';
+    if (['snow', 'tree', 'pine', 'ice', 'polar', 'moon', 'cozy', 'cocoa'].includes(k)) for (let i = 0; i < 26; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 41 + 9) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (10 + i % 6) + 's;--d:-' + ((i * 1.9) % 12).toFixed(1) + 's;--dx:' + (i % 2 ? 20 : -20) + 'px"></i>';
+    if (k === 'night' || k === 'stars' || k === 'moon') for (let i = 0; i < 46; i++) kids += '<i class="fm-star" style="--x:' + ((i * 53 + 11) % 100) + '%;--y:' + ((i * 29 + 5) % 100) + '%;--s:' + (1 + i % 3) + 'px;--d:-' + ((i * .7) % 5).toFixed(1) + 's"></i>';
     if (k === 'aurora') kids = '<i class="fm-blob a"></i><i class="fm-blob b"></i><i class="fm-blob c"></i>';
     if (k === 'garland') { let b = ''; for (let i = 0; i < 18; i++) b += '<i class="fm-bulb" style="--x:' + (i * 5.8).toFixed(1) + '%;--c:' + ['#ff5c6e', '#ffd27a', '#6ac7ff', '#9be37f', '#c39bff'][i % 5] + ';--d:-' + ((i * .45) % 3).toFixed(1) + 's"></i>'; kids = '<span class="fm-wire"></span>' + b; }
     if (k === 'frost') for (let i = 0; i < 9; i++) kids += '<i class="fm-crystal" style="--x:' + ((i * 41 + 9) % 100) + '%;--y:' + ((i * 23 + 13) % 100) + '%;--s:' + (50 + (i * 37) % 90) + 'px;--r:' + (i * 31 % 90) + 'deg"></i>';
@@ -82,15 +85,24 @@ function leftText(s) {
     return d ? d + 'д. ' + h + 'ч.' : h ? h + 'ч. ' + m + 'м.' : m + 'м. ' + (s % 60) + 'с.';
 }
 function artOf(it) {
+    if (it.mode === 'random' && it.contents && it.contents.length) {                 // a black pack with a question mark
+        return '<div class="fm-mystery"><img class="si-solo" src="' + e(it.contents[0].pack.image) + '" alt=""><b>?</b><i></i><i></i><i></i></div>';
+    }
+    if (it.mode === 'choice' && it.contents && it.contents.length) {
+        const list = it.contents.slice(0, 4), n = list.length;
+        return '<div class="fm-choiceart">' + list.map((c, i) => '<img src="' + e(c.pack.image) + '" alt="" style="--i:' + i + ';--n:' + n + '">').join('') + '</div>';
+    }
     const f = SI().artHTML;
     return f ? f(it) : '<img class="si-solo" src="' + e(it.image_url || '/static/assets/community-reward.svg') + '" alt="">';
 }
 function descOf(it) {
     const d = SI().describe;
+    if (!it.description && it.mode === 'choice') return 'Выберите один из ' + (it.contents || []).length + ' паков и получите его сразу.';
+    if (!it.description && it.mode === 'random') return 'Случайный пак из ' + (it.contents || []).length + ': какой выпадет, узнаете после покупки.';
     return it.description || (d ? d(it) : '');
 }
 const priceOf = it => it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Бесплатно</b>';
-const headingOf = it => it.heading || NAMES[rarityOf(it)];
+const headingOf = it => it.heading || (it.mode === 'choice' ? 'Акция с выбором' : it.mode === 'random' ? 'Случайный пак' : NAMES[rarityOf(it)]);
 
 /* ---------- one offer card ---------- */
 function card(o, opts = {}) {
@@ -102,7 +114,7 @@ function card(o, opts = {}) {
     const cbg = it.card_bg || '';
     const cbClass = cbg ? (cbg.startsWith('image:') ? ' cb-image' : ' cb-' + cbg) : '';
     const cbStyle = cbg.startsWith('image:') ? ' style="background-image:linear-gradient(rgba(8,12,40,.18),rgba(8,12,40,.5)),url(' + e(cbg.slice(6)) + ')"' : '';
-    return '<div class="fm-card r-' + r + ' fm-s-' + size + (opts.board ? ' is-board' : '') + '" data-fm="' + e(o.key) + '" style="--u:' + WIDTH[size] + '" tabindex="0" role="button" aria-label="' + e(it.title) + '">' +
+    return '<div class="fm-card r-' + r + ' fm-s-' + size + (opts.board ? ' is-board' : '') + (opts.fresh ? ' is-fresh' : '') + '" data-fm="' + e(o.key) + '" style="--u:' + WIDTH[size] + '" tabindex="0" role="button" aria-label="' + e(it.title) + '">' +
         tab + (it.badge ? '<span class="fm-new">' + e(it.badge) + '</span>' : '') +
         '<div class="fm-body' + cbClass + '"' + cbStyle + '><i class="fm-rays"></i><i class="fm-dots"></i><i class="fm-glint"></i>' +
         '<h3 class="fm-title">' + e(headingOf(it)) + '</h3>' +
@@ -128,6 +140,8 @@ function includes(o) {
 }
 function packImages(it) {
     const list = [];
+    if (it.mode === 'random' && it.contents && it.contents.length) return [it.contents[0].pack.image];
+    if (it.mode === 'choice' && it.contents) return it.contents.map(c => c.pack.image).slice(0, 6);
     (it.contents || []).forEach(c => { for (let i = 0; i < Math.min(c.count, 3); i++) list.push(c.pack.image); });
     if (!list.length && (it.pack?.image || it.kind === 'PACK')) for (let i = 0; i < Math.min(it.bundle || 1, 8); i++) list.push(it.pack?.image || it.image_url);
     return list.slice(0, 9);
@@ -146,7 +160,7 @@ function openChances(packs, ctx) {
     document.querySelector('.fm-chances')?.remove();
     const el = document.createElement('div');
     el.className = 'fm-chances';
-    el.innerHTML = '<i class="fm-rays big"></i><div class="fm-ch-top"><h2>Шансы на награды</h2><button type="button" class="fm-x" data-fm-x aria-label="Закрыть">×</button></div>' +
+    el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i><div class="fm-ch-top"><h2>Шансы на награды</h2><button type="button" class="fm-x" data-fm-x aria-label="Закрыть"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>' +
         (packs.length > 1 ? '<div class="fm-ch-tabs">' + packs.map((p, i) => '<button type="button" class="fm-ch-tab' + (i ? '' : ' is-on') + '" data-p="' + e(p.id) + '"><img src="' + e(p.image) + '" alt=""><span>' + e(p.title) + '</span></button>').join('') + '</div>' : '') +
         '<div class="fm-ch-body" data-fm-ch><div class="fm-ch-load"><i></i><i></i><i></i></div></div>';
     document.body.appendChild(el);
@@ -179,7 +193,9 @@ function openChances(packs, ctx) {
 function reveal(o, result, ctx, closeStage) {
     const it = o.it, el = document.createElement('div');
     el.className = 'fm-reveal r-' + rarityOf(it);
-    const ids = result.packIds || [], imgs = packImages(it), total = result.count || it.bundle || ids.length || 1;
+    const ids = result.packIds || [], total = result.count || it.bundle || ids.length || 1;
+    const got = result.picked && (it.contents || []).find(c => c.pack.id === result.picked);
+    const imgs = got ? Array.from({length: Math.min(total, 8)}, () => got.pack.image) : packImages(it);
     const spawn = imgs.length ? imgs : [it.pack?.image || it.image_url || '/static/assets/gram.svg'];
     const isPack = Boolean(result.packIds);
     const fan = spawn.map((src, i) => {
@@ -189,7 +205,7 @@ function reveal(o, result, ctx, closeStage) {
     const sparks = Array.from({length: 26}, (_, i) => '<i class="fm-rv-spark" style="--a:' + (i * 360 / 26).toFixed(0) + 'deg;--d:' + (120 + (i * 37) % 160) + 'px;--t:' + (.9 + (i % 5) * .12).toFixed(2) + 's;--c:' + ['#ffd36b', '#7cc8ff', '#ff7a9a', '#9be37f', '#ffffff'][i % 5] + '"></i>').join('');
     let title, text, buttons;
     if (isPack) {
-        title = 'Вы купили: <b>×' + num(total) + '</b>';
+        title = got ? (it.mode === 'random' ? 'Вам выпал: ' : 'Вы получили: ') + '<b>' + e(got.pack.title) + (total > 1 ? ' ×' + num(total) : '') + '</b>' : 'Вы купили: <b>×' + num(total) + '</b>';
         text = total > 1 ? 'Паки уже в инвентаре («Мои подарки»). Что с ними сделать?' : 'Пак уже в инвентаре («Мои подарки»). Что с ним сделать?';
         buttons = '<button type="button" class="fm-btn green" data-rv-open>' + (total > 1 ? 'Открыть все (' + num(total) + ')' : 'Открыть сейчас') + '</button>' +
             '<button type="button" class="fm-btn blue" data-rv-keep>Оставить в инвентаре</button>';
@@ -198,7 +214,7 @@ function reveal(o, result, ctx, closeStage) {
         text = result.text || '';
         buttons = (result.html || '') + '<button type="button" class="fm-btn green" data-rv-keep>Отлично</button>';
     }
-    el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i><div class="fm-rv-stage"><div class="fm-rv-burst">' + sparks + '</div><div class="fm-rv-packs">' + fan + '</div></div>' +
+    el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i><div class="fm-rv-stage"><div class="fm-rv-burst">' + sparks + '</div><div class="fm-rv-packs' + (spawn.length === 1 ? ' is-one' : '') + '"><i class="fm-rv-aura"></i>' + fan + '</div></div>' +
         '<div class="fm-rv-panel"><small>Покупка совершена</small><h2>' + title + '</h2><p>' + e(text) + '</p><div class="fm-rv-btns">' + buttons + '</div></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
@@ -206,79 +222,124 @@ function reveal(o, result, ctx, closeStage) {
     el.querySelector('[data-rv-keep]')?.addEventListener('click', done);
     el.querySelector('[data-rv-open]')?.addEventListener('click', async () => {
         if (ctx.preview || !ids.length) { done(); return; }
+        const btn = el.querySelector('[data-rv-open]'), keep = el.querySelector('[data-rv-keep]');
+        btn.disabled = true; keep.disabled = true; btn.classList.add('is-busy'); btn.textContent = 'Открываем…';
+        const pre = api('packs/open', {user_pack_id: ids[0]});            // the first pack is opened on the server while the screen is still here
+        pre.catch(() => {});
+        try { await pre; } catch (error) { toast(error.message); btn.disabled = false; keep.disabled = false; btn.classList.remove('is-busy'); btn.textContent = 'Открыть сейчас'; return; }
         el.classList.remove('is-in'); setTimeout(() => el.remove(), 200); closeStage();
-        try { await window.crafterPacks.openMany(ids, ctx.refresh); } catch (error) { toast(error.message); }
+        try { await window.crafterPacks.openMany(ids, ctx.refresh, pre); } catch (error) { toast(error.message); }
     });
     result.bind?.(el);
     return el;
 }
 
 /* ---------- the window of a lot ---------- */
-function stage(o, ctx) {
+const BASE = '/new-year/market';
+const CHEV = d => '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg>';
+function stage(o, ctx, opts2 = {}) {
     const it = o.it, r = rarityOf(it);
     document.querySelector('.fm-stage')?.remove();
     const el = document.createElement('div');
     el.className = 'fm-stage r-' + r + (it.card_bg ? ' ' + (it.card_bg.startsWith('image:') ? '' : 'cb-' + it.card_bg) : '');
     const inc = includes(o);
+    const choice = it.mode === 'choice' && it.contents && it.contents.length > 1 ? it.contents : null;
+    let pick = 0;
     const lines = descOf(it).split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 5);
     const packsIn = inc.filter(x => x.pack).map(x => ({id: x.pack, title: x.label, image: x.img}));
+    const optArt = i => '<img class="si-solo fm-pickart" src="' + e(choice[i].pack.image) + '" alt="">' + (choice[i].count > 1 ? '<b class="fm-pickcount">×' + choice[i].count + '</b>' : '');
+    const heroInner = choice ? optArt(0) : artOf(it);
+    const incHead = it.mode === 'random' ? 'Может выпасть' : choice ? 'Выберите один' : 'Включает';
     el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i>' +
         '<button type="button" class="fm-back" data-fm-close aria-label="Назад"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>' +
         '<span class="fm-bal">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span>' +
         '<div class="fm-info"><div class="fm-plate"><small>' + e(headingOf(it)) + '</small><h2>' + e(it.title) + '</h2></div>' +
+        (choice ? '<p class="fm-pickname" data-fm-pickname></p>' : '') +
         (lines.length ? '<ul class="fm-lines">' + lines.map(l => '<li>' + e(l) + '</li>').join('') + '</ul>' : '') + '</div>' +
-        '<div class="fm-hero"><div class="fm-floor"></div><div class="fm-heroart">' + artOf(it) + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
-        '<div class="fm-inc"><div class="fm-inc-head"><b>Включает</b>' + (packsIn.length ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
-        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic" style="--i:' + i + '"' + (x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '><img src="' + e(x.img) + '" alt=""><b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
-        '<div class="fm-buy"><div class="fm-confirm" hidden><b>Подтвердить?</b><button type="button" class="fm-yes" data-fm-yes>ДА</button><button type="button" class="fm-no" data-fm-no>Отмена</button></div>' +
-        '<button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
-        '<p class="fm-err" role="alert"></p></div>';
+        '<div class="fm-hero">' + (choice ? '<button type="button" class="fm-harrow l" data-fm-h="-1" aria-label="Предыдущий">' + CHEV('m15 5-7 7 7 7') + '</button><button type="button" class="fm-harrow r" data-fm-h="1" aria-label="Следующий">' + CHEV('m9 5 7 7-7 7') + '</button>' : '') +
+        '<div class="fm-floor"></div><div class="fm-heroart" data-fm-heroart>' + heroInner + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
+        '<div class="fm-inc"><div class="fm-inc-head"><b>' + incHead + '</b>' + (packsIn.length ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
+        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + (choice && !i ? ' is-pick' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '><img src="' + e(x.img) + '" alt=""><b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
+        '<div class="fm-buy"><button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
+        '<p class="fm-err" role="alert"></p></div>' +
+        '<div class="fm-confirm" hidden><div class="fm-cbox"><b>Подтвердить?</b><span class="fm-cwhat" data-fm-cwhat></span><button type="button" class="fm-yes" data-fm-yes>ДА</button><button type="button" class="fm-no" data-fm-no>Отмена</button></div></div>';
     if (it.card_bg && it.card_bg.startsWith('image:')) el.style.backgroundImage = 'linear-gradient(rgba(8,12,40,.3),rgba(8,12,40,.55)),url(' + it.card_bg.slice(6) + ')', el.style.backgroundSize = 'cover';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
-    const close = () => { el.classList.remove('is-in'); setTimeout(() => el.remove(), 260); document.removeEventListener('keydown', onKey); };
+    // every lot has its own address: a link opens the lot, Back closes it
+    let pushed = false, closed = false;
+    if (!ctx.preview) {
+        try {
+            if (opts2.fromUrl) history.replaceState({crafterPage: 'new-year', fmLot: o.key}, '', BASE + '/' + encodeURIComponent(o.key));
+            else { history.pushState({crafterPage: 'new-year', fmLot: o.key}, '', BASE + '/' + encodeURIComponent(o.key)); pushed = true; }
+        } catch (_) {}
+    }
+    const onPop = () => { if (location.pathname.indexOf(BASE + '/') !== 0) close(true); };
+    const close = fromPop => {
+        if (closed) return; closed = true;
+        el.classList.remove('is-in'); setTimeout(() => el.remove(), 260);
+        document.removeEventListener('keydown', onKey); window.removeEventListener('popstate', onPop);
+        if (!ctx.preview && fromPop !== true) { try { if (pushed) history.back(); else history.replaceState({crafterPage: 'new-year'}, '', BASE); } catch (_) {} }
+    };
     const onKey = ev => { if (ev.key === 'Escape' && !document.querySelector('.fm-chances,.fm-reveal')) close(); };
-    document.addEventListener('keydown', onKey);
-    el.querySelector('[data-fm-close]').addEventListener('click', close);
-    el.querySelector('[data-fm-chances]')?.addEventListener('click', () => openChances(packsIn, ctx));
+    document.addEventListener('keydown', onKey); window.addEventListener('popstate', onPop);
+    el.querySelector('[data-fm-close]').addEventListener('click', () => close());
+    const chancesList = () => { const first = choice ? packsIn[pick] : null; return first ? [first].concat(packsIn.filter((_, j) => j !== pick)) : packsIn; };
+    el.querySelector('[data-fm-chances]')?.addEventListener('click', () => openChances(chancesList(), ctx));
     el.querySelectorAll('[data-fm-pk]').forEach(b => b.addEventListener('click', () => { const i = packsIn.findIndex(p => p.id === b.dataset.fmPk); openChances(i > 0 ? [packsIn[i]].concat(packsIn.filter((_, j) => j !== i)) : packsIn, ctx); }));
+    const nameEl = el.querySelector('[data-fm-pickname]');
+    const setPick = i => {
+        pick = (i + choice.length) % choice.length;
+        const art = el.querySelector('[data-fm-heroart]');
+        art.classList.remove('fm-swap'); void art.offsetWidth;
+        art.innerHTML = optArt(pick); art.classList.add('fm-swap');
+        el.querySelectorAll('[data-fm-opt]').forEach(b => b.classList.toggle('is-pick', Number(b.dataset.fmOpt) === pick));
+        nameEl.innerHTML = 'Ваш выбор: <b>' + e(choice[pick].pack.title) + (choice[pick].count > 1 ? ' ×' + choice[pick].count : '') + '</b>';
+    };
+    if (choice) {
+        setPick(0);
+        el.querySelectorAll('[data-fm-opt]').forEach(b => b.addEventListener('click', () => setPick(Number(b.dataset.fmOpt))));
+        el.querySelectorAll('[data-fm-h]').forEach(b => b.addEventListener('click', () => setPick(pick + Number(b.dataset.fmH))));
+        el.addEventListener('keydown', ev => { if (ev.key === 'ArrowLeft') setPick(pick - 1); if (ev.key === 'ArrowRight') setPick(pick + 1); });
+    }
     const btn = el.querySelector('[data-fm-buy]'), err = el.querySelector('.fm-err'), bubble = el.querySelector('.fm-confirm');
-    const hide = () => { bubble.classList.remove('is-in'); setTimeout(() => { bubble.hidden = true; }, 180); };
+    const hide = () => { bubble.classList.remove('is-in'); setTimeout(() => { bubble.hidden = true; }, 200); };
     btn.addEventListener('click', ev => {
         ev.stopPropagation(); err.textContent = '';
         if (o.src === 'cm') { close(); window.crafterCommunity.claim(o.m, ctx.refresh); return; }
-        if (!bubble.hidden) { hide(); return; }
+        el.querySelector('[data-fm-cwhat]').innerHTML = (choice ? e(choice[pick].pack.title) + (choice[pick].count > 1 ? ' ×' + choice[pick].count : '') : e(it.title)) + (it.price_balls ? ' · ' + ORN + '<b>' + num(it.price_balls) + '</b>' : ' · бесплатно');
         bubble.hidden = false; requestAnimationFrame(() => bubble.classList.add('is-in'));
     });
-    el.addEventListener('click', ev => { if (!bubble.hidden && !ev.target.closest('.fm-confirm') && !ev.target.closest('[data-fm-buy]')) hide(); });
+    bubble.addEventListener('click', ev => { if (!ev.target.closest('.fm-cbox')) hide(); });
     el.querySelector('[data-fm-no]').addEventListener('click', hide);
     el.querySelector('[data-fm-yes]').addEventListener('click', async () => {
         const yes = el.querySelector('[data-fm-yes]');
         yes.disabled = true; err.textContent = '';
         try {
-            const res = await perform(o, ctx);
+            const res = await perform(o, ctx, choice ? choice[pick].pack.id : undefined);
             hide();
-            reveal(o, res, ctx, close);
+            reveal(o, res, ctx, () => close());
         } catch (error) { hide(); err.textContent = error.message; }
         yes.disabled = false;
     });
     return el;
 }
-async function perform(o, ctx) {
+async function perform(o, ctx, choice) {
     const it = o.it, rid = 'si-' + (crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random().toString(36).slice(2));
     if (ctx.preview) {                                               // the preview page shows the animation only
         await new Promise(r => setTimeout(r, 450));
-        return ['PACK', 'BUNDLE'].includes(it.kind) ? {packIds: [], count: it.bundle || 1} : {title: it.kind === 'GRAM' ? 'Зачислено: ' + num(it.amount) + ' GRAM' : 'Покупка совершена', text: 'Так будет выглядеть сообщение игроку.'};
+        const pool = it.contents || [], pickedC = it.mode === 'choice' ? pool.find(c => c.pack.id === choice) : it.mode === 'random' ? pool[0] : null;
+        return ['PACK', 'BUNDLE'].includes(it.kind) ? {packIds: [], count: pickedC ? pickedC.count : it.bundle || 1, picked: pickedC ? pickedC.pack.id : undefined} : {title: it.kind === 'GRAM' ? 'Зачислено: ' + num(it.amount) + ' GRAM' : 'Покупка совершена', text: 'Так будет выглядеть сообщение игроку.'};
     }
     if (o.src === 'pack') {
         const res = await api('packs/buy', {pack_id: o.p.id, request_id: rid});
         if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
         return {packIds: [res.user_pack_id], count: 1};
     }
-    const res = await api('shop-items/buy', {item_id: it.id, request_id: rid});
+    const res = await api('shop-items/buy', {item_id: it.id, request_id: rid, choice});
     if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
     if (res.gram_balance !== undefined && state?.me) { state.me.balance = res.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
-    if (res.pack_id) { const ids = res.pack_ids || [res.pack_id]; return {packIds: ids, count: ids.length}; }
+    if (res.pack_id) { const ids = res.pack_ids || [res.pack_id]; return {packIds: ids, count: ids.length, picked: res.picked}; }
     if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};
     if (res.code) { const cc = window.crafterCommunity; return {title: 'Ваш промокод', text: 'Он привязан к вашему аккаунту и работает один раз.', html: cc.codeBlock(res.code), bind: root => cc.bindCode(root, res.code)}; }
     return {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : 'Зачислено шаров: ' + num(res.balls_gain), text: 'Баланс уже обновлён.'};
@@ -297,11 +358,11 @@ function render(main, ctx) {
     const sections = (ctx.shopState?.sections && ctx.shopState.sections.length ? ctx.shopState.sections : DEFAULT_SECTIONS).filter(s => ctx.showEmpty || s.enabled !== false);
     const customIds = new Set(sections.filter(s => s.kind === 'custom').map(s => s.id));
     const mine = o => o.it.section_id && customIds.has(o.it.section_id);
-    const isBundle = o => o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1)));
+    const isBundle = o => !o.it.mode && (o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1))));
     const lots = ctx.data?.lots || [];
     const rule = {
-        featured: () => all.filter(o => !mine(o) && (o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge)).concat(rewards),
-        packs: () => all.filter(o => !mine(o) && o.it.kind === 'PACK' && !isBundle(o)),
+        featured: () => all.filter(o => !mine(o) && (o.it.mode || o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge)).concat(rewards),
+        packs: () => all.filter(o => !mine(o) && !o.it.mode && o.it.kind === 'PACK' && !isBundle(o)),
         bundles: () => all.filter(o => !mine(o) && isBundle(o)),
         res: () => all.filter(o => !mine(o) && ['GRAM', 'BALL', 'PROMO', 'STAR'].includes(o.it.kind)),
         rewards: () => rewards,
@@ -314,7 +375,7 @@ function render(main, ctx) {
     let active = ctx.section && SEC.some(x => x.s.id === ctx.section) ? ctx.section : (SEC[0] ? SEC[0].s.id : '');
     const root = document.createElement('div');
     root.className = 'fm-root';
-    root.innerHTML = '<div class="fm-bg"></div><div class="fm-rail-col"><div class="fm-rail" role="navigation" aria-label="Разделы маркета"><i class="fm-ind"></i>' +
+    root.innerHTML = '<div class="fm-bg"></div><div class="fm-rail-col">' + (ctx.back ? '<div class="fm-head"><button type="button" class="fm-backbtn" data-fm-back aria-label="К событиям" title="К событиям"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg><span>События</span></button><span class="fm-balpill" title="Баланс шаров">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span></div>' : '') + '<div class="fm-rail" role="navigation" aria-label="Разделы маркета"><i class="fm-ind"></i>' +
         SEC.map(x => '<div class="fm-sec-wrap" data-wrap="' + e(x.s.id) + '">' + railButton(x.s) + (x.s.rule !== 'featured' && x.list.length ? '<em>' + x.list.length + '</em>' : '') + '</div>').join('') + '</div>' +
         '<button type="button" class="fm-fold" data-fm-fold aria-label="Свернуть панель разделов" title="Свернуть или развернуть панель"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button></div>' +
         '<div class="fm-grip" data-fm-grip title="Потяните, чтобы изменить ширину"></div><div class="fm-main"></div>';
@@ -344,6 +405,15 @@ function render(main, ctx) {
         requestAnimationFrame(() => layer.classList.add('is-in'));
         [...bg.children].filter(c => c !== layer).forEach(old => { old.classList.remove('is-in'); setTimeout(() => old.remove(), 700); });
     };
+    const SEEN = 'crafter:fm-seen';
+    let seen = null, freshKeys = new Set();
+    try { const raw = localStorage.getItem(SEEN); seen = raw ? new Set(JSON.parse(raw)) : null; } catch (_) {}
+    const markSeen = list => {                                        // an offer that the player has never seen comes with an entrance of its own
+        if (ctx.preview) return;
+        freshKeys = new Set(seen ? list.filter(x => !seen.has(x.key)).map(x => x.key) : []);
+        const all = new Set(seen || []); list.forEach(x => all.add(x.key)); seen = all;
+        try { localStorage.setItem(SEEN, JSON.stringify([...all].slice(-400))); } catch (_) {}
+    };
     const io = 'IntersectionObserver' in window ? new IntersectionObserver(list => list.forEach(en => en.target.classList.toggle('is-vis', en.isIntersecting)), {threshold: .05}) : null;
     const show = (id, first) => {
         active = id;
@@ -354,7 +424,7 @@ function render(main, ctx) {
         const gifts = entry.s.rule === 'gifts' && entry.s.kind !== 'custom';
         host.innerHTML = '<div class="fm-view' + (first ? '' : ' fm-enter') + '">' + (gifts
             ? '<div class="ny-grid fm-gifts">' + entry.list.map(l => ctx.lotTile(l)).join('') + '</div>'
-            : entry.list.length ? '<div class="fm-wrap"><button type="button" class="fm-arrow l" data-fm-go="-1" aria-label="Назад">‹</button><div class="fm-row">' + entry.list.map(x => card(x)).join('') + '</div><button type="button" class="fm-arrow r" data-fm-go="1" aria-label="Вперёд">›</button></div>'
+            : entry.list.length ? (markSeen(entry.list), '') + '<div class="fm-wrap"><button type="button" class="fm-arrow l" data-fm-go="-1" aria-label="Назад">‹</button><div class="fm-row">' + entry.list.map(x => card(x, {fresh: freshKeys.has(x.key)})).join('') + '</div><button type="button" class="fm-arrow r" data-fm-go="1" aria-label="Вперёд">›</button></div>'
             : '<p class="ny-quiet">В этом разделе пока ничего нет.</p>') + '</div>';
         setBg(entry.s.bg || 'night');
         const row = host.querySelector('.fm-row');
@@ -396,9 +466,9 @@ function render(main, ctx) {
         const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); root.classList.remove('is-sizing'); if (railW < 112) railW = 72; setRail(railW, true); };
         window.addEventListener('pointermove', move); window.addEventListener('pointerup', up);
     });
-    main.innerHTML = '<div class="new-year-page fm-page">' + (ctx.back ? '<button type="button" class="nyh-back" data-fm-back>‹ События</button>' : '') + (ctx.hero || '') + '</div>';
+    main.innerHTML = '<div class="new-year-page fm-page"></div>';
     main.querySelector('.fm-page').appendChild(root);
-    main.querySelector('[data-fm-back]')?.addEventListener('click', ctx.back);
+    root.querySelector('[data-fm-back]')?.addEventListener('click', ctx.back);
     apply();
     show(active, true);
     requestAnimationFrame(place);
@@ -406,10 +476,29 @@ function render(main, ctx) {
     window.addEventListener('resize', resize);
     const tick = () => {
         if (!root.isConnected) return;
+        root.querySelectorAll('[data-fm-bal]').forEach(b => { if (ctx.balance) b.textContent = num(ctx.balance()); });
         root.querySelectorAll('[data-fm-end]').forEach(t => { const s = Number(t.dataset.fmEnd) - nowSec(); t.textContent = leftText(s); if (s <= 0 && !t.dataset.over) { t.dataset.over = '1'; t.closest('.fm-card')?.classList.add('is-over'); } });
         setTimeout(tick, 1000);
     };
     tick();
+    const openKey = (key, fromUrl) => {
+        const sec = SEC.find(x => x.list.some(o => o.key === key)); if (!sec) return false;
+        if (sec.s.id !== active) show(sec.s.id);
+        stage(sec.list.find(o => o.key === key), ctx, {fromUrl}); return true;
+    };
+    if (!ctx.preview && window.__fmLot) { const k = window.__fmLot; window.__fmLot = ''; if (!openKey(k, true)) { try { history.replaceState({crafterPage: 'new-year'}, '', BASE); } catch (_) {} } }
+    // an offer with a start time appears by itself: the list is checked every half a minute
+    if (!ctx.preview) {
+        const known = new Set(items.map(x => x.key));
+        const poll = async () => {
+            if (!root.isConnected) return;
+            if (!document.querySelector('.fm-stage,.fm-reveal,.fm-chances') && document.visibilityState === 'visible') {
+                try { const r = await api('shop-items'); if (root.isConnected && (r.items || []).some(i => !known.has(i.id))) { ctx.refresh?.(); return; } } catch (_) {}
+            }
+            setTimeout(poll, 30000);
+        };
+        setTimeout(poll, 30000);
+    }
     return {root, show, open: key => { const o = SEC.flatMap(x => x.list).find(x => x.key === key); if (o && o.it) stage(o, ctx); }};
 }
 

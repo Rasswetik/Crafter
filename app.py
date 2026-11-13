@@ -286,6 +286,9 @@ def create_app(config=None):
     for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/auctions'):
         app.add_url_rule(_path, 'section_' + _path.strip('/').replace('-', '_'), index)
 
+    for _rule, _name in (('/new-year/market', 'section_new_year_market'), ('/new-year/market/<path:lot>', 'section_new_year_lot')):
+        app.add_url_rule(_rule, _name, lambda lot=None: index())
+
     @app.get('/shop/preview')
     def shop_preview_page():
         # a drawing board for the market: the administrator sends offers to it with postMessage; it holds no data
@@ -325,7 +328,7 @@ def create_app(config=None):
         return build_preview()
     @app.after_request
     def cache_control(response):
-        if request.path.startswith('/auctions') or request.path.startswith('/shop/') or request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
+        if request.path.startswith('/auctions') or request.path.startswith('/shop/') or request.path.startswith('/new-year/') or request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')

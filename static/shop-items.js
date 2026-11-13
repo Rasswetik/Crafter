@@ -100,7 +100,7 @@ const KIND_TILES = [
     ['GRAM', 'GRAM на баланс', 'Игрок сразу получает GRAM', '/static/assets/gram.svg'],
     ['BALL', 'Новогодние шары', 'Игрок получает шары', '/static/assets/new-year-ornament.svg'],
     ['PACK', 'Карточный пак', 'Пак попадает в инвентарь', '/static/assets/packs/new-year-pack.webp'],
-    ['BUNDLE', 'Бандл', 'Несколько паков, GRAM и шары сразу', '/static/assets/community-reward.svg'],
+    ['BUNDLE', 'Бандл / выбор / случайный', 'Несколько паков сразу, на выбор или случайный', '/static/assets/community-reward.svg'],
     ['PROMO', 'Промокод', 'Уникальный код для покупателя', '/static/assets/community-reward.svg'],
 ];
 const PROMO_TILES = [['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg'], ['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp']];
@@ -114,9 +114,22 @@ async function admin(content) {
     sec.className = 'ny-admin-section si-admin';
     sec.dataset.pane = 'shop';
     content.appendChild(sec);
-    const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: '', size: 'small', view: 'phone', description: '', rarity: 'auto', badge: '', endsH: '', endsAt: null, section_id: '', heading: '', card_bg: ''};
+    const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: '', size: 'small', view: 'phone', description: '', rarity: 'auto', badge: '', endsH: '', endsAt: null, section_id: '', heading: '', card_bg: '', mode: '', startsMsk: '', endsMsk: ''};
     let secForm = null;
     let editing = null;
+    let startEdit = () => {};
+    const toMsk = epoch => new Date((epoch + 3 * 3600) * 1000).toISOString().slice(0, 16);              // unix time -> 'YYYY-MM-DDTHH:MM' in Moscow time
+    const mskEpoch = text => text ? Math.floor(Date.parse(text + ':00Z') / 1000) - 3 * 3600 : null;
+    const uploadMedia = async file => {
+        if (file.size > 600000) throw new Error('Файл должен быть не больше 600 КБ');
+        const body = new FormData(); body.append('file', file);
+        return (await api('admin/new-year/shop-media', body)).url;
+    };
+    const cardBgGallery = (cur, attr, fileAttr) => '<div class="fm-gal">' + (window.crafterFestive?.cardBgKeys || []).map(k => '<button type="button" class="fm-sw' + (cur === k[0] ? ' is-on' : '') + '" ' + attr + '="' + e(k[0]) + '"><span class="fm-swp"><span class="fm-swc cb-' + e(k[0] || 'none') + '"></span></span><em>' + e(k[1]) + '</em></button>').join('') +
+        '<label class="fm-sw fm-swup' + (cur && cur.indexOf('image:') === 0 ? ' is-on' : '') + '"><span class="fm-swp"' + (cur && cur.indexOf('image:') === 0 ? ' style="background-image:url(' + e(cur.slice(6)) + ')"' : '') + '><b>+</b></span><em>Своя картинка</em><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden ' + fileAttr + '></label></div>';
+    const secBgGallery = cur => '<div class="fm-gal">' + (window.crafterFestive?.bgKeys || []).map(k => '<button type="button" class="fm-sw' + (cur === k[0] ? ' is-on' : '') + '" data-sf-bg="' + e(k[0]) + '"><span class="fm-swp"><span class="fm-swc"><span class="fm-bgx bg-' + (k[0] === 'village' ? 'villagepv' : e(k[0])) + '"></span></span></span><em>' + e(k[1]) + '</em></button>').join('') + '</div>';
+    const secTitle = id => ((r.sections || []).find(x => x.id === id) || {}).title || '';
+    const sectionChips = (cur, attr) => [['', 'Авто (по правилам)']].concat((r.sections || []).filter(x => x.kind === 'custom').map(x => [x.id, x.title])).map(c => '<button type="button" class="' + (cur === c[0] ? 'is-on' : '') + '" ' + attr + '="' + e(c[0]) + '">' + e(c[1]) + '</button>').join('');
     const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
     const range = (key, label, min, max, val, fmt) => '<div class="adm-range"><div class="adm-range-top"><label>' + label + '</label><b data-out="' + key + '">' + fmt(Number(val)) + '</b></div>' +
         '<input type="range" data-f="' + key + '" data-fmt="' + (key === 'per' ? 'per' : 'bundle') + '" min="' + min + '" max="' + max + '" step="1" value="' + val + '" style="--p:' + ((val - min) / (max - min) * 100) + '%"></div>';
@@ -125,9 +138,9 @@ async function admin(content) {
     const tile = (on, attr, img, title, hint) => '<button type="button" class="adm-tile' + (on ? ' is-on' : '') + '" ' + attr + '><img src="' + e(img) + '" alt=""><b>' + title + '</b>' + (hint ? '<small>' + hint + '</small>' : '') + '</button>';
     const previewItem = () => {
         const mixList = f.kind === 'BUNDLE' ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => ({pack: packs.find(p => p.id === id), count: n})).filter(c => c.pack) : [];
-        const it = {contents: mixList.length ? mixList : null, gram: f.kind === 'BUNDLE' && Number(f.bgram) > 0 ? f.bgram : null, balls: f.kind === 'BUNDLE' && Number(f.bballs) > 0 ? f.bballs : null, kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: mixList.length ? mixList.reduce((x, c) => x + c.count, 0) : (Number(f.bundle) || 1), per_user: Number(f.per) || null, mine: 0, old_price_balls: Number(f.old) > Number(f.price) ? Number(f.old) : null, discount_percent: Number(f.old) > Number(f.price) ? Math.round((1 - Number(f.price) / Number(f.old)) * 100) : null, title: f.title || autoTitle(), image_url: f.image,
-            pack: packs.find(p => p.id === f.pack) ? {image: packs.find(p => p.id === f.pack).image} : null, price_balls: Number(f.price) || 0, left: f.stock ? Number(f.stock) : null, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg, id: 'preview',
-            ends_at: f.endsH ? Math.floor(Date.now() / 1000) + Number(f.endsH) * 3600 : f.endsAt};
+        const it = {contents: mixList.length ? mixList : null, gram: f.kind === 'BUNDLE' && !f.mode && Number(f.bgram) > 0 ? f.bgram : null, balls: f.kind === 'BUNDLE' && !f.mode && Number(f.bballs) > 0 ? f.bballs : null, kind: f.kind === 'BUNDLE' && f.mode ? 'PACK' : f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: mixList.length ? mixList.reduce((x, c) => x + c.count, 0) : (Number(f.bundle) || 1), per_user: Number(f.per) || null, mine: 0, old_price_balls: Number(f.old) > Number(f.price) ? Number(f.old) : null, discount_percent: Number(f.old) > Number(f.price) ? Math.round((1 - Number(f.price) / Number(f.old)) * 100) : null, title: f.title || autoTitle(), image_url: f.image,
+            pack: packs.find(p => p.id === f.pack) ? {image: packs.find(p => p.id === f.pack).image} : null, price_balls: Number(f.price) || 0, left: f.stock ? Number(f.stock) : null, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg, mode: f.mode, id: 'preview',
+            ends_at: f.endsH ? Math.floor(Date.now() / 1000) + Number(f.endsH) * 3600 : (f.endsMsk ? mskEpoch(f.endsMsk) : f.endsAt)};
         return it;
     };
     const preview = () => tiles([previewItem()])[0] || '';
@@ -152,14 +165,18 @@ async function admin(content) {
         (window.crafterFestive ? window.crafterFestive.card({key: it.id, src: 'shop', it}, {board: true}) : (tiles([it], true)[0] || '')) +
         '<button type="button" class="sb-handle" data-sb-drag aria-label="Перетащить лот" title="Перетащите, чтобы переставить">' + GRIP + '</button>' +
         '<button type="button" class="sb-gear" data-sb-gear aria-label="Настройки лота" title="Настройки лота">' + COG + '</button>' +
-        (it.status === 'hidden' ? '<span class="sb-badge">скрыт</span>' : '') + '<button type="button" hidden data-si-edit="' + e(it.id) + '"></button></div>').join('');
+        (it.status === 'hidden' ? '<span class="sb-badge">скрыт</span>' : '') + (it.section_id && secTitle(it.section_id) ? '<span class="sb-sec">' + e(secTitle(it.section_id)) + '</span>' : '') + (it.starts_at && it.starts_at > Date.now() / 1000 ? '<span class="sb-badge">ещё не началась</span>' : '') + '<button type="button" hidden data-si-edit="' + e(it.id) + '"></button></div>').join('');
     const drawerHTML = () => {
         const it = r.items.find(x => x.id === selected);
         const note = r.order === 'manual' ? 'Порядок: ваш. <button type="button" class="sb-link" data-sb-price>Вернуть по цене</button>' : 'Порядок: по возрастанию цены. Потяните любую плитку за ⠿, и порядок станет вашим.';
         if (!it) return '<p class="sub sb-hint">Тяните плитки за значок ⠿, чтобы переставить их. Двойное нажатие или ⚙ открывает настройки лота. ' + note + '</p>';
         return '<div class="sb-drawer"><div class="sb-drawer-top"><b>' + e(it.title) + '</b><button type="button" class="sb-x" data-sb-close aria-label="Закрыть">×</button></div>' +
             '<div class="sb-sizes">' + SIZES.map(s => '<button type="button" class="sz-opt' + (sizeOf(it) === s[0] ? ' is-on' : '') + '" data-sb-size="' + s[0] + '">' + sizeShape(s[0]) + '<b>' + s[1] + '</b><small>' + s[2] + '</small></button>').join('') + '</div>' +
-            '<div class="sb-actions"><button type="button" data-sb-act="edit">Изменить</button><button type="button" data-sb-act="earlier">← Раньше</button><button type="button" data-sb-act="later">Позже →</button>' +
+            '<div class="sb-set"><label>Раздел</label><div class="sb-chips">' + sectionChips(it.section_id || '', 'data-sb-sec') + '</div></div>' +
+            '<div class="sb-set"><label>Редкость</label><div class="sb-chips">' + RARS.map(x => '<button type="button" class="' + ((it.rarity || 'auto') === x[0] ? 'is-on' : '') + '" data-sb-rar="' + x[0] + '">' + x[1] + '</button>').join('') + '</div></div>' +
+            '<div class="sb-set"><label>Заголовок акции</label><input type="text" data-sb-heading maxlength="30" value="' + e(it.heading || '') + '" placeholder="Например: Зимняя ярмарка"></div>' +
+            '<div class="sb-set"><label>Фон карточки</label>' + cardBgGallery(it.card_bg || '', 'data-sb-cbg', 'data-sb-cbgfile') + '</div>' +
+            '<div class="sb-actions"><button type="button" data-sb-act="edit">Изменить всё</button><button type="button" data-sb-act="earlier">← Раньше</button><button type="button" data-sb-act="later">Позже →</button>' +
             '<button type="button" data-sb-act="status">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button><button type="button" class="danger" data-sb-act="delete">Удалить</button></div><p class="sub sb-hint">' + note + '</p></div>';
     };
     const boardSection = () => '<div class="sb-wrap"><h3>Витрина магазина</h3><p class="sub">Так лоты выглядят у игроков. Меняйте порядок перетаскиванием, как пазл.</p>' +
@@ -226,6 +243,12 @@ async function admin(content) {
         const it = r.items.find(x => x.id === selected), drawer = sec.querySelector('#sb-drawer');
         drawer?.querySelector('[data-sb-close]')?.addEventListener('click', () => { selected = null; redrawBoard(); });
         drawer?.querySelector('[data-sb-price]')?.addEventListener('click', () => run(() => api('admin/new-year/shop-order', {mode: 'price'}), 'Порядок: по возрастанию цены'));
+        const styleIt = async (patch) => { try { await api('admin/new-year/shop/' + it.id + '/style', patch); Object.assign(it, patch); redrawBoard(); } catch (err) { toast(err.message); } };
+        drawer?.querySelectorAll('[data-sb-sec]').forEach(b => b.addEventListener('click', async () => { try { await api('admin/new-year/shop/' + it.id + '/section', {section_id: b.dataset.sbSec}); it.section_id = b.dataset.sbSec; redrawBoard(); toast('Раздел изменён'); } catch (err) { toast(err.message); } }));
+        drawer?.querySelectorAll('[data-sb-rar]').forEach(b => b.addEventListener('click', () => styleIt({rarity: b.dataset.sbRar})));
+        drawer?.querySelectorAll('[data-sb-cbg]').forEach(b => b.addEventListener('click', () => styleIt({card_bg: b.dataset.sbCbg})));
+        drawer?.querySelector('[data-sb-heading]')?.addEventListener('change', ev => styleIt({heading: ev.target.value}));
+        drawer?.querySelector('[data-sb-cbgfile]')?.addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { styleIt({card_bg: 'image:' + await uploadMedia(file)}); } catch (err) { toast(err.message); } });
         drawer?.querySelectorAll('[data-sb-size]').forEach(b => b.addEventListener('click', async () => {
             if (!it) return;
             try { await api('admin/new-year/shop/' + it.id + '/size', {size: b.dataset.sbSize}); it.size = b.dataset.sbSize; redrawBoard(); } catch (err) { toast(err.message); }
@@ -234,7 +257,7 @@ async function admin(content) {
             if (!it) return;
             const act = b.dataset.sbAct;
             try {
-                if (act === 'edit') { sec.querySelector('[data-si-edit="' + it.id + '"]')?.click(); return; }
+                if (act === 'edit') { startEdit(it.id); return; }
                 if (act === 'status') { const next = it.status === 'active' ? 'hidden' : 'active'; await api('admin/new-year/shop/' + it.id + '/status', {status: next}); it.status = next; redrawBoard(); return; }
                 if (act === 'delete') { if (!confirm('Удалить лот «' + it.title + '»?')) return; await api('admin/new-year/shop/' + it.id + '/delete', {}); r.items = r.items.filter(x => x.id !== it.id); selected = null; redrawBoard(); toast('Лот удалён'); return; }
                 const at = r.items.indexOf(it), to = act === 'earlier' ? at - 1 : at + 1;
@@ -262,7 +285,7 @@ async function admin(content) {
                 '<div class="adm-field"><label>Показывать игрокам</label><select data-sf="enabled"><option value="1"' + (secForm.enabled ? ' selected' : '') + '>Да</option><option value="0"' + (secForm.enabled ? '' : ' selected') + '>Нет</option></select></div></div>' +
                 '<div class="adm-field"><label>Значок из набора</label><div class="fm-icons">' + icons.map(k => '<button type="button" class="fm-iconopt' + (secForm.icon === 'builtin:' + k ? ' is-on' : '') + '" data-sf-icon="builtin:' + e(k) + '">' + window.crafterFestive.iconHTML('builtin:' + k) + '</button>').join('') + '</div></div>' +
                 mediaPick('icon', 'или свой значок (SVG или PNG)', secForm.icon) + mediaPick('preview', 'Картинка справа от кнопки раздела', secForm.preview) +
-                '<div class="adm-field"><label>Фон раздела</label><div class="fm-bgpick">' + bgs.map(k => '<button type="button" class="fm-bgopt' + (secForm.bg === k[0] ? ' is-on' : '') + '" data-sf-bg="' + e(k[0]) + '"><span>' + e(k[1]) + '</span></button>').join('') + '</div></div>' +
+                '<div class="adm-field"><label>Фон раздела</label>' + secBgGallery(secForm.bg) + '</div>' +
                 mediaPick('bg', 'или своя картинка фоном', secForm.bg.indexOf('image:') === 0 ? secForm.bg.slice(6) : '') +
                 '<button class="primary" type="button" id="sec-save">Сохранить раздел</button> <button type="button" id="sec-cancel">Отмена</button></div>';
         }
@@ -304,14 +327,14 @@ async function admin(content) {
         const step2 = f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + PROMO_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length)).map(k => tile(f.promo === k[0], 'data-promo="' + k[0] + '"', k[2], k[1])).join('') + '</div></div>' : '';
         const mixTotal = Object.values(f.mix).reduce((x, n) => x + n, 0);
         const what = f.kind === 'BUNDLE'
-            ? '<div class="adm-step"><h4>Состав бандла</h4><p class="sub">Игрок получит всё сразу за одну покупку: любые паки (до 500), GRAM на баланс и шары. Паков сейчас: <b>' + mixTotal + '</b>.</p><div class="si-mix">' + packs.map(p => '<div class="si-mix-row' + ((f.mix[p.id] || 0) > 0 ? ' is-on' : '') + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.title) + '</b><span class="si-mix-step"><button type="button" data-mix-dec="' + e(p.id) + '" aria-label="Меньше">−</button><input class="si-mix-n" type="number" min="0" max="500" data-mix-set="' + e(p.id) + '" value="' + (f.mix[p.id] || 0) + '"><button type="button" data-mix-inc="' + e(p.id) + '" aria-label="Больше">+</button></span></div>').join('') + '</div><div class="adm-row3" style="margin-top:12px"><div class="adm-field"><label>GRAM на баланс</label><input data-f="bgram" inputmode="decimal" value="' + e(f.bgram) + '" placeholder="Без GRAM"></div><div class="adm-field"><label>Новогодние шары</label><input data-f="bballs" inputmode="numeric" value="' + e(f.bballs) + '" placeholder="Без шаров"></div></div></div>'
+            ? '<div class="adm-step"><h4>Состав: бандл, акция с выбором или случайный пак</h4><div class="adm-chips" style="margin-bottom:10px">' + [['', 'Всё сразу (бандл)'], ['choice', 'Игрок выбирает один пак'], ['random', 'Случайный пак']].map(m => '<button type="button" data-mode="' + m[0] + '"' + (f.mode === m[0] ? ' class="is-on"' : '') + '>' + m[1] + '</button>').join('') + '</div><p class="sub">' + (f.mode === 'choice' ? 'Игрок смотрит варианты и покупает любой один: отметьте от 2 разных паков (число рядом — сколько штук такого пака он получит).' : f.mode === 'random' ? 'Игрок покупает чёрный пак со знаком вопроса и получает случайный из отмеченных (от 2 разных).' : 'Игрок получит всё сразу за одну покупку: любые паки (до 500), GRAM на баланс и шары.') + ' Паков сейчас: <b>' + mixTotal + '</b>.</p><div class="si-mix">' + packs.map(p => '<div class="si-mix-row' + ((f.mix[p.id] || 0) > 0 ? ' is-on' : '') + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.title) + '</b><span class="si-mix-step"><button type="button" data-mix-dec="' + e(p.id) + '" aria-label="Меньше">−</button><input class="si-mix-n" type="number" min="0" max="500" data-mix-set="' + e(p.id) + '" value="' + (f.mix[p.id] || 0) + '"><button type="button" data-mix-inc="' + e(p.id) + '" aria-label="Больше">+</button></span></div>').join('') + '</div>' + (f.mode ? '' : '<div class="adm-row3" style="margin-top:12px"><div class="adm-field"><label>GRAM на баланс</label><input data-f="bgram" inputmode="decimal" value="' + e(f.bgram) + '" placeholder="Без GRAM"></div><div class="adm-field"><label>Новогодние шары</label><input data-f="bballs" inputmode="numeric" value="' + e(f.bballs) + '" placeholder="Без шаров"></div></div>') + '</div>'
             : eff() === 'PACK'
             ? '<div class="adm-step"><h4>Какой пак</h4>' + window.crafterPacks.packTiles(packs, f.pack) + '</div>'
             : eff() === 'STAR'
             ? '<div class="adm-step"><h4>Какой подарок</h4><div class="adm-field"><select data-f="amount">' + window.crafterStarGifts.options(STARS, f.amount) + '</select></div></div>'
             : '<div class="adm-step"><h4>' + (eff() === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM') + '</h4><div class="adm-field"><input data-f="amount" inputmode="decimal" value="' + e(f.amount) + '">' +
               '<div class="adm-chips">' + (eff() === 'BALL' ? ['50', '100', '500', '1000'] : ['0.5', '1', '2', '5', '10']).map(v => '<button type="button" data-chip="amount" data-v="' + v + '">' + v + '</button>').join('') + '</div></div></div>';
-        sec.innerHTML = boardSection() + sectionsHTML() + '<h3 style="margin-top:26px">Новый товар</h3><p class="sub">Товар за новогодние шары. Появится в новогоднем маркете рядом с подарками.</p>' +
+        sec.innerHTML = boardSection() + sectionsHTML() + '<h3 style="margin-top:26px" id="si-form">' + (editing ? 'Изменить товар' : 'Новый товар') + '</h3>' + (editing ? '<div class="si-editing">Вы меняете: <b>' + e(f.title || autoTitle()) + '</b><button type="button" data-si-cancel>Отмена, создать новый</button></div>' : '<p class="sub">Товар за новогодние шары. Появится в особом маркете.</p>') +
             '<div class="adm-step"><h4>Что продаём</h4><div class="adm-tiles">' + kinds.map(k => tile(f.kind === k[0], 'data-kind="' + k[0] + '"', k[3], k[1], k[2])).join('') + '</div></div>' +
             step2 + what +
             '<div class="adm-step"><h4>Условия</h4><div class="adm-row3">' +
@@ -327,13 +350,15 @@ async function admin(content) {
             '<small class="sub si-desc-count"><span data-count>' + String(f.description || '').length + '</span>/240 · показывается в широкой и большой плитках, в баннере и в окне товара</small></div></div></details>' +
             '<div class="adm-step"><h4>Оформление акции</h4><p class="sub">Редкость задаёт цвет и название акции в маркете. «Авто» выбирает её по цене.</p><div class="fm-rar">' +
             RARS.map(r => '<button type="button" class="fm-rar-opt' + (f.rarity === r[0] ? ' is-on' : '') + '" data-rar="' + r[0] + '" style="--c1:' + r[2] + ';--c2:' + r[3] + '"><i></i><b>' + r[1] + '</b></button>').join('') + '</div>' +
-            '<div class="adm-row3"><div class="adm-field"><label>Заголовок акции</label><input data-f="heading" maxlength="30" value="' + e(f.heading) + '" placeholder="Любой текст вместо «Эпическая акция»"></div>' +
-            '<div class="adm-field"><label>Раздел</label><select data-f="section_id"><option value="">Автоматически</option>' + (r.sections || []).filter(s => s.kind === 'custom').map(s => '<option value="' + e(s.id) + '"' + (f.section_id === s.id ? ' selected' : '') + '>' + e(s.title) + '</option>').join('') + '</select></div></div>' +
-            '<div class="adm-field"><label>Фон карточки</label><div class="fm-bgpick">' + (window.crafterFestive?.cardBgKeys || []).map(k => '<button type="button" class="fm-bgopt' + (f.card_bg === k[0] ? ' is-on' : '') + ' cb-' + e(k[0] || 'none') + '" data-cbg="' + e(k[0]) + '" title="' + e(k[1]) + '"><span>' + e(k[1]) + '</span></button>').join('') + '</div></div>' +
+            '<div class="adm-field"><label>Раздел</label><div class="adm-chips">' + sectionChips(f.section_id, 'data-fsec') + '</div></div>' +
+            '<details class="fm-special"' + (f.rarity === 'special' || f.heading || f.card_bg ? ' open' : '') + '><summary>Особое оформление: свой заголовок и фон' + (f.rarity === 'special' ? ' (для особой акции)' : '') + '</summary>' +
+            '<div class="adm-field"><label>Заголовок акции</label><input data-f="heading" maxlength="30" value="' + e(f.heading) + '" placeholder="Например: Зимняя ярмарка"></div>' +
+            '<div class="adm-field"><label>Фон карточки и окна лота</label>' + cardBgGallery(f.card_bg, 'data-cbg', 'data-cbg-file') + '</div></details>' +
             '<div class="adm-row3"><div class="adm-field"><label>Значок на карточке</label><input data-f="badge" maxlength="14" value="' + e(f.badge) + '" placeholder="НОВОЕ, ХИТ"></div>' +
-            '<div class="adm-field" style="grid-column:span 2"><label>Срок акции</label><div class="adm-chips">' + [['', 'Без срока'], ['24', '1 день'], ['72', '3 дня'], ['168', '7 дней'], ['336', '14 дней'], ['720', '30 дней']].map(c =>
-                '<button type="button" data-chip="endsH" data-v="' + c[0] + '"' + ((c[0] === '' ? (!f.endsH && !f.endsAt) : String(f.endsH) === c[0]) ? ' class="is-on"' : '') + '>' + c[1] + '</button>').join('') + '</div>' +
-            '<small class="sub">' + (f.endsAt && !f.endsH ? 'Сейчас закончится ' + new Date(f.endsAt * 1000).toLocaleString('ru-RU') + '. Выберите срок, чтобы начать отсчёт заново.' : 'Таймер на карточке считает время до конца акции.') + '</small></div></div></div>' +
+            '<div class="adm-field"><label>Появится (по Москве)</label><input type="datetime-local" data-f="startsMsk" value="' + e(f.startsMsk) + '"><small class="sub">Пусто: сразу. До этого момента игроки акцию не видят.</small></div>' +
+            '<div class="adm-field"><label>Закончится (по Москве)</label><input type="datetime-local" data-f="endsMsk" value="' + e(f.endsMsk) + '"><small class="sub">Пусто: без срока.</small></div></div>' +
+            '<div class="adm-field"><label>Или быстро: на сколько от этой минуты</label><div class="adm-chips">' + [['', 'Не менять'], ['24', '1 день'], ['72', '3 дня'], ['168', '7 дней'], ['336', '14 дней'], ['720', '30 дней']].map(c =>
+                '<button type="button" data-chip="endsH" data-v="' + c[0] + '"' + (String(f.endsH) === c[0] && c[0] !== '' ? ' class="is-on"' : '') + '>' + c[1] + '</button>').join('') + '</div></div></div>' +
             '<div class="adm-step"><h4>Размер плитки</h4><p class="sub">Как плитка стоит в магазине: можно сделать широкую, длинную, большую или баннер на всю ширину.</p><div class="sz-pick">' +
             SIZES.map(s => '<button type="button" class="sz-opt' + (f.size === s[0] ? ' is-on' : '') + '" data-size="' + s[0] + '"><span class="sz-shape sz-' + s[0] + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span><b>' + s[1] + '</b><small>' + s[2] + '</small></button>').join('') + '</div></div>' +
             '<div class="adm-step"><h4>Как будет выглядеть</h4><p class="sub">Живой предпросмотр отдельной страницей: слева телефон (вертикально), справа компьютер (горизонтально). <a href="/shop/preview" target="_blank" rel="noopener">Открыть на весь экран</a></p>' +
@@ -349,7 +374,11 @@ async function admin(content) {
     const bind = () => {
         bindBoard();
         sendPreview();
-        sec.querySelectorAll('[data-cbg]').forEach(b => b.addEventListener('click', () => { pull(); f.card_bg = b.dataset.cbg; draw(); }));
+        sec.querySelectorAll('[data-cbg]').forEach(b => b.addEventListener('click', () => { pull(); f.card_bg = b.dataset.cbg; sec.querySelectorAll('[data-cbg],.fm-swup').forEach(x => x.classList.toggle('is-on', x === b)); sendPreview(); }));
+        sec.querySelector('[data-cbg-file]')?.addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { pull(); f.card_bg = 'image:' + await uploadMedia(file); draw(); } catch (err) { toast(err.message); } });
+        sec.querySelectorAll('[data-fsec]').forEach(b => b.addEventListener('click', () => { pull(); f.section_id = b.dataset.fsec; sec.querySelectorAll('[data-fsec]').forEach(x => x.classList.toggle('is-on', x === b)); sendPreview(); }));
+        sec.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { pull(); f.mode = b.dataset.mode; draw(); }));
+        sec.querySelector('[data-f="endsMsk"]')?.addEventListener('change', () => { f.endsH = ''; });
         bindSections();
         sec.querySelectorAll('[data-rar]').forEach(b => b.addEventListener('click', () => { pull(); f.rarity = b.dataset.rar; draw(); }));
         sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
@@ -365,8 +394,8 @@ async function admin(content) {
             const out = sec.querySelector('[data-count]'); if (out) out.textContent = ev.target.value.length;
             const live = sec.querySelector('.sz-grid .si-tile .si-desc'); if (live) live.textContent = ev.target.value || describe(Object.assign({}, f, {description: ''}));
         });
-        sec.querySelectorAll('[data-chip]').forEach(b => b.addEventListener('click', () => { pull(); f[b.dataset.chip] = b.dataset.v; if (b.dataset.chip === 'endsH') f.endsAt = null; draw(); }));
-        sec.querySelectorAll('[data-f]').forEach(i => i.addEventListener('change', () => { pull(); draw(); }));
+        sec.querySelectorAll('[data-chip]').forEach(b => b.addEventListener('click', () => { pull(); f[b.dataset.chip] = b.dataset.v; if (b.dataset.chip === 'endsH') { f.endsAt = null; f.endsMsk = ''; } draw(); }));
+        sec.querySelectorAll('[data-f]').forEach(i => i.addEventListener('change', () => { pull(); if (i.dataset.f === 'endsMsk') { f.endsH = ''; draw(); } else sendPreview(); }));
         sec.querySelectorAll('input[type=range]').forEach(i => i.addEventListener('input', () => {
             const min = Number(i.min), max = Number(i.max), v = Number(i.value);
             i.style.setProperty('--p', ((v - min) / (max - min) * 100) + '%');
@@ -375,18 +404,21 @@ async function admin(content) {
         }));
         sec.querySelector('#si-add').addEventListener('click', () => {
             pull();
-            run(() => api(editing ? 'admin/new-year/shop/' + editing + '/edit' : 'admin/new-year/shop', {contents: f.kind === 'BUNDLE' ? {packs: Object.entries(f.mix).filter(([, n]) => n > 0).map(([pack_id, count]) => ({pack_id, count})), gram: f.bgram, balls: f.bballs} : undefined, kind: f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' ? f.bundle : 1, image_url: f.image, title: f.title, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg, ends_in_hours: f.endsH || '', ends_at: f.endsH ? '' : (f.endsAt || '')}), editing ? 'Изменения сохранены' : 'Товар добавлен');
+            run(() => api(editing ? 'admin/new-year/shop/' + editing + '/edit' : 'admin/new-year/shop', {contents: f.kind === 'BUNDLE' && f.mode ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([pack_id, count]) => ({pack_id, count})) : f.kind === 'BUNDLE' ? {packs: Object.entries(f.mix).filter(([, n]) => n > 0).map(([pack_id, count]) => ({pack_id, count})), gram: f.bgram, balls: f.bballs} : undefined, kind: f.kind === 'BUNDLE' && f.mode ? 'PACK' : f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' ? f.bundle : 1, image_url: f.image, title: f.title, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg, mode: f.kind === 'BUNDLE' ? f.mode : '', starts_at_msk: f.startsMsk, ends_at_msk: f.endsH ? '' : f.endsMsk, ends_in_hours: f.endsH || ''}), editing ? 'Изменения сохранены' : 'Товар добавлен');
         });
         sec.querySelectorAll('[data-si-up],[data-si-down]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + (b.dataset.siUp || b.dataset.siDown) + '/move', {direction: b.dataset.siUp ? 'up' : 'down'}), 'Порядок изменён')));
         sec.querySelector('#si-order')?.addEventListener('click', () => run(() => api('admin/new-year/shop-order', {mode: 'price'}), 'Порядок: по возрастанию цены'));
-        sec.querySelector('#si-cancel')?.addEventListener('click', () => { editing = null; Object.assign(f, {kind: 'GRAM', promo: 'GRAM', amount: '1', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: '', size: 'small', description: '', rarity: 'auto', badge: '', endsH: '', endsAt: null, section_id: '', heading: '', card_bg: ''}); draw(); });
-        sec.querySelectorAll('[data-si-edit]').forEach(b => b.addEventListener('click', () => {
-            const it = r.items.find(x => x.id === b.dataset.siEdit); if (!it) return;
+        sec.querySelector('[data-si-cancel]')?.addEventListener('click', () => sec.querySelector('#si-cancel')?.click());
+        sec.querySelector('#si-cancel')?.addEventListener('click', () => { editing = null; Object.assign(f, {kind: 'GRAM', promo: 'GRAM', amount: '1', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, bgram: '', bballs: '', size: 'small', description: '', rarity: 'auto', badge: '', endsH: '', endsAt: null, section_id: '', heading: '', card_bg: '', mode: '', startsMsk: '', endsMsk: ''}); draw(); });
+        startEdit = id => {
+            const it = r.items.find(x => x.id === id); if (!it) return;
             editing = it.id;
-            Object.assign(f, {kind: it.kind, promo: it.promo_kind || 'GRAM', amount: it.amount, pack: it.kind === 'PACK' || it.promo_kind === 'PACK' ? it.amount : f.pack, price: String(it.price_balls), old: it.old_price_balls ? String(it.old_price_balls) : '', stock: it.stock === null ? '' : String(it.stock), per: it.per_user === null ? '0' : String(it.per_user), bundle: String(it.bundle || 1), image: it.image_url && !it.pack && !it.star ? it.image_url : '', title: it.title, mix: {}, bgram: it.gram || '', bballs: it.balls ? String(it.balls) : '', size: sizeOf(it), description: it.description || '', rarity: it.rarity || 'auto', badge: it.badge || '', endsH: '', endsAt: it.ends_at || null, section_id: it.section_id || '', heading: it.heading || '', card_bg: it.card_bg || ''});
-            if (it.kind === 'BUNDLE') (it.contents || []).forEach(c => { f.mix[c.pack.id] = c.count; });
-            draw(); sec.scrollIntoView({behavior: 'smooth', block: 'start'});
-        }));
+            Object.assign(f, {kind: it.kind, promo: it.promo_kind || 'GRAM', amount: it.amount, pack: it.kind === 'PACK' || it.promo_kind === 'PACK' ? it.amount : f.pack, price: String(it.price_balls), old: it.old_price_balls ? String(it.old_price_balls) : '', stock: it.stock === null ? '' : String(it.stock), per: it.per_user === null ? '0' : String(it.per_user), bundle: String(it.bundle || 1), image: it.image_url && !it.pack && !it.star ? it.image_url : '', title: it.title, mix: {}, bgram: it.gram || '', bballs: it.balls ? String(it.balls) : '', size: sizeOf(it), description: it.description || '', rarity: it.rarity || 'auto', badge: it.badge || '', endsH: '', endsAt: it.ends_at || null, section_id: it.section_id || '', heading: it.heading || '', card_bg: it.card_bg || '', mode: it.mode || '', startsMsk: it.starts_at ? toMsk(it.starts_at) : '', endsMsk: it.ends_at ? toMsk(it.ends_at) : ''});
+            if (it.mode) { f.kind = 'BUNDLE'; f.mix = {}; }
+            if (it.kind === 'BUNDLE' || it.mode) (it.contents || []).forEach(c => { f.mix[c.pack.id] = c.count; });
+            draw(); sec.querySelector('#si-form')?.scrollIntoView({behavior: 'smooth', block: 'start'});
+        };
+        sec.querySelectorAll('[data-si-edit]').forEach(b => b.addEventListener('click', () => startEdit(b.dataset.siEdit)));
         sec.querySelectorAll('[data-si-st]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siSt + '/status', {status: b.dataset.next}), 'Готово')));
         sec.querySelectorAll('[data-si-del]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + b.dataset.siDel + '/delete', {}), 'Товар удалён')));
     };

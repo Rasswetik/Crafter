@@ -18,7 +18,8 @@ DEFAULTS = (
     ('rewards', 'Награды', 'rewards', 'builtin:cup', 'gold'),
     ('gifts', 'Подарки', 'gifts', 'builtin:gift', 'snow'),
 )
-BACKGROUNDS = ('village', 'snow', 'night', 'aurora', 'garland', 'frost', 'candy', 'blue', 'violet', 'crimson', 'emerald', 'gold')
+BACKGROUNDS = ('village', 'snow', 'night', 'aurora', 'garland', 'frost', 'candy', 'blue', 'violet', 'crimson', 'emerald', 'gold',
+               'tree', 'stars', 'mitten', 'cozy', 'ice', 'pine', 'berry', 'cocoa', 'polar', 'moon')
 MAX_MEDIA = 600_000
 MAX_SECTIONS = 30
 MEDIA_PATH = re.compile(r'/media/shop/[0-9a-f]{32}')

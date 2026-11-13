@@ -644,10 +644,10 @@ def install_packs(app, db, auth, record, audit):
                          ('winterwreath', 'Gingerbread', '19'), ('hangingstar', 'Gingerbread', '33'), ('holidaydrink', 'Ginger Joker', '11'),
                          ('candycane', 'Amber Glitter', '20'), ('xmasstocking', 'Caramel Fest', '20'), ('spicedwine', 'Chocolate Cherry', '16'),
                          ('eternalcandle', 'Hot Cocoa', '18'))
-    GINGERBREAD_GRAM = (('0.2', 470), ('0.3', 230), ('0.5', 140), ('0.75', 70), ('1', 52), ('1.5', 24), ('2', 13), ('3', 7), ('5', 3.4),
-                        ('10', 1.2), ('20', .4), ('50', .09), ('100', .02), ('250', .004))
-    GINGERBREAD_CARDS = {'1': 20, '2': 32, '3': 28, '4': 14, '5': 6}         # 2.54 cards per opening, never a 0.1 card
-    GINGERBREAD_NFT_SHARE = 0.009                                            # a gift on one card in 110: about one pack in 44
+    GINGERBREAD_GRAM = (('0.2', 470), ('0.3', 240), ('0.5', 140), ('0.75', 68), ('1', 44), ('1.5', 18), ('2', 9), ('3', 4.6), ('5', 2.2),
+                        ('10', .75), ('20', .25), ('50', .05), ('100', .012), ('250', .0025))
+    GINGERBREAD_CARDS = {'1': 24, '2': 33, '3': 27, '4': 12, '5': 4}         # about 2.4 cards per opening, never a 0.1 card
+    GINGERBREAD_NFT_SHARE = 0.006                                            # a gift on one card in 165
 
     # Honey Holidays: an opening is worth about 0.3 TON, gifts are worth 11-55, the ladder reaches 50 GRAM
     HONEY_GIFTS = (('gingercookie', 'Golden Boy', '55'), ('candycane', 'Honeycomb', '20'), ('winterwreath', 'Honey Dew', '19'),
@@ -665,7 +665,7 @@ def install_packs(app, db, auth, record, audit):
 
     def buff_gingerbread_pack():
         """Once more: Gingerbread House is the top pack (about 1000 balls). An existing pack gets the new card counts and prize table."""
-        flag = 'packs_gingerbread_v2'
+        flag = 'packs_gingerbread_v3'                                         # v3: the chances were trimmed a little
         if db().execute("SELECT 1 FROM settings WHERE key=?", (flag,)).fetchone():
             return
         with db():

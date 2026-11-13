@@ -228,7 +228,7 @@ crafterTranslationPairs.push(
 /* Expanded gameplay, seasonal market, sales and profile localization. */
 crafterTranslationPairs.push(
     ["Новый год","New Year"],
-    ["Новогодний маркет","New Year Market"],
+    ["Особый маркет","Special Market"],
     ["Праздничные подарки","Holiday Gifts"],
     ["Коллекционные NFT-подарки за новогодние шары.","Collectible NFT gifts for holiday balls."],
     ["Подарочки уже в пути!","Gifts are on their way!"],

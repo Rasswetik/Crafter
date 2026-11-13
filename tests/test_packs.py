@@ -831,11 +831,11 @@ def test_gingerbread_pack_is_seeded_with_ten_gifts_and_a_balance_ladder(client):
     assert {p['model'] for p in gifts} >= {'Ginger House', 'Original', 'Hot Cocoa', 'Ginger Joker'}
     assert max(float(p['value']) for p in data['prizes']) == 250.0
     nft_share = sum(p['chance'] for p in gifts)
-    assert 0.7 < nft_share < 1.1                                  # a gift on about one card in 110
+    assert 0.45 < nft_share < 0.8                                 # a gift on about one card in 165
     cards = {c['count']: c['chance'] for c in data['cards']}
     expected = sum(k * v for k, v in cards.items()) / 100
     value = sum(float(p['value']) * p['chance'] / 100 for p in data['prizes']) * expected
-    assert 1.45 <= value <= 1.8                                   # about 1000 balls: three times a standard pack
+    assert 1.15 <= value <= 1.5                                   # about 850 balls: still the top pack, a little trimmed
 
 
 def test_honey_holidays_pack_is_worth_about_a_third_of_a_ton(client):
@@ -937,3 +937,29 @@ def test_offer_can_have_its_own_heading_and_card_background(client):
     row = next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == plain)
     assert row['heading'] == '' and row['card_bg'] == ''
     assert len(next(i for i in client.get('/api/shop-items', headers=admin).json['items'] if i['id'] == made.json['id'])['heading']) <= 30
+
+
+def test_choice_random_and_scheduled_offers(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    packs = client.get('/api/admin/new-year/packs', headers=admin).json['packs']
+    a, b = packs[0]['id'], packs[1]['id']
+    base = {'kind': 'PACK', 'price_balls': 0, 'contents': [{'pack_id': a, 'count': 1}, {'pack_id': b, 'count': 2}]}
+    assert client.post('/api/admin/new-year/shop', headers=admin, json={**base, 'mode': 'weird'}).status_code == 400
+    assert client.post('/api/admin/new-year/shop', headers=admin, json={**base, 'mode': 'choice', 'contents': base['contents'][:1]}).status_code == 400
+    choice = client.post('/api/admin/new-year/shop', headers=admin, json={**base, 'mode': 'choice'}).json['id']
+    rnd = client.post('/api/admin/new-year/shop', headers=admin, json={**base, 'mode': 'random'}).json['id']
+    items = {i['id']: i for i in client.get('/api/shop-items', headers=player).json['items']}
+    assert items[choice]['mode'] == 'choice' and items[choice]['title'] == 'Пак на выбор' and items[rnd]['title'] == 'Случайный пак'
+    assert client.post('/api/shop-items/buy', headers=player, json={'item_id': choice, 'request_id': 'choice-req-001'}).status_code == 400   # nothing chosen
+    got = client.post('/api/shop-items/buy', headers=player, json={'item_id': choice, 'request_id': 'choice-req-002', 'choice': b}).json
+    assert got['picked'] == b and len(got['pack_ids']) == 2
+    got = client.post('/api/shop-items/buy', headers=player, json={'item_id': rnd, 'request_id': 'random-req-001'}).json
+    assert got['picked'] in (a, b)
+    # an offer appears at its start time (Moscow time) and cannot be bought before
+    soon = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': '1', 'starts_at_msk': '2099-01-01T10:00', 'ends_at_msk': '2099-01-02T10:00'}).json['id']
+    assert soon not in [i['id'] for i in client.get('/api/shop-items', headers=player).json['items']]
+    assert client.post('/api/shop-items/buy', headers=player, json={'item_id': soon, 'request_id': 'future-req-001'}).status_code == 409
+    seen = next(i for i in client.get('/api/admin/new-year/shop', headers=admin).json['items'] if i['id'] == soon)
+    assert seen['starts_at'] == 4070944800 - 3 * 3600 and seen['ends_at'] == seen['starts_at'] + 86400   # 2099-01-01 10:00 MSK
+    assert client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': '1', 'starts_at_msk': '2099-01-02T10:00', 'ends_at_msk': '2099-01-01T10:00'}).status_code == 400
