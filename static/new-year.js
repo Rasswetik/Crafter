@@ -468,7 +468,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     content.querySelectorAll(':scope > .ny-admin-section').forEach(x=>{x.dataset.pane='main';});
     const tabs=document.createElement('div');
     tabs.className='ny-tabs';
-    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин'],['exchange','Обмен и коды'],['freebies','Подарки по дням'],['advent','Адвент']];
+    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин'],['exchange','Обмен и коды'],['freebies','Подарки по дням'],['chests','Ящики'],['advent','Адвент']];
     const setTab=name=>{window.crafterNyTab=name;content.dataset.nyTab=name;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('is-on',b.dataset.tab===name));};
     tabs.innerHTML=names.map(([id,label])=>'<button type="button" data-tab="'+id+'">'+label+'</button>').join('');
     tabs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
@@ -478,6 +478,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     window.crafterShopItems?.admin?.(content);
     window.crafterExchange?.admin?.(content);
     window.crafterFreebiesAdmin?.admin?.(content);
+    window.crafterChestsAdmin?.admin?.(content);
     window.crafterAdvent?.admin?.(content);
     window.crafterNyLocks?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{

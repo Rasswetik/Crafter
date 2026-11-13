@@ -62,6 +62,7 @@ function box(g, ev) {
 }
 /* the same window as after a purchase in the market, only «Получено»: a pack can be opened at once or kept in the inventory */
 function showReveal(ev, res) {
+    if (res.chest_open && window.crafterChests) { window.crafterChests.play(res.chest_open, {bg: 'cozy', toast, refresh() {}}); return; }
     const f = window.crafterFestive;
     if (!f || !f.reveal) { toast('Вы получили: ' + (res.result.title || 'подарок')); return; }
     const r = res.result, isPack = Boolean(res.pack_ids && res.pack_ids.length);

@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from flask import abort, g, request
 
-KINDS = ('GRAM', 'BALL', 'PACK', 'STAR')
+KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'CHEST')
 SIZES = ('normal', 'large')
 LIMIT = 10 ** 9
 DEFAULTS = {'preview_bg': '/static/assets/freebies/preview-bg.webp', 'preview_gift': '/static/assets/freebies/preview-gift.webp',
@@ -121,6 +121,9 @@ def install_freebies(app, db, auth, audit, record):
         if kind == 'PACK':
             pack = app.extensions['crafter_pack_short'](amount) or {}
             return {'title': (pack.get('title') or 'Пак') + (' ×' + str(count) if count > 1 else ''), 'image': pack.get('image') or '', 'kind': kind, 'count': count}
+        if kind == 'CHEST':
+            chest = app.extensions['crafter_chest_short'](amount) or {}
+            return {'title': chest.get('title') or 'Ящик', 'image': chest.get('image') or '', 'kind': kind, 'count': 1}
         star = app.extensions['crafter_star_gift_short'](amount) or {}
         return {'title': (star.get('name') or star.get('title') or 'Подарок') + (' ×' + str(count) if count > 1 else ''), 'image': star.get('image') or '', 'kind': kind, 'count': count}
 
@@ -159,6 +162,9 @@ def install_freebies(app, db, auth, audit, record):
             elif kind == 'PACK':
                 ids = [app.extensions['crafter_grant_pack'](uid, amount, 'freebie:' + gid) for _ in range(count)]
                 out.update(pack_id=ids[0], pack_ids=ids)
+            elif kind == 'CHEST':
+                opened = app.extensions['crafter_open_chest'](uid, amount, 'freebie:' + gid)
+                out.update(chest_open=opened, balance=opened['balance'], gram_balance=opened['gram_balance'])
             else:
                 ids = [app.extensions['crafter_grant_star_gift'](uid, amount, 'freebie:' + gid) for _ in range(count)]
                 out.update(gift_ids=ids)
@@ -251,6 +257,10 @@ def install_freebies(app, db, auth, audit, record):
             amount = str(n)
         else:
             amount = str(body.get('amount') or '')
+            if kind == 'CHEST':
+                if not app.extensions['crafter_chest_exists'](amount):
+                    abort(400, description='Выберите существующий ящик')
+                return kind, amount, 1
             if kind == 'PACK' and not app.extensions['crafter_pack_exists'](amount):
                 abort(400, description='Выберите существующий пак')
             if kind == 'STAR' and not app.extensions['crafter_star_gift_exists'](amount):

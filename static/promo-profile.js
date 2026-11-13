@@ -35,6 +35,14 @@ async function submitPromo(form){
             if(window.crafterPacks)window.crafterPacks.granted(result.pack_ids||[result.pack_id]);
             return;
         }
+        if(result.currency==='CHEST'&&result.chest_open&&window.crafterChests){
+            feedback(form,true,'Ящик открывается!');
+            form.reset();
+            if(typeof closeSheet==='function')closeSheet();
+            if(typeof window.crafterNewYearUpdateBalance==='function')window.crafterNewYearUpdateBalance({balls:result.new_year_balance});
+            window.crafterChests.play(result.chest_open,{toast});
+            return;
+        }
         if(result.currency==='STAR'){
             feedback(form,true,'Получено: подарки Telegram ×'+(result.count||1)+' — они в «Мои подарки»');
             form.reset();

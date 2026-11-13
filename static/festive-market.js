@@ -9,7 +9,7 @@ const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleSt
 const ORN = '<img class="fm-ball" src="/static/assets/new-year-ornament.svg" alt="">';
 const SI = () => window.crafterShopItems || {};
 const NAMES = {common: 'Акция', rare: 'Редкая акция', special: 'Особая акция', epic: 'Эпическая акция', mythic: 'Мифическая акция', legend: 'Легендарная акция', res: 'Ресурсы'};
-const TYPES = {GRAM: 'Баланс GRAM', BALL: 'Шары', PACK: 'Пак', BUNDLE: 'Набор', STAR: 'Подарок Telegram', PROMO: 'Промокод', REWARD: 'Награда сообщества'};
+const TYPES = {GRAM: 'Баланс GRAM', BALL: 'Шары', PACK: 'Пак', BUNDLE: 'Набор', STAR: 'Подарок Telegram', CHEST: 'Ящик', PROMO: 'Промокод', REWARD: 'Награда сообщества'};
 const WIDTH = {small: 1, tall: 1, wide: 1.6, large: 2, banner: 2.6};
 let offset = 0;                                                    // server time minus the time of this device
 const nowSec = () => Math.floor(Date.now() / 1000) + offset;
@@ -314,8 +314,8 @@ function stage(o, ctx, opts2 = {}) {
         (choice ? '<p class="fm-pickname" data-fm-pickname></p>' : '') +
         (lines.length ? '<ul class="fm-lines">' + lines.map(l => '<li>' + e(l) + '</li>').join('') + '</ul>' : '') + '</div>' +
         '<div class="fm-hero">' + (choice ? '<button type="button" class="fm-harrow l" data-fm-h="-1" aria-label="Предыдущий">' + CHEV('m15 5-7 7 7 7') + '</button><button type="button" class="fm-harrow r" data-fm-h="1" aria-label="Следующий">' + CHEV('m9 5 7 7-7 7') + '</button>' : '') +
-        '<div class="fm-floor"></div><div class="fm-heroart" data-fm-heroart>' + heroInner + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
-        '<div class="fm-inc"><div class="fm-inc-head"><b>' + incHead + '</b>' + (packsIn.length ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
+        '<div class="fm-floor"></div><div class="fm-heroart' + (it.chest ? ' is-chest' : '') + '" data-fm-heroart>' + heroInner + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
+        '<div class="fm-inc"><div class="fm-inc-head"><b>' + incHead + '</b>' + (packsIn.length || it.chest ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
         '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + (choice && !i ? ' is-pick' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '><img src="' + e(x.img) + '" alt=""><b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
         '<div class="fm-buy"><button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
         '<p class="fm-err" role="alert"></p></div>' +
@@ -342,7 +342,14 @@ function stage(o, ctx, opts2 = {}) {
     document.addEventListener('keydown', onKey); window.addEventListener('popstate', onPop);
     el.querySelector('[data-fm-close]').addEventListener('click', () => close());
     const chancesList = () => { const first = choice ? packsIn[pick] : null; return first ? [first].concat(packsIn.filter((_, j) => j !== pick)) : packsIn; };
-    el.querySelector('[data-fm-chances]')?.addEventListener('click', () => openChances(chancesList(), ctx));
+    el.querySelector('[data-fm-chances]')?.addEventListener('click', () => it.chest ? window.crafterChests.chances(it.chest.id, api) : openChances(chancesList(), ctx));
+    if (it.chest && window.crafterChests) {                           // the chest stands in the window as a 3D model, the picture is the fallback
+        const art = el.querySelector('[data-fm-heroart]');
+        art.innerHTML = '<div class="cx-host"><img class="si-solo" src="' + e(it.chest.image) + '" alt=""></div>';
+        const v = window.crafterChests.viewer(art.firstChild, it.chest, {drag: true});
+        v.ready.catch(() => {});
+        new MutationObserver((_, ob) => { if (!el.isConnected) { v.dispose(); ob.disconnect(); } }).observe(document.body, {childList: true});
+    }
     el.querySelectorAll('[data-fm-pk]').forEach(b => b.addEventListener('click', () => { const i = packsIn.findIndex(p => p.id === b.dataset.fmPk); openChances(i > 0 ? [packsIn[i]].concat(packsIn.filter((_, j) => j !== i)) : packsIn, ctx); }));
     const nameEl = el.querySelector('[data-fm-pickname]');
     const setPick = i => {
@@ -375,7 +382,8 @@ function stage(o, ctx, opts2 = {}) {
         try {
             const res = await perform(o, ctx, choice ? choice[pick].pack.id : undefined);
             hide();
-            reveal(o, res, ctx, () => close());
+            if (res.chest) window.crafterChests.play(res.chest, {bg: it.card_bg || res.chest.chest.bg, refresh: ctx.refresh, toast, onDone: () => close()});
+            else reveal(o, res, ctx, () => close());
         } catch (error) { hide(); err.textContent = error.message; }
         yes.disabled = false;
     });
@@ -397,6 +405,7 @@ async function perform(o, ctx, choice) {
     if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
     if (res.gram_balance !== undefined && state?.me) { state.me.balance = res.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
     if (res.pack_id) { const ids = res.pack_ids || [res.pack_id]; return {packIds: ids, count: ids.length, picked: res.picked}; }
+    if (res.chest_open) return {chest: res.chest_open};
     if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};
     if (res.code) { const cc = window.crafterCommunity; return {title: 'Ваш промокод', text: 'Он привязан к вашему аккаунту и работает один раз.', html: cc.codeBlock(res.code), bind: root => cc.bindCode(root, res.code)}; }
     return {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : 'Зачислено шаров: ' + num(res.balls_gain), text: 'Баланс уже обновлён.'};

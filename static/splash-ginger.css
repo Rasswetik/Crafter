@@ -1,0 +1,15 @@
+/* Loading screen in the style of the New Year market: a night sky, a garland, snow on the ground, a glossy progress bar */
+#splash.splash-v4{background:radial-gradient(120% 90% at 50% 20%,#1d4a86 0,#10294f 46%,#0a1631 100%)}
+#splash .sv4-glow{background:radial-gradient(34% 30% at 50% 46%,rgb(120 190 255 / .38),transparent 70%)}
+#splash .sv4-grid{display:none}
+#splash::before{content:"";position:absolute;left:0;right:0;top:0;height:120px;background:url(/static/assets/crafter-hanging-lights.svg) center top/auto 100% repeat-x;pointer-events:none;opacity:.95}
+#splash::after{content:"";position:absolute;left:-5%;right:-5%;bottom:-40px;height:26%;background:radial-gradient(60% 100% at 18% 100%,#f4f9ff 60%,transparent 61%),radial-gradient(70% 100% at 62% 100%,#e6f1ff 60%,transparent 61%),radial-gradient(50% 100% at 96% 100%,#f4f9ff 60%,transparent 61%);filter:drop-shadow(0 -8px 18px rgba(120,170,255,.35));pointer-events:none}
+#splash .sv4-mark::before{content:"";position:absolute;inset:6%;border-radius:50%;background:radial-gradient(circle at 35% 28%,#3b6fc4,#183a75 70%);box-shadow:0 14px 34px rgba(0,0,0,.5),inset 0 0 0 3px rgba(255,255,255,.2)}
+#splash .sv4-logo{box-shadow:0 10px 26px #0008,0 0 0 2px #ffffff40,0 0 40px rgb(120 190 255 / .5)}
+#splash .sv4-track{stroke:rgba(255,255,255,.18)}
+#splash .sv4-arc{stroke:#9fd0ff;filter:drop-shadow(0 0 7px #7fc0ff)}
+#splash .sv4-brand{color:#fff;text-shadow:0 3px 0 rgba(0,0,0,.35)}
+#splash .sv4-tag{color:#b9d6ff}
+#splash .sv4-status{color:#b9d6ff}
+#splash .splash-progress{height:12px;border-radius:12px;background:rgba(6,16,40,.6);box-shadow:inset 0 0 0 2px rgba(255,255,255,.18)}
+#splash .splash-progress-fill{border-radius:12px;background:linear-gradient(180deg,#8cf08f,#2faa3c);box-shadow:inset 0 2px 0 rgba(255,255,255,.45),0 0 14px #5fe36a99}
