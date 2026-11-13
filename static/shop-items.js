@@ -140,12 +140,21 @@ async function admin(content) {
         try { r.bg_library = (await api('admin/new-year/shop-bg-library', {url, name: file.name.replace(/\.[^.]+$/, '')})).library; } catch (_) {}
         return url;
     };
-    const cardBgGallery = (cur, attr, fileAttr) => '<div class="fm-gal">' + (window.crafterFestive?.cardBgKeys || []).map(k => '<button type="button" class="fm-sw' + (cur === k[0] ? ' is-on' : '') + '" ' + attr + '="' + e(k[0]) + '"><span class="fm-swp"><span class="fm-swc' + (k[0] && window.crafterScenes ? '' : ' cb-' + e(k[0] || 'none')) + '">' + (k[0] && window.crafterScenes ? window.crafterScenes.render(k[0], {still: true}) : '') + '</span></span><em>' + e(k[1]) + '</em></button>').join('') +
-        (r.bg_library || []).map(x => '<span class="fm-sw fm-swlib' + (cur === 'image:' + x.url ? ' is-on' : '') + '"><button type="button" class="fm-swlibpick" ' + attr + '="image:' + e(x.url) + '"><span class="fm-swp" style="background-image:url(' + e(x.url) + ')"></span><em>' + e(x.name) + '</em></button><button type="button" class="fm-swdel" data-bg-lib-del="' + e(x.url) + '" title="Убрать из сохранённых" aria-label="Убрать из сохранённых">×</button></span>').join('') +
-        '<label class="fm-sw fm-swup' + (cur && cur.indexOf('image:') === 0 ? ' is-on' : '') + '"><span class="fm-swp"' + (cur && cur.indexOf('image:') === 0 ? ' style="background-image:url(' + e(cur.slice(6)) + ')"' : '') + '><b>+</b></span><em>Своя картинка</em><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden ' + fileAttr + '></label></div>';
-    const secBgGallery = cur => '<div class="fm-gal">' + (window.crafterFestive?.bgKeys || []).map(k => '<button type="button" class="fm-sw' + (cur === k[0] ? ' is-on' : '') + '" data-sf-bg="' + e(k[0]) + '"><span class="fm-swp"><span class="fm-swc">' + (window.crafterScenes ? window.crafterScenes.render(k[0] === 'village' ? 'night' : k[0], {still: true}) : '') + '</span></span><em>' + e(k[1]) + '</em></button>').join('') +
-        (r.bg_library || []).map(x => '<span class="fm-sw fm-swlib' + (cur === 'image:' + x.url ? ' is-on' : '') + '"><button type="button" class="fm-swlibpick" data-sf-bg="image:' + e(x.url) + '"><span class="fm-swp" style="background-image:url(' + e(x.url) + ')"></span><em>' + e(x.name) + '</em></button><button type="button" class="fm-swdel" data-bg-lib-del="' + e(x.url) + '" title="Убрать из сохранённых" aria-label="Убрать из сохранённых">×</button></span>').join('') +
-        '<label class="fm-sw fm-swup' + (cur && cur.indexOf('image:') === 0 ? ' is-on' : '') + '"><span class="fm-swp"' + (cur && cur.indexOf('image:') === 0 ? ' style="background-image:url(' + e(cur.slice(6)) + ')"' : '') + '><b>+</b></span><em>Свой PNG-фон</em><input type="file" accept="image/png,image/jpeg,image/webp" hidden data-sf-bgfile></label></div>';
+    const swPic = (key, cur, attr, title) => '<button type="button" class="fm-sw' + (cur === key ? ' is-on' : '') + '" ' + attr + '="' + e(key) + '"><span class="fm-swp"><span class="fm-swc' + (key && window.crafterScenes ? '' : ' cb-' + e(key || 'none')) + '">' + (key && window.crafterScenes ? window.crafterScenes.render(key, {still: true}) : '') + '</span></span><em>' + e(title) + '</em></button>';
+    const swImg = (url, cur, attr, title, del) => '<span class="fm-sw fm-swlib' + (cur === 'image:' + url ? ' is-on' : '') + '"><button type="button" class="fm-swlibpick" ' + attr + '="image:' + e(url) + '"><span class="fm-swp" style="background-image:url(' + e(url) + ')"></span><em>' + e(title) + '</em></button>' +
+        (del ? '<button type="button" class="fm-swdel" data-bg-lib-del="' + e(url) + '" title="Убрать из сохранённых" aria-label="Убрать из сохранённых">×</button>' : '') + '</span>';
+    const upLabel = (cur, fileAttr, text) => '<label class="fm-sw fm-swup' + (cur && cur.indexOf('image:') === 0 ? ' is-on' : '') + '"><span class="fm-swp"' + (cur && cur.indexOf('image:') === 0 ? ' style="background-image:url(' + e(cur.slice(6)) + ')"' : '') + '><b>+</b></span><em>' + text + '</em><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden ' + fileAttr + '></label>';
+    const galGroup = (title, inner) => inner ? '<div class="fm-gal-h">' + title + '</div><div class="fm-gal">' + inner + '</div>' : '';
+    const bgGallery = (cur, attr, fileAttr, keys, isNew, uploadText) => {
+        const lib = (r.bg_library || []).map(x => swImg(x.url, cur, attr, x.name, true)).join('') + upLabel(cur, fileAttr, uploadText);
+        const chestBg = CHESTS.filter(c => c.bg_collection).map(c => swImg(c.bg_collection, cur, attr, c.title, false)).join('');
+        const fresh = keys.filter(k => k[0] === '' || isNew(k[0])), old = keys.filter(k => k[0] !== '' && !isNew(k[0]));
+        const oldOpen = old.some(k => k[0] === cur);
+        return galGroup('Мои фоны (загруженные запоминаются)', lib) + galGroup('Фоны ящиков', chestBg) + galGroup('Спокойные', fresh.map(k => swPic(k[0], cur, attr, k[1])).join('')) +
+            (old.length ? '<details class="fm-gal-old"' + (oldOpen ? ' open' : '') + '><summary>Старые фоны (' + old.length + ')</summary><div class="fm-gal">' + old.map(k => swPic(k[0], cur, attr, k[1])).join('') + '</div></details>' : '');
+    };
+    const cardBgGallery = (cur, attr, fileAttr) => bgGallery(cur, attr, fileAttr, window.crafterFestive?.cardBgKeys || [], k => /^c-soft/.test(k), 'Свой PNG');
+    const secBgGallery = cur => bgGallery(cur, 'data-sf-bg', 'data-sf-bgfile', window.crafterFestive?.bgKeys || [], k => /^soft/.test(k), 'Свой PNG-фон');
     const secTitle = id => ((r.sections || []).find(x => x.id === id) || {}).title || '';
     const sectionChips = (cur, attr) => [['', 'Авто (по правилам)']].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title])).map(c => '<button type="button" class="' + (cur === c[0] ? 'is-on' : '') + '" ' + attr + '="' + e(c[0]) + '">' + e(c[1]) + '</button>').join('');
     const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
@@ -158,8 +167,9 @@ async function admin(content) {
         const cellsOn = f.kind === 'BUNDLE' && !f.mode;
         const mixList = cellsOn ? f.items.filter(x => x.type === 'PACK').map(x => ({pack: packs.find(p => p.id === x.id), count: x.count})).filter(c => c.pack) : f.kind === 'BUNDLE' ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => ({pack: packs.find(p => p.id === id), count: n})).filter(c => c.pack) : [];
         const cellGram = cellsOn ? (f.items.find(x => x.type === 'GRAM') || {}).amount : f.bgram, cellBalls = cellsOn ? (f.items.find(x => x.type === 'BALL') || {}).amount : f.bballs;
-        const it = {contents: mixList.length ? mixList : null, gram: f.kind === 'BUNDLE' && !f.mode && Number(cellGram) > 0 ? cellGram : null, balls: f.kind === 'BUNDLE' && !f.mode && Number(cellBalls) > 0 ? cellBalls : null, chests_in: cellsOn ? f.items.filter(x => x.type === 'CHEST').map(x => ({chest: CHESTS.find(c => c.id === x.id), count: x.count})).filter(c => c.chest) : null, kind: f.kind === 'BUNDLE' && f.mode ? 'PACK' : f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: mixList.length ? mixList.reduce((x, c) => x + c.count, 0) : (Number(f.bundle) || 1), per_user: Number(f.per) || null, mine: 0, old_price_balls: Number(f.old) > Number(f.price) ? Number(f.old) : null, discount_percent: Number(f.old) > Number(f.price) ? Math.round((1 - Number(f.price) / Number(f.old)) * 100) : null, title: f.title || autoTitle(), image_url: f.image,
-            pack: packs.find(p => p.id === f.pack) ? {image: packs.find(p => p.id === f.pack).image} : null, price_balls: Number(f.price) || 0, left: f.stock ? Number(f.stock) : null, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg, mode: f.mode, id: 'preview',
+        const chestSel = eff() === 'CHEST' ? CHESTS.find(c => c.id === f.amount) : null;
+        const it = {chest: chestSel || null, contents: mixList.length ? mixList : null, gram: f.kind === 'BUNDLE' && !f.mode && Number(cellGram) > 0 ? cellGram : null, balls: f.kind === 'BUNDLE' && !f.mode && Number(cellBalls) > 0 ? cellBalls : null, chests_in: cellsOn ? f.items.filter(x => x.type === 'CHEST').map(x => ({chest: CHESTS.find(c => c.id === x.id), count: x.count})).filter(c => c.chest) : null, kind: f.kind === 'BUNDLE' && f.mode ? 'PACK' : f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: mixList.length ? mixList.reduce((x, c) => x + c.count, 0) : (Number(f.bundle) || 1), per_user: Number(f.per) || null, mine: 0, old_price_balls: Number(f.old) > Number(f.price) ? Number(f.old) : null, discount_percent: Number(f.old) > Number(f.price) ? Math.round((1 - Number(f.price) / Number(f.old)) * 100) : null, title: f.title || autoTitle(), image_url: f.image || (chestSel ? chestSel.image : ''),
+            pack: packs.find(p => p.id === f.pack) ? {image: packs.find(p => p.id === f.pack).image} : null, price_balls: Number(f.price) || 0, left: f.stock ? Number(f.stock) : null, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg || (chestSel && chestSel.bg_collection ? 'image:' + chestSel.bg_collection : ''), mode: f.mode, id: 'preview',
             ends_at: f.endsH ? Math.floor(Date.now() / 1000) + Number(f.endsH) * 3600 : (f.endsMsk ? mskEpoch(f.endsMsk) : f.endsAt)};
         return it;
     };
@@ -204,6 +214,63 @@ async function admin(content) {
         wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
         document.body.appendChild(wrap);
     };
+    // ---- auto offers: one chest -> a set of offers (1, 3, 5, 10 chests), prices and places are made by themselves
+    const auState = {chest: '', counts: '1, 3, 5, 10', base: '100', markup: '10', disc: '15', bg: '', section_id: '', endsH: '', per: '', stock: '', old: true, badge: ''};
+    const auPlan = () => {
+        const counts = [...new Set(String(auState.counts).split(/[^0-9]+/).map(Number).filter(n => n >= 1 && n <= 20))].sort((a, b) => a - b);
+        const base = Math.max(0, Number(auState.base) || 0), mk = 1 + Math.max(0, Number(auState.markup) || 0) / 100, disc = Math.min(90, Math.max(0, Number(auState.disc) || 0));
+        const top = counts[counts.length - 1] || 1;
+        return counts.map((n, i) => {
+            const full = Math.round(base * mk * n), d = counts.length > 1 && top > 1 ? disc * (n - 1) / (top - 1) : 0, price = Math.max(0, Math.round(full * (1 - d / 100)));
+            const size = counts.length === 1 ? 'wide' : i === counts.length - 1 ? 'large' : i === 0 ? 'small' : 'wide';
+            return {n, full, price, off: Math.round(d), size, rarity: i === counts.length - 1 && counts.length > 1 ? 'epic' : i > 0 ? 'rare' : 'auto'};
+        });
+    };
+    const openAuto = () => {
+        if (!CHESTS.length) { toast('Сначала создайте ящик во вкладке «Ящики»'); return; }
+        if (!auState.chest || !CHESTS.some(c => c.id === auState.chest)) auState.chest = CHESTS[0].id;
+        const wrap = document.createElement('div');
+        wrap.className = 'bnd-modal';
+        const close = () => wrap.remove();
+        const paint = () => {
+            const ch = CHESTS.find(c => c.id === auState.chest) || CHESTS[0], plan = auPlan();
+            const cur = auState.bg;
+            wrap.innerHTML = '<div class="bnd-box au-box"><div class="bnd-top"><b>Автосоздание акций</b><button type="button" data-x aria-label="Закрыть">×</button></div>' +
+                '<div class="adm-step"><h4>1. Какой ящик</h4><div class="bnd-grid">' + CHESTS.map(c => '<button type="button" class="bnd-opt' + (c.id === ch.id ? ' is-on' : '') + '" data-au-chest="' + e(c.id) + '"><img src="' + e(c.image) + '" alt=""><span>' + e(c.title) + '</span></button>').join('') + '</div></div>' +
+                '<div class="adm-step"><h4>2. Сколько ящиков в акциях</h4><label>Через запятую: на каждое число будет своя акция<input data-au="counts" value="' + e(auState.counts) + '" placeholder="1, 3, 5, 10"></label></div>' +
+                '<div class="adm-step"><h4>3. Цены</h4><div class="adm-row3"><label>Цена за 1 ящик, шаров<input type="number" min="0" data-au="base" value="' + e(auState.base) + '"></label><label>Наценка, %<input type="number" min="0" max="500" data-au="markup" value="' + e(auState.markup) + '"></label><label>Скидка за самую большую пачку, %<input type="number" min="0" max="90" data-au="disc" value="' + e(auState.disc) + '"></label></div>' +
+                '<label class="adm-check"><input type="checkbox" data-au-old ' + (auState.old ? 'checked' : '') + '> Показывать зачёркнутую цену и скидку</label></div>' +
+                '<div class="adm-step"><h4>4. Фон акций</h4><p class="sub">Пусто — фон самого ящика. Можно выбрать сохранённый или прикрепить свой.</p>' + cardBgGallery(cur, 'data-au-bg', 'data-au-file') + '</div>' +
+                '<div class="adm-step"><h4>5. Условия</h4><div class="adm-row3"><label>Раздел<select data-au="section_id"><option value="">Авто (по правилам)</option>' + (r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => '<option value="' + e(x.id) + '"' + (auState.section_id === x.id ? ' selected' : '') + '>' + e(x.title) + '</option>').join('') + '</select></label>' +
+                '<label>Закончится через, часов (пусто — без срока)<input type="number" min="1" max="2880" data-au="endsH" value="' + e(auState.endsH) + '"></label><label>Лимит на игрока (пусто — без лимита)<input type="number" min="1" data-au="per" value="' + e(auState.per) + '"></label>' +
+                '<label>Всего штук (пусто — без лимита)<input type="number" min="1" data-au="stock" value="' + e(auState.stock) + '"></label><label>Плашка (до 14 знаков)<input data-au="badge" maxlength="14" value="' + e(auState.badge) + '"></label></div></div>' +
+                '<div class="adm-step"><h4>Что будет создано</h4><div class="au-plan">' + (plan.length ? plan.map(x => '<div><b>' + e(ch.title) + ' ×' + x.n + '</b><span>' + (x.off > 0 && auState.old ? '<s>' + num(x.full) + '</s> ' : '') + num(x.price) + ' шаров' + (x.off > 0 && auState.old ? ' · −' + x.off + '%' : '') + '</span></div>').join('') : '<p class="sub">Впишите количества.</p>') + '</div></div>' +
+                '<div class="bnd-count"><button type="button" class="primary" data-au-go' + (plan.length ? '' : ' disabled') + '>Создать ' + plan.length + ' акц.</button></div></div>';
+            wrap.querySelector('[data-x]').addEventListener('click', close);
+            wrap.querySelectorAll('[data-au-chest]').forEach(b => b.addEventListener('click', () => { auState.chest = b.dataset.auChest; paint(); }));
+            wrap.querySelectorAll('[data-au]').forEach(i => i.addEventListener('input', () => { auState[i.dataset.au] = i.value; if (i.tagName === 'SELECT') return; clearTimeout(paint.t); paint.t = setTimeout(() => { const k = i.dataset.au, pos = i.selectionStart; paint(); const n = wrap.querySelector('[data-au="' + k + '"]'); if (n) { n.focus(); try { n.setSelectionRange(pos, pos); } catch (_) {} } }, 350); }));
+            wrap.querySelector('[data-au-old]').addEventListener('change', ev => { auState.old = ev.target.checked; paint(); });
+            wrap.querySelectorAll('[data-au-bg]').forEach(b => b.addEventListener('click', () => { auState.bg = b.dataset.auBg; paint(); }));
+            wrap.querySelectorAll('[data-bg-lib-del]').forEach(d => d.addEventListener('click', async () => { try { r.bg_library = (await api('admin/new-year/shop-bg-library/delete', {url: d.dataset.bgLibDel})).library; paint(); } catch (err) { toast(err.message); } }));
+            wrap.querySelector('[data-au-file]')?.addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { auState.bg = 'image:' + await uploadBg(file); paint(); } catch (err) { toast(err.message); } });
+            wrap.querySelector('[data-au-go]')?.addEventListener('click', async ev => {
+                ev.target.disabled = true;
+                let made = 0;
+                try {
+                    for (const x of plan) {
+                        await api('admin/new-year/shop', {kind: 'CHEST', amount: ch.id, bundle: x.n, price_balls: x.price, old_price_balls: auState.old && x.off > 0 ? x.full : '', stock: auState.stock, per_user: auState.per, size: x.size, rarity: x.rarity, badge: auState.badge,
+                            section_id: auState.section_id, card_bg: auState.bg, ends_in_hours: auState.endsH || undefined, title: ch.title + ' ×' + x.n, image_url: '', heading: '', description: '', mode: ''});
+                        made++;
+                    }
+                    toast('Создано акций: ' + made);
+                } catch (err) { toast((made ? 'Создано ' + made + ', потом ошибка: ' : '') + err.message); }
+                try { const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.sections = fresh.sections || r.sections; } catch (_) {}
+                close(); draw();
+            });
+        };
+        wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
+        document.body.appendChild(wrap); paint();
+    };
     const autoTitle = () => {
         if (f.kind === 'BUNDLE' && !f.mode) return 'Бандл: ' + (f.items.map(x => { const v = itemInfo(x); return x.type === 'GRAM' ? num(x.amount) + ' GRAM' : x.type === 'BALL' ? num(x.amount) + ' шаров' : v.name + (x.count > 1 ? ' ×' + x.count : ''); }).join(' + ') || '…');
         if (f.kind === 'BUNDLE') return 'Бандл: ' + ([].concat(Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => (packs.find(p => p.id === id)?.title || 'Пак') + (n > 1 ? ' ×' + n : '')), Number(f.bgram) > 0 ? [num(f.bgram) + ' GRAM'] : [], Number(f.bballs) > 0 ? [num(f.bballs) + ' шаров'] : []).join(' + ') || '…');
@@ -247,10 +314,10 @@ async function admin(content) {
             '<div class="sb-set"><label>Редкость</label><div class="sb-chips">' + RARS.map(x => '<button type="button" class="' + ((it.rarity || 'auto') === x[0] ? 'is-on' : '') + '" data-sb-rar="' + x[0] + '">' + x[1] + '</button>').join('') + '</div></div>' +
             '<div class="sb-set"><label>Заголовок акции</label><input type="text" data-sb-heading maxlength="30" value="' + e(it.heading || '') + '" placeholder="Например: Зимняя ярмарка"></div>' +
             '<div class="sb-set"><label>Фон карточки</label>' + cardBgGallery(it.card_bg || '', 'data-sb-cbg', 'data-sb-cbgfile') + '</div>' +
-            '<div class="sb-actions"><button type="button" data-sb-act="edit">Изменить всё</button><button type="button" data-sb-act="earlier">← Раньше</button><button type="button" data-sb-act="later">Позже →</button>' +
+            '<div class="sb-actions"><button type="button" data-sb-act="edit">Изменить всё</button><button type="button" data-sb-act="copy">Копировать</button><button type="button" data-sb-act="earlier">← Раньше</button><button type="button" data-sb-act="later">Позже →</button>' +
             '<button type="button" data-sb-act="status">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button><button type="button" class="danger" data-sb-act="delete">Удалить</button></div><p class="sub sb-hint">' + note + '</p></div>';
     };
-    const boardSection = () => '<div class="sb-wrap"><h3>Витрина магазина</h3><p class="sub">Выберите раздел: видны только его лоты, как у игроков. Меняйте порядок перетаскиванием, как пазл. «Авто» — лоты без своего раздела: они попадают в разделы по правилам.</p>' + tabsHTML() +
+    const boardSection = () => '<div class="sb-wrap"><h3>Витрина магазина <button type="button" class="primary sb-auto" data-auto-open>Автосоздание акций</button></h3><p class="sub">Выберите раздел: видны только его лоты, как у игроков. Меняйте порядок перетаскиванием, как пазл. «Авто» — лоты без своего раздела: они попадают в разделы по правилам.</p>' + tabsHTML() +
         '<div class="sb-board ny-grid" id="sb-board">' + (visible().length ? boardHTML() : '<p class="sub">Товаров пока нет: добавьте первый ниже.</p>') + '</div><div id="sb-drawer">' + drawerHTML() + '</div></div>';
     const redrawBoard = () => {
         const board = sec.querySelector('#sb-board'), drawer = sec.querySelector('#sb-drawer');
@@ -340,6 +407,10 @@ async function admin(content) {
             const act = b.dataset.sbAct;
             try {
                 if (act === 'edit') { startEdit(it.id); return; }
+                if (act === 'copy') {                                              // a copy goes into the form as a new lot: change what is needed and press «Добавить товар»
+                    startEdit(it.id); editing = null; f.title = (it.title || '') + ' (копия)'; draw();
+                    sec.querySelector('#si-form')?.scrollIntoView({behavior: 'smooth', block: 'start'}); toast('Копия готова: поправьте и нажмите «Добавить товар»'); return;
+                }
                 if (act === 'status') { const next = it.status === 'active' ? 'hidden' : 'active'; await api('admin/new-year/shop/' + it.id + '/status', {status: next}); it.status = next; redrawBoard(); return; }
                 if (act === 'delete') { if (!confirm('Удалить лот «' + it.title + '»?')) return; await api('admin/new-year/shop/' + it.id + '/delete', {}); r.items = r.items.filter(x => x.id !== it.id); selected = null; redrawBoard(); toast('Лот удалён'); return; }
                 const at = r.items.indexOf(it), to = act === 'earlier' ? at - 1 : at + 1;
@@ -470,6 +541,7 @@ async function admin(content) {
         sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'CHEST' ? (CHESTS[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'CHEST' ? (CHESTS[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelector('[data-bnd-add]')?.addEventListener('click', () => { pull(); openAdder(); });
+        sec.querySelector('[data-auto-open]')?.addEventListener('click', () => { pull(); openAuto(); });
         sec.querySelectorAll('[data-bnd-del]').forEach(b => b.addEventListener('click', () => { pull(); f.items.splice(+b.dataset.bndDel, 1); draw(); }));
         sec.querySelectorAll('[data-mix-inc]').forEach(b => b.addEventListener('click', () => { pull(); const t = Object.values(f.mix).reduce((x, n) => x + n, 0); if (t < 500) f.mix[b.dataset.mixInc] = (f.mix[b.dataset.mixInc] || 0) + 1; draw(); }));
         sec.querySelectorAll('[data-mix-set]').forEach(i => i.addEventListener('change', () => { pull(); f.mix[i.dataset.mixSet] = Math.max(0, Math.min(500, Math.floor(Number(i.value) || 0))); draw(); }));

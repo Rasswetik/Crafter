@@ -109,3 +109,32 @@ def test_reindeer_box_follows_its_sheet(client):
     for _ in range(40):
         kinds = [i['kind'] for i in client.post('/api/admin/new-year/chests/reindeer/preview', headers=admin).json['items']]
         assert 3 <= len(kinds) <= 6 and kinds[:3] == ['GRAM', 'BALL', 'PACK']
+
+
+def test_bundle_boxes_santa_honey_candy(client):
+    admin, player = signed(42), signed(62)
+    client.get('/api/me', headers=player)
+    for cid, theme in (('santa', 'santa'), ('honey', 'honey'), ('candy', 'candy')):
+        info = client.get('/api/chests/' + cid, headers=player).json
+        assert info['chest']['theme'] == theme and info['chest']['image_open'] and info['chest']['bg_collection']
+        assert len(info['loot']) == 40 and len([x for x in info['loot'] if x['kind'] == 'NFT']) == 15
+        assert not [x for x in info['loot'] if x['amount'] in ('gifton', 'goshan', 'nikolay')]
+        for _ in range(20):
+            kinds = [i['kind'] for i in client.post('/api/admin/new-year/chests/%s/preview' % cid, headers=admin).json['items']]
+            assert 3 <= len(kinds) <= 6 and kinds[:3] == ['GRAM', 'BALL', 'PACK']
+
+
+def test_auto_offers_for_every_new_box(client):
+    """What «Auto offers» sends: a set of lots 1/3/5/10 of one chest with a crossed-out price, a limit and an end time."""
+    admin, player = signed(42), signed(53)
+    client.get('/api/me', headers=player)
+    for box in ('santa', 'honey', 'candy'):
+        for n, price, old in ((1, 140, ''), (3, 400, 420), (10, 1200, 1400)):
+            res = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'CHEST', 'amount': box, 'bundle': n, 'price_balls': price, 'old_price_balls': old, 'size': 'large' if n == 10 else 'small',
+                                                                               'rarity': 'epic' if n == 10 else 'auto', 'per_user': 3 if n == 10 else '', 'ends_in_hours': 168, 'card_bg': 'image:/static/assets/chests/%s-bg-collection.webp' % box,
+                                                                               'title': '%s x%d' % (box, n)})
+            assert res.status_code == 200, res.get_data(as_text=True)
+    lots = [x for x in client.get('/api/shop-items', headers=player).json['items'] if x['kind'] == 'CHEST' and x['chest']['id'] in ('santa', 'honey', 'candy')]
+    assert len(lots) == 9
+    big = next(x for x in lots if x['bundle'] == 10)
+    assert big['discount_percent'] > 0 and big['ends_at'] and big['card_bg'].startswith('image:/static/assets/chests/')

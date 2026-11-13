@@ -48,6 +48,72 @@ for ch in chests:
                 else (x['amount'] + ' шаров' if x['kind'] == 'BALL' else x['amount'] + ' GRAM' if x['kind'] == 'GRAM' else x['title']))
         sheet.append([KIND.get(x['kind'], x['kind']), name, x['inside'], x['chance']])
     style(sheet, [20, 40, 18, 24])
+
+packs_full = {p['id']: p for p in c.get('/api/admin/new-year/packs').get_json()['packs']}
+
+
+def value_of(ch):
+    """Expected contents of one chest (an estimate): rewards per opening, shares by type, value in balls of balls + packs."""
+    rolls = ch['rolls']
+    exp_n = sum(r['count'] * r['chance'] / 100 for r in rolls)
+    st = ch['settings']
+    sure = list(st['guaranteed'])
+    bonus = {k: float(v) for k, v in st['bonus'].items() if float(v) > 0}
+    free = max(0.0, exp_n - len(sure))
+    tot = sum(bonus.values()) or 1
+    per = {k: (1 if k in sure else 0) + free * bonus.get(k, 0) / tot for k in KIND}
+    if 'NFT' not in bonus and 'PACK' in sure:                    # an NFT shares the slot of a pack
+        per['NFT'] = per.get('NFT', 0)
+    avg = {}
+    for k in KIND:
+        items = [x for x in ch['loot'] if x['kind'] == k]
+        tw = sum(x['inside'] for x in items) or 1
+        if k == 'BALL':
+            avg[k] = sum(float(x['amount']) * x['inside'] for x in items) / tw
+        elif k == 'GRAM':
+            avg[k] = sum(float(x['amount']) * x['inside'] for x in items) / tw
+        elif k == 'PACK':
+            avg[k] = sum(float((packs_full.get(x['amount']) or {}).get('price_balls') or 100) * x['inside'] for x in items) / tw
+        else:
+            avg[k] = 0.0
+    balls = per['BALL'] * avg['BALL']; gram = per['GRAM'] * avg['GRAM']; packs_v = per['PACK'] * avg['PACK']
+    return {'n': exp_n, 'per': per, 'balls': balls, 'gram': gram, 'packs': packs_v, 'value': balls + packs_v}
+
+
+vs = wb.create_sheet('Ценность ящиков', 1)
+vs.append(['Ящик', 'Наград в среднем', 'Шаров в среднем', 'GRAM в среднем', 'Паков в среднем', 'NFT в среднем (шт.)', 'Ценность в шарах (шары + паки по цене пака)', 'Совет: цена за 1 ящик (+10%), шаров'])
+vals = {}
+for ch in chests:
+    v = value_of(ch); vals[ch['chest']['id']] = v
+    vs.append([ch['chest']['title'], round(v['n'], 2), round(v['balls']), round(v['gram'], 3), round(v['per']['PACK'], 2), round(v['per']['NFT'], 2), round(v['value']), round(v['value'] * 1.1 / 10) * 10])
+style(vs, [22, 14, 14, 14, 14, 16, 30, 28])
+vs.append([]); vs.append(['Это оценка по таблице шансов. GRAM и NFT в цену не входят: их ценность зависит от курса, прибавьте её сами. Цену пака берём из раздела «Паки»; если там 0, считаем 100 шаров за пак — поправьте под себя.'])
+
+ps = wb.create_sheet('Какие акции создать', 2)
+ps.append(['Ящик', 'Акция', 'Ящиков', 'Цена, шаров', 'Старая цена (зачёркнута)', 'Скидка %', 'Размер плитки', 'Раздел', 'Фон акции', 'Срок', 'Лимит на игрока'])
+SZ = {1: 'Обычная', 2: 'Широкая'}
+for ch in chests:
+    v = vals[ch['chest']['id']]; base = max(10, round(v['value'] * 1.1 / 10) * 10); cid = ch['chest']['id']
+    counts = [1, 3, 5, 10]
+    for i, n in enumerate(counts):
+        d = 15 * (n - 1) / 9
+        full = base * n
+        ps.append([ch['chest']['title'], ch['chest']['title'] + ' ×%d' % n, n, round(full * (1 - d / 100)), full if d else '', round(d), 'Большая' if n == 10 else 'Широкая' if n in (3, 5) else 'Обычная', 'Ящики (создайте раздел) или «Особое»', '%s-bg-collection.webp (есть у ящика)' % cid, '7 дней для ×10, остальные без срока', '' if n < 10 else '3'])
+style(ps, [22, 24, 10, 14, 20, 10, 16, 34, 36, 34, 16])
+
+cs = wb.create_sheet('Цепочки и как настроить', 3)
+cs.append(['Что', 'Как сделать'])
+for row in [
+    ('Автосоздание', 'Магазин → «Автосоздание акций»: выберите ящик, впишите 1, 3, 5, 10, цену за 1 ящик (из листа «Ценность ящиков»), наценку и скидку, фон, раздел, срок и лимит. Акции создадутся и встанут сами.'),
+    ('Цепочка «Старт»', 'Шаг 1: Ящик (главная награда, бесплатно). Шаг 2: 100 шаров. Шаг 3: Пак за 150 шаров. Шаг 4: Ящик ×3 за цену из листа «Какие акции создать».'),
+    ('Цепочка «Недельная»', 'По одному ящику каждого вида на шагах 1–6, на каждом шаге маленькая награда (шары или GRAM), последний шаг — самый дорогой ящик с лимитом 1.'),
+    ('Бандлы', 'Ящик ×3 + пак + 500 шаров по цене чуть ниже суммы частей; плитка «Большая», срок 3–7 дней.'),
+    ('Разделы', 'Создайте раздел «Ящики» для всех ящиков, «Бандлы» для комплектов, «Цепочки» для цепочек. Цвет и фон раздела берите из «Фоны ящиков».'),
+    ('Цены', 'Цена 1 ящика = ценность в шарах + 10%. Для пачек скидка растёт до 15% на ×10. Ящики с NFT и GRAM поднимайте ещё на 10–20%.'),
+]:
+    cs.append(list(row))
+style(cs, [26, 130])
+
 wb.save('exports/chests-chances.xlsx')
 
 wb = Workbook()

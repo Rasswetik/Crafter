@@ -229,3 +229,41 @@ body.cx-open .crafter-snowfall{display:none!important}
 .cx-chances.cx-theme-forest .cx-ch-sure{background:rgba(255,236,190,.14)}
 .cx-chances.cx-theme-forest .cx-ch-bars u{background:linear-gradient(90deg,#ffe08a,#e8a21c)}
 .cx-chances.cx-theme-forest .cx-ch-loot>div{background:rgba(255,236,190,.12);border-color:rgba(255,236,190,.3)}
+
+/* ---- themes made of variables (Santa, Honey Holidays, Candy Cane): one block of rules, three palettes ---- */
+.cx-theme-santa{--tb1:#e23a3a;--tb2:#9c1414;--tbt:#fff6e0;--tbs:#5a0a0a;--tc1:#fff3cf;--tc2:#f2c25a;--tc3:#c8841c;--tco:#a01616;--tcn:#5a0a0a;--tcs:#5a0a0a;--tp1:#ffe08a;--tp2:#e8a21c;--tpt:#4a2a00;--ts1:#e23a3a;--ts2:#8a1010;--th1:#d62c2c;--th2:#8a1010;--tg1:#fff0b0;--tg2:#e8b64a;--tg3:#b87a1c;--tg-t:#3a2300;--trays:255,226,160;--tvig:60,6,6;--tsum:60,6,10;--tbox1:#c83030;--tbox2:#5a0a0a;--tbar1:#ffe08a;--tbar2:#e8a21c}
+.cx-theme-honey{--tb1:#eaa51e;--tb2:#a76a08;--tbt:#fff8dc;--tbs:#5a3200;--tc1:#fff6bc;--tc2:#f8cb48;--tc3:#c98a10;--tco:#a76a08;--tcn:#4a2a00;--tcs:#5a3200;--tp1:#fff0a0;--tp2:#f0b020;--tpt:#4a2a00;--ts1:#9a5a14;--ts2:#4a2406;--th1:#b87814;--th2:#6a3a08;--tg1:#fff3b0;--tg2:#f6c844;--tg3:#c98a10;--tg-t:#4a2a00;--trays:255,230,130;--tvig:70,36,0;--tsum:70,40,6;--tbox1:#b87814;--tbox2:#5a3200;--tbar1:#fff0a0;--tbar2:#f0b020}
+.cx-theme-candy{--tb1:#ff78a8;--tb2:#d23a78;--tbt:#fff;--tbs:#7a1a40;--tc1:#fff0f5;--tc2:#ffb4cf;--tc3:#ff7aa8;--tco:#d23a78;--tcn:#7a1a40;--tcs:#7a1a40;--tp1:#a8f5d8;--tp2:#2ab58a;--tpt:#073d2e;--ts1:#e8406c;--ts2:#9a1c40;--th1:#ff6a9a;--th2:#b82a60;--tg1:#fff0f5;--tg2:#ffb4cf;--tg3:#ff7aa8;--tg-t:#7a1a40;--trays:255,230,240;--tvig:80,10,40;--tsum:80,16,50;--tbox1:#d23a78;--tbox2:#7a1a40;--tbar1:#a8f5d8;--tbar2:#2ab58a}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-rays{background:repeating-conic-gradient(from 0deg,rgba(var(--trays),.5) 0 6deg,transparent 6deg 18deg)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-glow{background:radial-gradient(circle,rgba(var(--trays),.6),transparent 70%)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-aura{background:radial-gradient(circle,rgba(var(--trays),.9),rgba(var(--trays),.25) 50%,transparent 70%)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-vig{background:radial-gradient(ellipse at 50% 50%,transparent 55%,rgba(var(--tvig),.55) 100%)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-name,:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-reward h2{color:var(--tbt);text-shadow:0 3px 0 var(--tbs),0 0 20px rgba(var(--trays),.7)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-count{color:#fff;text-shadow:0 4px 0 var(--tcs),3px 3px 0 var(--tcs),-3px 3px 0 var(--tcs),0 0 22px rgba(var(--trays),.7)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-name small{background:rgba(var(--tvig),.6)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-hint b{background:linear-gradient(var(--th1),var(--th2));border-color:rgba(255,246,220,.65);color:var(--tbt)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-left{background:linear-gradient(180deg,var(--th1),var(--th2));border-color:rgba(255,246,220,.55)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-left b{background:radial-gradient(circle at 35% 30%,var(--tg1),var(--tg2) 60%,var(--tg3));border:2px dashed rgba(255,255,255,.95);color:var(--tg-t)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-sum h2{background:linear-gradient(180deg,var(--tb1),var(--tb2));color:var(--tbt);text-shadow:0 2px 0 rgba(0,0,0,.35);box-shadow:inset 0 0 0 3px rgba(255,246,220,.4),inset 0 -6px 0 rgba(0,0,0,.22),0 12px 26px rgba(0,0,0,.4)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-cell{border:3px dashed rgba(255,250,235,.9);outline:4px solid var(--tco);background:radial-gradient(circle at 30% 24%,var(--tc1),var(--tc2) 58%,var(--tc3));box-shadow:0 12px 26px rgba(0,0,0,.4),inset 0 -8px 14px rgba(0,0,0,.2)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-cell b{color:#fff;text-shadow:0 2px 0 var(--tcs),0 0 6px var(--tcs),2px 2px 0 var(--tcs),-2px 2px 0 var(--tcs)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-cell small{color:var(--tcn)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-btn.green{background:linear-gradient(var(--tp1),var(--tp2));color:var(--tpt);text-shadow:0 1px 0 rgba(255,255,255,.6);box-shadow:inset 0 -5px 0 rgba(0,0,0,.2),inset 0 0 0 2px rgba(255,255,255,.4),0 8px 18px rgba(0,0,0,.35)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-btn.blue{background:linear-gradient(var(--ts1),var(--ts2));box-shadow:inset 0 -5px 0 rgba(0,0,0,.3),inset 0 0 0 2px rgba(255,255,255,.25),0 8px 18px rgba(0,0,0,.35)}
+:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-sum{background:rgba(var(--tsum),.5)}
+.cx-chances:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-ch-box{background:linear-gradient(170deg,var(--tbox1),var(--tbox2));border:3px dashed rgba(255,246,220,.65)}
+.cx-chances:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-ch-bars u{background:linear-gradient(90deg,var(--tbar1),var(--tbar2))}
+.cx-chances:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-ch-sure,.cx-chances:is(.cx-theme-santa,.cx-theme-honey,.cx-theme-candy) .cx-ch-loot>div{background:rgba(255,246,220,.13)}
+/* phone: the chest never grows over the «Chances» block; the hint «tap to continue» has its own place under the prize */
+@media(max-width:760px){
+  .fm-stage .fm-hero:has(.fm-heroart.is-chest){height:280px;margin-bottom:18px}
+  .fm-stage .fm-heroart.is-chest{height:260px;width:100%}
+  .fm-stage .fm-heroart.is-chest .cx-host{inset:0}
+  .fm-stage .fm-inc{position:relative;z-index:3;margin-top:8px}
+  .cx-reward{justify-content:flex-start;padding:max(70px,calc(env(safe-area-inset-top) + 56px)) 14px calc(96px + env(safe-area-inset-bottom));gap:12px}
+  .cx-reward h2{font-size:clamp(26px,8vw,40px)}
+  .cx-art{width:min(62vw,40vh,280px)}
+  .cx-reward.is-big .cx-art{width:min(70vw,42vh,320px)}
+  .cx-count{font-size:clamp(34px,10vw,56px)}
+  .cx-tap{position:fixed;left:0;right:0;bottom:max(26px,env(safe-area-inset-bottom));text-align:center}
+}

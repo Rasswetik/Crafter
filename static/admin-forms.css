@@ -76,3 +76,11 @@
 .admin-content{grid-template-columns:minmax(0,1fr)!important}
 .admin-content>*{min-width:0;max-width:100%}
 .ny-admin-section{min-width:0}
+.fm-gal-h{margin:14px 0 6px;font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.6)}
+.fm-gal-old{margin-top:14px;border-top:1px solid rgba(255,255,255,.1);padding-top:8px}.fm-gal-old>summary{cursor:pointer;font-size:13px;font-weight:600;color:rgba(255,255,255,.7);padding:6px 0}
+.sb-auto{margin-left:12px;font-size:13px;padding:8px 14px;vertical-align:middle}
+.au-box{max-width:760px;max-height:92vh;overflow-y:auto}
+.au-box .bnd-opt.is-on{outline:3px solid #5aa2ff}
+.au-plan{display:grid;gap:6px}.au-plan>div{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:12px;background:rgba(255,255,255,.07)}
+.au-plan s{opacity:.6}
+.au-box .adm-check{display:flex;gap:8px;align-items:center;margin-top:8px}

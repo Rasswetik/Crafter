@@ -98,7 +98,7 @@ def install_shop_sections(app, db, auth, audit):
 
     def clean_bg(value):
         value = str(value or '').strip() or 'night'
-        if value in BACKGROUNDS or (value.startswith('image:') and MEDIA_PATH.fullmatch(value[6:])):
+        if value in BACKGROUNDS or (value.startswith('image:') and (MEDIA_PATH.fullmatch(value[6:]) or re.fullmatch(r'/static/assets/chests/[A-Za-z0-9_.-]+', value[6:]))):
             return value
         abort(400, description='Фон: выберите готовый или загрузите свою картинку')
 
