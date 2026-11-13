@@ -423,7 +423,8 @@ def test_christmas_carol_pack_and_one_stingy_table(client):
     client.get('/api/me', headers=player)
     all_packs = {p['id']: p for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs']}
     xmas = all_packs['christmas']
-    all_packs.pop('gingerbread'), all_packs.pop('honey')                           # the premium packs have their own tables
+    for premium in ('gingerbread', 'honey', 'gifton', 'goshan'):                   # the premium packs have their own tables
+        all_packs.pop(premium)
     assert xmas['title'] == 'Christmas Carol' and xmas['image'].endswith('christmas-pack.webp')
     gifts = [p for p in xmas['prizes'] if p['kind'] == 'NFT']
     assert [(g['collection_id'], g['model']) for g in gifts] == [
@@ -468,7 +469,7 @@ def test_packs_hold_one_card_in_60_percent_of_openings_and_carry_an_accent(clien
     admin, player = signed(42), signed(43)
     client.get('/api/me', headers=player)
     for pack in client.get('/api/admin/new-year/packs', headers=admin).json['packs']:
-        if pack['id'] in ('gingerbread', 'honey'):                                # the premium packs have their own card counts
+        if pack['id'] in ('gingerbread', 'honey', 'gifton', 'goshan'):                                # the premium packs have their own card counts
             continue
         weights = {int(k): v for k, v in pack['card_weights'].items()}
         assert abs(weights[1] / sum(weights.values()) - .52) < 1e-9 and max(weights) == 6
@@ -963,3 +964,20 @@ def test_choice_random_and_scheduled_offers(client):
     seen = next(i for i in client.get('/api/admin/new-year/shop', headers=admin).json['items'] if i['id'] == soon)
     assert seen['starts_at'] == 4070944800 - 3 * 3600 and seen['ends_at'] == seen['starts_at'] + 86400   # 2099-01-01 10:00 MSK
     assert client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'GRAM', 'amount': '1', 'starts_at_msk': '2099-01-02T10:00', 'ends_at_msk': '2099-01-01T10:00'}).status_code == 400
+
+
+def test_gifton_and_goshan_packs_have_their_drops_and_values(client):
+    admin = signed(42)
+    for pid, title, low, high in (('gifton', 'GiftTon', 0.25, 0.28), ('goshan', 'Goshan', 0.33, 0.37)):
+        data = client.get('/api/packs/%s/contents' % pid, headers=signed()).json
+        assert data['pack']['title'] == title and data['pack']['image'].endswith(pid + '-pack.webp')
+        gifts = [p for p in data['prizes'] if p['kind'] == 'NFT']
+        assert len(gifts) == 10
+        cards = {c['count']: c['chance'] for c in data['cards']}
+        expected = sum(k * v for k, v in cards.items()) / 100
+        value = sum(float(p['value']) * p['chance'] / 100 for p in data['prizes']) * expected
+        assert low <= value <= high, (pid, value)
+    models = {p['model'] for p in client.get('/api/packs/gifton/contents', headers=signed()).json['prizes'] if p['kind'] == 'NFT'}
+    assert models == {'Below Zero', 'Blue Bliss', 'Sky Terrace', 'Glacier', 'Snowman', 'Arctic', 'Cyan Sizzle', 'Frozen Dough', 'Frost Fingers', 'Arctic Igloo'}
+    models = {p['model'] for p in client.get('/api/packs/goshan/contents', headers=signed()).json['prizes'] if p['kind'] == 'NFT'}
+    assert models == {'Winter', 'Amber Glitter', 'Hot Cocoa', 'Cozy Winter', 'Holly Leaves', 'Caramel Fest', 'Gluhwein', 'Snowman', 'Rudolph', 'Warm Winter'}

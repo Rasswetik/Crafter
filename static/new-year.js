@@ -101,6 +101,7 @@ function lotTile(lot){
 let view='hub';
 function community(){return window.crafterCommunity||null;}
 let lockInfo={locks:{},now:0,at:0},lockTimer=null;
+function isHiddenSection(name){return !state?.me?.is_admin&&(lockInfo.hidden||[]).includes(name);}
 function lockLeft(name){const ts=lockInfo.locks[name];if(!ts)return 0;return Math.max(0,Math.ceil(ts-(lockInfo.now+(Date.now()-lockInfo.at)/1000)));}
 function lockText(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),p=n=>String(n).padStart(2,'0');return (d?d+' д ':'')+(d||h?h+' ч ':'')+p(m)+' мин '+p(s%60)+' с';}
 async function showNewYear(next){
@@ -108,6 +109,7 @@ async function showNewYear(next){
     const main=document.querySelector('#main');
     if(!main)return;
     document.querySelector('#app')?.classList.toggle('fm-full',view==='market');
+    nyBlur(view!=='market');
     try{
         const want=view==='market'?'/new-year/market':'/new-year',now=location.pathname.replace(/\/+$/,'');
         if(now.indexOf('/new-year')===0&&now!==want&&!(view==='market'&&now.indexOf('/new-year/market/')===0))history.pushState({crafterPage:'new-year'},'',want);
@@ -116,8 +118,9 @@ async function showNewYear(next){
     try{
         const [data,shared,packState,shopState,advState,lockReply]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null),api('new-year/locks').catch(()=>null)]);
         if(state.page!=='new-year'||!main.isConnected)return;
-        lockInfo={locks:(lockReply&&lockReply.locks)||{},now:(lockReply&&lockReply.now)||0,at:Date.now()};
+        lockInfo={locks:(lockReply&&lockReply.locks)||{},now:(lockReply&&lockReply.now)||0,at:Date.now(),hidden:(lockReply&&lockReply.hidden)||[]};
         if(view!=='hub'&&lockLeft(view)){toast('Раздел откроется позже');view='hub';}
+        if(view!=='hub'&&isHiddenSection(view)){view='hub';document.querySelector('#app')?.classList.remove('fm-full');}
         if(!data.enabled&&!state.me?.is_admin){
             state.me.new_year_enabled=false;await go('market');return;
         }
@@ -133,13 +136,22 @@ async function showNewYear(next){
             '<button class="secondary" type="button" onclick="go(\'new-year\')">Повторить</button></div>';
     }
 }
+function nyBlur(on){                                              // the village, blurred and dimmed, stands behind the hub and the pages of the event
+    const app=document.querySelector('#app');if(!app)return;
+    let layer=app.querySelector(':scope > .ny-bgblur');
+    if(!on){layer?.remove();return;}
+    if(layer)return;
+    layer=document.createElement('div');layer.className='ny-bgblur';layer.setAttribute('aria-hidden','true');
+    layer.innerHTML=(typeof villageScene==='function'?villageScene():'')+'<i></i>';
+    app.prepend(layer);
+}
 function drawHub(main,data,shared,advState){
     const art=community()?.marketArt?.()||'';
     main.innerHTML='<div class="new-year-page ny-hubpage">'+
-        '<button type="button" class="nyh-card nyh-market" data-nyh="market" aria-label="Особый маркет">'+art+
-        '<span class="nyh-copy"><strong>Особый маркет</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>'+
-        (community()&&shared?.event?community().card(shared):'')+
-        (window.crafterAdvent&&advState?.enabled?window.crafterAdvent.card(advState):'')+'</div>';
+        (isHiddenSection('market')?'':'<button type="button" class="nyh-card nyh-market" data-nyh="market" aria-label="Особый маркет">'+art+
+        '<span class="nyh-copy"><strong>Особый маркет</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>')+
+        (community()&&shared?.event&&!isHiddenSection('community')?community().card(shared):'')+
+        (window.crafterAdvent&&advState?.enabled&&!isHiddenSection('advent')?window.crafterAdvent.card(advState):'')+'</div>';
     ['market','community','advent'].forEach(name=>{
         const card=main.querySelector('[data-nyh="'+name+'"]');if(!card)return;
         if(lockLeft(name)){

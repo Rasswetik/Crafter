@@ -39,3 +39,21 @@
 .cb-c-steel,.fm-stage.cb-c-steel{background:linear-gradient(160deg,#7d8aa6,#3a4560 60%,#1a2136)!important}
 .cb-c-lava,.fm-stage.cb-c-lava{background:radial-gradient(90% 60% at 50% 110%,#ffb03a,#e8421a 45%,#3a0b08 85%)!important}
 @media(prefers-reduced-motion:reduce){.fm-fw,.fm-conf{animation:none!important}}
+/* the discount badge stands above the price plate on every size of a card */
+.fm-root:not(.fm-phone) .fm-off{bottom:calc(clamp(56px,calc(var(--ch) * .12),80px) + 12px)}
+.fm-root:not(.fm-phone) .fm-s-small .fm-off,.fm-root:not(.fm-phone) .fm-s-tall .fm-off{bottom:calc(clamp(56px,calc(var(--ch) * .12),80px) + 62px)}
+.fm-root:not(.fm-phone) .fm-s-wide .fm-off,.fm-root:not(.fm-phone) .fm-s-large .fm-off,.fm-root:not(.fm-phone) .fm-s-banner .fm-off{bottom:calc(clamp(56px,calc(var(--ch) * .12),80px) + 12px);right:14px}
+.fm-card.fm-s-wide .fm-name,.fm-card.fm-s-large .fm-name,.fm-card.fm-s-banner .fm-name{bottom:calc(clamp(56px,calc(var(--ch) * .12),80px) + 14px)}
+/* the reveal after a purchase wears the background of the offer */
+.fm-rv-bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+.fm-reveal .fm-rays.big{z-index:0}
+/* the balance of balls stands in the top right corner of the market */
+@media(min-width:760px){.fm-root:not(.fm-phone) .fm-balpill{position:absolute;top:18px;right:18px;z-index:8;height:44px;padding:0 18px;font-size:18px}.fm-root:not(.fm-phone) .fm-balpill .fm-ball{width:24px;height:24px}}
+.fm-phone .fm-head{justify-content:space-between}
+/* a blurred village behind the hub and the pages of the event */
+.ny-bgblur{display:none}
+#app.new-year-view > .ny-bgblur{display:block;position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;border-radius:inherit}
+#app.new-year-view > .ny-bgblur svg{position:absolute;inset:-4%;width:108%;height:108%;filter:blur(7px) saturate(1.1) brightness(.78)}
+#app.new-year-view > .ny-bgblur i{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,12,40,.55),rgba(8,12,40,.25) 40%,rgba(8,12,40,.5))}
+#app.new-year-view > header,#app.new-year-view > main{position:relative;z-index:1}
+#app.new-year-view:not(.fm-full) > header{background:transparent}

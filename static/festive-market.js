@@ -61,6 +61,7 @@ function railButton(s) {
         (s.preview && /^\/media\/shop\//.test(s.preview) ? '<img class="fm-pic" src="' + e(s.preview) + '" alt="" draggable="false">' : '');
 }
 function bgHTML(key) {
+    if (window.crafterScenes && !(key && key.startsWith('image:'))) return '<div class="fm-bgx">' + window.crafterScenes.render(key || 'night') + '</div>';
     if (key && key.startsWith('image:')) return '<div class="fm-bgx bg-image" style="background-image:url(' + e(key.slice(6)) + ')"></div>';
     if (key === 'village' && window.crafterVillage) return '<div class="fm-bgx bg-village">' + window.crafterVillage() + '</div>';
     const k = key === 'village' ? 'night' : (key || 'night');
@@ -120,11 +121,12 @@ function card(o, opts = {}) {
     const off = it.discount_percent > 0 ? '<span class="fm-off"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '';
     const showDesc = ['wide', 'large', 'banner'].includes(size) && descOf(it);
     const cbg = it.card_bg || '';
-    const cbClass = cbg ? (cbg.startsWith('image:') ? ' cb-image' : ' cb-' + cbg) : '';
+    const scene = cbg && !cbg.startsWith('image:') && window.crafterScenes ? '<div class="fm-cbs">' + window.crafterScenes.render(cbg) + '</div>' : '';
+    const cbClass = cbg ? (cbg.startsWith('image:') ? ' cb-image' : (scene ? ' has-cbs' + (window.crafterScenes.light(cbg) ? ' is-light' : '') : ' cb-' + cbg)) : '';
     const cbStyle = cbg.startsWith('image:') ? ' style="background-image:linear-gradient(rgba(8,12,40,.18),rgba(8,12,40,.5)),url(' + e(cbg.slice(6)) + ')"' : '';
     return '<div class="fm-card r-' + r + ' fm-s-' + size + (opts.board ? ' is-board' : '') + (opts.fresh ? ' is-fresh' : '') + '" data-fm="' + e(o.key) + '" style="--u:' + WIDTH[size] + '" tabindex="0" role="button" aria-label="' + e(it.title) + '">' +
         tab + (it.badge ? '<span class="fm-new">' + e(it.badge) + '</span>' : '') +
-        '<div class="fm-body' + cbClass + '"' + cbStyle + '><i class="fm-rays"></i><i class="fm-dots"></i><i class="fm-glint"></i>' +
+        '<div class="fm-body' + cbClass + '"' + cbStyle + '>' + scene + '<i class="fm-rays"></i><i class="fm-dots"></i><i class="fm-glint"></i>' +
         '<h3 class="fm-title">' + e(headingOf(it)) + '</h3>' +
         '<div class="fm-art">' + artOf(it) + '</div>' +
         '<div class="fm-name"><b>' + e(it.title) + '</b><small>' + e(TYPES[it.kind] || '') + (it.bundle > 1 && it.kind !== 'BUNDLE' ? ' ×' + it.bundle : '') + '</small>' +
@@ -222,7 +224,10 @@ function reveal(o, result, ctx, closeStage) {
         text = result.text || '';
         buttons = (result.html || '') + '<button type="button" class="fm-btn green" data-rv-keep>Отлично</button>';
     }
-    el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i><div class="fm-rv-stage"><div class="fm-rv-burst">' + sparks + '</div><div class="fm-rv-packs' + (spawn.length === 1 ? ' is-one' : '') + '"><i class="fm-rv-aura"></i>' + fan + '</div></div>' +
+    const cb = it.card_bg || '';
+    const rvScene = cb && !cb.startsWith('image:') && window.crafterScenes;
+    const rvBg = rvScene ? '<div class="fm-rv-bg">' + window.crafterScenes.render(cb) + '</div>' : cb ? '<div class="fm-rv-bg ' + (cb.startsWith('image:') ? 'cb-image' : 'cb-' + e(cb)) + '"' + (cb.startsWith('image:') ? ' style="background-image:linear-gradient(rgba(8,12,40,.3),rgba(8,12,40,.55)),url(' + e(cb.slice(6)) + ')"' : '') + '></div>' : '';
+    el.innerHTML = rvBg + '<i class="fm-rays big"></i><i class="fm-dots"></i><div class="fm-rv-stage"><div class="fm-rv-burst">' + sparks + '</div><div class="fm-rv-packs' + (spawn.length === 1 ? ' is-one' : '') + '"><i class="fm-rv-aura"></i>' + fan + '</div></div>' +
         '<div class="fm-rv-panel"><small>Покупка совершена</small><h2>' + title + '</h2><p>' + e(text) + '</p><div class="fm-rv-btns">' + buttons + '</div></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
@@ -249,7 +254,8 @@ function stage(o, ctx, opts2 = {}) {
     const it = o.it, r = rarityOf(it);
     document.querySelector('.fm-stage')?.remove();
     const el = document.createElement('div');
-    el.className = 'fm-stage r-' + r + (it.card_bg ? ' ' + (it.card_bg.startsWith('image:') ? '' : 'cb-' + it.card_bg) : '');
+    const stageScene = it.card_bg && !it.card_bg.startsWith('image:') && window.crafterScenes ? '<div class="fm-cbs">' + window.crafterScenes.render(it.card_bg) + '</div>' : '';
+    el.className = 'fm-stage r-' + r + (it.card_bg ? (it.card_bg.startsWith('image:') ? '' : (stageScene ? ' has-cbs' : ' cb-' + it.card_bg)) : '');
     const inc = includes(o);
     const choice = it.mode === 'choice' && it.contents && it.contents.length > 1 ? it.contents : null;
     let pick = 0;
@@ -258,7 +264,7 @@ function stage(o, ctx, opts2 = {}) {
     const optArt = i => '<img class="si-solo fm-pickart" src="' + e(choice[i].pack.image) + '" alt="">' + (choice[i].count > 1 ? '<b class="fm-pickcount">×' + choice[i].count + '</b>' : '');
     const heroInner = choice ? optArt(0) : artOf(it);
     const incHead = it.mode === 'random' ? 'Может выпасть' : choice ? 'Выберите один' : 'Включает';
-    el.innerHTML = '<i class="fm-rays big"></i><i class="fm-dots"></i>' +
+    el.innerHTML = stageScene + '<i class="fm-rays big"></i><i class="fm-dots"></i>' +
         '<button type="button" class="fm-back" data-fm-close aria-label="Назад"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>' +
         '<span class="fm-bal">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span>' +
         '<div class="fm-info"><div class="fm-plate"><small>' + e(headingOf(it)) + '</small><h2>' + e(it.title) + '</h2></div>' +

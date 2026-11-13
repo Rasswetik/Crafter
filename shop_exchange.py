@@ -40,6 +40,9 @@ def install_shop_exchange(app, db, auth, audit, record):
             CREATE TABLE IF NOT EXISTS author_support (
                 user_id BIGINT PRIMARY KEY, code TEXT NOT NULL, changed BIGINT NOT NULL
             );
+            CREATE TABLE IF NOT EXISTS author_entries (
+                id TEXT PRIMARY KEY, code TEXT NOT NULL, user_id BIGINT NOT NULL, created BIGINT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS author_earnings (
                 id TEXT PRIMARY KEY, owner_id BIGINT NOT NULL, buyer_id BIGINT NOT NULL, code TEXT NOT NULL, currency TEXT NOT NULL,
                 amount TEXT NOT NULL, base TEXT NOT NULL, source TEXT NOT NULL DEFAULT '', created BIGINT NOT NULL
@@ -193,7 +196,64 @@ def install_shop_exchange(app, db, auth, audit, record):
             if cur and now - int(cur['changed']) < SWITCH_DAYS * 86400:
                 abort(409, description='Сменить автора можно раз в %d дней' % SWITCH_DAYS)
             db().execute("INSERT INTO author_support(user_id,code,changed) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET code=excluded.code,changed=excluded.changed", (uid, code, now))
+            db().execute("INSERT INTO author_entries(id,code,user_id,created) VALUES(?,?,?,?)", (uuid.uuid4().hex, code, uid, now))
         return {'ok': True, 'code': code}
+
+    @app.get('/api/author/stats')
+    @auth()
+    def author_stats():
+        """The page of an author: how many players entered the code, how many purchases they made, how much was earned."""
+        uid = g.user['id']
+        codes = [c['code'] for c in db().execute("SELECT code FROM author_codes WHERE owner_id=? ORDER BY created", (uid,)).fetchall()]
+        if not codes:
+            return {'has_code': False}
+        marks = ','.join('?' * len(codes))
+        now = int(time.time())
+        out = {'has_code': True, 'codes': [], 'percent': plain(rate()), 'now': now}
+        for code in codes:
+            row = db().execute("SELECT active FROM author_codes WHERE code=?", (code,)).fetchone()
+            out['codes'].append({'code': code, 'active': bool(row['active']),
+                                 'supporters': int(db().execute("SELECT COUNT(*) AS n FROM author_support WHERE code=?", (code,)).fetchone()['n'])})
+        out['supporters'] = sum(c['supporters'] for c in out['codes'])
+        out['entries'] = int(db().execute("SELECT COUNT(*) AS n FROM author_entries WHERE code IN (%s)" % marks, tuple(codes)).fetchone()['n'])
+        out['entries_week'] = int(db().execute("SELECT COUNT(*) AS n FROM author_entries WHERE code IN (%s) AND created>?" % marks, tuple(codes) + (now - 7 * 86400,)).fetchone()['n'])
+        rows = db().execute("SELECT * FROM author_earnings WHERE owner_id=? ORDER BY created DESC", (uid,)).fetchall()
+        spent = {'BALLS': 0, 'GRAM': Decimal('0')}
+        earned = {'BALLS': 0, 'GRAM': Decimal('0')}
+        count = {'BALLS': 0, 'GRAM': 0}
+        days = {}
+        buyers = set()
+        for r_ in rows:
+            cur = r_['currency']
+            if cur == 'BALLS':
+                spent[cur] += int(Decimal(r_['base'])); earned[cur] += int(r_['amount'])
+            else:
+                spent[cur] += Decimal(r_['base']); earned[cur] += Decimal(r_['amount'])
+            count[cur] += 1
+            buyers.add(r_['buyer_id'])
+            day = time.strftime('%Y-%m-%d', time.gmtime(int(r_['created']) + 3 * 3600))      # days in Moscow time
+            d = days.setdefault(day, {'BALLS': 0, 'GRAM': Decimal('0'), 'n': 0})
+            d['n'] += 1
+            d[cur] += int(r_['amount']) if cur == 'BALLS' else Decimal(r_['amount'])
+        out['purchases'] = {'BALLS': count['BALLS'], 'GRAM': count['GRAM'], 'total': count['BALLS'] + count['GRAM']}
+        out['spent'] = {'BALLS': spent['BALLS'], 'GRAM': plain(spent['GRAM'])}
+        out['earned'] = {'BALLS': earned['BALLS'], 'GRAM': plain(earned['GRAM'])}
+        out['buyers'] = len(buyers)
+        series = []
+        for back in range(13, -1, -1):
+            day = time.strftime('%Y-%m-%d', time.gmtime(now + 3 * 3600 - back * 86400))
+            d = days.get(day) or {'BALLS': 0, 'GRAM': Decimal('0'), 'n': 0}
+            series.append({'day': day, 'balls': d['BALLS'], 'gram': plain(d['GRAM']), 'n': d['n']})
+        out['series'] = series
+        recent = []
+        for r_ in rows[:25]:
+            user = db().execute("SELECT name,username FROM users WHERE id=?", (r_['buyer_id'],)).fetchone()
+            name = ((user['name'] or user['username']) if user else '') or 'Игрок'
+            kind = str(r_['source']).split(':')[0]
+            recent.append({'time': int(r_['created']), 'buyer': name[:1] + '…' + name[-1:] if len(name) > 2 else name, 'currency': r_['currency'], 'base': r_['base'], 'amount': r_['amount'],
+                           'what': {'shop': 'Магазин', 'pack': 'Пак', 'exchange': 'Обмен'}.get(kind, 'Покупка')})
+        out['recent'] = recent
+        return out
 
     # ---------- administration ----------
     def exchange_section(sid):

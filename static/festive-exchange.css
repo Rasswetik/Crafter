@@ -61,3 +61,8 @@
 .ex-up{display:flex;align-items:center;gap:10px}.ex-up img{height:52px;border-radius:8px;background:rgba(255,255,255,.08)}
 .ex-codes{width:100%;border-collapse:collapse;margin-top:10px}.ex-codes th,.ex-codes td{padding:8px 10px;text-align:left;border-bottom:1px solid rgba(255,255,255,.08);font-size:13px}
 .fm-exbonus{white-space:nowrap;font-size:12px;letter-spacing:-.01em}
+.ex-mini.ex-big{width:156px;height:236px;margin-top:8px;position:relative}
+.ex-prev .ex-big .fm-ex{animation:none}
+.ex-list .fm-sbt{display:flex;gap:6px;flex-wrap:wrap}
+.ex-up{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ex-codes td.fm-sbt{display:table-cell}

@@ -14,6 +14,7 @@ from flask import abort, request
 SECTIONS = ('market', 'community', 'advent')
 LOCKS_KEY = 'ny_locks_v1'
 HIDDEN_KEY = 'admin_panel_hidden_v1'
+HIDDEN_SECTIONS_KEY = 'ny_hidden_sections_v1'
 
 
 def install_ny_extras(app, db, auth, audit):
@@ -47,6 +48,11 @@ def install_ny_extras(app, db, auth, audit):
     def hidden():
         return bool(read(HIDDEN_KEY, {}).get('hidden') is True)
 
+    def hidden_sections():
+        raw = read(HIDDEN_SECTIONS_KEY, {})
+        return [k for k in SECTIONS if isinstance(raw, dict) and raw.get(k) is True]
+
+    app.extensions['crafter_ny_hidden_sections'] = hidden_sections
     app.extensions['crafter_ny_lock_left'] = left
     app.extensions['crafter_admin_hidden'] = hidden
 
@@ -54,12 +60,12 @@ def install_ny_extras(app, db, auth, audit):
     @auth()
     def ny_locks():
         now = int(time.time())
-        return {'now': now, 'locks': {k: v for k, v in locks().items() if v > now}}
+        return {'now': now, 'locks': {k: v for k, v in locks().items() if v > now}, 'hidden': hidden_sections()}
 
     @app.get('/api/admin/new-year/locks')
     @auth(admin=True)
     def admin_ny_locks():
-        return {'now': int(time.time()), 'locks': locks(), 'sections': list(SECTIONS)}
+        return {'now': int(time.time()), 'locks': locks(), 'sections': list(SECTIONS), 'hidden': hidden_sections()}
 
     @app.post('/api/admin/new-year/locks')
     @auth(admin=True)
@@ -79,10 +85,13 @@ def install_ny_extras(app, db, auth, audit):
             if not time.time() - 86400 <= ts <= time.time() + 3 * 365 * 86400:
                 abort(400, description='Время открытия слишком далеко')
             out[name] = ts
+        hide = (request.get_json(silent=True) or {}).get('hidden')
         with db():
             write(LOCKS_KEY, out)
+            if isinstance(hide, dict):
+                write(HIDDEN_SECTIONS_KEY, {k: bool(hide.get(k)) for k in SECTIONS})
         audit('New Year locks saved')
-        return {'ok': True, 'locks': out}
+        return {'ok': True, 'locks': out, 'hidden': hidden_sections()}
 
     @app.post('/api/admin/ui/admin-hidden')
     @auth(admin=True)

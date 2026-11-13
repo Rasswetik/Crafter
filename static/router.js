@@ -3,7 +3,7 @@
 (function () {
 'use strict';
 const MAP = {market: '/market', gifts: '/gifts', games: '/hub', craft: '/craft', upgrade: '/upgrade', arena: '/arena', staking: '/staking',
-             profile: '/profile', 'new-year': '/new-year', wallet: '/wallet', deposit: '/deposit', withdraw: '/withdraw', cart: '/cart', auctions: '/auctions'};
+             profile: '/profile', 'new-year': '/new-year', wallet: '/wallet', deposit: '/deposit', withdraw: '/withdraw', cart: '/cart', auctions: '/auctions', author: '/author'};
 const REV = Object.fromEntries(Object.entries(MAP).map(([page, path]) => [path, page]));
 const deep = () => /^\/(collections|auctions)\//.test(location.pathname);
 const clean = () => location.pathname.replace(/\/+$/, '') || '/';
@@ -32,6 +32,18 @@ const settle = setInterval(() => {
     }
 }, 300);
 setTimeout(() => clearInterval(settle), 30000);
+// a section opened by its address (a refresh, a shared link) can be asked for before the scripts of that section are loaded: the basic
+// loader then leaves a skeleton; once everything is loaded the section is opened again
+const WRAPPED = ['new-year', 'author', 'auctions'];
+let retried = false;
+const retry = setInterval(() => {
+    if (retried || !state?.me || document.querySelector('#splash:not(.finished)')) return;
+    if (WRAPPED.includes(state.page) && document.querySelector('#main > .crafter-skeleton')) {
+        retried = true; clearInterval(retry); silent = true;
+        Promise.resolve(go(state.page)).finally(() => { silent = false; });
+    }
+}, 900);
+setTimeout(() => clearInterval(retry), 25000);
 window.addEventListener('popstate', () => {
     const page = window.crafterRouteView();
     if (!page || page === state.page || deep()) return;

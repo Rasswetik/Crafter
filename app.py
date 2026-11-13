@@ -283,7 +283,7 @@ def create_app(config=None):
         return render_template('index.html', site_maintenance=is_maintenance_enabled())
 
     # every section of the app has its own address: a refresh (or a shared link) opens that very section
-    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/auctions'):
+    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/auctions', '/author'):
         app.add_url_rule(_path, 'section_' + _path.strip('/').replace('-', '_'), index)
 
     for _rule, _name in (('/new-year/market', 'section_new_year_market'), ('/new-year/market/<path:lot>', 'section_new_year_lot')):
@@ -328,7 +328,7 @@ def create_app(config=None):
         return build_preview()
     @app.after_request
     def cache_control(response):
-        if request.path.startswith('/auctions') or request.path.startswith('/shop/') or request.path.startswith('/new-year/') or request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart'} or request.path.startswith('/static/'):
+        if request.path.startswith('/auctions') or request.path.startswith('/shop/') or request.path.startswith('/new-year/') or request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/author'} or request.path.startswith('/static/'):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')

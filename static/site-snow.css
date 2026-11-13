@@ -6,7 +6,7 @@
     height:100dvh;
     overflow:hidden;
     pointer-events:none!important;
-    z-index:850;
+    z-index:99990;
     contain:strict;
     isolation:isolate;
 }

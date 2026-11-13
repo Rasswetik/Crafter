@@ -93,7 +93,7 @@ PACK_BACKDROPS = {
 
 
 # The accent colour of a pack (r g b): the opening screen glows with it instead of one common blue.
-PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'honey': '240 190 60'}
+PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'gifton': '70 150 255', 'goshan': '230 90 90', 'honey': '240 190 60'}
 DEFAULT_ACCENT = '59 134 238'
 
 
@@ -659,6 +659,32 @@ def install_packs(app, db, auth, record, audit):
     HONEY_CARDS = {'1': 62, '2': 27, '3': 8, '4': 3}                          # 1.52 cards per opening
     HONEY_NFT_SHARE = 0.0015                                                  # one card in 670 is a gift: about one pack in 440
 
+    # GiftTon Pack: the ice-silver pack. An opening is worth about 0.265 GRAM (TON), the ladder starts at 0.05
+    GIFTTON_GIFTS = (('santahat', 'Below Zero', '20'), ('candycane', 'Blue Bliss', '20'), ('snowglobe', 'Sky Terrace', '25'),
+                     ('jinglebells', 'Glacier', '27'), ('hangingstar', 'Snowman', '33'), ('xmasstocking', 'Arctic', '20'),
+                     ('partysparkler', 'Cyan Sizzle', '39'), ('gingercookie', 'Frozen Dough', '55'), ('snowmittens', 'Frost Fingers', '13'),
+                     ('sleighbell', 'Arctic Igloo', '22'))
+    GIFTTON_GRAM = (('0.05', 330), ('0.1', 420), ('0.15', 61), ('0.2', 35.5), ('0.3', 19.3), ('0.5', 11.2), ('0.75', 6.1), ('1', 3.55),
+                    ('1.5', 2.03), ('2', 1.12), ('3', .56), ('5', .25), ('10', .08), ('20', .03), ('50', .01))
+    GIFTTON_CARDS = {'1': 62, '2': 27, '3': 9, '4': 2}                        # 1.51 cards per opening
+    GIFTTON_NFT_SHARE = 0.0025                                                # one card in 400 is a gift
+
+    # Goshan Pack: the pixel New Year pack of goshan_wow. An opening is worth about 0.35 GRAM (TON)
+    GOSHAN_GIFTS = (('snowglobe', 'Winter', '25'), ('candycane', 'Amber Glitter', '20'), ('eternalcandle', 'Hot Cocoa', '18'),
+                    ('jinglebells', 'Cozy Winter', '27'), ('winterwreath', 'Holly Leaves', '19'), ('xmasstocking', 'Caramel Fest', '20'),
+                    ('spicedwine', 'Gluhwein', '16'), ('gingercookie', 'Snowman', '55'), ('snowmittens', 'Rudolph', '13'),
+                    ('santahat', 'Warm Winter', '20'))
+    GOSHAN_GRAM = (('0.1', 1000), ('0.15', 51), ('0.2', 29.6), ('0.3', 16.6), ('0.5', 10.3), ('0.75', 5.5), ('1', 3.2), ('1.5', 2),
+                   ('2', 1.1), ('3', .6), ('5', .32), ('10', .12), ('20', .04), ('50', .01))
+    GOSHAN_CARDS = {'1': 44, '2': 32, '3': 17, '4': 7}                        # 1.87 cards per opening
+    GOSHAN_NFT_SHARE = 0.003
+
+    def seed_gifton_pack():
+        seed_premium_pack('gifton', 'GiftTon', '/static/assets/packs/gifton-pack.webp', GIFTTON_GIFTS, GIFTTON_GRAM, GIFTTON_CARDS, GIFTTON_NFT_SHARE, 'packs_gifton_v1')
+
+    def seed_goshan_pack():
+        seed_premium_pack('goshan', 'Goshan', '/static/assets/packs/goshan-pack.webp', GOSHAN_GIFTS, GOSHAN_GRAM, GOSHAN_CARDS, GOSHAN_NFT_SHARE, 'packs_goshan_v1')
+
     def seed_gingerbread_pack():
         seed_premium_pack('gingerbread', 'Gingerbread House', '/static/assets/packs/gingerbread-pack.webp', GINGERBREAD_GIFTS,
                           GINGERBREAD_GRAM, GINGERBREAD_CARDS, GINGERBREAD_NFT_SHARE, 'packs_gingerbread_v1')
@@ -697,6 +723,8 @@ def install_packs(app, db, auth, record, audit):
         seed_gingerbread_pack()
         buff_gingerbread_pack()
         seed_honey_pack()
+        seed_gifton_pack()
+        seed_goshan_pack()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""

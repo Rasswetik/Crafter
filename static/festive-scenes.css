@@ -1,0 +1,30 @@
+/* drawn backgrounds: the layer and the slow movements */
+.sc{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+.fm-cbs{position:absolute;inset:0;z-index:0;overflow:hidden;border-radius:inherit;pointer-events:none}
+.fm-bgx .sc{position:absolute}
+.sc-tw{animation:sc-tw var(--t,5s) ease-in-out infinite;animation-delay:var(--d,0s)}
+@keyframes sc-tw{0%,100%{opacity:.25}50%{opacity:.95}}
+.sc-fall{animation:sc-fall var(--t,18s) linear infinite;animation-delay:var(--d,0s);will-change:transform}
+@keyframes sc-fall{from{transform:translate3d(0,-20px,0)}to{transform:translate3d(var(--dx,20px),640px,0)}}
+.sc-gust{animation:sc-gust var(--t,3s) linear infinite;animation-delay:var(--d,0s)}
+@keyframes sc-gust{from{transform:translate3d(60px,-30px,0)}to{transform:translate3d(-120px,650px,0)}}
+.sc-rise{animation:sc-rise var(--t,12s) linear infinite;animation-delay:var(--d,0s)}
+@keyframes sc-rise{from{transform:translate3d(0,0,0);opacity:.9}to{transform:translate3d(20px,-420px,0);opacity:0}}
+.sc-breath{animation:sc-breath 9s ease-in-out infinite}
+@keyframes sc-breath{0%,100%{opacity:1}50%{opacity:.62}}
+.sc-wave{animation:sc-wave var(--t,14s) ease-in-out infinite alternate}
+@keyframes sc-wave{to{transform:translate3d(-70px,0,0)}}
+.sc-fw{transform-box:fill-box;transform-origin:center;opacity:0;animation:sc-fw var(--t,7s) ease-out infinite;animation-delay:var(--d,0s)}
+@keyframes sc-fw{0%{transform:scale(.12);opacity:0}7%{opacity:1}55%{opacity:.8}100%{transform:scale(1);opacity:0}}
+.fm-card:not(.is-vis) .sc *,.fm-card:not(.is-vis) .sc{animation-play-state:paused}
+.sc.is-still *{animation:none!important}
+.fm-sw .sc *{animation:none!important}
+.fm-body.has-cbs .fm-rays{opacity:.4}
+.fm-body.has-cbs .fm-dots{display:none}
+.fm-stage.has-cbs>.fm-rays.big{opacity:.28}
+.fm-stage.has-cbs>.fm-dots{display:none}
+.fm-stage>.fm-cbs{z-index:0}
+.fm-body.is-light .fm-title,.fm-body.is-light .fm-name b{-webkit-text-stroke-color:rgba(10,24,70,.85)}
+@media(prefers-reduced-motion:reduce){.sc *{animation:none!important}}
+/* the balance stands in the top right corner of the market (the rail column is not a positioning parent) */
+.fm-root:not(.fm-phone) .fm-rail-col{position:static}
