@@ -21,7 +21,7 @@ async function hubCard(main) {
     b.className = 'nyh-card nyh-season';
     b.setAttribute('aria-label', 'Сезонный пасс');
     b.style.cssText = '--sp-c1:' + (th.c1 || '#5b2cff') + ';--sp-c2:' + (th.c2 || '#c24fd8') + ';--sp-c3:' + (th.c3 || '#2a1170') + ';' + (s.banner ? 'background-image:linear-gradient(90deg,rgba(20,10,60,.55),rgba(20,10,60,.1)),url(' + thumb(s.banner, 900) + ')' : '');
-    b.innerHTML = (custom ? '<img class="nyh-ticket" src="' + e(thumb(s.plus_ticket, 360)) + '" alt="">' : '<span class="nyh-lvl"><small>УРОВЕНЬ</small><b>' + me.level + '</b></span>') +
+    b.innerHTML = (custom ? '<img class="nyh-ticket" src="' + e(thumb(s.plus_ticket, 360)) + '" alt="">' : '') +
         '<span class="nyh-copy"><small>СЕЗОН ' + s.number + '</small><strong>' + e(s.title) + '</strong></span><i class="nyh-go" aria-hidden="true">›</i>';
     b.addEventListener('click', open);
     const market = page.querySelector('.nyh-market');

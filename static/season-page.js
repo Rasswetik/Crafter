@@ -49,15 +49,19 @@ const rewardCell = (lv, track) => {
 };
 
 function questCard(q, big, i) {
-    const pct = Math.round(q.progress / q.target * 100);
+    const pct = Math.max(q.progress > 0 ? 4 : 0, Math.min(100, Math.round(q.progress / q.target * 100)));
     const status = q.claimed ? 'is-claimed' : q.locked ? 'is-locked' : q.need_plus ? 'is-needplus' : q.done ? 'is-done' : '';
-    const chips = q.reward.map(r => '<span class="sp-chip"><img src="' + e(thumb(r.image, 80)) + '" alt="">' + (r.kind === 'BALL' || r.kind === 'GRAM' ? num(r.amount) : '×' + r.count) + '</span>').join('');
-    const timer = q.opens_in ? '<span class="sp-tag is-time">Откроется через ' + left(q.opens_in) + '</span>' : q.ends_in && q.kind !== 'daily' && q.kind !== 'weekly' && q.ends_in < 86400 * 14 ? '<span class="sp-tag is-time">Ещё ' + left(q.ends_in) + '</span>' : '';
-    const act = q.done && !q.claimed && !q.locked && !q.need_plus ? '<button type="button" class="sp-take" data-take="' + e(q.id) + '">Забрать</button>' : q.claimed ? '<span class="sp-got">Получено</span>' : q.need_plus ? '<span class="sp-tag is-plus">Только Pass Plus</span>' : '';
-    return '<div class="sp-q ' + (big ? 'is-big ' : '') + status + '" data-q="' + e(q.id) + '" style="--i:' + (i || 0) + '"><div class="sp-q-art">' + icon(q.icon, big ? 84 : 64, q.metric) + '</div><div class="sp-q-main">' +
-        '<div class="sp-q-top"><h4>' + e(q.title) + '</h4><span class="sp-xp"><b>XP</b>' + num(q.xp) + '</span></div>' +
-        (q.locked ? '<div class="sp-bar is-lock">' + LOCK + '<span>Закрыт</span></div>' : '<div class="sp-bar"><i style="--w:' + pct + '%"></i><span>' + num(q.progress) + ' / ' + num(q.target) + '</span></div>') +
-        '<div class="sp-q-meta">' + (q.plus_only && !q.need_plus ? '<span class="sp-tag is-plus">Pass Plus</span>' : '') + timer + chips + act + '</div></div></div>';
+    const chips = q.reward.map(r => '<span class="qc-chip"><img src="' + e(thumb(r.image, 90)) + '" alt=""><b>' + (r.kind === 'BALL' || r.kind === 'GRAM' ? num(r.amount) : r.count > 1 ? num(r.count) : '1') + '</b></span>').join('');
+    const tag = q.opens_in ? '<span class="qc-tag is-time"><i></i>Откроется через ' + left(q.opens_in) + '</span>' : q.need_plus ? '<span class="qc-tag is-plus">' + LOCK + 'Только с Pass Plus</span>' : q.ends_in && q.kind !== 'daily' && q.kind !== 'weekly' && q.ends_in < 86400 * 14 ? '<span class="qc-tag is-time"><i></i>До конца ' + left(q.ends_in) + '</span>' : '';
+    const canTake = q.done && !q.claimed && !q.locked && !q.need_plus;
+    const bar = q.claimed ? '<div class="qc-bar is-got"><b>ПОЛУЧЕНО</b></div>' : q.locked ? '<div class="qc-bar is-lock">' + LOCK + '</div>' : canTake ? '<button type="button" class="qc-take" data-take="' + e(q.id) + '">ЗАБРАТЬ</button>' : '<div class="qc-bar"><i style="--w:' + pct + '%"></i><b>' + num(q.progress) + '/' + num(q.target) + '</b></div>';
+    const xp = '<span class="qc-xp"><i>XP</i><b>' + num(q.xp) + '</b></span>';
+    const art = icon(q.icon, big ? 118 : 84, q.metric);
+    if (big) {
+        return '<div class="sp-q qc is-big ' + status + '" data-q="' + e(q.id) + '" style="--i:' + (i || 0) + '">' + tag + '<div class="qc-ic">' + art + '</div><div class="qc-title">' + e(q.title) + '</div>' + bar +
+            '<div class="qc-prize">' + chips + (chips ? '<em>+</em>' : '') + xp + '</div></div>';
+    }
+    return '<div class="sp-q qc ' + status + '" data-q="' + e(q.id) + '" style="--i:' + (i || 0) + '">' + tag + '<div class="qc-ic">' + art + '</div><div class="qc-title">' + e(q.title) + '</div><div class="qc-row">' + bar + xp + '</div>' + (chips ? '<div class="qc-rw">' + chips + '</div>' : '') + '</div>';
 }
 
 function hasReady() { return Object.values(S.quests).flat().some(q => q.done && !q.claimed && !q.locked && !q.need_plus); }
@@ -100,7 +104,7 @@ function megaDeck() {
     const behind = Math.min(4, list.length - idx - 1);
     const ends = S.season.ends_at ? S.season.ends_at - S.now : 0;
     const layers = Array.from({length: behind}, (_, k) => '<i class="sp-deck-l" style="--k:' + (k + 1) + '"></i>').join('');
-    return '<section class="sp-mega"><header><h3><svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" fill="#fff" stroke="#14213f" stroke-width="2"/><path d="M8 12.5l3 3 5-6" fill="none" stroke="#e8203a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Мегаквесты</h3>' + (ends > 0 ? '<small>Окончание через <b>' + left(ends) + '</b></small>' : '') + '</header>' +
+    return '<section class="sp-mega"><header><h3><svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" fill="#fff" stroke="#14213f" stroke-width="2"/><path d="M8 12.5l3 3 5-6" fill="none" stroke="#e8203a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Мегаквесты</h3>' + (ends > 0 ? '<small>Окончание через<b>' + left(ends) + '</b></small>' : '') + '</header>' +
         '<div class="sp-deck">' + layers + questCard(cur, true, 0) + '</div>' +
         '<div class="sp-mega-foot"><span>Квест ' + Math.min(idx + 1, list.length) + ' из ' + list.length + '</span>' + (list.length > 1 ? '<button type="button" class="sp-megaall" data-megaall>Все мегаквесты</button>' : '') + '</div></section>';
 }
@@ -125,6 +129,7 @@ function questsTab() {
 function draw() {
     if (!root || !root.isConnected) return;
     const keep = root.querySelector('[data-track]')?.scrollLeft || 0, keepY = root.querySelector('.sp-quests')?.scrollTop || 0;
+    if (S && !S.season) { location.replace('/'); return; }
     if (!S || !S.season) { root.className = 'sp-root'; root.innerHTML = '<button type="button" class="sp-back sp-back-solo" data-back>‹ События</button><div class="sp-none"><h2>Сезонного пасса пока нет</h2><p>Как только сезон начнётся, он появится здесь.</p></div>'; root.style.cssText = ''; return; }
     root.className = 'sp-root' + (enter ? ' is-enter' : '');
     root.style.cssText = bgStyle(S.season);

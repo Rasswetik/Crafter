@@ -329,3 +329,62 @@ body.sp-open{overflow:hidden}
   .sp-megarow{flex-direction:column}.sp-megarow .sp-q{width:100%}.sp-mg-arrow{transform:rotate(90deg);width:100%}
 }
 @media(prefers-reduced-motion:reduce){.sp-col{opacity:1;transform:none;transition:none}}
+
+/* ---- v7: quests in the style of the market: thick outlines, heavy titles, a deck of mega quests ---- */
+.sp-q.qc{position:relative;display:grid;grid-template-columns:96px minmax(0,1fr);grid-template-rows:auto auto;column-gap:10px;row-gap:6px;align-items:center;padding:16px 14px 12px 10px;margin-top:14px;border-radius:10px;border:4px solid #0d1c52;background:linear-gradient(180deg,#52b0ff 0,#2a87f0 12%,#1d6ad8 100%);box-shadow:0 6px 0 #0a1648,inset 0 3px 0 rgba(255,255,255,.35),inset 0 -14px 24px rgba(8,30,120,.35);transform:none;animation:sp-colin .5s cubic-bezier(.2,.9,.3,1) both;animation-delay:calc(var(--i) * 70ms)}
+.sp-q.qc:hover{transform:translateY(-2px)}
+.sp-q.qc::before{content:"";position:absolute;inset:3px;border-radius:6px;border:2px solid rgba(255,255,255,.18);pointer-events:none}
+.qc-ic{grid-row:1 / span 2;display:grid;place-items:center}
+.qc-ic .sp-ic{border:0;background:none;border-radius:0;width:88px!important;height:88px!important}.qc-ic .sp-ic img{width:100%;height:100%;filter:drop-shadow(0 4px 0 rgba(10,22,72,.55))}
+.qc-title{align-self:end;text-align:center;font:900 16px/1.15 system-ui;font-style:italic;text-transform:uppercase;color:#fff;-webkit-text-stroke:4px #0d1c52;paint-order:stroke fill;text-shadow:0 3px 0 rgba(0,0,0,.28);overflow-wrap:anywhere;padding:0 6px}
+.qc-row{display:flex;align-items:center;gap:8px;min-width:0}
+.qc-bar{position:relative;flex:1;min-width:0;height:30px;border-radius:7px;border:3px solid #0d1c52;background:#0f2160;overflow:hidden;box-shadow:inset 0 3px 0 rgba(0,0,0,.35)}
+.qc-bar i{position:absolute;inset:0 auto 0 0;width:0;background:linear-gradient(#9af0ff,#2cb9f2);box-shadow:inset 0 3px 0 rgba(255,255,255,.55);transition:width .9s cubic-bezier(.2,.9,.3,1)}
+.is-run .qc-bar i{width:var(--w)}
+.qc-bar b{position:absolute;inset:0;display:grid;place-items:center;font:900 17px/1 system-ui;font-style:italic;color:#fff;-webkit-text-stroke:4px #0d1c52;paint-order:stroke fill}
+.qc-bar.is-lock{display:grid;place-items:center}.qc-bar.is-lock svg{width:20px;height:22px}
+.qc-bar.is-got b{color:#b6ffc9;font-size:14px}
+.qc-take{flex:1;height:34px;border-radius:8px;border:3px solid #0d3a1c;background:linear-gradient(#8bff9f,#27c75c);color:#fff;font:900 18px/1 system-ui;font-style:italic;-webkit-text-stroke:4px #0d3a1c;paint-order:stroke fill;cursor:pointer;box-shadow:0 4px 0 #0d5a28,0 0 18px rgba(125,255,156,.75);animation:sp-pulse 1.3s ease-in-out infinite}
+.qc-xp{flex:none;display:inline-flex;align-items:center;gap:4px;margin:-4px 0}
+.qc-xp i{display:grid;place-items:center;padding:3px 5px;border-radius:5px;background:#fff;color:#0d1c52;font:900 13px/1 system-ui;font-style:italic;transform:rotate(-8deg);box-shadow:2px 2px 0 #0d1c52;border:2px solid #0d1c52}
+.qc-xp b{font:900 24px/1 system-ui;font-style:italic;color:#fff;-webkit-text-stroke:5px #0d1c52;paint-order:stroke fill;text-shadow:0 3px 0 rgba(0,0,0,.3)}
+.qc-rw{position:absolute;right:10px;top:-14px;display:flex;gap:6px}
+.qc-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 9px 2px 3px;border-radius:99px;background:linear-gradient(#ffd45a,#ff9e1b);border:3px solid #0d1c52;box-shadow:0 3px 0 #0a1648}
+.qc-chip img{width:24px;height:24px;object-fit:contain}.qc-chip b{font:900 15px/1 system-ui;color:#fff;-webkit-text-stroke:3px #0d1c52;paint-order:stroke fill}
+.qc-tag{position:absolute;left:6px;top:-17px;display:inline-flex;align-items:center;gap:5px;padding:2px 10px;border-radius:7px 7px 0 0;background:#0d1c52;font:900 13px/1.2 system-ui;font-style:italic;color:#ffc933;text-transform:uppercase;white-space:nowrap}
+.qc-tag svg{width:14px;height:16px}.qc-tag i{width:11px;height:11px;border-radius:50%;border:3px solid #ffc933;position:relative}
+.qc-tag.is-plus{color:#ffd45a}
+.sp-q.qc.is-claimed{filter:saturate(.45) brightness(.8)}
+.sp-q.qc.is-locked{filter:saturate(.5) brightness(.85)}
+.sp-q.qc.is-done{box-shadow:0 6px 0 #0a1648,0 0 0 3px #7dff9c,0 0 24px rgba(125,255,156,.7),inset 0 3px 0 rgba(255,255,255,.35)}
+.sp-q.qc.is-needplus{filter:saturate(.7)}
+/* the big card of a mega quest */
+.sp-q.qc.is-big{grid-template-columns:1fr;grid-template-rows:none;justify-items:center;row-gap:10px;padding:22px 18px 16px;border-radius:12px;transform:perspective(1100px) rotateY(5deg) rotate(-1deg)}
+.sp-q.qc.is-big:hover{transform:perspective(1100px) rotateY(2deg) translateY(-3px)}
+.sp-q.qc.is-big .qc-ic{grid-row:auto}.sp-q.qc.is-big .qc-ic .sp-ic{width:120px!important;height:120px!important}
+.sp-q.qc.is-big .qc-title{align-self:auto;font-size:22px;-webkit-text-stroke:6px #0d1c52}
+.sp-q.qc.is-big .qc-bar,.sp-q.qc.is-big .qc-take{width:100%;flex:none;height:36px}
+.qc-prize{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:2px}
+.qc-prize em{font:900 26px/1 system-ui;font-style:normal;color:#fff;-webkit-text-stroke:5px #0d1c52;paint-order:stroke fill}
+.qc-prize .qc-chip{position:static;padding:0;border:0;background:none;box-shadow:none}.qc-prize .qc-chip img{width:48px;height:48px;filter:drop-shadow(0 3px 0 rgba(10,22,72,.5))}.qc-prize .qc-chip b{font-size:24px;-webkit-text-stroke:5px #0d1c52}
+.sp-q.qc.is-big .qc-xp{margin:0}.sp-q.qc.is-big .qc-xp b{font-size:26px}
+.sp-q.qc.is-big .qc-tag{left:50%;transform:translateX(-50%);top:-17px}
+/* the panels */
+.sp-qsec>header{position:relative;display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 6px;padding:6px 12px;border-radius:6px;background:linear-gradient(90deg,rgba(14,8,58,.85),rgba(14,8,58,.35))}
+.sp-qsec h3,.sp-mega h3{font:900 20px/1 system-ui;font-style:italic;text-transform:uppercase;color:#fff;-webkit-text-stroke:5px #0d1c52;paint-order:stroke fill;text-shadow:0 3px 0 rgba(0,0,0,.3);letter-spacing:.02em}
+.sp-qsec>header small,.sp-mega>header small{display:grid;justify-items:end;font:900 12px/1.1 system-ui;font-style:italic;color:#ffc933;text-transform:none;-webkit-text-stroke:3px #0d1c52;paint-order:stroke fill}
+.sp-mega>header small b{font-size:17px;color:#ffc933}
+.sp-qlist{gap:16px;padding-bottom:6px}
+.sp-mega{padding:18px 30px 18px 24px}
+.sp-mega>header{background:none;box-shadow:none;padding:0 4px}
+.sp-deck{padding:18px 30px 12px 8px}
+.sp-deck-l{border-radius:12px;border:4px solid #0a1648;background:linear-gradient(180deg,#2877e0,#134aa8);box-shadow:0 5px 0 #08123a;inset:26px calc(30px - var(--k) * 7px) 18px calc(8px + var(--k) * 7px);transform:translateX(calc(var(--k) * 9px)) perspective(1100px) rotateY(5deg) rotate(-1deg)}
+.sp-deck .sp-q.qc.is-big{transform:perspective(1100px) rotateY(5deg) rotate(-1deg);margin-top:0}
+.sp-qright{background:linear-gradient(160deg,#6a36f0,#4520c4 55%,#341aa0);clip-path:polygon(40px 0,100% 0,100% 100%,14px 100%,30px 82%,8px 62%,34px 40%,6px 20%)}
+.sp-qright{padding:16px 22px 18px 54px}
+.sp-megaall{border-radius:8px;font-style:italic}
+.sp-megarow .sp-q.qc.is-big{width:260px;transform:none;margin-top:14px}
+@media(max-width:760px){.sp-qright{clip-path:none;padding:14px 12px}.sp-q.qc{grid-template-columns:78px minmax(0,1fr)}.qc-ic .sp-ic{width:72px!important;height:72px!important}.sp-q.qc.is-big{transform:none}.sp-deck .sp-q.qc.is-big{transform:none}}
+
+.qc-ic .sp-ic{background:none!important;border:0!important;box-shadow:none!important}
+.sp-mega-foot{font-size:14px}

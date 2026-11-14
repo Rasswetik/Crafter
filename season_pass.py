@@ -206,7 +206,7 @@ def install_season_pass(app, db, auth, audit, record):
                 drop_id = amount
         if items:
             ext['crafter_grant_loot'](uid, items, src)
-        out = {'items': [{'kind': i['kind'], 'title': i['title'], 'image': i['image'], 'count': i.get('count', 1), 'amount': i.get('amount')} for i in items]}
+        out = {'items': [{'kind': i['kind'], 'title': i['title'], 'image': i['image'], 'count': i.get('count', 1), 'amount': i.get('amount'), 'pack_ids': i.get('pack_ids') or []} for i in items]}
         if opens:
             out['chest_opens'] = opens
         if drops:
