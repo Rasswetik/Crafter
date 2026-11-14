@@ -16,6 +16,7 @@ def _setup(client, gram_per_ton='2'):
         connection.execute("UPDATE demo_accounts SET balance='100' WHERE user_id=43")
     assert client.post('/api/admin/new-year/settings',headers=admin,
                        json={'enabled':True}).status_code==200
+    assert client.post('/api/admin/new-year/points-rate',headers=admin,json={'per_ton':100}).status_code==200
     return admin,buyer
 
 

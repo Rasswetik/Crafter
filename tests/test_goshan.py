@@ -135,3 +135,17 @@ def test_vice_city_collection_pack_box_drop_and_backgrounds(client):
     assert bg.status_code == 200, bg.get_data(as_text=True)                          # an offer can wear a Vice City background
     sec = client.post('/api/admin/new-year/shop-sections', headers=admin, json={'title': 'Vice', 'rule': 'custom', 'bg': 'vice-beach', 'icon': 'builtin:star'})
     assert sec.status_code in (200, 201, 404), sec.get_data(as_text=True)
+
+
+def test_points_for_trades_are_off_by_default_and_hub_buttons_get_backgrounds(client):
+    admin, player = signed(42), signed(69)
+    me = client.get('/api/me', headers=player).json
+    assert me['new_year_reward_per_ton'] == 0                                         # nothing is given for the trades unless the administrator turns it on
+    assert client.post('/api/admin/new-year/points-rate', headers=admin, json={'per_ton': 100}).json['per_ton'] == 100
+    assert client.get('/api/me', headers=player).json['new_year_reward_per_ton'] == 100
+    assert client.post('/api/admin/new-year/points-rate', headers=signed(70), json={'per_ton': 5}).status_code in (401, 403)
+    assert client.post('/api/admin/new-year/hub-bg', headers=admin, json={'card': 'market', 'bg': 'vice-neon'}).status_code == 200
+    assert client.post('/api/admin/new-year/hub-bg', headers=admin, json={'card': 'season', 'bg': 'live-gold'}).json['hub_bg'] == {'market': 'vice-neon', 'season': 'live-gold'}
+    assert client.get('/api/new-year/locks', headers=player).json['hub_bg']['market'] == 'vice-neon'
+    assert client.post('/api/admin/new-year/hub-bg', headers=admin, json={'card': 'market', 'bg': 'nope'}).status_code == 400
+    assert client.post('/api/admin/new-year/hub-bg', headers=admin, json={'card': 'market', 'bg': ''}).json['hub_bg'] == {'season': 'live-gold'}

@@ -7,11 +7,14 @@
   an administrator opens it again by typing 777 in the top-up amount.
 """
 import json
+import re
 import time
 
 from flask import abort, request
 
-SECTIONS = ('market', 'community', 'advent')
+SECTIONS = ('market', 'community', 'advent', 'season')
+HUB_CARDS = ('market', 'community', 'advent', 'season')
+HUB_BG_KEY = 'ny_hub_bg_v1'
 LOCKS_KEY = 'ny_locks_v1'
 HIDDEN_KEY = 'admin_panel_hidden_v1'
 HIDDEN_SECTIONS_KEY = 'ny_hidden_sections_v1'
@@ -52,6 +55,11 @@ def install_ny_extras(app, db, auth, audit):
         raw = read(HIDDEN_SECTIONS_KEY, {})
         return [k for k in SECTIONS if isinstance(raw, dict) and raw.get(k) is True]
 
+    def hub_bg():
+        raw = read(HUB_BG_KEY, {})
+        return {k: v for k, v in (raw.items() if isinstance(raw, dict) else []) if k in HUB_CARDS and isinstance(v, str) and v}
+
+    app.extensions['crafter_ny_hub_bg'] = hub_bg
     app.extensions['crafter_ny_hidden_sections'] = hidden_sections
     app.extensions['crafter_ny_lock_left'] = left
     app.extensions['crafter_admin_hidden'] = hidden
@@ -60,7 +68,30 @@ def install_ny_extras(app, db, auth, audit):
     @auth()
     def ny_locks():
         now = int(time.time())
-        return {'now': now, 'locks': {k: v for k, v in locks().items() if v > now}, 'hidden': hidden_sections()}
+        return {'now': now, 'locks': {k: v for k, v in locks().items() if v > now}, 'hidden': hidden_sections(), 'hub_bg': hub_bg()}
+
+    @app.post('/api/admin/new-year/hub-bg')
+    @auth(admin=True)
+    def admin_hub_bg():
+        body = request.get_json(silent=True) or {}
+        card, bg = str(body.get('card') or ''), str(body.get('bg') or '').strip()
+        if card not in HUB_CARDS:
+            abort(400, description='Неизвестная кнопка')
+        if bg:
+            from shop_sections import BACKGROUNDS
+            ok = bg in BACKGROUNDS or (bg.startswith('image:') and (re.fullmatch(r'/media/shop/[0-9a-f]{32}', bg[6:]) or re.fullmatch(r'/static/assets/chests/[A-Za-z0-9_.-]+', bg[6:])))
+            if not ok:
+                abort(400, description='Фон: выберите готовый или загрузите свою картинку')
+        with db():
+            raw = read(HUB_BG_KEY, {})
+            raw = raw if isinstance(raw, dict) else {}
+            if bg:
+                raw[card] = bg
+            else:
+                raw.pop(card, None)
+            write(HUB_BG_KEY, raw)
+        audit('Events button background: ' + card)
+        return {'ok': True, 'hub_bg': hub_bg()}
 
     @app.get('/api/admin/new-year/locks')
     @auth(admin=True)

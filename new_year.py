@@ -5,6 +5,7 @@ New-year purchases intentionally create non-transferable TEST inventory entries.
 No on-chain or Portals purchase is performed by these routes.
 """
 import json
+from decimal import Decimal
 import re
 import time
 import uuid
@@ -234,6 +235,33 @@ def install_new_year(app, db, auth, record, audit):
                          ('ny_currency_seen:'+str(g.user['id']),mode()))
         return {'ok':True,'currency':mode()}
 
+    POINTS_KEY='points_per_ton_v1'
+
+    def points_per_ton():
+        row=db().execute("SELECT payload FROM settings WHERE key=?",(POINTS_KEY,)).fetchone()
+        try:
+            value=Decimal(str(row['payload'])) if row else Decimal('0')
+            return int(value) if value.is_finite() and 0<=value<=100000 else 0
+        except Exception:
+            return 0
+
+    app.extensions['crafter_points_per_ton']=points_per_ton
+
+    @app.post('/api/admin/new-year/points-rate')
+    @auth(admin=True)
+    def admin_points_rate():
+        raw=(request.get_json(silent=True) or {}).get('per_ton')
+        try:
+            value=int(str(raw).strip() or '0')
+        except (TypeError,ValueError):
+            abort(400,description='Поинты за 1 TON: целое число, 0 — не начислять')
+        if not 0<=value<=100000:
+            abort(400,description='Поинты за 1 TON: от 0 до 100 000')
+        with db():
+            db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",(POINTS_KEY,str(value)))
+        audit('Points per 1 TON set to '+str(value))
+        return {'ok':True,'per_ton':value}
+
     app.extensions['crafter_ny_currency_notice']=currency_notice
     app.extensions['crafter_ny_currency_mode']=mode
 
@@ -251,7 +279,7 @@ def install_new_year(app, db, auth, record, audit):
     def admin_new_year():
         rows=db().execute("SELECT * FROM new_year_lots ORDER BY created DESC LIMIT 150").fetchall()
         return {'enabled':enabled(), 'lots':[item(row) for row in rows],
-                'my_balance':wallet(g.user['id'])}
+                'my_balance':wallet(g.user['id']), 'points_per_ton':points_per_ton()}
 
     @app.post('/api/admin/new-year/settings')
     @auth(admin=True)

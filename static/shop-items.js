@@ -121,6 +121,8 @@ async function admin(content) {
     try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) { STARS = []; }
     try { CHESTS = (await api('admin/new-year/chests')).chests.map(c => c.chest); } catch (_) { CHESTS = []; }
     try { DROPS = (await api('admin/drops')).drops; } catch (_) { DROPS = []; }
+    let HUBBG = {};
+    try { HUBBG = (await api('new-year/locks')).hub_bg || {}; } catch (_) {}
     let FBX = [], CHX = [];                                  // the gift calendars and the chains stand on the same board and in the same order as the offers
     try { const fr = await api('freebies'); FBX = (fr.events || []).map(x => Object.assign({now: fr.now}, x)); } catch (_) {}
     try { CHX = (await api('chains')).chains || []; } catch (_) {}
@@ -550,6 +552,27 @@ async function admin(content) {
     const mediaPick = (key, label, val) => '<div class="adm-field"><label>' + label + '</label><div class="fm-up">' + (val && val.indexOf('/media/') === 0 ? '<img src="' + e(val) + '" alt="">' : '<i>нет</i>') +
         '<label class="fm-upbtn">Загрузить<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" data-sec-file="' + key + '" hidden></label>' + (val && val.indexOf('/media/') === 0 ? '<button type="button" data-sec-clear="' + key + '">Убрать</button>' : '') + '</div></div>';
     const bgName = s => ((window.crafterFestive?.bgKeys || []).find(k => k[0] === s.bg) || [0, s.bg.indexOf('image:') === 0 ? 'своя картинка' : s.bg])[1];
+    const HUB_CARDS = [['market', 'Маркет'], ['season', 'Сезон и Pass'], ['community', 'События сообщества'], ['advent', 'Адвент-календарь']];
+    const hubBgHTML = () => '<h3 style="margin-top:26px">Кнопки раздела «События»</h3><p class="sub">Фон каждой кнопки: свой рисунок или живой фон. Если фон не выбран, кнопка выглядит как обычно.</p><div class="hb-list">' +
+        HUB_CARDS.map(([k, t]) => { const bg = HUBBG[k] || ''; return '<div class="hb-row"><span class="hb-pv">' + (bg ? (bg.startsWith('image:') ? '<i style="background-image:url(' + e(bg.slice(6)) + ')"></i>' : (window.crafterScenes ? window.crafterScenes.render(bg, {still: true, section: true}) : '')) : '<em>по умолчанию</em>') + '</span><b>' + t + '</b><button type="button" data-hb-pick="' + k + '">Выбрать фон</button>' + (bg ? '<button type="button" data-hb-clear="' + k + '">Сбросить</button>' : '') + '</div>'; }).join('') + '</div>';
+    const openHubBg = card => {
+        const wrap = document.createElement('div');
+        wrap.className = 'bnd-modal';
+        const close = () => wrap.remove();
+        wrap.innerHTML = '<div class="bnd-box" style="max-width:760px"><div class="bnd-top"><b>Фон кнопки: ' + e((HUB_CARDS.find(x => x[0] === card) || [0, card])[1]) + '</b><button type="button" data-x aria-label="Закрыть">×</button></div>' +
+            bgGallery(HUBBG[card] || '', 'data-hb-bg', 'data-hb-file', window.crafterFestive?.bgKeys || [], k => /^(live-|vice-)/.test(k), 'Свой PNG', true) + '</div>';
+        const set = async bg => { try { const res = await api('admin/new-year/hub-bg', {card, bg}); HUBBG = res.hub_bg || {}; close(); redrawHubBg(); toast('Фон кнопки сохранён'); } catch (err) { toast(err.message); } };
+        wrap.querySelector('[data-x]').addEventListener('click', close);
+        wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
+        wrap.querySelectorAll('[data-hb-bg]').forEach(b => b.addEventListener('click', () => set(b.dataset.hbBg)));
+        wrap.querySelector('[data-hb-file]')?.addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { set('image:' + await uploadBg(file)); } catch (err) { toast(err.message); } });
+        document.body.appendChild(wrap);
+    };
+    const redrawHubBg = () => { const box = sec.querySelector('#hb-box'); if (box) { box.innerHTML = hubBgHTML(); bindHubBg(); } };
+    const bindHubBg = () => {
+        sec.querySelectorAll('[data-hb-pick]').forEach(b => b.addEventListener('click', () => openHubBg(b.dataset.hbPick)));
+        sec.querySelectorAll('[data-hb-clear]').forEach(b => b.addEventListener('click', async () => { try { HUBBG = (await api('admin/new-year/hub-bg', {card: b.dataset.hbClear, bg: ''})).hub_bg || {}; redrawHubBg(); toast('Фон сброшен'); } catch (err) { toast(err.message); } }));
+    };
     const sectionsHTML = () => {
         const list = (r.sections || []).map(s => '<div class="fm-srow' + (s.enabled ? '' : ' is-off') + '"><span class="fm-sico">' + icoOf(s.icon) + '</span><b>' + e(s.title) + '</b><small>' + (s.kind === 'custom' ? 'свой раздел' : s.kind === 'exchange' ? 'раздел обмена' : 'встроенный') + ' · фон: ' + e(bgName(s)) + (s.enabled ? '' : ' · скрыт') + '</small>' +
             (s.preview ? '<img class="fm-spv" src="' + e(s.preview) + '" alt="">' : '') +
@@ -620,7 +643,7 @@ async function admin(content) {
             ? '<div class="adm-step"><h4>Какой подарок</h4><div class="adm-field"><select data-f="amount">' + window.crafterStarGifts.options(STARS, f.amount) + '</select></div></div>'
             : '<div class="adm-step"><h4>' + (eff() === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM') + '</h4><div class="adm-field"><input data-f="amount" inputmode="decimal" value="' + e(f.amount) + '">' +
               '<div class="adm-chips">' + (eff() === 'BALL' ? ['50', '100', '500', '1000'] : ['0.5', '1', '2', '5', '10']).map(v => '<button type="button" data-chip="amount" data-v="' + v + '">' + v + '</button>').join('') + '</div></div></div>';
-        sec.innerHTML = boardSection() + sectionsHTML() + '<h3 style="margin-top:26px" id="si-form">' + (editing ? 'Изменить товар' : 'Новый товар') + '</h3>' + (editing ? '<div class="si-editing">Вы меняете: <b>' + e(f.title || autoTitle()) + '</b><button type="button" data-si-cancel>Отмена, создать новый</button></div>' : '<p class="sub">Товар за новогодние шары. Появится в особом маркете.</p>') +
+        sec.innerHTML = boardSection() + '<div id="hb-box">' + hubBgHTML() + '</div>' + sectionsHTML() + '<h3 style="margin-top:26px" id="si-form">' + (editing ? 'Изменить товар' : 'Новый товар') + '</h3>' + (editing ? '<div class="si-editing">Вы меняете: <b>' + e(f.title || autoTitle()) + '</b><button type="button" data-si-cancel>Отмена, создать новый</button></div>' : '<p class="sub">Товар за новогодние шары. Появится в особом маркете.</p>') +
             '<div class="adm-step"><h4>Что продаём</h4><div class="adm-tiles">' + kinds.map(k => tile(f.kind === k[0], 'data-kind="' + k[0] + '"', k[3], k[1], k[2])).join('') + '</div></div>' +
             step2 + what +
             '<div class="adm-step"><h4>Условия</h4><div class="adm-row3">' +
@@ -658,7 +681,7 @@ async function admin(content) {
     const pull = () => sec.querySelectorAll('[data-f]').forEach(i => { f[i.dataset.f] = i.value; });
     const run = async (fn, ok) => { try { await fn(); toast(ok); content.innerHTML = ''; window.renderAdminNewYear?.(content); } catch (err) { toast(err.message); } };
     const bind = () => {
-        bindBoard();
+        bindBoard(); bindHubBg();
         sendPreview();
         sec.querySelectorAll('[data-cbg]').forEach(b => b.addEventListener('click', () => { pull(); f.card_bg = b.dataset.cbg; sec.querySelectorAll('[data-cbg],.fm-swup').forEach(x => x.classList.toggle('is-on', x === b)); sendPreview(); }));
         sec.querySelector('[data-cbg-file]')?.addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { pull(); f.card_bg = 'image:' + await uploadBg(file); draw(); } catch (err) { toast(err.message); } });

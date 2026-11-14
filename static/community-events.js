@@ -18,7 +18,19 @@ function pine(x, y, s, fill) {
     const t = (w, top, bot) => `M${x - w * s} ${y + bot * s}L${x} ${y + top * s}L${x + w * s} ${y + bot * s}Z`;
     return `<path d="${t(15, -44, -18)}${t(21, -30, -2)}${t(27, -14, 14)}" fill="${fill}"/><rect x="${x - 2.5 * s}" y="${y + 13 * s}" width="${5 * s}" height="${8 * s}" fill="#2a1b17"/>`;
 }
+function plainMarketArt() {                                       // the usual market (the New Year is off): a shop front with an awning and boxes on the shelf
+    const awning = Array.from({length: 10}, (_, i) => `<path d="M${196 + i * 17} 56h17v18a8.5 8.5 0 0 1-17 0Z" fill="${i % 2 ? '#fff6ee' : '#3f7bff'}"/>`).join('');
+    const boxes = [[222, '#ff5a6a'], [248, '#ffd25e'], [274, '#5ccfff'], [300, '#a78bfa']].map(([x, c]) => `<rect x="${x}" y="112" width="18" height="18" rx="3" fill="${c}"/><rect x="${x + 7}" y="112" width="4" height="18" fill="#fff" opacity=".85"/>`).join('');
+    return `<svg class="nyh-art" viewBox="0 0 400 170" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+<rect x="186" y="44" width="178" height="14" rx="4" fill="#1b2a6b"/>${awning}
+<rect x="196" y="90" width="158" height="62" fill="#223a8f"/><rect x="196" y="90" width="158" height="62" fill="#fff" opacity=".05"/>
+<rect x="212" y="102" width="108" height="36" rx="4" fill="#0f1c52"/><rect x="214" y="136" width="104" height="5" fill="#ffd25e"/>${boxes}
+<rect x="330" y="100" width="18" height="52" rx="3" fill="#3f7bff"/><circle cx="342" cy="128" r="1.8" fill="#fff"/>
+<path d="M170 152h210" stroke="#fff" stroke-opacity=".35" stroke-width="3" stroke-linecap="round"/>
+<g fill="#ffd25e"><path d="m280 26 3 6.5 7 .8-5.200 4.800 1.500 7-6.300-3.700-6.300 3.700 1.500-7-5.200-4.800 7-.8z"/></g></svg>`;
+}
 function marketArt() {
+    if (document.documentElement.classList.contains('ny-off')) return plainMarketArt();
     const bulbs = [];
     const cols = ['#ff5a6a', '#ffd25e', '#5ccfff', '#7be38f', '#ff82d6'];
     for (let i = 0; i < 13; i++) {

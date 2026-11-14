@@ -4,7 +4,7 @@
 'use strict';
 const ICON='<img src="/static/assets/new-year-ornament.svg" alt="" aria-hidden="true">';
 function user(){return typeof state!=='undefined'?state.me:null;}
-function enabled(){return Boolean(user()?.new_year_enabled);}
+function enabled(){return Number(user()?.new_year_reward_per_ton)>0;}                // the reward row exists only when the administrator turned the points for trades on
 function value(amount,unit='GRAM'){
     const amountNumber=Number(amount),ratio=Number(user()?.new_year_gram_per_ton||0);
     if(!enabled()||!Number.isFinite(amountNumber)||amountNumber<=0)return null;
@@ -25,7 +25,7 @@ function row(kind,amount,unit='GRAM',note=''){
     const count=value(amount,unit);
     if(count===null)return '';
     const verb=kind==='craft'?'Награда за крафт':kind==='sale'?'Награда за продажу':'Награда за покупку';
-    const explanation=note||'После завершённой сделки · 1 TON = 100 поинтов';
+    const explanation=note||('После завершённой сделки · 1 TON = '+Number(user()?.new_year_reward_per_ton||0)+' поинтов');
     return '<div class="crafter-season-reward" data-season-kind="'+kind+'">'+
         '<div><span>'+verb+'</span><small>'+explanation+'</small></div>'+
         '<strong><span data-season-amount>'+count.toLocaleString('ru-RU')+'</span> '+ICON+'</strong></div>';

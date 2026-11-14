@@ -7,7 +7,7 @@ import json
 import time
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
 
-BALLS_PER_TON = Decimal('100')
+POINTS_KEY = 'points_per_ton_v1'
 SUPPORTED = {'buy': {'crafter', 'portals-partner'},
              'sale': {'crafter'}}
 MAX_PRICE = Decimal('10000000000')
@@ -75,9 +75,16 @@ def install_new_year_trade_rewards(app, db, audit=None):
         unit=str(payload.get('price_unit','GRAM'))
         if unit not in ('TON','GRAM'):
             return 0
+        row_rate=db().execute("SELECT payload FROM settings WHERE key=?",(POINTS_KEY,)).fetchone()
+        try:
+            per_ton=Decimal(str(row_rate[0])) if row_rate else Decimal('0')
+        except (InvalidOperation,ValueError):
+            per_ton=Decimal('0')
+        if not per_ton.is_finite() or per_ton<=0:
+            return 0                                          # points for trades are not given unless the administrator turns them on
         rate=conversion()
         gram_volume=amount*rate if unit=='TON' else amount
-        earned=(gram_volume/rate)*BALLS_PER_TON
+        earned=(gram_volume/rate)*per_ton
         current=db().execute(
             "SELECT balls FROM new_year_wallets WHERE user_id=?",(uid,)).fetchone()
         previous=db().execute(

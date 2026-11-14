@@ -108,3 +108,10 @@
 .ny-notice p{margin:0 0 8px;font-size:16px;line-height:1.35}.ny-notice p b{color:#ffd25e}
 .ny-notice small{display:block;margin-bottom:16px;color:#b9c8f0;font-size:13px;line-height:1.35}
 .ny-notice button{width:100%;padding:13px;border-radius:14px;border:0;font:800 16px/1 system-ui;color:#2a1700;background:linear-gradient(#ffd45a,#ff9e1b);cursor:pointer}
+
+/* a button of the events with a background of its own */
+.nyh-card{position:relative}
+.nyh-card .nyh-bg{position:absolute;inset:0;z-index:0;border-radius:inherit;overflow:hidden;background:center/cover no-repeat}
+.nyh-card.has-custom-bg>*:not(.nyh-bg):not(.nyh-copy):not(.nyh-go):not(.nyh-soon):not(.nyh-new):not(.nyh-dot){display:none!important}
+.nyh-card.has-custom-bg .nyh-copy,.nyh-card.has-custom-bg .nyh-go{position:relative;z-index:2}
+.ny-admin-points{display:flex;gap:10px;align-items:center}.ny-admin-points input{width:140px}

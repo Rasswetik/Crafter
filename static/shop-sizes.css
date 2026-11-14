@@ -206,3 +206,9 @@
 .sb-arrows{position:absolute;top:8px;right:48px;z-index:6;display:flex;gap:6px}.sb-extra .sb-handle{right:8px}.sb-extra .sb-arrows{right:48px}
 .sb-arrows button{width:34px;height:34px;border-radius:11px;border:1px solid rgba(255,255,255,.3);background:#10131ab8;color:#fff;font-size:18px;font-weight:900;cursor:pointer}
 .sb-cell{touch-action:manipulation}
+
+.hb-list{display:grid;gap:10px;margin:10px 0}
+.hb-row{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04)}
+.hb-row b{flex:1}
+.hb-pv{position:relative;width:120px;height:56px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.08);display:grid;place-items:center;font-size:11px;color:#9fb2d6;flex:none}
+.hb-pv i{position:absolute;inset:0;background:center/cover}.hb-pv .ls{position:absolute}
