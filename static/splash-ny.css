@@ -1,0 +1,39 @@
+/* The New Year loading screen: a snowy night over a small village, an aurora, falling snow, the Crafter mark in a glass ball under a Santa hat with a ring of bulbs, a greeting that shimmers, phrases that change, gifts that bounce. */
+#splash.splash-ny{background:linear-gradient(180deg,#071433 0,#10275a 48%,#1b4a86 100%)}
+.sny-sky{position:absolute;inset:0;overflow:hidden}
+.sny-aurora{position:absolute;left:-20%;right:-20%;top:4%;height:46%;background:radial-gradient(40% 60% at 30% 50%,rgba(80,255,200,.32),transparent 70%),radial-gradient(40% 60% at 70% 40%,rgba(150,110,255,.34),transparent 70%);filter:blur(26px);animation:sny-aur 9s ease-in-out infinite alternate}
+.sny-stars{position:absolute;inset:0;background:radial-gradient(1.5px 1.5px at 12% 18%,#fff,transparent),radial-gradient(1.5px 1.5px at 28% 8%,#fff,transparent),radial-gradient(2px 2px at 46% 22%,#ffe9a8,transparent),radial-gradient(1.5px 1.5px at 63% 10%,#fff,transparent),radial-gradient(2px 2px at 82% 24%,#fff,transparent),radial-gradient(1.5px 1.5px at 92% 9%,#ffe9a8,transparent),radial-gradient(1.5px 1.5px at 7% 38%,#fff,transparent),radial-gradient(1.5px 1.5px at 74% 40%,#fff,transparent);animation:sny-tw 3.2s ease-in-out infinite alternate}
+.sny-moon{position:absolute;right:12%;top:16%;width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fffdea,#ffe9a8 60%,#f3cf6c);box-shadow:0 0 40px 10px rgba(255,233,168,.35)}
+.sny-snow{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+.sny-snow i{position:absolute;top:-16px;width:var(--s);height:var(--s);border-radius:50%;background:#fff;opacity:.9;box-shadow:0 0 6px #fff;animation:sny-fall var(--d) linear infinite}
+.sny-hills{position:absolute;left:0;right:0;bottom:0;width:100%;height:21%;pointer-events:none}
+#splash.splash-ny::after{display:none}
+.sny-bauble{position:relative;display:flex;flex-direction:column;align-items:center;transform-origin:50% -80px;animation:sny-swing 4.4s ease-in-out infinite}
+.sny-string{position:absolute;top:-70px;width:2px;height:70px;background:linear-gradient(#ffffff55,#ffd25e)}
+#splash.splash-ny .sv4-mark{width:min(52vw,210px)}
+#splash.splash-ny .sv4-mark::before{inset:0;background:radial-gradient(circle at 32% 26%,#ff8a8a,#d02a3a 55%,#7a0f22);box-shadow:0 18px 40px rgba(0,0,0,.55),inset 0 0 0 3px rgba(255,255,255,.35),inset -10px -14px 26px rgba(0,0,0,.35),inset 10px 12px 22px rgba(255,255,255,.25)}
+#splash.splash-ny .sv4-logo{width:50%;height:50%;z-index:2}
+.sny-hat{position:absolute;z-index:3;width:46%;left:14%;top:-6%;transform:rotate(-14deg);filter:drop-shadow(0 4px 4px rgba(0,0,0,.4))}
+.sny-bulbs{position:absolute;inset:-6%;z-index:1}
+.sny-bulbs i{position:absolute;left:50%;top:50%;width:9px;height:9px;margin:-4.5px;border-radius:50%;background:var(--c);box-shadow:0 0 10px 3px var(--c);transform:rotate(var(--a)) translateY(calc(min(52vw,210px) * -.55));animation:sny-bulb var(--t) ease-in-out infinite alternate}
+#splash.splash-ny .sv4-ring{z-index:1}
+#splash.splash-ny .sv4-brand{font-size:clamp(38px,9vw,56px);background:linear-gradient(180deg,#fff,#cfe6ff);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;filter:drop-shadow(0 3px 0 rgba(0,0,0,.4))}
+.sny-greet{margin-top:8px;font-size:clamp(16px,4.4vw,22px);font-weight:900;letter-spacing:.06em;text-transform:uppercase}
+.sny-greet span{background:linear-gradient(100deg,#ffd25e 20%,#fff 40%,#ffd25e 60%);background-size:220% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;animation:sny-shine 2.8s linear infinite;filter:drop-shadow(0 2px 0 rgba(0,0,0,.35))}
+.sny-phrases{position:relative;height:18px;width:100%;text-align:center}
+.sny-phrases span{position:absolute;left:0;right:0;opacity:0;animation:sny-phrase 8s ease-in-out infinite;animation-delay:calc(var(--i) * 2s)}
+#splash.splash-ny .splash-progress{height:14px;width:min(76vw,280px);background:rgba(6,16,40,.65)}
+#splash.splash-ny .splash-progress-fill{background:repeating-linear-gradient(-45deg,#ff4d5e 0 10px,#fff 10px 20px);box-shadow:inset 0 2px 0 rgba(255,255,255,.45),0 0 14px rgba(255,90,110,.7);background-size:28px 28px;animation:sny-stripes 1s linear infinite}
+.sny-gift{position:absolute;bottom:7%;z-index:2;filter:drop-shadow(0 6px 6px rgba(0,0,0,.4));animation:sny-hop 2.6s ease-in-out infinite}
+.sny-gift.g1{left:6%}.sny-gift.g2{right:6%;animation-delay:-1.2s}
+@keyframes sny-aur{to{transform:translateX(6%) scaleY(1.15);opacity:.8}}
+@keyframes sny-tw{to{opacity:.55}}
+@keyframes sny-fall{to{transform:translate3d(var(--w),112vh,0)}}
+@keyframes sny-swing{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+@keyframes sny-bulb{from{opacity:.45;transform:rotate(var(--a)) translateY(calc(min(52vw,210px) * -.55)) scale(.8)}to{opacity:1;transform:rotate(var(--a)) translateY(calc(min(52vw,210px) * -.55)) scale(1.2)}}
+@keyframes sny-shine{to{background-position:-220% 0}}
+@keyframes sny-phrase{0%,2%{opacity:0;transform:translateY(6px)}8%,22%{opacity:1;transform:none}28%,100%{opacity:0;transform:translateY(-6px)}}
+@keyframes sny-stripes{to{background-position:28px 0}}
+@keyframes sny-hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-14px) rotate(-4deg)}60%{transform:translateY(0) rotate(2deg)}}
+@media(max-height:640px){.sny-gift,.sny-moon{display:none}#splash.splash-ny .sv4-mark{width:min(40vw,150px)}}
+@media(prefers-reduced-motion:reduce){.sny-aurora,.sny-stars,.sny-snow i,.sny-bauble,.sny-bulbs i,.sny-greet span,.sny-phrases span,.sny-gift,#splash.splash-ny .splash-progress-fill{animation:none}.sny-phrases span:first-child{opacity:1}}
