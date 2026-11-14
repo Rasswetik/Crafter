@@ -164,3 +164,23 @@ body.dr-open{overflow:hidden}
   .dr-orb{width:clamp(36px,8.5vh,52px);border-width:3px}.dr-orb.is-next{width:clamp(46px,11vh,64px)}.dr-orb b{font-size:16px}
   .dr-hint{margin-top:8px;font-size:11px}.dr-bottom{padding-bottom:calc(14px + env(safe-area-inset-bottom))}
 }
+/* ---- v3: no panel (as in the games), a tap anywhere, a burst instead of a dissolve ---- */
+.dr-play{cursor:pointer}
+.dr-star,.dr-star:focus,.dr-star:focus-visible{outline:none!important;box-shadow:none}
+.dr-bottom{display:flex;flex-direction:column;align-items:center;gap:16px;padding-bottom:calc(30px + env(safe-area-inset-bottom))}
+.dr-tray{display:contents}
+.dr-title{margin:0;padding:0;border-radius:0;background:none;font:900 italic clamp(24px,6.4vw,38px)/1 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;letter-spacing:.01em;text-transform:uppercase;color:#fff;-webkit-text-stroke:clamp(6px,1.4vw,9px) #14213f;paint-order:stroke fill;text-shadow:0 4px 0 rgba(8,12,34,.5);transform:skewX(-6deg)}
+.dr-orbs{gap:clamp(14px,4vw,26px)}
+.dr-orb{width:clamp(50px,13.5vw,70px);border-width:5px;box-shadow:0 5px 0 rgba(8,12,34,.55),inset 0 -8px 12px rgba(0,0,0,.2),0 0 0 3px rgba(255,255,255,.18)}
+.dr-orb.is-next{width:clamp(66px,17.5vw,92px)}
+.dr-orb b{font-size:clamp(20px,5vw,26px)}.dr-orb.is-next b{font-size:clamp(34px,9vw,46px);-webkit-text-stroke:5px #1b1340}
+.dr-hint{margin:0;font-size:12px}
+@media(max-height:720px){.dr-bottom{gap:10px;padding-bottom:calc(14px + env(safe-area-inset-bottom))}.dr-title{font-size:clamp(18px,5vh,26px)}.dr-orb{width:clamp(38px,9vh,54px)}.dr-orb.is-next{width:clamp(50px,12vh,72px)}.dr-orb.is-next b{font-size:clamp(26px,6vh,38px)}}
+.dr-wave{position:absolute;left:50%;top:50%;width:min(60vw,60cqh,420px);aspect-ratio:1;transform:translate(-50%,-50%) scale(.2);border-radius:50%;border:10px solid #fff;opacity:0;pointer-events:none}
+.dr-play.is-pop-out .dr-wave{animation:dr-wave .7s cubic-bezier(.1,.7,.3,1)}
+@keyframes dr-wave{0%{opacity:.95;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(3.4);border-width:2px}}
+.dr-play.is-pop-out .dr-stage{z-index:2}
+.dr-play.is-flash .dr-flash{inset:-60%;animation:dr-flash2 .55s ease-out}
+@keyframes dr-flash2{0%{opacity:0}18%{opacity:1}100%{opacity:0}}
+.dr-reward.is-pop{transition:none;animation:dr-rwjump .75s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes dr-rwjump{0%{opacity:0;transform:scale(.15)}55%{opacity:1;transform:scale(1.14)}100%{opacity:1;transform:scale(1)}}

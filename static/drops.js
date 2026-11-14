@@ -58,8 +58,8 @@ async function open(dropId, opts) {
     s.history = hist;
     el.innerHTML = '<div class="dr-bg"><i class="dr-bg-a"></i><i class="dr-bg-b"></i></div><i class="dr-rays"></i><div class="dr-fx"></div>' +
         '<div class="dr-top"><h1 class="dr-rarity" data-t="' + e(EN[RAR[s.rarity]]) + '">' + e(EN[RAR[s.rarity]]) + '</h1></div>' +
-        '<div class="dr-stage"><div class="dr-halo"></div><i class="dr-ground"></i><button type="button" class="dr-star" aria-label="Улучшить дроп"><img alt="" draggable="false" src="' + A + 'snowman-idle.webp"></button><i class="dr-ring"></i><i class="dr-ring r2"></i><i class="dr-flash"></i></div>' +
-        '<div class="dr-bottom"><div class="dr-tray"><h2 class="dr-title">Попытки улучшения</h2><div class="dr-orbs"></div></div><p class="dr-hint">Нажмите на дроп</p></div>' +
+        '<div class="dr-stage"><div class="dr-halo"></div><i class="dr-ground"></i><button type="button" class="dr-star" aria-label="Улучшить дроп"><img alt="" draggable="false" src="' + A + 'snowman-idle.webp"></button><i class="dr-ring"></i><i class="dr-ring r2"></i><i class="dr-wave"></i><i class="dr-flash"></i></div>' +
+        '<div class="dr-bottom"><h2 class="dr-title">Попытки улучшения</h2><div class="dr-orbs"></div><p class="dr-hint">Нажмите на экран</p></div>' +
         '<div class="dr-reward" hidden></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
@@ -122,9 +122,10 @@ async function open(dropId, opts) {
         $('.dr-bottom').classList.add('is-gone'); $('.dr-top').classList.add('is-gone');
         img.src = A + 'snowman-open-charge.webp'; el.classList.add('is-charge');
         if (!reduced()) star.animate([{transform: 'translate(0,0) scale(1)'}, {transform: 'translate(-6px,2px) scale(1.04)'}, {transform: 'translate(6px,-2px) scale(1.07)'}, {transform: 'translate(-8px,0) scale(1.1)'}, {transform: 'translate(8px,2px) scale(1.14)'}, {transform: 'translate(0,0) scale(1.2)'}], {duration: 640, easing: 'ease-in', fill: 'forwards'});
-        await sleep(reduced() ? 150 : 660);
-        el.classList.add('is-flash'); shake(10, 420); burst(26, 1.2, color); await sleep(reduced() ? 100 : 260);
-        el.classList.add('is-dissolve'); await sleep(reduced() ? 100 : 260);
+        await sleep(reduced() ? 150 : 700);
+        el.classList.add('is-flash', 'is-pop-out'); shake(14, 520); burst(46, 1.7, color);
+        if (!reduced()) star.animate([{transform: 'scale(1.2)', opacity: 1}, {transform: 'scale(1.7)', opacity: 0}], {duration: 240, easing: 'ease-out', fill: 'forwards'});
+        await sleep(reduced() ? 80 : 140);
         await showReward(rw, color);
     };
     const tap = async () => {
@@ -137,7 +138,7 @@ async function open(dropId, opts) {
             res = r;
         } catch (err) {
             if (err.status === 409) { try { s = {...await api('drops/sessions/' + s.session_id), history: hist}; drawOrbs(); } catch (_) {} } else toast(err.message);
-            busy = false; el.classList.remove('is-busy'); $('.dr-hint').textContent = 'Нажмите на дроп'; return;
+            busy = false; el.classList.remove('is-busy'); $('.dr-hint').textContent = 'Нажмите на экран'; return;
         }
         await flip();
         const up = res.rarity > s.rarity, color = COLORS[RAR[res.rarity]];
@@ -152,10 +153,10 @@ async function open(dropId, opts) {
         img.src = A + 'snowman-idle.webp';
         drawOrbs(res.attempt - 1);
         if (res.state === 'revealed') { await sleep(300); await reveal(res.reward); return; }
-        $('.dr-hint').textContent = 'Нажмите на дроп';
+        $('.dr-hint').textContent = 'Нажмите на экран';
         busy = false; el.classList.remove('is-busy');
     };
-    star.addEventListener('click', tap);
+    el.addEventListener('click', ev => { if (ev.target.closest('.dr-reward')) return; tap(); });
     el.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && !finished) { ev.preventDefault(); tap(); } });
     star.focus();
 }
