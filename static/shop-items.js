@@ -50,10 +50,10 @@ function describe(it) {
     if (it.description) return it.description;
     if (it.kind === 'GRAM') return 'На ваш баланс будет зачислено ' + num(it.amount) + ' GRAM.';
     if (it.kind === 'BALL') return 'На баланс добавится ' + num(it.amount) + ' новогодних шаров.';
-    if (it.kind === 'BUNDLE') return 'В бандле: ' + [].concat((it.contents || []).map(c => c.pack.title + (c.count > 1 ? ' ×' + c.count : '')), (it.chests_in || []).map(c => c.chest.title + (c.count > 1 ? ' ×' + c.count : '')), it.gram ? [num(it.gram) + ' GRAM'] : [], it.balls ? [num(it.balls) + ' новогодних шаров'] : []).join(' + ') + '. Всё сразу за одну покупку.';
+    if (it.kind === 'BUNDLE') return 'В бандле: ' + [].concat((it.contents || []).map(c => c.pack.title + (c.count > 1 ? ' ×' + c.count : '')), (it.chests_in || []).map(c => c.chest.title + (c.count > 1 ? ' ×' + c.count : '')), (it.drops_in || []).map(c => c.drop.title + (c.count > 1 ? ' ×' + c.count : '')), it.gram ? [num(it.gram) + ' GRAM'] : [], it.balls ? [num(it.balls) + ' новогодних шаров'] : []).join(' + ') + '. Всё сразу за одну покупку.';
     if (it.kind === 'PACK' && it.contents && it.contents.length > 1) return 'В наборе: ' + it.contents.map(c => c.pack.title + (c.count > 1 ? ' ×' + c.count : '')).join(' + ') + '.';
     if (it.kind === 'PACK') return it.bundle > 1 ? 'Вы получите ' + it.bundle + ' карточных паков.' : 'Карточный пак с GRAM и подарками.';
-    if (it.kind === 'DROP') return 'Дроп попадает в инвентарь. Вы открываете его сами: четыре попытки поднять редкость, и в конце одна награда — GRAM, шары, пак или NFT.';
+    if (it.kind === 'DROP') return 'Дроп открывается сразу после покупки, как ящик: четыре нажатия поднимают редкость, и в конце выпадает одна награда — GRAM, шары, пак или NFT.';
     if (it.kind === 'CHEST') return 'Ящик открывается сразу после покупки: внутри шары, GRAM, паки или подарки. Что выпадет, решает случай.';
     if (it.kind === 'STAR') return 'Подарок Telegram' + (it.bundle > 1 ? ' ×' + it.bundle : '') + ' попадёт в «Мои подарки»: его можно продать сайту за GRAM, вывести в Telegram или использовать в апгрейде и крафте.';
     const what = it.promo_kind === 'STAR' ? 'подарок Telegram' + (it.bundle > 1 ? ' ×' + it.bundle : '') : it.promo_kind === 'PACK' ? (it.bundle > 1 ? it.bundle + ' карточных паков' : 'карточный пак') : it.promo_kind === 'BALL' ? num(it.amount) + ' шаров' : num(it.amount) + ' GRAM';
@@ -107,7 +107,7 @@ const KIND_TILES = [
     ['PACK', 'Карточный пак', 'Пак попадает в инвентарь', '/static/assets/packs/new-year-pack.webp'],
     ['BUNDLE', 'Бандл / выбор / случайный', 'Несколько паков сразу, на выбор или случайный', '/static/assets/community-reward.svg'],
     ['CHEST', 'Ящик', 'Открывается сразу: награды по шансам', '/static/assets/chests/gingerbread.png'],
-    ['DROP', 'Дроп', 'В инвентарь: 4 попытки поднять редкость', '/static/assets/drops/snowman.png'],
+    ['DROP', 'Дроп', 'Открывается сразу: 4 нажатия, одна награда', '/static/assets/drops/snowman.png'],
     ['PROMO', 'Промокод', 'Уникальный код для покупателя', '/static/assets/community-reward.svg'],
 ];
 const PROMO_TILES = [['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg'], ['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png']];
@@ -176,7 +176,7 @@ async function admin(content) {
     const tile = (on, attr, img, title, hint) => '<button type="button" class="adm-tile' + (on ? ' is-on' : '') + '" ' + attr + '><img src="' + e(img) + '" alt=""><b>' + title + '</b>' + (hint ? '<small>' + hint + '</small>' : '') + '</button>';
     const previewItem = () => {
         const cellsOn = f.kind === 'BUNDLE' && !f.mode;
-        const mixList = cellsOn ? f.items.filter(x => x.type === 'PACK').map(x => ({pack: packs.find(p => p.id === x.id), count: x.count})).filter(c => c.pack) : f.kind === 'BUNDLE' ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => ({pack: packs.find(p => p.id === id), count: n})).filter(c => c.pack) : [];
+        const mixList = cellsOn ? f.items.filter(x => x.type === 'PACK').map(x => ({pack: packs.find(p => p.id === x.id), count: x.count})).filter(c => c.pack) : f.kind === 'BUNDLE' ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => { const o = optInfo(id); return {pack: o ? {id, title: o.title, image: o.image, type: id.includes(':') ? 'X' : undefined} : null, count: n}; }).filter(c => c.pack) : [];
         const cellGram = cellsOn ? (f.items.find(x => x.type === 'GRAM') || {}).amount : f.bgram, cellBalls = cellsOn ? (f.items.find(x => x.type === 'BALL') || {}).amount : f.bballs;
         const chestSel = eff() === 'CHEST' ? CHESTS.find(c => c.id === f.amount) : null;
         const it = {chest: chestSel || null, contents: mixList.length ? mixList : null, gram: f.kind === 'BUNDLE' && !f.mode && Number(cellGram) > 0 ? cellGram : null, balls: f.kind === 'BUNDLE' && !f.mode && Number(cellBalls) > 0 ? cellBalls : null, chests_in: cellsOn ? f.items.filter(x => x.type === 'CHEST').map(x => ({chest: CHESTS.find(c => c.id === x.id), count: x.count})).filter(c => c.chest) : null, kind: f.kind === 'BUNDLE' && f.mode ? 'PACK' : f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, star: eff() === 'STAR' ? STARS.find(x => x.key === f.amount) : null, bundle: mixList.length ? mixList.reduce((x, c) => x + c.count, 0) : (Number(f.bundle) || 1), per_user: Number(f.per) || null, mine: 0, old_price_balls: Number(f.old) > Number(f.price) ? Number(f.old) : null, discount_percent: Number(f.old) > Number(f.price) ? Math.round((1 - Number(f.price) / Number(f.old)) * 100) : null, title: f.title || autoTitle(), image_url: f.image || (chestSel ? chestSel.image : ''),
@@ -191,11 +191,12 @@ async function admin(content) {
     });
     const itemInfo = x => x.type === 'PACK' ? {img: packs.find(p => p.id === x.id)?.image || '', name: packs.find(p => p.id === x.id)?.title || 'Пак', n: '×' + x.count}
         : x.type === 'CHEST' ? {img: CHESTS.find(c => c.id === x.id)?.image || '', name: CHESTS.find(c => c.id === x.id)?.title || 'Ящик', n: '×' + x.count}
+        : x.type === 'DROP' ? {img: DROPS.find(c => c.id === x.id)?.image || '/static/assets/drops/snowman.png', name: DROPS.find(c => c.id === x.id)?.title || 'Дроп', n: '×' + x.count}
         : x.type === 'GRAM' ? {img: '/static/assets/gram.svg', name: 'GRAM', n: num(x.amount)} : {img: '/static/assets/new-year-ornament.svg', name: 'Шары', n: num(x.amount)};
     const bundleSpec = () => {
-        const packsM = {}, chestsM = {}; let gram = '', balls = '';
-        f.items.forEach(x => { if (x.type === 'PACK') packsM[x.id] = (packsM[x.id] || 0) + x.count; else if (x.type === 'CHEST') chestsM[x.id] = (chestsM[x.id] || 0) + x.count; else if (x.type === 'GRAM') gram = x.amount; else if (x.type === 'BALL') balls = x.amount; });
-        return {packs: Object.entries(packsM).map(([pack_id, count]) => ({pack_id, count})), chests: Object.entries(chestsM).map(([chest_id, count]) => ({chest_id, count})), gram, balls};
+        const packsM = {}, chestsM = {}, dropsM = {}; let gram = '', balls = '';
+        f.items.forEach(x => { if (x.type === 'PACK') packsM[x.id] = (packsM[x.id] || 0) + x.count; else if (x.type === 'CHEST') chestsM[x.id] = (chestsM[x.id] || 0) + x.count; else if (x.type === 'DROP') dropsM[x.id] = (dropsM[x.id] || 0) + x.count; else if (x.type === 'GRAM') gram = x.amount; else if (x.type === 'BALL') balls = x.amount; });
+        return {packs: Object.entries(packsM).map(([pack_id, count]) => ({pack_id, count})), chests: Object.entries(chestsM).map(([chest_id, count]) => ({chest_id, count})), drops: Object.entries(dropsM).map(([drop_id, count]) => ({drop_id, count})), gram, balls};
     };
     const cellsHTML = () => '<div class="bnd-cells">' + f.items.map((x, i) => { const v = itemInfo(x); return '<div class="bnd-cell"><button type="button" class="bnd-x" data-bnd-del="' + i + '" aria-label="Убрать">×</button><img src="' + e(v.img) + '" alt=""><b>' + e(v.n) + '</b><span>' + e(v.name) + '</span></div>'; }).join('') +
         '<button type="button" class="bnd-cell bnd-plus" data-bnd-add aria-label="Добавить в бандл"><i>+</i><span>Добавить</span></button></div>';
@@ -204,12 +205,12 @@ async function admin(content) {
         const wrap = document.createElement('div');
         wrap.className = 'bnd-modal';
         const close = () => wrap.remove();
-        const add = x => { if (x.type === 'PACK' || x.type === 'CHEST') { const hit = f.items.find(y => y.type === x.type && y.id === x.id); if (hit) hit.count += x.count; else f.items.push(x); } else { f.items = f.items.filter(y => y.type !== x.type); f.items.push(x); } close(); draw(); };
+        const add = x => { if (x.type === 'PACK' || x.type === 'CHEST' || x.type === 'DROP') { const hit = f.items.find(y => y.type === x.type && y.id === x.id); if (hit) hit.count += x.count; else f.items.push(x); } else { f.items = f.items.filter(y => y.type !== x.type); f.items.push(x); } close(); draw(); };
         const shell = (title, body) => { wrap.innerHTML = '<div class="bnd-box"><div class="bnd-top"><b>' + title + '</b><button type="button" data-x aria-label="Закрыть">×</button></div>' + body + '</div>'; wrap.querySelector('[data-x]').addEventListener('click', close); };
         const counter = (id, type) => '<div class="bnd-count"><label>Сколько штук</label><input type="number" min="1" max="50" value="1" data-bnd-n><button type="button" class="primary" data-bnd-ok>Добавить</button></div>';
         const pickOne = type => {
-            const list = type === 'PACK' ? packs.map(p => ({id: p.id, title: p.title, image: p.image})) : CHESTS;
-            shell(type === 'PACK' ? 'Какой пак?' : 'Какой ящик?', '<div class="bnd-grid">' + (list.length ? list.map(x => '<button type="button" class="bnd-opt" data-id="' + e(x.id) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') : '<p class="sub">Пока нечего выбрать.</p>') + '</div>');
+            const list = type === 'PACK' ? packs.map(p => ({id: p.id, title: p.title, image: p.image})) : type === 'DROP' ? DROPS : CHESTS;
+            shell(type === 'PACK' ? 'Какой пак?' : type === 'DROP' ? 'Какой дроп?' : 'Какой ящик?', '<div class="bnd-grid">' + (list.length ? list.map(x => '<button type="button" class="bnd-opt" data-id="' + e(x.id) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') : '<p class="sub">Пока нечего выбрать.</p>') + '</div>');
             wrap.querySelectorAll('.bnd-opt').forEach(b => b.addEventListener('click', () => {
                 const x = list.find(y => y.id === b.dataset.id);
                 shell(e(x.title), '<div class="bnd-one"><img src="' + e(x.image) + '" alt=""></div>' + counter());
@@ -220,8 +221,8 @@ async function admin(content) {
             shell(type === 'GRAM' ? 'Сколько GRAM?' : 'Сколько шаров?', '<div class="bnd-one"><img src="' + (type === 'GRAM' ? '/static/assets/gram.svg' : '/static/assets/new-year-ornament.svg') + '" alt=""></div><div class="bnd-count"><label>Сумма</label><input inputmode="decimal" data-bnd-a placeholder="' + (type === 'GRAM' ? '0.5' : '100') + '"><button type="button" class="primary" data-bnd-ok>Добавить</button></div>');
             wrap.querySelector('[data-bnd-ok]').addEventListener('click', () => { const v = wrap.querySelector('[data-bnd-a]').value.trim().replace(',', '.'); if (!(Number(v) > 0)) { toast('Введите сумму'); return; } add({type, amount: type === 'BALL' ? String(Math.floor(Number(v))) : v}); });
         };
-        shell('Что добавить в бандл?', '<div class="bnd-types">' + [['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png'], ['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg']].map(([t, n, img]) => '<button type="button" class="bnd-type" data-type="' + t + '"><img src="' + img + '" alt=""><span>' + n + '</span></button>').join('') + '</div>');
-        wrap.querySelectorAll('.bnd-type').forEach(b => b.addEventListener('click', () => (b.dataset.type === 'PACK' || b.dataset.type === 'CHEST') ? pickOne(b.dataset.type) : amount(b.dataset.type)));
+        shell('Что добавить в бандл?', '<div class="bnd-types">' + [['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png'], ['DROP', 'Дроп', '/static/assets/drops/snowman.png'], ['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg']].map(([t, n, img]) => '<button type="button" class="bnd-type" data-type="' + t + '"><img src="' + img + '" alt=""><span>' + n + '</span></button>').join('') + '</div>');
+        wrap.querySelectorAll('.bnd-type').forEach(b => b.addEventListener('click', () => (b.dataset.type === 'PACK' || b.dataset.type === 'CHEST' || b.dataset.type === 'DROP') ? pickOne(b.dataset.type) : amount(b.dataset.type)));
         wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
         document.body.appendChild(wrap);
     };
@@ -283,19 +284,87 @@ async function admin(content) {
         document.body.appendChild(wrap); paint();
     };
     // random pack / choice: the same cells with a «+» as in a bundle (packs of the offer, the number of each is changed right on the cell)
-    const mixCellsHTML = () => '<div class="bnd-cells">' + Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => { const pk = packs.find(x => x.id === id); if (!pk) return '';
+    const optInfo = key => key.startsWith('chest:') ? (CHESTS.find(c => 'chest:' + c.id === key) ? {image: CHESTS.find(c => 'chest:' + c.id === key).image, title: CHESTS.find(c => 'chest:' + c.id === key).title} : null)
+        : key.startsWith('drop:') ? (DROPS.find(c => 'drop:' + c.id === key) ? {image: DROPS.find(c => 'drop:' + c.id === key).image, title: DROPS.find(c => 'drop:' + c.id === key).title} : null)
+        : (packs.find(x => x.id === key) ? {image: packs.find(x => x.id === key).image, title: packs.find(x => x.id === key).title} : null);
+    const mixCellsHTML = () => '<div class="bnd-cells">' + Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => { const pk = optInfo(id); if (!pk) return '';
         return '<div class="bnd-cell"><button type="button" class="bnd-x" data-mix-del="' + e(id) + '" aria-label="Убрать">×</button><img src="' + e(pk.image) + '" alt=""><b>×' + n + '</b><span>' + e(pk.title) + '</span>' +
             '<span class="bnd-step"><button type="button" data-mix-dec="' + e(id) + '" aria-label="Меньше">−</button><button type="button" data-mix-inc="' + e(id) + '" aria-label="Больше">+</button></span>' + (f.mode === 'choice' ? '<input class="bnd-price" inputmode="numeric" data-mix-price="' + e(id) + '" value="' + e(MIXPRICE[id] || '') + '" placeholder="цена" aria-label="Цена этого варианта">' : '') + '</div>'; }).join('') +
-        '<button type="button" class="bnd-cell bnd-plus" data-mix-add aria-label="Добавить пак"><i>+</i><span>Добавить пак</span></button></div>';
+        '<button type="button" class="bnd-cell bnd-plus" data-mix-add aria-label="Добавить"><i>+</i><span>Добавить</span></button></div>';
     const openMixAdder = () => {
         const wrap = document.createElement('div');
         wrap.className = 'bnd-modal';
         const close = () => wrap.remove();
-        wrap.innerHTML = '<div class="bnd-box"><div class="bnd-top"><b>Какой пак добавить?</b><button type="button" data-x aria-label="Закрыть">×</button></div><div class="bnd-grid">' + packs.map(p => '<button type="button" class="bnd-opt' + ((f.mix[p.id] || 0) > 0 ? ' is-on' : '') + '" data-id="' + e(p.id) + '"><img src="' + e(p.image) + '" alt=""><span>' + e(p.title) + '</span></button>').join('') + '</div></div>';
+        const group = (title, list) => list.length ? '<h5 class="bnd-h">' + title + '</h5><div class="bnd-grid">' + list.map(x => '<button type="button" class="bnd-opt' + ((f.mix[x.key] || 0) > 0 ? ' is-on' : '') + '" data-id="' + e(x.key) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') + '</div>' : '';
+        wrap.innerHTML = '<div class="bnd-box"><div class="bnd-top"><b>Что добавить в акцию?</b><button type="button" data-x aria-label="Закрыть">×</button></div>' +
+            group('Паки', packs.map(p => ({key: p.id, title: p.title, image: p.image}))) + group('Ящики', CHESTS.map(c => ({key: 'chest:' + c.id, title: c.title, image: c.image}))) + group('Дропы', DROPS.map(c => ({key: 'drop:' + c.id, title: c.title, image: c.image}))) + '</div>';
         wrap.querySelector('[data-x]').addEventListener('click', close);
         wrap.querySelectorAll('.bnd-opt').forEach(b => b.addEventListener('click', () => { f.mix[b.dataset.id] = (f.mix[b.dataset.id] || 0) + 1; close(); draw(); }));
         wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
         document.body.appendChild(wrap);
+    };
+    // ---- import of offers from a table: a file (xlsx / csv) or pasted rows -> a sheet -> ticked rows -> offers
+    const impState = {sheets: [], sheet: 0, picked: new Set(), text: '', busy: false};
+    const openImport = () => {
+        const wrap = document.createElement('div');
+        wrap.className = 'bnd-modal';
+        const close = () => wrap.remove();
+        const cur = () => impState.sheets[impState.sheet];
+        const rowsOk = sh => (sh ? sh.rows : []);
+        const paint = () => {
+            const sh = cur();
+            let body;
+            if (!impState.sheets.length) {
+                body = '<div class="adm-step"><h4>1. Файл или строки</h4><p class="sub">Файл .xlsx или .csv: например «chests-shop-plan.xlsx». Листы показываются отдельно, вы выбираете нужный. Или вставьте строки из таблицы (с заголовками) в поле ниже.</p>' +
+                    '<label class="imp-file"><input type="file" accept=".xlsx,.csv,.tsv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-imp-file><b>Выбрать файл</b><span>.xlsx · .csv</span></label>' +
+                    '<label class="imp-paste">Или вставьте строки<textarea data-imp-text rows="6" placeholder="Название акции\tЯщик или дроп\tШтук\tЦена, шаров\t…">' + e(impState.text) + '</textarea></label>' +
+                    '<div class="bnd-count"><button type="button" class="primary" data-imp-read' + (impState.busy ? ' disabled' : '') + '>' + (impState.busy ? 'Читаю…' : 'Прочитать') + '</button></div></div>';
+            } else {
+                const tabs = impState.sheets.map((x, i) => '<button type="button" class="sb-tab' + (i === impState.sheet ? ' is-on' : '') + (x.supported ? '' : ' is-off') + '" data-imp-sheet="' + i + '">' + e(x.name) + '<i>' + (x.supported ? x.rows.length : '—') + '</i></button>').join('');
+                const rows = rowsOk(sh);
+                const picked = rows.filter(r => impState.picked.has(r.row)).length;
+                body = '<div class="adm-step"><h4>2. Выберите лист</h4><div class="sb-tabs">' + tabs + '</div></div>' +
+                    (sh && !sh.supported ? '<p class="sub imp-note">' + e(sh.note) + '. Выберите другой лист, например «Акции к созданию».</p>' : '') +
+                    (sh && sh.supported ? '<div class="adm-step"><h4>3. Отметьте акции</h4><div class="imp-bar"><label class="adm-check"><input type="checkbox" data-imp-all' + (picked && picked === rows.filter(r => r.ok).length ? ' checked' : '') + '> Отметить все подходящие</label><span>Выбрано: <b>' + picked + '</b> из ' + rows.length + '</span></div>' +
+                        '<div class="imp-list">' + rows.map(r => '<label class="imp-row' + (r.ok ? '' : ' is-bad') + (impState.picked.has(r.row) ? ' is-on' : '') + '"><input type="checkbox" data-imp-row="' + r.row + '"' + (impState.picked.has(r.row) ? ' checked' : '') + (r.ok ? '' : ' disabled') + '>' +
+                            '<span class="imp-main"><b>' + e(r.title) + '</b><small>' + e(r.target) + ' · ' + r.count + ' шт. · ' + (r.price ? num(r.price) + ' шаров' + (r.old ? ' (было ' + num(r.old) + ')' : '') : 'бесплатно') + (r.section ? ' · раздел «' + e(r.section) + '»' : '') + (r.term ? ' · ' + e(r.term) : '') + '</small>' +
+                            (r.problems.length ? '<em class="imp-err">' + r.problems.map(e).join('; ') + '</em>' : '') + (r.warnings.length ? '<em class="imp-warn">' + r.warnings.map(e).join('; ') + '</em>' : '') + '</span></label>').join('') + '</div></div>' : '') +
+                    '<div class="bnd-count imp-foot"><button type="button" data-imp-back>Другой файл</button><button type="button" class="primary" data-imp-go' + (picked && !impState.busy ? '' : ' disabled') + '>' + (impState.busy ? 'Создаю…' : 'Создать выбранные (' + picked + ')') + '</button></div>';
+            }
+            wrap.innerHTML = '<div class="bnd-box au-box imp-box"><div class="bnd-top"><b>Импорт акций из таблицы</b><button type="button" data-x aria-label="Закрыть">×</button></div>' + body + '</div>';
+            wrap.querySelector('[data-x]').addEventListener('click', close);
+            wrap.querySelector('[data-imp-text]')?.addEventListener('input', ev => { impState.text = ev.target.value; });
+            const read = async file => {
+                impState.busy = true; paint();
+                try {
+                    let res;
+                    if (file) { const fd = new FormData(); fd.append('file', file); res = await api('admin/new-year/shop-import/parse', fd); } else res = await api('admin/new-year/shop-import/parse', {text: impState.text});
+                    impState.sheets = res.sheets || []; impState.sheet = Math.max(0, impState.sheets.findIndex(x => x.supported));
+                    impState.picked = new Set(rowsOk(cur()).filter(r => r.ok && !r.duplicate).map(r => r.row));
+                } catch (err) { toast(err.message); }
+                impState.busy = false; paint();
+            };
+            wrap.querySelector('[data-imp-file]')?.addEventListener('change', ev => { if (ev.target.files[0]) read(ev.target.files[0]); });
+            wrap.querySelector('[data-imp-read]')?.addEventListener('click', () => read(null));
+            wrap.querySelectorAll('[data-imp-sheet]').forEach(b => b.addEventListener('click', () => { impState.sheet = Number(b.dataset.impSheet); impState.picked = new Set(rowsOk(cur()).filter(r => r.ok && !r.duplicate).map(r => r.row)); paint(); }));
+            wrap.querySelector('[data-imp-all]')?.addEventListener('change', ev => { const ok = rowsOk(cur()).filter(r => r.ok); impState.picked = ev.target.checked ? new Set(ok.map(r => r.row)) : new Set(); paint(); });
+            wrap.querySelectorAll('[data-imp-row]').forEach(i => i.addEventListener('change', () => { const n = Number(i.dataset.impRow); if (i.checked) impState.picked.add(n); else impState.picked.delete(n); paint(); }));
+            wrap.querySelector('[data-imp-back]')?.addEventListener('click', () => { impState.sheets = []; impState.picked = new Set(); paint(); });
+            wrap.querySelector('[data-imp-go]')?.addEventListener('click', async () => {
+                const list = rowsOk(cur()).filter(r => impState.picked.has(r.row));
+                impState.busy = true; paint();
+                let made = 0;
+                try {
+                    for (const r of list) { await api('admin/new-year/shop', r.payload); made++; }
+                    toast('Создано акций: ' + made);
+                } catch (err) { toast((made ? 'Создано ' + made + ', потом ошибка: ' : '') + err.message); }
+                try { const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.sections = fresh.sections || r.sections; } catch (_) {}
+                impState.busy = false; impState.sheets = []; impState.picked = new Set();
+                close(); draw();
+            });
+        };
+        wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
+        document.body.appendChild(wrap); paint();
     };
     const autoTitle = () => {
         if (f.kind === 'BUNDLE' && !f.mode) return 'Бандл: ' + (f.items.map(x => { const v = itemInfo(x); return x.type === 'GRAM' ? num(x.amount) + ' GRAM' : x.type === 'BALL' ? num(x.amount) + ' шаров' : v.name + (x.count > 1 ? ' ×' + x.count : ''); }).join(' + ') || '…');
@@ -343,7 +412,7 @@ async function admin(content) {
             '<div class="sb-actions"><button type="button" data-sb-act="edit">Изменить всё</button><button type="button" data-sb-act="copy">Копировать</button><button type="button" data-sb-act="earlier">← Раньше</button><button type="button" data-sb-act="later">Позже →</button>' +
             '<button type="button" data-sb-act="status">' + (it.status === 'active' ? 'Скрыть' : 'Показать') + '</button><button type="button" class="danger" data-sb-act="delete">Удалить</button></div><p class="sub sb-hint">' + note + '</p></div>';
     };
-    const boardSection = () => '<div class="sb-wrap"><h3>Витрина магазина <button type="button" class="primary sb-auto" data-auto-open>Автосоздание акций</button></h3><p class="sub">Выберите раздел: видны только его лоты, как у игроков. Меняйте порядок перетаскиванием, как пазл. «Авто» — лоты без своего раздела: они попадают в разделы по правилам.</p>' + tabsHTML() +
+    const boardSection = () => '<div class="sb-wrap"><h3>Витрина магазина <span class="sb-tools"><button type="button" class="sb-imp" data-import-open>Импорт таблицы</button><button type="button" class="primary sb-auto" data-auto-open>Автосоздание акций</button></span></h3><p class="sub">Выберите раздел: видны только его лоты, как у игроков. Меняйте порядок перетаскиванием, как пазл. «Авто» — лоты без своего раздела: они попадают в разделы по правилам.</p>' + tabsHTML() +
         '<div class="sb-board ny-grid" id="sb-board">' + (visible().length ? boardHTML() : '<p class="sub">Товаров пока нет: добавьте первый ниже.</p>') + '</div><div id="sb-drawer">' + drawerHTML() + '</div></div>';
     const redrawBoard = () => {
         const board = sec.querySelector('#sb-board'), drawer = sec.querySelector('#sb-drawer');
@@ -508,11 +577,11 @@ async function admin(content) {
         const step2 = f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + PROMO_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length)).map(k => tile(f.promo === k[0], 'data-promo="' + k[0] + '"', k[2], k[1])).join('') + '</div></div>' : '';
         const mixTotal = Object.values(f.mix).reduce((x, n) => x + n, 0);
         const what = f.kind === 'BUNDLE'
-            ? '<div class="adm-step"><h4>Состав: бандл, акция с выбором или случайный пак</h4><div class="adm-chips" style="margin-bottom:10px">' + [['', 'Всё сразу (бандл)'], ['choice', 'Игрок выбирает один пак'], ['random', 'Случайный пак']].map(m => '<button type="button" data-mode="' + m[0] + '"' + (f.mode === m[0] ? ' class="is-on"' : '') + '>' + m[1] + '</button>').join('') + '</div><p class="sub">' + (f.mode === 'choice' ? 'Игрок смотрит варианты и покупает любой один: добавьте через «+» от 2 разных паков (число на карточке — сколько штук такого пака он получит). Цена: одна для всех вариантов (поле «Цена» ниже) или своя у каждого — впишите её под вариантом; пусто значит общая цена.' : f.mode === 'random' ? 'Игрок покупает чёрный пак со знаком вопроса и получает случайный из добавленных (от 2 разных).' : 'Игрок получит всё сразу за одну покупку.') + (f.mode ? ' Паков сейчас: <b>' + mixTotal + '</b>.' : '') + '</p>' + (f.mode ? mixCellsHTML() + (f.mode ? '' : '<div class="adm-row3" style="margin-top:12px"><div class="adm-field"><label>GRAM на баланс</label><input data-f="bgram" inputmode="decimal" value="' + e(f.bgram) + '" placeholder="Без GRAM"></div><div class="adm-field"><label>Новогодние шары</label><input data-f="bballs" inputmode="numeric" value="' + e(f.bballs) + '" placeholder="Без шаров"></div></div>') : cellsHTML() + '<p class="sub">Нажмите «+», чтобы добавить в бандл пак, ящик, GRAM или шары. Игрок получит всё сразу за одну покупку.</p>') + '</div>'
+            ? '<div class="adm-step"><h4>Состав: бандл, акция с выбором или случайный пак</h4><div class="adm-chips" style="margin-bottom:10px">' + [['', 'Всё сразу (бандл)'], ['choice', 'Игрок выбирает один вариант'], ['random', 'Случайная награда']].map(m => '<button type="button" data-mode="' + m[0] + '"' + (f.mode === m[0] ? ' class="is-on"' : '') + '>' + m[1] + '</button>').join('') + '</div><p class="sub">' + (f.mode === 'choice' ? 'Игрок смотрит варианты и покупает любой один: добавьте через «+» от 2 разных вариантов: паков, ящиков или дропов (число на карточке — сколько штук такого пака он получит). Цена: одна для всех вариантов (поле «Цена» ниже) или своя у каждого — впишите её под вариантом; пусто значит общая цена.' : f.mode === 'random' ? 'Игрок покупает чёрный пак со знаком вопроса и получает случайный из добавленных (от 2 разных).' : 'Игрок получит всё сразу за одну покупку.') + (f.mode ? ' Вариантов сейчас: <b>' + mixTotal + '</b>.' : '') + '</p>' + (f.mode ? mixCellsHTML() + (f.mode ? '' : '<div class="adm-row3" style="margin-top:12px"><div class="adm-field"><label>GRAM на баланс</label><input data-f="bgram" inputmode="decimal" value="' + e(f.bgram) + '" placeholder="Без GRAM"></div><div class="adm-field"><label>Новогодние шары</label><input data-f="bballs" inputmode="numeric" value="' + e(f.bballs) + '" placeholder="Без шаров"></div></div>') : cellsHTML() + '<p class="sub">Нажмите «+», чтобы добавить в бандл пак, ящик, GRAM или шары. Игрок получит всё сразу за одну покупку.</p>') + '</div>'
             : eff() === 'PACK'
             ? '<div class="adm-step"><h4>Какой пак</h4>' + window.crafterPacks.packTiles(packs, f.pack) + '</div>'
             : eff() === 'DROP'
-            ? '<div class="adm-step"><h4>Какой дроп</h4><div class="adm-field"><select data-f="amount">' + DROPS.map(c => '<option value="' + e(c.id) + '"' + (f.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select><small class="sub">Дроп попадает в инвентарь игрока: он открывает его сам (4 попытки поднять редкость, одна награда). </small></div><div class="adm-row3" style="margin-top:12px"><div class="adm-field"><label>Выдать вручную: номер игрока</label><input data-gr-user inputmode="numeric" placeholder="Telegram ID"></div><div class="adm-field"><label>Штук</label><input data-gr-qty inputmode="numeric" value="1"></div><div class="adm-field"><label>&nbsp;</label><button type="button" class="primary" data-gr-go>Выдать</button></div></div></div>'
+            ? '<div class="adm-step"><h4>Какой дроп</h4><div class="adm-field"><select data-f="amount">' + DROPS.map(c => '<option value="' + e(c.id) + '"' + (f.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select><small class="sub">Дроп открывается сразу после покупки, как ящик (4 нажатия поднимают редкость, в конце одна награда).</small></div></div>'
             : eff() === 'CHEST'
             ? '<div class="adm-step"><h4>Какой ящик</h4><div class="adm-field"><select data-f="amount">' + CHESTS.map(c => '<option value="' + e(c.id) + '"' + (f.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select><small class="sub">Ящики создаются во вкладке «Ящики». Ящик открывается сразу, в инвентаре его нет.</small></div></div>'
             : eff() === 'STAR'
@@ -570,6 +639,7 @@ async function admin(content) {
         sec.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'CHEST' ? (CHESTS[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelector('[data-bnd-add]')?.addEventListener('click', () => { pull(); openAdder(); });
         sec.querySelector('[data-gr-go]')?.addEventListener('click', async () => { pull(); try { const res = await api('admin/drops/grant', {user_id: sec.querySelector('[data-gr-user]').value.trim(), drop_id: f.amount, qty: sec.querySelector('[data-gr-qty]').value.trim() || 1}); toast('Выдано. У игрока теперь: ' + res.qty); } catch (err) { toast(err.message); } });
+        sec.querySelector('[data-import-open]')?.addEventListener('click', () => { pull(); openImport(); });
         sec.querySelector('[data-auto-open]')?.addEventListener('click', () => { pull(); openAuto(); });
         sec.querySelectorAll('[data-bnd-del]').forEach(b => b.addEventListener('click', () => { pull(); f.items.splice(+b.dataset.bndDel, 1); draw(); }));
         sec.querySelectorAll('[data-mix-inc]').forEach(b => b.addEventListener('click', () => { pull(); const t = Object.values(f.mix).reduce((x, n) => x + n, 0); if (t < 500) f.mix[b.dataset.mixInc] = (f.mix[b.dataset.mixInc] || 0) + 1; draw(); }));
@@ -596,7 +666,7 @@ async function admin(content) {
         }));
         sec.querySelector('#si-add').addEventListener('click', () => {
             pull();
-            run(() => api(editing ? 'admin/new-year/shop/' + editing + '/edit' : 'admin/new-year/shop', {contents: f.kind === 'BUNDLE' && f.mode ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([pack_id, count]) => (f.mode === 'choice' && MIXPRICE[pack_id] ? {pack_id, count, price: MIXPRICE[pack_id]} : {pack_id, count})) : f.kind === 'BUNDLE' ? bundleSpec() : undefined, kind: f.kind === 'BUNDLE' && f.mode ? 'PACK' : f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' || eff() === 'CHEST' || eff() === 'DROP' ? f.bundle : 1, image_url: f.image, title: f.title, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg, mode: f.kind === 'BUNDLE' ? f.mode : '', starts_at_msk: f.startsMsk, ends_at_msk: f.endsH ? '' : f.endsMsk, ends_in_hours: f.endsH || ''}), editing ? 'Изменения сохранены' : 'Товар добавлен');
+            run(() => api(editing ? 'admin/new-year/shop/' + editing + '/edit' : 'admin/new-year/shop', {contents: f.kind === 'BUNDLE' && f.mode ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([key, count]) => { const o = key.startsWith('chest:') ? {chest_id: key.slice(6), count} : key.startsWith('drop:') ? {drop_id: key.slice(5), count} : {pack_id: key, count}; if (f.mode === 'choice' && MIXPRICE[key]) o.price = MIXPRICE[key]; return o; }) : f.kind === 'BUNDLE' ? bundleSpec() : undefined, kind: f.kind === 'BUNDLE' && f.mode ? 'PACK' : f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' || eff() === 'CHEST' || eff() === 'DROP' ? f.bundle : 1, image_url: f.image, title: f.title, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg, mode: f.kind === 'BUNDLE' ? f.mode : '', starts_at_msk: f.startsMsk, ends_at_msk: f.endsH ? '' : f.endsMsk, ends_in_hours: f.endsH || ''}), editing ? 'Изменения сохранены' : 'Товар добавлен');
         });
         sec.querySelectorAll('[data-si-up],[data-si-down]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + (b.dataset.siUp || b.dataset.siDown) + '/move', {direction: b.dataset.siUp ? 'up' : 'down'}), 'Порядок изменён')));
         sec.querySelector('#si-order')?.addEventListener('click', () => run(() => api('admin/new-year/shop-order', {mode: 'price'}), 'Порядок: по возрастанию цены'));
@@ -609,7 +679,7 @@ async function admin(content) {
             if (it.mode) { f.kind = 'BUNDLE'; f.mix = {}; }
             if (it.kind === 'BUNDLE' || it.mode) (it.contents || []).forEach(c => { f.mix[c.pack.id] = c.count; if (c.price !== null && c.price !== undefined) MIXPRICE[c.pack.id] = String(c.price); else delete MIXPRICE[c.pack.id]; });
             if (it.kind === 'BUNDLE' && !it.mode) {                                          // the cells of the bundle
-                f.items = (it.contents || []).map(c => ({type: 'PACK', id: c.pack.id, count: c.count})).concat((it.chests_in || []).map(c => ({type: 'CHEST', id: c.chest.id, count: c.count})));
+                f.items = (it.contents || []).map(c => ({type: 'PACK', id: c.pack.id, count: c.count})).concat((it.chests_in || []).map(c => ({type: 'CHEST', id: c.chest.id, count: c.count})), (it.drops_in || []).map(c => ({type: 'DROP', id: c.drop.id, count: c.count})));
                 if (it.gram) f.items.push({type: 'GRAM', amount: String(it.gram)});
                 if (it.balls) f.items.push({type: 'BALL', amount: String(it.balls)});
             }

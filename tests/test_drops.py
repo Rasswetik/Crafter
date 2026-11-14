@@ -62,3 +62,46 @@ def test_choice_offer_with_its_own_price_per_option(client):
     assert dear.status_code == 409                                                  # the common price is 500, the player has nothing
     cheap = client.post('/api/shop-items/buy', headers=player, json={'item_id': lot['id'], 'request_id': 'choice-req-0002', 'choice': 'snowman'})
     assert cheap.status_code == 200, cheap.get_data(as_text=True)                  # this option costs 0
+
+
+def test_drop_lot_opens_at_once_not_into_inventory(client):
+    admin, player = signed(42), signed(53)
+    client.get('/api/me', headers=player)
+    lot = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'DROP', 'amount': 'snowman_drop', 'bundle': 2, 'price_balls': 0, 'size': 'small'})
+    assert lot.status_code == 200
+    item = next(x for x in client.get('/api/shop-items', headers=player).json['items'] if x['kind'] == 'DROP')
+    bought = client.post('/api/shop-items/buy', headers=player, json={'item_id': item['id'], 'request_id': 'drop-now-0001'})
+    assert bought.status_code == 200 and bought.json['drop_granted']['qty'] == 2
+    first = client.post('/api/drops/snowman_drop/open', headers=player).json                 # no stock is needed: the bought sessions wait
+    assert first['qty'] == 1 and first['attempts_left'] == 4
+    for i in range(4):
+        last = client.post('/api/drops/sessions/%s/tap' % first['session_id'], headers=player, json={'request_id': 'tap-now-000%d' % i, 'revision': i}).json
+    assert last['state'] == 'revealed'
+    second = client.post('/api/drops/snowman_drop/open', headers=player).json                # the second one of the purchase
+    assert second['session_id'] != first['session_id'] and second['qty'] == 0
+
+
+def test_choice_and_random_offers_with_chests_and_drops_and_bundle_with_drop(client):
+    admin, player = signed(42), signed(53)
+    client.get('/api/me', headers=player)
+    made = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'PACK', 'mode': 'choice', 'price_balls': 0, 'size': 'small', 'contents': [
+        {'pack_id': 'newyear', 'count': 1}, {'chest_id': 'santa', 'count': 2}, {'drop_id': 'snowman_drop', 'count': 1}]})
+    assert made.status_code == 200, made.get_data(as_text=True)
+    lot = next(x for x in client.get('/api/shop-items', headers=player).json['items'] if x['mode'] == 'choice')
+    assert [c['pack']['id'] for c in lot['contents']] == ['newyear', 'chest:santa', 'drop:snowman_drop'] and lot['title'] == 'Награда на выбор'
+    chest = client.post('/api/shop-items/buy', headers=player, json={'item_id': lot['id'], 'request_id': 'choice-chest-01', 'choice': 'chest:santa'})
+    assert chest.status_code == 200, chest.get_data(as_text=True)
+    assert len(chest.json['chest_opens']) == 2
+    drop = client.post('/api/shop-items/buy', headers=player, json={'item_id': lot['id'], 'request_id': 'choice-drop-001', 'choice': 'drop:snowman_drop'})
+    assert drop.status_code == 200 and drop.json['drop_granted']['qty'] == 1
+    rnd = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'PACK', 'mode': 'random', 'price_balls': 0, 'size': 'small', 'contents': [{'chest_id': 'santa', 'count': 1}, {'drop_id': 'snowman_drop', 'count': 1}]})
+    assert rnd.status_code == 200, rnd.get_data(as_text=True)
+    lot2 = next(x for x in client.get('/api/shop-items', headers=player).json['items'] if x['mode'] == 'random')
+    got = client.post('/api/shop-items/buy', headers=player, json={'item_id': lot2['id'], 'request_id': 'random-mix-001'})
+    assert got.status_code == 200 and (got.json.get('chest_opens') or got.json.get('drop_granted'))
+    bundle = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BUNDLE', 'price_balls': 0, 'size': 'small', 'contents': {'drops': [{'drop_id': 'snowman_drop', 'count': 2}], 'chests': [{'chest_id': 'honey', 'count': 1}]}})
+    assert bundle.status_code == 200, bundle.get_data(as_text=True)
+    lot3 = next(x for x in client.get('/api/shop-items', headers=player).json['items'] if x['kind'] == 'BUNDLE')
+    assert lot3['drops_in'][0]['count'] == 2 and 'Snowman Drop ×2' in lot3['title']
+    done = client.post('/api/shop-items/buy', headers=player, json={'item_id': lot3['id'], 'request_id': 'bundle-drop-001'})
+    assert done.status_code == 200 and done.json['drop_granted']['qty'] == 2 and done.json['chest_opens']

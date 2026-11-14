@@ -117,6 +117,7 @@ function descOf(it) {
     return it.description || (d ? d(it) : '');
 }
 const optionPrices = it => (it.mode === 'choice' && it.contents ? it.contents.map(c => (c.price !== null && c.price !== undefined ? c.price : it.price_balls)) : []);
+let lastDrop = null;                                        // the drops that the last purchase gave: they open after everything else
 const priceOf = it => { const ps = optionPrices(it); const lo = ps.length ? Math.min(...ps) : it.price_balls; const from = ps.length && Math.max(...ps) !== lo ? '<small class="fm-from">от</small>' : ''; return lo ? from + ORN + '<b>' + num(lo) + '</b>' : '<b>Бесплатно</b>'; };
 const headingOf = it => it.heading || (it.mode === 'choice' ? 'Акция с выбором' : it.mode === 'random' ? 'Случайный пак' : NAMES[rarityOf(it)]);
 
@@ -147,9 +148,10 @@ function card(o, opts = {}) {
 /* ---------- what an offer includes ---------- */
 function includes(o) {
     const it = o.it, out = [];
-    (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.id}));
+    (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.type ? undefined : c.pack.id}));
     if (it.drop) out.push({img: thumb(it.drop.image, 200), label: it.drop.title, count: '×' + (it.bundle || 1)});
     (it.chests_in || []).forEach(c => out.push({img: thumb(c.chest.image, 200), label: c.chest.title, count: '×' + c.count}));
+    (it.drops_in || []).forEach(c => out.push({img: thumb(c.drop.image, 200), label: c.drop.title, count: '×' + c.count}));
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
     if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: 'Новогодние шары', count: num(it.balls)});
     if (!out.length) {
@@ -411,12 +413,14 @@ function stage(o, ctx, opts2 = {}) {
         try {
             const res = await perform(o, ctx, choice ? choice[pick].pack.id : undefined);
             hide();
+            const dg = lastDrop; lastDrop = null;
+            const after = () => { if (dg) window.crafterDrops.afterPurchase(dg, {refresh: ctx.refresh, onDone: () => close()}); else close(); };    // the drops of the purchase open last, one after another
             if (res.chests) {
                 await window.crafterChests.playMany(res.chests, {bg: it.card_bg || res.chests[0].chest.bg, refresh: ctx.refresh, toast});
-                if (res.rest) reveal(o, res.rest, ctx, () => close()); else close();
+                if (res.rest) reveal(o, res.rest, ctx, after); else after();
             } else if (res.drop) window.crafterDrops.afterPurchase(res.drop, {refresh: ctx.refresh, onDone: () => close()});
-            else if (res.chest) window.crafterChests.play(res.chest, {bg: it.card_bg || res.chest.chest.bg, refresh: ctx.refresh, toast, onDone: () => close()});
-            else reveal(o, res, ctx, () => close());
+            else if (res.chest) window.crafterChests.play(res.chest, {bg: it.card_bg || res.chest.chest.bg, refresh: ctx.refresh, toast, onDone: after});
+            else reveal(o, res, ctx, after);
         } catch (error) { hide(); err.textContent = error.message; }
         yes.disabled = false;
     });
@@ -435,6 +439,7 @@ async function perform(o, ctx, choice) {
         return {packIds: [res.user_pack_id], count: 1};
     }
     const res = await api('shop-items/buy', {item_id: it.id, request_id: rid, choice});
+    lastDrop = res.drop_granted || null;
     if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
     if (res.gram_balance !== undefined && state?.me) { state.me.balance = res.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
     if (res.chest_opens && res.chest_opens.length) {                  // several chests: they open one after another, then the rest of the purchase is shown

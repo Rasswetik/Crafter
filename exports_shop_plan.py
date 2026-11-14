@@ -61,6 +61,24 @@ def pack_ev(pid):
 
 
 PACK_EV = {pid: pack_ev(pid) for pid in packs}
+
+from drops import DROPS, final_chances  # noqa: E402
+cfg = DROPS['snowman_drop']
+dist, rew = final_chances(cfg)
+
+
+def spec_value(spec):
+    k, a_ = spec
+    if k == 'GRAM':
+        return float(a_)
+    if k == 'BALL':
+        return float(a_) / RATE
+    if k == 'PACK':
+        return PACK_EV.get(a_, 0)
+    return nft_price(a_)
+
+
+drop_ev = sum(p * spec_value(cfg['rewards'][k][i]) for (k, i), p in rew.items())
 rows = []
 for ch in chests:
     cid = ch['chest']['id']
@@ -147,7 +165,7 @@ for row in vs.iter_rows(min_row=2, min_col=9, max_col=10):
         cell.font = Font(bold=True)
 
 ls = wb.create_sheet('Акции к созданию')
-ls.append(['№', 'Название акции', 'Ящик', 'Ящиков', 'Цена, шаров', 'Зачёркнутая цена', 'Скидка %', 'Размер плитки', 'Редкость', 'Плашка', 'Раздел', 'Фон акции (файл ящика)', 'Срок', 'Лимит на игрока', 'Всего штук'])
+ls.append(['№', 'Название акции', 'Ящик или дроп', 'Штук', 'Цена, шаров', 'Зачёркнутая цена', 'Скидка %', 'Размер плитки', 'Редкость', 'Плашка', 'Раздел', 'Фон акции (файл ящика)', 'Срок', 'Лимит на игрока', 'Всего штук'])
 i = 0
 for r in rows:
     for n in COUNTS:
@@ -158,6 +176,14 @@ for r in rows:
         ls.append([i, '%s ×%d' % (r['title'], n), r['title'], n, price, full if d else '', round(d), 'Большая' if n == 10 else 'Широкая' if n in (3, 5) else 'Обычная',
                    'Эпическая' if n == 10 else 'Редкая' if n > 1 else 'Авто', 'ХИТ' if n == 10 else 'НОВИНКА' if n == 1 else '', 'Ящики', r['bg'],
                    'без срока' if n < 10 else '168 часов', '' if n < 10 else 3, ''])
+drop_base = r10(drop_ev * RATE)
+for n in COUNTS:
+    d = DISC * (n - 1) / (COUNTS[-1] - 1)
+    full = round(drop_base * (1 + MARKUP / 100) * n)
+    price = round(full * (1 - d / 100))
+    i += 1
+    ls.append([i, 'Snowman Drop ×%d' % n, 'Snowman Drop', n, price, full if d else '', round(d), 'Большая' if n == 10 else 'Широкая' if n in (3, 5) else 'Обычная',
+               'Эпическая' if n == 10 else 'Редкая' if n > 1 else 'Авто', 'ХИТ' if n == 10 else 'НОВИНКА' if n == 1 else '', 'Ящики', '', 'без срока' if n < 10 else '168 часов', '' if n < 10 else 3, ''])
 style(ls, [5, 26, 20, 9, 13, 16, 10, 15, 13, 11, 12, 34, 24, 14, 12])
 
 bs = wb.create_sheet('Наборы')
@@ -233,23 +259,6 @@ for ch in chests:
     style(sh, [12, 44, 18, 22, 16])
 
 
-from drops import DROPS, final_chances  # noqa: E402
-cfg = DROPS['snowman_drop']
-dist, rew = final_chances(cfg)
-
-
-def spec_value(spec):
-    k, a_ = spec
-    if k == 'GRAM':
-        return float(a_)
-    if k == 'BALL':
-        return float(a_) / RATE
-    if k == 'PACK':
-        return PACK_EV.get(a_, 0)
-    return nft_price(a_)
-
-
-drop_ev = sum(p * spec_value(cfg['rewards'][k][i]) for (k, i), p in rew.items())
 ds = wb.create_sheet('Дроп Snowman', 1)
 ds.append(['Что', 'Значение'])
 ds.append(['Ценность одного дропа, GRAM', round(drop_ev, 3)])

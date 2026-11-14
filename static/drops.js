@@ -111,7 +111,7 @@ async function open(dropId, opts) {
         const label = rw.kind === 'GRAM' ? num(rw.amount) + ' GRAM' : rw.kind === 'BALL' ? num(rw.amount) + ' шаров' : rw.title;
         r.innerHTML = '<div class="dr-rw-art"><i class="dr-rw-rays"></i><i class="dr-rw-aura"></i><img src="' + e(thumb(rw.image, 480)) + '" alt=""></div><h2>' + e(label) + '</h2>' +
             (rw.kind === 'NFT' ? '<small class="dr-rw-note">NFT · уже в вашем инвентаре</small>' : rw.kind === 'PACK' ? '<small class="dr-rw-note">Закрытый пак · в инвентаре</small>' : '') +
-            '<div class="dr-rw-btns">' + (s.qty > 0 ? '<button type="button" class="dr-btn is-main" data-more>Открыть ещё (' + s.qty + ')</button>' : '') + '<button type="button" class="dr-btn" data-done>Готово</button></div>';
+            '<div class="dr-rw-btns">' + (s.qty > 0 ? '<button type="button" class="dr-btn is-main" data-more>Следующий дроп (' + s.qty + ')</button>' : '') + '<button type="button" class="dr-btn" data-done>Готово</button></div>';
         r.hidden = false; void r.offsetWidth; r.classList.add('is-pop');
         burst(34, 1.5, color);
         r.querySelector('[data-done]').addEventListener('click', done);
@@ -175,7 +175,7 @@ async function mount(root) {
         if (!list.length) return;
         const strip = document.createElement('div');
         strip.className = 'dr-strip';
-        strip.innerHTML = list.map(d => '<button type="button" class="dr-chip" data-drop="' + e(d.id) + '"><img src="' + e(d.image) + '" alt=""><span><b>' + e(d.title) + '</b><small>' + (d.session_id ? 'Не открыт до конца · продолжить' : 'В инвентаре: ' + d.qty + ' · открыть') + '</small></span></button>').join('');
+        strip.innerHTML = list.map(d => '<button type="button" class="dr-chip" data-drop="' + e(d.id) + '"><img src="' + e(d.image) + '" alt=""><span><b>' + e(d.title) + '</b><small>' + (d.session_id ? 'Продолжить' + (d.qty > 1 ? ' · ждут: ' + d.qty : '') : 'Открыть · ждут: ' + d.qty) + '</small></span></button>').join('');
         strip.querySelectorAll('[data-drop]').forEach(b => b.addEventListener('click', () => open(b.dataset.drop, {onDone: () => mount(root)})));
         const head = root.querySelector('.fm-head, .fm-top'); if (head) head.insertAdjacentElement('afterend', strip); else root.prepend(strip);
     } catch (_) {}

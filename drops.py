@@ -30,29 +30,26 @@ def pick(weights):
 
 
 def plan(cfg):
-    """The private plan of one drop: the rarity after each attempt and the reward."""
-    rarity, steps = 0, []
-    for _ in range(cfg['attempts']):
-        rarity = pick(cfg['transitions'][rarity])
-        steps.append(rarity)
-    kind = cfg['categories'][pick(cfg['category_weights'][rarity])]
-    index = pick(cfg['reward_weights'][kind][rarity])
+    """The private plan of one drop: the rarity after each attempt and the reward.
+    v2 (final target + bridge): the final rarity is rolled once with its own chances; the first three attempts move up to it step by step
+    (never down, never above it, the last jump is at most max_final_jump), the fourth always reaches it."""
+    final = pick(cfg['final_weights'])
+    steps, cur = [], 0
+    for _ in range(cfg['attempts'] - 1):
+        cur = min(final, cur + pick(cfg['advance_weights']))
+        steps.append(cur)
+    if final - steps[-1] > cfg['max_final_jump']:
+        steps[-1] = final - cfg['max_final_jump']
+    steps.append(final)
+    kind = cfg['categories'][pick(cfg['category_weights'][final])]
+    index = pick(cfg['reward_weights'][kind][final])
     return steps, {'kind': kind, 'spec': cfg['rewards'][kind][index], 'index': index}
 
 
 def final_chances(cfg):
     """Exact chances for the whole drop: the final rarity and every reward (percent)."""
-    n = len(cfg['rarities'])
-    dist = [1.0] + [0.0] * (n - 1)
-    for _ in range(cfg['attempts']):
-        nxt = [0.0] * n
-        for i, p in enumerate(dist):
-            if p:
-                row = cfg['transitions'][i]
-                tot = sum(row)
-                for j, w in enumerate(row):
-                    nxt[j] += p * w / tot
-        dist = nxt
+    total = sum(cfg['final_weights'])
+    dist = [w / total for w in cfg['final_weights']]
     rewards = {}
     for r, pr in enumerate(dist):
         ctot = sum(cfg['category_weights'][r])
@@ -100,6 +97,25 @@ def install_drops(app, db, auth, audit):
         db().execute("INSERT INTO drop_stock(user_id,drop_id,qty) VALUES(?,?,?) ON CONFLICT(user_id,drop_id) DO UPDATE SET qty=drop_stock.qty+excluded.qty", (uid, drop_id, qty))
         return stock_of(uid, drop_id)
 
+    def start_sessions(uid, drop_id, n, source):
+        """A bought drop is not kept: n sessions are created at once and wait to be opened one after another (like chests)."""
+        cfg = DROPS.get(drop_id)
+        if not cfg:
+            abort(404, description='Такого дропа нет')
+        ids = []
+        for _ in range(int(n)):
+            steps, reward = plan(cfg)
+            sid = uuid.uuid4().hex
+            db().execute("INSERT INTO drop_sessions(id,user_id,drop_id,version,steps,reward,source,created) VALUES(?,?,?,?,?,?,?,?)",
+                         (sid, uid, drop_id, cfg['version'], json.dumps(steps), json.dumps(reward), str(source)[:60], int(time.time())))
+            ids.append(sid)
+        return ids
+
+    def waiting(uid, drop_id, exclude=None):
+        """How many more drops of this kind wait for the player (not opened sessions + the stock given by hand)."""
+        n = db().execute("SELECT COUNT(*) AS n FROM drop_sessions WHERE user_id=? AND drop_id=? AND status='active' AND id<>?", (uid, drop_id, exclude or '')).fetchone()['n']
+        return int(n) + stock_of(uid, drop_id)
+
     def reward_item(reward):
         kind, spec = reward['kind'], reward['spec']
         return app.extensions['crafter_loot_item'](spec[0], spec[1], 1)
@@ -120,12 +136,15 @@ def install_drops(app, db, auth, audit):
     @auth()
     def drops_mine():
         uid = g.user['id']
-        active = {r['drop_id']: r['id'] for r in db().execute("SELECT id,drop_id FROM drop_sessions WHERE user_id=? AND status='active'", (uid,)).fetchall()}
+        active, waits = {}, {}
+        for r in db().execute("SELECT id,drop_id FROM drop_sessions WHERE user_id=? AND status='active' ORDER BY created", (uid,)).fetchall():
+            active.setdefault(r['drop_id'], r['id'])
+            waits[r['drop_id']] = waits.get(r['drop_id'], 0) + 1
         out = []
         for drop_id in DROPS:
             qty = stock_of(uid, drop_id)
             if qty or drop_id in active:
-                out.append({**short(drop_id), 'qty': qty, 'session_id': active.get(drop_id)})
+                out.append({**short(drop_id), 'qty': qty + waits.get(drop_id, 0), 'session_id': active.get(drop_id)})
         return {'drops': out}
 
     @app.get('/api/drops/<drop_id>/chances')
@@ -144,7 +163,7 @@ def install_drops(app, db, auth, audit):
         for x in loot:
             kinds[x['kind']] = round(kinds.get(x['kind'], 0) + x['chance'], 3)
         return {'drop': short(drop_id), 'rarities': [{'key': RARITY_KEYS[i], 'name': cfg['rarities'][i], 'chance': round(p * 100, 3)} for i, p in enumerate(dist)],
-                'kinds': kinds, 'loot': loot, 'transitions': [[round(w / sum(row) * 100, 2) for w in row] for row in cfg['transitions']]}
+                'kinds': kinds, 'loot': loot, 'final': [round(p * 100, 3) for p in dist]}
 
     @app.post('/api/drops/<drop_id>/open')
     @auth()
@@ -166,7 +185,7 @@ def install_drops(app, db, auth, audit):
                 db().execute("INSERT INTO drop_sessions(id,user_id,drop_id,version,steps,reward,created) VALUES(?,?,?,?,?,?,?)",
                              (sid, uid, drop_id, cfg['version'], json.dumps(steps), json.dumps(reward), int(time.time())))
                 row = db().execute("SELECT * FROM drop_sessions WHERE id=?", (sid,)).fetchone()
-            return public(row, {'qty': stock_of(uid, drop_id)})
+            return public(row, {'qty': waiting(uid, drop_id, row['id'])})
 
     @app.get('/api/drops/sessions/<sid>')
     @auth()
@@ -174,7 +193,7 @@ def install_drops(app, db, auth, audit):
         row = db().execute("SELECT * FROM drop_sessions WHERE id=? AND user_id=?", (sid, g.user['id'])).fetchone()
         if not row:
             abort(404, description='Сессия не найдена')
-        return public(row, {'qty': stock_of(g.user['id'], row['drop_id'])})
+        return public(row, {'qty': waiting(g.user['id'], row['drop_id'], row['id'])})
 
     @app.post('/api/drops/sessions/<sid>/tap')
     @auth()
@@ -206,7 +225,7 @@ def install_drops(app, db, auth, audit):
                 status = 'done'
             db().execute("UPDATE drop_sessions SET attempt=?, revision=revision+1, status=?, reward=? WHERE id=?", (attempt, status, json.dumps(reward, ensure_ascii=False), sid))
             row = db().execute("SELECT * FROM drop_sessions WHERE id=?", (sid,)).fetchone()
-            answer = public(row, {'qty': stock_of(uid, row['drop_id'])})
+            answer = public(row, {'qty': waiting(uid, row['drop_id'], row['id'])})
             responses[request_id] = answer
             db().execute("UPDATE drop_sessions SET responses=? WHERE id=?", (json.dumps(responses, ensure_ascii=False), sid))
             if status == 'done':
@@ -238,6 +257,7 @@ def install_drops(app, db, auth, audit):
         audit('Drop granted %s x%s to %s' % (body.get('drop_id'), body.get('qty') or 1, uid))
         return {'ok': True, 'qty': total}
 
+    app.extensions['crafter_start_drops'] = lambda uid, drop_id, n, source: start_sessions(uid, drop_id, n, source)
     app.extensions['crafter_grant_drop'] = lambda uid, drop_id, qty, source: grant(uid, drop_id, qty, source)
     app.extensions['crafter_drop_exists'] = lambda drop_id: drop_id in DROPS
     app.extensions['crafter_drop_short'] = short
