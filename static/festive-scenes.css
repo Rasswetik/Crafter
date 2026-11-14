@@ -79,3 +79,15 @@
 .ls-section .ls-pat{background-size:210px 210px;opacity:.26;inset:-210px;--p:210px}
 .ls-section .ls-pat.p2{background-size:320px 320px;opacity:.14;inset:-320px;--p:320px}
 .ls-vig2{inset:0;background:radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(0,0,0,.28))}
+
+/* Vice City: a picture that lives: a slow camera, neon pulses, light sweeping over it, lights rising from the street */
+.ls-photo-scene{background:#14082a}
+.ls-photo{inset:-4%;background:var(--img) center/cover no-repeat;animation:ls-cam 26s ease-in-out infinite alternate;will-change:transform}
+@keyframes ls-cam{from{transform:scale(1.02) translate3d(-1.2%,.6%,0)}to{transform:scale(1.13) translate3d(1.4%,-1%,0)}}
+.ls-photo-glow{inset:0;background:radial-gradient(ellipse at 50% 100%,rgba(255,80,190,.38),transparent 60%),radial-gradient(ellipse at 15% 20%,rgba(60,230,255,.22),transparent 55%);mix-blend-mode:screen;animation:ls-glowp 6s ease-in-out infinite alternate}
+@keyframes ls-glowp{from{opacity:.35}to{opacity:.95}}
+.ls-neon{left:-10%;right:-10%;height:3px;border-radius:3px;background:linear-gradient(90deg,transparent,#ff4fd8,#4fe8ff,transparent);filter:drop-shadow(0 0 8px #ff4fd8);opacity:.0;animation:ls-neonrun 7s ease-in-out infinite}
+.ls-neon.n1{top:34%}.ls-neon.n2{top:68%;animation-delay:-3.4s;background:linear-gradient(90deg,transparent,#4fe8ff,#ffd25e,transparent);filter:drop-shadow(0 0 8px #4fe8ff)}
+@keyframes ls-neonrun{0%{transform:translate3d(-30%,0,0);opacity:0}15%{opacity:.8}50%{opacity:.35}85%{opacity:.8}100%{transform:translate3d(30%,0,0);opacity:0}}
+.ls-photo-scene.is-section .ls-photo{filter:saturate(1.05) brightness(.86)}
+.ls-photo-scene.is-section::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,4,28,.35),rgba(8,4,28,.05) 40%,rgba(8,4,28,.35))}

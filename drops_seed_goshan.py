@@ -324,3 +324,30 @@ BOXES = {'goshan': {'title': 'Goshan Box',
                       ('NFT', 'santahat:Golden Tide', 2.0),
                       ('NFT', 'spicedwine:Chocolate Cherry', 1.5),
                       ('NFT', 'gingercookie:Golden Boy', 1.0)]}}
+
+
+# ---- Vice City: the same rules as the other drops and boxes, the neon pool of the catalogue (the chances are the same as in the Goshan and Nikolay sets: change them in the admin panel if needed)
+import copy as _copy
+
+VICE_NFT = ['chillflame:Tiki Torch', 'eternalcandle:Sunrise', 'candycane:Pink Mango', 'candycane:Neon Wave', 'candycane:Tropico', 'bdaycandle:Tropicana', 'bdaycandle:Neon Lights',
+            'cookieheart:Neon Candy', 'bunnymuffin:Sea Cruise', 'bunnymuffin:Neon Sign', 'deskcalendar:Tropical', 'deskcalendar:Miami Beach', 'diamondring:Flamingo', 'diamondring:Hot Pink', 'diamondring:Vice City']
+_drop = _copy.deepcopy(DROPS['nikolay_drop'])
+_drop['version'] = 'vicecity-drop-v1'
+_drop['title'] = 'Vice City Drop'
+_drop['rewards']['NFT'] = [['NFT', x] for x in VICE_NFT]
+_drop['rewards']['PACK'] = [['PACK', 'vicecity' if p[1] == 'honey' else p[1]] for p in _drop['rewards']['PACK']]
+DROPS['vicecity_drop'] = _drop
+
+_box = _copy.deepcopy(BOXES['nikolay'])
+_box['title'] = 'Vice City Box'
+_box['theme'] = 'candy'
+_nft_i = iter(VICE_NFT)
+_loot = []
+for _kind, _amount, _w in _box['loot']:
+    if _kind == 'NFT':
+        _amount = next(_nft_i)
+    elif _kind == 'PACK' and _amount == 'honey':
+        _amount = 'vicecity'
+    _loot.append((_kind, _amount, _w))
+_box['loot'] = _loot
+BOXES['vice'] = _box

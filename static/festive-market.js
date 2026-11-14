@@ -39,8 +39,9 @@ const ICONS = {
 ICONS.featured = ICONS.star; ICONS.packs = ICONS.pack; ICONS.bundles = ICONS.bundle; ICONS.res = ICONS.gem; ICONS.rewards = ICONS.cup; ICONS.gifts = ICONS.gift;
 const LIVE_KEYS = [['live-sunset', 'Закат'], ['live-ice', 'Ледяной'], ['live-aurora', 'Сияние'], ['live-village', 'Деревня'], ['live-candy', 'Леденцы'], ['live-ornaments', 'Шары и звёзды'], ['live-gifts', 'Подарки'], ['live-lights', 'Гирлянды'], ['live-berry', 'Ягодный'], ['live-gold', 'Золото'], ['live-emerald', 'Хвоя'], ['live-violet', 'Ночь'],
     ['live-red', 'Алый'], ['live-green', 'Ёлочный'], ['live-blue', 'Синий'], ['live-purple', 'Фиолетовый'], ['live-teal', 'Бирюза'], ['live-orange', 'Мандарин'], ['live-pink', 'Розовый'], ['live-navy', 'Полночь'], ['live-white', 'Иней'], ['live-gray', 'Графит'], ['live-lime', 'Лайм'], ['live-brown', 'Какао']];
-const BG_KEYS = LIVE_KEYS;                                            // backgrounds of sections: live, they move all the time
-const CARD_BG_KEYS = [['', 'По редкости'], ['blend', 'Сливается с фоном']].concat(LIVE_KEYS);
+const VICE_KEYS = [['vice-pastel', 'Vice City: Пастельный закат'], ['vice-neon', 'Vice City: Неоновый бульвар'], ['vice-beach', 'Vice City: Пляж на закате'], ['vice-marina', 'Vice City: Марина в сумерках'], ['vice-rooftop', 'Vice City: Крыша ночью'], ['vice-highway', 'Vice City: Прибрежное шоссе'], ['vice-common', 'Vice City: Common'], ['vice-rare', 'Vice City: Rare'], ['vice-epic', 'Vice City: Epic'], ['vice-mythic', 'Vice City: Mythic'], ['vice-legendary', 'Vice City: Legendary'], ['vice-secret', 'Vice City: Secret']];
+const BG_KEYS = LIVE_KEYS.concat(VICE_KEYS);                                  // backgrounds of sections: live, they move all the time
+const CARD_BG_KEYS = [['', 'По редкости'], ['blend', 'Сливается с фоном']].concat(LIVE_KEYS, VICE_KEYS);
 const DEFAULT_SECTIONS = [
     {id: 'featured', title: 'Акции', kind: 'smart', rule: 'featured', icon: 'builtin:star', preview: '', bg: 'village', enabled: true},
     {id: 'packs', title: 'Паки', kind: 'smart', rule: 'packs', icon: 'builtin:pack', preview: '', bg: 'night', enabled: true},
@@ -493,7 +494,7 @@ function render(main, ctx) {
     const sections = (ctx.shopState?.sections && ctx.shopState.sections.length ? ctx.shopState.sections : DEFAULT_SECTIONS).filter(s => ctx.showEmpty || s.enabled !== false);
     const customIds = new Set(sections.filter(s => s.kind !== 'exchange' && s.id !== 'gifts').map(s => s.id));
     const mine = o => o.it.section_id && customIds.has(o.it.section_id);
-    const COLLAB = ['gifton', 'goshan', 'nikolay'];                    // packs of collaborations stand in their own section
+    const COLLAB = ['gifton', 'goshan', 'nikolay', 'vicecity'];                    // packs of collaborations stand in their own section
     const isCollab = o => o.it.kind === 'PACK' && !o.it.mode && COLLAB.includes(String(o.it.amount));
     const isBundle = o => !o.it.mode && (o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1))));
     const lots = ctx.data?.lots || [];

@@ -7,7 +7,7 @@ from test_pass import make_season
 def test_santa_and_goshan_drops_have_exact_chances_and_their_own_art(client):
     admin, player = signed(42), signed(61)
     client.get('/api/me', headers=player)
-    for drop_id, art in (('santa_drop', 'santa'), ('goshan_drop', 'goshan'), ('nikolay_drop', 'nikolay')):
+    for drop_id, art in (('santa_drop', 'santa'), ('goshan_drop', 'goshan'), ('nikolay_drop', 'nikolay'), ('vicecity_drop', 'vicecity')):
         info = client.get('/api/drops/%s/chances' % drop_id, headers=player).json
         assert info['drop']['art'] == art and info['drop']['image'].endswith('/%s.png' % art)
         assert [r['chance'] for r in info['rarities']] == [49.5, 28.0, 15.0, 5.0, 2.0, 0.5]
@@ -119,3 +119,19 @@ def test_new_year_switch_turns_balls_into_points_with_a_notice(client):
     me = client.get('/api/me', headers=player).json
     assert me['currency'] == 'points' and me['ny_notice'] == {'from': 'balls', 'to': 'points', 'amount': 250}
     assert client.get('/api/new-year', headers=player).status_code == 200            # the section does not disappear
+
+
+def test_vice_city_collection_pack_box_drop_and_backgrounds(client):
+    admin, player = signed(42), signed(68)
+    client.get('/api/me', headers=player)
+    assert client.get('/api/chests/vice', headers=player).json['chest']['title'] == 'Vice City Box'
+    assert any(p['id'] == 'vicecity' for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs'])
+    drop = client.get('/api/drops/vicecity_drop/chances', headers=player).json
+    assert drop['drop']['title'] == 'Vice City Drop' and any(x['title'] for x in drop['loot']) and abs(drop['kinds']['NFT'] - 1.74) < 0.01
+    for _ in range(25):                                                              # the box really gives items of the pool (the neon pack and gifts)
+        r = client.post('/api/admin/new-year/chests/vice/preview', headers=admin)
+        assert r.status_code == 200 and 2 <= len(r.json['items']) <= 6
+    bg = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BALL', 'amount': '10', 'price_balls': 5, 'size': 'small', 'card_bg': 'vice-neon'})
+    assert bg.status_code == 200, bg.get_data(as_text=True)                          # an offer can wear a Vice City background
+    sec = client.post('/api/admin/new-year/shop-sections', headers=admin, json={'title': 'Vice', 'rule': 'custom', 'bg': 'vice-beach', 'icon': 'builtin:star'})
+    assert sec.status_code in (200, 201, 404), sec.get_data(as_text=True)

@@ -45,7 +45,7 @@ put('pattern', ['gifts', 'mitten:ornaments', 'berry', 'cocoa', 'nikolay', 'gosha
 put('sunset', ['sunrise:ember', 'desert:ember', 'cherry:rose', 'sunset']);
 const MAP = {'ny-snow': 'snow', 'ny-candy': 'candy', 'ny-lights': 'garland', 'ny-frost': 'frost', 'ny-ginger': 'cozy', 'ny-bells': 'bells', 'ny-fire': 'lava', 'ny-aurora': 'aurora', 'c-pink': 'rose', 'ny-gold': 'gold', 'lights': 'garland', 'bells': 'gold', 'fire': 'lava', 'ginger': 'cozy'};
 const norm = key => { key = String(key || 'night'); if (LIVE[key]) return key; if (MAP[key]) return MAP[key]; return key.replace(/^(ny|c)-/, ''); };
-const resolve = key => { const k = norm(key); return LIVE[k] || OLD[k] || ['night', 'night', 'trees']; };
+const resolve = key => { const k = norm(key); if (VICE_IMG[k]) return ['photo', 'sunset', 'mix']; return LIVE[k] || OLD[k] || ['night', 'night', 'trees']; };
 
 /* ---------- pictures for patterns (drawn once, used as tiles) ---------- */
 const uri = svg => "url('data:image/svg+xml;utf8," + encodeURIComponent(svg) + "')";
@@ -73,7 +73,10 @@ const STARS = dotLayer(14, 5, 1.2);
 /* ---------- the layers of each scene ---------- */
 const bokeh = n => Array.from({length: n}, (_, i) => '<i class="ls-bk" style="--x:' + ((i * 37 + 8) % 92) + '%;--s:' + (26 + (i * 13) % 40) + 'px;--t:' + (13 + (i * 3) % 9) + 's;--d:-' + ((i * 2.3) % 14).toFixed(1) + 's"></i>').join('');
 const snow = n => '<i class="ls-snow s1"></i><i class="ls-snow s2"></i>' + (n > 2 ? '<i class="ls-snow s3"></i>' : '');
+const VICE_IMG = {};
+['pastel', 'neon', 'beach', 'marina', 'rooftop', 'highway', 'common', 'rare', 'epic', 'mythic', 'legendary', 'secret'].forEach(k => { VICE_IMG['vice-' + k] = '/static/assets/vice/scene-' + k + '.webp'; });
 const SC = {
+    photo: () => '<i class="ls-photo"></i><i class="ls-photo-glow"></i><i class="ls-sheen"></i>' + bokeh(6) + '<i class="ls-neon n1"></i><i class="ls-neon n2"></i><i class="ls-vig2"></i>',
     wave: () => '<i class="ls-base"></i><i class="ls-blob b1"></i><i class="ls-blob b2"></i><i class="ls-blob b3"></i><i class="ls-sheen"></i>' + bokeh(6) + snow(2),
     night: () => '<i class="ls-base v"></i><i class="ls-stars"></i><i class="ls-stars b"></i><i class="ls-moon"></i><i class="ls-hill h1"></i><i class="ls-firs"></i><i class="ls-hill h2"></i><i class="ls-hill h3"></i>' + snow(3),
     aurora: () => '<i class="ls-base v"></i><i class="ls-stars"></i><i class="ls-stars b"></i><i class="ls-rib r1"></i><i class="ls-rib r2"></i><i class="ls-rib r3"></i><i class="ls-hill h3"></i>' + snow(2),
@@ -89,11 +92,12 @@ function render(key, opts = {}) {
     const k = norm(key), r = resolve(k), pal = r[1], scene = opts.section ? 'section' : r[0], p = PAL[pal] || PAL.night;
     let html = cache.get(scene);
     if (!html) { html = SC[scene](); cache.set(scene, html); }
+    if (VICE_IMG[k]) return '<div class="ls ls-photo-scene' + (opts.section ? ' is-section' : '') + (opts.still ? ' is-still' : '') + '" style="--img:url(' + VICE_IMG[k] + ')" aria-hidden="true">' + SC.photo() + '</div>';
     return '<div class="ls ls-' + scene + ' t-' + (r[2] || 'mix') + (opts.still ? ' is-still' : '') + '" style="--c1:' + p[0] + ';--c2:' + p[1] + ';--c3:' + p[2] + ';--c4:' + p[3] + '" aria-hidden="true">' + html + '</div>';
 }
 /* the pictures the scenes share are put into the page once */
 const sheet = document.createElement('style');
 sheet.textContent = '.ls.t-flakes{--tile:' + FAM.flakes + '}.ls.t-trees{--tile:' + FAM.trees + '}.ls.t-stars{--tile:' + FAM.stars + '}.ls.t-candy{--tile:' + FAM.candy + '}.ls{--tile:' + TILE + ';--firs:' + FIRS + ';--swag:' + SWAG + ';--sn1:' + SNOWS[0] + ';--sn2:' + SNOWS[1] + ';--sn3:' + SNOWS[2] + ';--stars:' + STARS + ';--b0:' + BULBS('#ff5a5a') + ';--b1:' + BULBS('#ffd25e') + ';--b2:' + BULBS('#5ccfff') + '}';
 document.head.appendChild(sheet);
-window.crafterScenes = {render, norm, has: key => Boolean(LIVE[norm(key)] || OLD[norm(key)]), light: key => Boolean((PAL[resolve(key)[1]] || [])[4]), keys: Object.keys(LIVE)};
+window.crafterScenes = {render, norm, has: key => Boolean(LIVE[norm(key)] || OLD[norm(key)] || VICE_IMG[norm(key)]), light: key => Boolean((PAL[resolve(key)[1]] || [])[4]), keys: Object.keys(LIVE)};
 })();

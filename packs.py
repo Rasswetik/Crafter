@@ -93,7 +93,7 @@ PACK_BACKDROPS = {
 
 
 # The accent colour of a pack (r g b): the opening screen glows with it instead of one common blue.
-PACK_ACCENTS = {'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'gifton': '70 150 255', 'nikolay': '60 170 110', 'goshan': '230 90 90', 'honey': '240 190 60'}
+PACK_ACCENTS = {'vicecity': '255 92 190', 'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'gifton': '70 150 255', 'nikolay': '60 170 110', 'goshan': '230 90 90', 'honey': '240 190 60'}
 DEFAULT_ACCENT = '59 134 238'
 
 
@@ -689,6 +689,17 @@ def install_packs(app, db, auth, record, audit):
     NIKOLAY_CARDS = {'1': 52, '2': 30, '3': 14, '4': 4}                       # 1.70 cards per opening
     NIKOLAY_NFT_SHARE = 0.003
 
+    # Vice City Pack: the neon coast pack. An opening is worth about 0.3 GRAM (TON); the gifts are neon and tropical models of the catalogue
+    VICE_GIFTS = (('chillflame', 'Tiki Torch', '11'), ('eternalcandle', 'Sunrise', '18'), ('candycane', 'Pink Mango', '20'), ('candycane', 'Neon Wave', '20'),
+                  ('bdaycandle', 'Tropicana', '22'), ('bdaycandle', 'Neon Lights', '22'), ('cookieheart', 'Neon Candy', '23'), ('bunnymuffin', 'Neon Sign', '25'),
+                  ('deskcalendar', 'Miami Beach', '47'), ('diamondring', 'Vice City', '55'))
+    VICE_GRAM = NIKOLAY_GRAM
+    VICE_CARDS = NIKOLAY_CARDS
+    VICE_NFT_SHARE = 0.003
+
+    def seed_vice_pack():
+        seed_premium_pack('vicecity', 'Vice City', '/static/assets/packs/vicecity-pack.webp', VICE_GIFTS, VICE_GRAM, VICE_CARDS, VICE_NFT_SHARE, 'packs_vicecity_v1')
+
     def seed_nikolay_pack():
         seed_premium_pack('nikolay', 'Nikolay', '/static/assets/packs/nikolay-pack.webp', NIKOLAY_GIFTS, NIKOLAY_GRAM, NIKOLAY_CARDS, NIKOLAY_NFT_SHARE, 'packs_nikolay_v1')
 
@@ -738,6 +749,7 @@ def install_packs(app, db, auth, record, audit):
         seed_honey_pack()
         seed_gifton_pack()
         seed_goshan_pack()
+        seed_vice_pack()
         seed_nikolay_pack()
 
     def grant(uid, pack_id, source, request_id=None):

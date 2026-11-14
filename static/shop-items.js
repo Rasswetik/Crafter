@@ -167,11 +167,11 @@ async function admin(content) {
         const chestBg = CHESTS.filter(c => c.bg_collection).map(c => swImg(c.bg_collection, cur, attr, c.title, false)).join('');
         const fresh = keys.filter(k => k[0] === '' || isNew(k[0])), old = keys.filter(k => k[0] !== '' && !isNew(k[0]));
         const oldOpen = old.some(k => k[0] === cur);
-        return galGroup('Мои фоны (загруженные запоминаются)', lib) + galGroup('Фоны ящиков', chestBg) + galGroup('Живые фоны', fresh.map(k => swPic(k[0], cur, attr, k[1], sect)).join('')) +
+        return galGroup('Мои фоны (загруженные запоминаются)', lib) + galGroup('Фоны ящиков', chestBg) + galGroup('Живые фоны', fresh.filter(k => !/^vice-/.test(k[0])).map(k => swPic(k[0], cur, attr, k[1], sect)).join('')) + galGroup('Vice City', fresh.filter(k => /^vice-/.test(k[0])).map(k => swPic(k[0], cur, attr, k[1], sect)).join('')) +
             (old.length ? '<details class="fm-gal-old"' + (oldOpen ? ' open' : '') + '><summary>Старые фоны (' + old.length + ')</summary><div class="fm-gal">' + old.map(k => swPic(k[0], cur, attr, k[1], sect)).join('') + '</div></details>' : '');
     };
-    const cardBgGallery = (cur, attr, fileAttr) => bgGallery(cur, attr, fileAttr, window.crafterFestive?.cardBgKeys || [], k => /^(live-|blend)/.test(k), 'Свой PNG');
-    const secBgGallery = cur => bgGallery(cur, 'data-sf-bg', 'data-sf-bgfile', window.crafterFestive?.bgKeys || [], k => /^live-/.test(k), 'Свой PNG-фон', true);
+    const cardBgGallery = (cur, attr, fileAttr) => bgGallery(cur, attr, fileAttr, window.crafterFestive?.cardBgKeys || [], k => /^(live-|vice-|blend)/.test(k), 'Свой PNG');
+    const secBgGallery = cur => bgGallery(cur, 'data-sf-bg', 'data-sf-bgfile', window.crafterFestive?.bgKeys || [], k => /^(live-|vice-)/.test(k), 'Свой PNG-фон', true);
     const secTitle = id => ((r.sections || []).find(x => x.id === id) || {}).title || '';
     const sectionChips = (cur, attr) => [['', 'Авто (по правилам)']].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title])).map(c => '<button type="button" class="' + (cur === c[0] ? 'is-on' : '') + '" ' + attr + '="' + e(c[0]) + '">' + e(c[1]) + '</button>').join('');
     const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
