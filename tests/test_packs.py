@@ -986,3 +986,41 @@ def test_gifton_and_goshan_packs_have_their_drops_and_values(client):
 def test_nikolay_pack_drop(client):
     models = {p['model'] for p in client.get('/api/packs/nikolay/contents', headers=signed()).json['prizes'] if p['kind'] == 'NFT'}
     assert models == {'Winter', 'Amber Glitter', 'Hot Cocoa', 'Cozy Winter', 'Holly Leaves', 'Mistletoe', 'Gingerbread', 'Original', 'Honey Wine', 'Gold Dust'}
+
+
+def test_real_gift_of_a_drop_or_box_is_bought_after_the_transaction_and_settled_once(client):
+    from flask import g
+    app = client.application
+    admin, player = signed(42), signed(90)
+    client.get('/api/me', headers=player)
+    ctx = app.extensions['crafter_pack_ctx']
+    ctx['work_mode'] = lambda: True
+    ctx['test_mode'] = lambda: False
+    bought = []
+    ctx['ensure_listings'] = lambda *a: None
+    ctx['market_candidates'] = lambda target: [({'id': 'lot-%s-%d' % (target['id'], i), 'name': target['name'], 'number': 700 + i, 'model': 'Vice City', 'image': 'https://img.example/%d.png' % i,
+                                                 'price': '9', 'price_unit': 'GRAM', 'backdrop': 'Persimmon', 'symbol': 'Star', 'collection_id': target['id'],
+                                                 'background': {'center_color': 1, 'edge_color': 2}}, Decimal('9')) for i in range(3)]
+    ctx['acquire'] = lambda gifts: (bought.append(gifts[0]['id']) or ('ok', ''))
+    app.extensions['crafter_pack_avail_cache'].clear()
+    with app.app_context():
+        item = app.extensions['crafter_loot_item']('NFT', 'diamondring:Vice City', 1)
+        app.extensions['crafter_grant_loot'](90, [item], 'drop:test')
+        g.db.commit()
+    assert item['queued'] and item['order_id'] and not bought                      # nothing is bought inside the transaction
+    done = client.post('/api/nft-orders/%s/settle' % item['order_id'], headers=player, json={})
+    assert done.status_code == 200 and done.json['real'] and done.json['number'] == 700 and done.json['background'] == {'center_color': 1, 'edge_color': 2} and len(bought) == 1
+    again = client.post('/api/nft-orders/%s/settle' % item['order_id'], headers=player, json={}).json
+    assert again['nft_id'] == done.json['nft_id'] and len(bought) == 1             # settled once
+    assert done.json['nft_id'] in {x['id'] for x in client.get('/api/inventory', headers=player).json['gifts']}
+    assert client.post('/api/nft-orders/%s/settle' % item['order_id'], headers=signed(91), json={}).status_code == 404
+    # the market refuses: the value is paid in GRAM
+    ctx['acquire'] = lambda gifts: ('failed', 'no')
+    app.extensions['crafter_pack_avail_cache'].clear()
+    with app.app_context():
+        item2 = app.extensions['crafter_loot_item']('NFT', 'diamondring:Vice City', 1)
+        app.extensions['crafter_grant_loot'](90, [item2], 'drop:test2')
+        g.db.commit()
+    before = balance(client, player)
+    paid = client.post('/api/nft-orders/%s/settle' % item2['order_id'], headers=player, json={}).json
+    assert paid['credited'] and balance(client, player) > before

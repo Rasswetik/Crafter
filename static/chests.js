@@ -262,8 +262,16 @@ function play(res, opts = {}) {
     const packIds = items.flatMap(p => p.item.pack_ids || []);
     let phase = 'wait', at = 0, busy = false;
     const done = () => { document.body.classList.remove('cx-open'); el.classList.remove('is-in'); setTimeout(() => { v.dispose(); el.remove(); }, 260); opts.onDone && opts.onDone(); opts.refresh && opts.refresh(); };
-    const showItem = () => {
+    const showItem = async () => {
         const p = items[at];
+        if (p.item.queued && !p.item.settled) {                      // a real gift of the market: it is bought just now, the screen waits for the number and the background
+            reward.hidden = false; reward.className = 'cx-reward is-nft is-big is-pop';
+            reward.innerHTML = '<h2>' + e(p.title) + '</h2><div class="cx-art"><i class="cx-aura"></i><img src="' + e(p.image) + '" alt="" draggable="false"></div><small class="cx-nftnote">Оформляем подарок…</small>';
+            let r = null;
+            for (let k = 0; k < 3 && !(r && !r.pending); k++) { try { r = await api('nft-orders/' + p.item.order_id + '/settle', {}); } catch (_) { r = null; } }
+            Object.assign(p.item, r || {}, {settled: true, queued: false});
+            if (r && r.image) p.image = r.image;
+        }
         left.hidden = false; left.querySelector('b').textContent = String(items.length - at - 1);
         reward.hidden = false; reward.className = 'cx-reward is-' + p.kind.toLowerCase() + (p.big ? ' is-big' : '');
         reward.innerHTML = '<h2>' + e(p.title) + '</h2><div class="cx-art' + (p.item.background ? ' is-gift' : '') + '" ' + giftBg(p.item) + '><i class="cx-aura"></i><img src="' + e(p.image) + '" alt="" draggable="false">' + (p.item.number ? '<b class="cx-num">#' + e(p.item.number) + '</b>' : '') + '</div><div class="cx-count' + (p.kind === 'NFT' ? ' is-nft' : '') + '">' + e(p.count) + '</div>' + (p.kind === 'NFT' ? '<small class="cx-nftnote">NFT · ' + (p.item.credited ? 'недоступен на маркете, зачислено ' + e(p.item.credited) + ' GRAM' : 'уже в вашем инвентаре') + '</small>' : '') + '<small class="cx-tap">Нажмите, чтобы продолжить</small>';
@@ -298,10 +306,10 @@ function play(res, opts = {}) {
             await v.open();
             burst(el); el.classList.add('is-opened');
             await sleep(reduced() ? 60 : 420);
-            phase = 'items'; showItem(); busy = false;
+            phase = 'items'; await showItem(); busy = false;
         } else if (phase === 'items') {
             at++;
-            if (at >= items.length) summary(); else { busy = true; reward.classList.remove('is-pop'); await sleep(90); showItem(); busy = false; }
+            if (at >= items.length) summary(); else { busy = true; reward.classList.remove('is-pop'); await sleep(90); await showItem(); busy = false; }
         }
     });
     return el;

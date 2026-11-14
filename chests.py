@@ -243,7 +243,7 @@ def install_chests(app, db, auth, audit, record):
             elif it['kind'] == 'NFT':
                 col, _, model = it['amount'].partition(':')
                 got = app.extensions['crafter_grant_nft'](uid, col, model, label)
-                it.update(nft_id=got.get('nft_id'), number=got.get('number'), credited=got.get('credited'), backdrop=got.get('backdrop'), background=got.get('background'))
+                it.update(nft_id=got.get('nft_id'), number=got.get('number'), credited=got.get('credited'), backdrop=got.get('backdrop'), background=got.get('background'), order_id=got.get('order_id'), queued=got.get('queued'))
                 if got.get('image'):
                     it['image'] = got['image']
             elif it['kind'] == 'PACK':

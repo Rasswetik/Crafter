@@ -125,6 +125,13 @@ async function open(dropId, opts) {
 const hex = n => '#' + ('000000' + Number(n).toString(16)).slice(-6);
 const giftBg = it => { const b = it && it.background; return b && b.center_color != null ? 'style="background:radial-gradient(circle at 50% 38%,' + (typeof b.center_color === 'number' ? hex(b.center_color) : b.center_color) + ',' + (typeof b.edge_color === 'number' ? hex(b.edge_color) : b.edge_color) + ')"' : ''; };   // the gift with its own background and number
     const showReward = async (rw, color) => {
+        if (rw.queued && !rw.settled) {                                  // a real gift of the market is bought just now (outside the database transaction)
+            const r0 = $('.dr-reward');
+            r0.innerHTML = '<div class="dr-rw-plate"><h2>Оформляем подарок…</h2></div>'; r0.hidden = false;
+            let r = null;
+            for (let k = 0; k < 3 && !(r && !r.pending); k++) { try { r = await api('nft-orders/' + rw.order_id + '/settle', {}); } catch (_) { r = null; } }
+            Object.assign(rw, r || {}, {settled: true, queued: false});
+        }
         const r = $('.dr-reward');
         const label = rw.kind === 'GRAM' ? num(rw.amount) + ' GRAM' : rw.kind === 'BALL' ? num(rw.amount) + (' ' + String((window.crafterCurrency || {}).gen || 'шаров')) : rw.title;
         const conf = Array.from({length: 34}, (_, i) => '<i style="left:' + ((i * 29) % 100) + '%;--d:' + (2.4 + (i * 7) % 20 / 10).toFixed(1) + 's;--w:' + ((i * 23) % 80 - 40) + 'px;--c:' + [color, '#ffffff', '#ffd36b', '#7cc8ff', '#ff7a9a'][i % 5] + ';animation-delay:' + ((i * 13) % 12 / 10).toFixed(1) + 's"></i>').join('');

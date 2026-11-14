@@ -24,16 +24,21 @@ class Postgres:
                 url, autocommit=True, row_factory=row_factory, connect_timeout=8,
                 options='-c lock_timeout=10000',
             )
-        self.transaction = None
+        self.transactions = []
+
+    @property
+    def transaction(self):
+        return self.transactions[-1] if self.transactions else None
 
     def __enter__(self):
-        self.transaction = self.connection.transaction()
-        self.transaction.__enter__()
+        # Blocks may be nested (a helper that opens its own `with db():` inside a purchase): the inner one is a savepoint of the outer transaction.
+        transaction = self.connection.transaction()
+        transaction.__enter__()
+        self.transactions.append(transaction)
         return self
 
     def __exit__(self, exc_type, value, traceback):
-        transaction, self.transaction = self.transaction, None
-        return transaction.__exit__(exc_type, value, traceback)
+        return self.transactions.pop().__exit__(exc_type, value, traceback)
 
     @staticmethod
     def bind(statement):

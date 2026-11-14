@@ -514,7 +514,11 @@ function render(main, ctx) {
     const exAll = ctx.shopState?.exchanges || [];
     const SEC = sections.map(s => ({s, list: s.kind === 'exchange' ? exAll.filter(x => x.section_id === s.id).map(x => ({key: 'ex:' + x.id, src: 'ex', ex: x})) : s.kind === 'custom' ? byPos(all.concat(chs).filter(o => o.it.section_id === s.id)) : (rule[s.rule] ? rule[s.rule]() : []).concat(s.rule !== 'gifts' ? all.filter(o => o.it.section_id === s.id) : [])})).filter(x => x.list.length || ctx.showEmpty);
     const railW = 224;
-    let active = ctx.section && SEC.some(x => x.s.id === ctx.section) ? ctx.section : (SEC[0] ? SEC[0].s.id : '');
+    /* the place in the market is remembered: after a purchase (the market is drawn again) the player stays in the same section, at the same spot of its row */
+    const memGet = () => { try { return window.__fmMem || JSON.parse(sessionStorage.getItem('fm-mem') || 'null') || {}; } catch (_) { return window.__fmMem || {}; } };
+    const memSet = v => { window.__fmMem = v; try { sessionStorage.setItem('fm-mem', JSON.stringify(v)); } catch (_) {} };
+    const mem = ctx.preview ? {} : memGet();
+    let active = ctx.section && SEC.some(x => x.s.id === ctx.section) ? ctx.section : (mem.id && SEC.some(x => x.s.id === mem.id) ? mem.id : (SEC[0] ? SEC[0].s.id : ''));
     const root = document.createElement('div');
     root.className = 'fm-root';
     root.innerHTML = '<div class="fm-bg"></div><div class="fm-rail-col">' + (ctx.back ? '<div class="fm-head"><button type="button" class="fm-backbtn" data-fm-back aria-label="К событиям" title="К событиям"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg><span>События</span></button><span class="fm-balpill" title="Баланс шаров">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span></div>' : '') + '<div class="fm-rail" role="navigation" aria-label="Разделы маркета"><i class="fm-ind"></i>' +
@@ -558,6 +562,7 @@ function render(main, ctx) {
     const io = 'IntersectionObserver' in window ? new IntersectionObserver(list => list.forEach(en => en.target.classList.toggle('is-vis', en.isIntersecting)), {threshold: .05}) : null;
     const show = (id, first) => {
         active = id;
+        if (!ctx.preview) memSet({id, left: (first && memGet().id === id) ? memGet().left || 0 : 0});
         const entry = SEC.find(x => x.s.id === id);
         rail.querySelectorAll('.fm-sec-wrap').forEach(w => w.classList.toggle('is-on', w.dataset.wrap === id));
         place();
@@ -581,6 +586,12 @@ function render(main, ctx) {
             host.querySelectorAll('[data-fm-go]').forEach(b => b.addEventListener('click', () => row.scrollBy({left: Number(b.dataset.fmGo) * row.clientWidth * .8, behavior: 'smooth'})));
             const arrows = () => host.querySelectorAll('.fm-arrow').forEach(b => { b.hidden = row.scrollWidth <= row.clientWidth + 4; });
             arrows(); setTimeout(arrows, 400); window.addEventListener('resize', arrows);
+            if (!ctx.preview) {
+                const saved = memGet();
+                if (first && saved.id === id && saved.left) requestAnimationFrame(() => { row.style.scrollBehavior = 'auto'; row.scrollLeft = saved.left; });          // back to the same place of the row
+                let t = 0;
+                row.addEventListener('scroll', () => { clearTimeout(t); t = setTimeout(() => memSet({id, left: row.scrollLeft}), 120); }, {passive: true});
+            }
             let sx = 0, sl = 0, down = false, moved = 0;                  // a mouse can drag the row, a finger scrolls it itself
             row.addEventListener('pointerdown', ev => { if (ev.pointerType !== 'mouse') return; down = true; moved = 0; sx = ev.clientX; sl = row.scrollLeft; });
             const move = ev => { if (!down) return; const dx = ev.clientX - sx; moved = Math.max(moved, Math.abs(dx)); row.scrollLeft = sl - dx; };

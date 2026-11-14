@@ -188,6 +188,10 @@ def install_packs(app, db, auth, record, audit):
             value TEXT NOT NULL DEFAULT '0', weight DOUBLE PRECISION NOT NULL, position BIGINT NOT NULL DEFAULT 0,
             model TEXT NOT NULL DEFAULT ''
         );
+        CREATE TABLE IF NOT EXISTS nft_orders(
+            id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, cid TEXT NOT NULL, model TEXT NOT NULL DEFAULT '', source TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'queued', result TEXT NOT NULL DEFAULT '', created BIGINT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS user_packs(
             id TEXT PRIMARY KEY, user_id BIGINT NOT NULL, pack_id TEXT NOT NULL, source TEXT NOT NULL,
             request_id TEXT, created BIGINT NOT NULL, opened_at BIGINT, result TEXT
@@ -811,26 +815,20 @@ def install_packs(app, db, auth, record, audit):
                 'image': (found or {}).get('image') or col.get('photo_url') or '', 'value': plain(value)}
 
     def grant_nft(uid, cid, model, source):
-        """A gift goes straight to the inventory. With real purchases switched on the gift cannot be bought here, so its value is credited."""
+        """A gift goes straight to the inventory. With the real market (WORK mode) the purchase never runs inside the caller's transaction:
+        an order is written (queued) and settled right after it, see settle_order(); a gift that is known to be missing on the market is paid in GRAM at once."""
         info = nft_short(cid, model)
         if not info:
             abort(409, description='Такого подарка нет в каталоге')
         if work_mode():
-            prize = {'id': 'nft:%s:%s' % (cid, model), 'kind': 'NFT', 'weight': 1, 'name': info['collection'], 'collection_id': str(cid), 'model': info['model'],
-                     'image': info['image'], 'value': info['value'], 'amount': ''}
-            try:
-                lots = availability([prize]).get(prize['id'], [])
-                outcome, note = pack_ctx()['acquire']([lots[0][0]]) if lots else ('failed', '')
-            except Exception:
-                lots, outcome = [], 'failed'
-            if outcome == 'ok':
-                shown, price = lots[0]
-                nft_id = 'thermos-' + uuid.uuid4().hex
-                gift = {**shown, 'id': nft_id, 'source_id': shown['id'], 'origin': 'thermos', 'price': str(price), 'price_unit': 'GRAM', 'relayer_pending': True}
-                db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)", (uid, nft_id, json.dumps(gift, ensure_ascii=False), 'unlisted'))
-                return {**info, 'nft_id': nft_id, 'number': shown.get('number'), 'image': shown.get('image') or info['image'], 'backdrop': shown.get('backdrop', ''), 'background': shown.get('background'), 'real': True}
-            credit(uid, Decimal(info['value']))                                      # the gift could not be bought: its value is credited
-            return {**info, 'credited': info['value']}
+            hit = avail_cache.get('nft:%s:%s' % (cid, model))
+            if hit and not hit[1] and time.time() - hit[0] < 300:               # the market was asked a moment ago and has no such gift
+                credit(uid, Decimal(info['value']))
+                return {**info, 'credited': info['value']}
+            oid = uuid.uuid4().hex
+            db().execute("INSERT INTO nft_orders(id,user_id,cid,model,source,status,result,created) VALUES(?,?,?,?,?,?,?,?)",
+                         (oid, uid, str(cid), str(model or ''), str(source)[:60], 'queued', '', int(time.time())))
+            return {**info, 'order_id': oid, 'queued': True}
         bd = _rng.choice(BACKDROPS)
         gift = {'id': 'chest-' + uuid.uuid4().hex, 'name': info['collection'], 'number': _rng.randint(1000, 99999),
                 'model': info['model'], 'symbol': '', 'backdrop': bd[0], 'background': {'center_color': bd[1], 'edge_color': bd[2]},
@@ -841,19 +839,110 @@ def install_packs(app, db, auth, record, audit):
 
     app.extensions['crafter_nft_short'] = nft_short
 
+    def nft_prize(cid, model, info):
+        return {'id': 'nft:%s:%s' % (cid, model), 'kind': 'NFT', 'weight': 1, 'name': info['collection'], 'collection_id': str(cid), 'model': info['model'],
+                'image': info['image'], 'value': info['value'], 'amount': ''}
+
     def nft_available(cid, model):
-        """Can this gift be bought on the connected market right now? Without the real market (demo) every gift of the catalogue is available."""
+        """Can this gift be bought on the connected market? Without the real market (demo) every gift is available. This runs inside transactions, so it only looks into
+        the cache of the market; an unknown gift counts as available (and is checked in the background): if it cannot be bought later, its value is paid in GRAM."""
         if not work_mode():
             return True
-        info = nft_short(cid, model)
-        if not info:
-            return False
-        prize = {'id': 'nft:%s:%s' % (cid, model), 'kind': 'NFT', 'weight': 1, 'name': info['collection'], 'collection_id': str(cid), 'model': info['model'],
-                 'image': info['image'], 'value': info['value'], 'amount': ''}
-        try:
-            return bool(availability([prize]).get(prize['id']))
-        except Exception:
-            return False
+        hit = avail_cache.get('nft:%s:%s' % (cid, model))
+        if hit is None:
+            warm_nft(cid, model)
+            return True
+        return bool(hit[1]) or time.time() - hit[0] > 300
+
+    def warm_nft(cid, model):
+        key = 'nft:%s:%s' % (cid, model)
+        if key in warming:
+            return
+        warming.add(key)
+
+        def job():
+            try:
+                with app.app_context():
+                    info = nft_short(cid, model)
+                    if info:
+                        availability([nft_prize(cid, model, info)])
+            except Exception:
+                pass
+            finally:
+                warming.discard(key)
+
+        threading.Thread(target=job, daemon=True).start()
+
+    def settle_order(oid, uid=None):
+        """Buys the gift of a queued order on the market (outside any transaction) and puts it into the inventory; when it cannot be bought its value is paid in GRAM."""
+        row = db().execute("SELECT * FROM nft_orders WHERE id=?", (oid,)).fetchone()
+        if not row or (uid is not None and int(row['user_id']) != int(uid)):
+            abort(404, description='Заказ не найден')
+        if row['status'] == 'done':
+            return json.loads(row['result'])
+        with db():
+            claimed = db().execute("UPDATE nft_orders SET status='working' WHERE id=? AND status='queued'", (oid,)).rowcount
+        if not claimed:                                             # another worker is busy with it: wait for its answer
+            for _ in range(30):
+                time.sleep(.5)
+                row = db().execute("SELECT status,result FROM nft_orders WHERE id=?", (oid,)).fetchone()
+                if row and row['status'] == 'done':
+                    return json.loads(row['result'])
+            return {'pending': True}
+        owner = int(row['user_id'])
+        info = nft_short(row['cid'], row['model']) or {}
+        outcome, lot = 'failed', None
+        if info:
+            prize = nft_prize(row['cid'], row['model'], info)
+            try:
+                lots = availability([prize]).get(prize['id'], [])
+                if lots:
+                    lot = lots[0]
+                    outcome, _note = pack_ctx()['acquire']([lot[0]])
+            except Exception:
+                outcome = 'unknown' if lot else 'failed'
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            if outcome == 'ok':
+                shown, price = lot
+                nft_id = 'thermos-' + uuid.uuid4().hex
+                gift = {**shown, 'id': nft_id, 'source_id': shown['id'], 'origin': 'thermos', 'price': str(price), 'price_unit': 'GRAM', 'relayer_pending': True}
+                db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)", (owner, nft_id, json.dumps(gift, ensure_ascii=False), 'unlisted'))
+                result = {**info, 'nft_id': nft_id, 'number': shown.get('number'), 'image': shown.get('image') or info.get('image'), 'backdrop': shown.get('backdrop', ''),
+                          'background': shown.get('background'), 'real': True}
+            elif outcome == 'unknown':
+                result = {**info, 'pending': True, 'note': 'Подарок появится в инвентаре после проверки'}
+                db().execute('INSERT INTO audit(actor,action,created) VALUES(?,?,?)', (owner, 'Gift purchase needs review: ' + str(info.get('collection')) + ' for ' + str(owner), int(time.time())))
+            else:
+                credit(owner, Decimal(info.get('value') or '0'))
+                result = {**info, 'credited': info.get('value')}
+            db().execute("UPDATE nft_orders SET status='done', result=? WHERE id=?", (json.dumps(result, ensure_ascii=False), oid))
+        return result
+
+    @app.post('/api/nft-orders/<oid>/settle')
+    @auth()
+    def nft_order_settle(oid):
+        if not re.fullmatch(r'[a-f0-9]{32}', oid):
+            abort(400, description='Неверный заказ')
+        return settle_order(oid, g.user['id'])
+
+    def sweep_orders():
+        """Orders whose player closed the screen before the answer: settled by the worker."""
+        while True:
+            time.sleep(25)
+            try:
+                with app.app_context():
+                    ids = [r['id'] for r in db().execute("SELECT id FROM nft_orders WHERE status='queued' AND created<?", (int(time.time()) - 25,)).fetchall()]
+                    for oid in ids[:5]:
+                        try:
+                            settle_order(oid)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+    if not app.config.get('TESTING'):
+        threading.Thread(target=sweep_orders, daemon=True).start()
 
     app.extensions['crafter_nft_available'] = nft_available
     app.extensions['crafter_grant_nft'] = grant_nft
