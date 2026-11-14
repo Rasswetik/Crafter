@@ -98,8 +98,15 @@ function leftText(s) {
     const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
     return d ? d + 'д. ' + h + 'ч.' : h ? h + 'ч. ' + m + 'м.' : m + 'м. ' + (s % 60) + 'с.';
 }
+function dropLayers() {                                          // many layers of the same picture: the drop looks solid and turns with a thickness
+    const n = innerWidth < 760 ? 7 : 11, d = n > 9 ? 2.6 : 3.6, f = '/static/assets/drops/snowman-idle.webp';
+    let out = '';
+    for (let i = n; i >= 1; i--) out += '<i class="ps-l" style="--z:' + (-i * d).toFixed(1) + 'px;--b:' + (1 - Math.min(.5, i * .5 / n)).toFixed(2) + ';--k:' + (1 - i * .0034).toFixed(4) + '"><img alt="" draggable="false" src="' + f + '"></i>';
+    out += '<i class="ps-l ps-back" style="--z:' + (-(n + 1) * d).toFixed(1) + 'px"><img alt="" draggable="false" src="/static/assets/drops/snowman-turn-180.webp"></i>';
+    return out + '<i class="ps-l ps-front"><img alt="" draggable="false" src="' + f + '"></i>';
+}
 function artOf(it) {
-    if (it.drop) return '<div class="fm-dropart"><i class="fm-drop-rays"></i><i class="fm-drop-halo"></i><span class="fm-drop-spin"><img class="si-solo" src="/static/assets/drops/snowman-idle.webp" alt="" draggable="false"></span><i class="fm-drop-sp s1"></i><i class="fm-drop-sp s2"></i><i class="fm-drop-sp s3"></i><i class="fm-drop-sh"></i></div>';
+    if (it.drop) return '<div class="fm-dropart"><i class="fm-drop-rays"></i><i class="fm-drop-halo"></i><span class="fm-drop-spin"><span class="ps3d fm-solid">' + dropLayers() + '</span></span><i class="fm-drop-sp s1"></i><i class="fm-drop-sp s2"></i><i class="fm-drop-sp s3"></i><i class="fm-drop-sh"></i></div>';
     if (it.mode === 'random' && it.contents && it.contents.length) {                 // a black pack with a question mark
         return '<div class="fm-mystery"><img class="si-solo" src="' + e(it.contents[0].pack.image) + '" alt=""><b>?</b><i></i><i></i><i></i></div>';
     }

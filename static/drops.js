@@ -18,6 +18,16 @@ const preload = urls => Promise.all(urls.map(u => new Promise(res => { const i =
 const toast = m => { try { (window.toast || window.crafterToast || (() => {}))(m); } catch (_) {} };
 const thumb = (u, w) => /^\/(static\/assets\/(chests|packs)\/[\w.-]+\.(png|webp|jpe?g)|media\/shop\/[0-9a-f]{32})$/.test(u || '') ? '/thumb?u=' + encodeURIComponent(u) + '&w=' + w : u;
 
+/* pseudo-3D from the flat picture: the picture is stacked in many layers (each deeper one a bit darker and smaller: a rounded, smooth side),
+   the back view lies behind them - when the solid turns around the vertical axis it has a real thickness and a back */
+const solidHTML = (front, back, n) => {
+    const d = n > 9 ? 2.2 : 3.4;
+    let out = '';
+    for (let i = n; i >= 1; i--) out += '<i class="ps-l" style="--z:' + (-i * d).toFixed(1) + 'px;--b:' + (1 - Math.min(.5, i * .5 / n)).toFixed(2) + ';--k:' + (1 - i * .0032).toFixed(4) + '"><img alt="" draggable="false" src="' + front + '"></i>';
+    out += '<i class="ps-l ps-back" style="--z:' + (-(n + 1) * d).toFixed(1) + 'px"><img alt="" draggable="false" src="' + back + '"></i>';
+    out += '<i class="ps-l ps-front"><img class="dr-front" alt="" draggable="false" src="' + front + '"><i class="dr-shine"></i></i>';
+    return out;
+};
 const orbs = (s) => {                                    // four attempts: spent ones keep the colour of the rarity they brought, the next one is a «?»
     let out = '';
     for (let i = 0; i < 4; i++) {
@@ -49,7 +59,7 @@ async function open(dropId, opts) {
     opts = opts || {};
     let s;
     try { s = await api('drops/' + dropId + '/open', {}); } catch (err) { toast(err.message); return; }
-    await preload(FRAMES.concat([A + 'snowman-idle.webp', A + 'snowman-open-charge.webp', A + 'bg-common.webp?v=2']));
+    await preload([A + 'snowman-idle.webp', A + 'snowman-turn-180.webp', A + 'snowman-open-charge.webp', A + 'bg-common.webp?v=2']);
     document.querySelector('.dr-play')?.remove();
     const el = document.createElement('div');
     el.className = 'dr-play is-' + RAR[s.rarity];
@@ -58,13 +68,14 @@ async function open(dropId, opts) {
     s.history = hist;
     el.innerHTML = '<div class="dr-bg"><i class="dr-bg-a"></i><i class="dr-bg-b"></i></div><i class="dr-rays"></i><div class="dr-fx"></div>' +
         '<div class="dr-top"><h1 class="dr-rarity" data-t="' + e(EN[RAR[s.rarity]]) + '">' + e(EN[RAR[s.rarity]]) + '</h1></div>' +
-        '<div class="dr-stage"><div class="dr-halo"></div><i class="dr-ground"></i><button type="button" class="dr-star" aria-label="Улучшить дроп"><img alt="" draggable="false" src="' + A + 'snowman-idle.webp"></button><i class="dr-ring"></i><i class="dr-ring r2"></i><i class="dr-wave"></i><i class="dr-flash"></i></div>' +
+        '<div class="dr-snow">' + Array.from({length: 16}, (_, i) => '<i style="left:' + ((i * 61) % 100) + '%;--d:' + (7 + (i * 5) % 7) + 's;--w:' + ((i * 17) % 40 - 20) + 'px;--s:' + (3 + (i * 3) % 5) + 'px;animation-delay:-' + ((i * 3) % 9) + 's"></i>').join('') + '</div><i class="dr-rflash"></i>' +
+        '<div class="dr-stage"><div class="dr-halo"></div><i class="dr-ground"></i><div class="dr-orbit" aria-hidden="true">' + Array.from({length: 7}, (_, i) => { const a = i * 2 * Math.PI / 7, r = 36 + (i % 3) * 6; return '<i style="left:' + (50 + r * Math.cos(a)).toFixed(1) + '%;top:' + (50 + r * Math.sin(a)).toFixed(1) + '%;--s:' + (10 + (i % 3) * 5) + 'px;--t:' + (2.2 + (i % 4) * .5).toFixed(1) + 's;animation-delay:-' + (i * .7).toFixed(1) + 's"></i>'; }).join('') + '</div><button type="button" class="dr-star" aria-label="Улучшить дроп"><span class="ps3d dr-solid">' + solidHTML(A + 'snowman-idle.webp', A + 'snowman-turn-180.webp', innerWidth < 760 ? 8 : 14) + '</span></button><i class="dr-ring"></i><i class="dr-ring r2"></i><i class="dr-wave"></i><i class="dr-flash"></i></div>' +
         '<div class="dr-bottom"><h2 class="dr-title">Попытки улучшения</h2><div class="dr-orbs"></div><p class="dr-hint">Нажмите на экран</p></div>' +
         '<div class="dr-reward" hidden></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
     const $ = q => el.querySelector(q);
-    const img = $('.dr-star img'), star = $('.dr-star'), orbsEl = $('.dr-orbs'), titleEl = $('.dr-rarity'), stage = $('.dr-stage'), fx = $('.dr-fx');
+    const star = $('.dr-star'), img = $('.dr-front'), solidEl = $('.dr-solid'), orbsEl = $('.dr-orbs'), titleEl = $('.dr-rarity'), stage = $('.dr-stage'), fx = $('.dr-fx');
     const setBg = r => { $('.dr-bg-a').style.backgroundImage = 'url(' + A + 'bg-' + RAR[r] + '.webp?v=2)'; };
     const drawOrbs = pop => { orbsEl.innerHTML = orbs(s); orbsEl.setAttribute('aria-label', 'Осталось попыток: ' + s.attempts_left); if (pop !== undefined) orbsEl.children[pop]?.classList.add('is-pop'); };
     setBg(s.rarity);
@@ -90,26 +101,20 @@ async function open(dropId, opts) {
     const shake = (amp, ms) => { if (!reduced()) stage.animate([{transform: 'translate(0,0)'}, {transform: 'translate(' + amp + 'px,' + -amp / 2 + 'px)'}, {transform: 'translate(' + -amp + 'px,' + amp / 2 + 'px)'}, {transform: 'translate(' + amp / 2 + 'px,0)'}, {transform: 'translate(0,0)'}], {duration: ms, easing: 'ease-out'}); };
     const flip = async () => {                            // anticipation, a jump with one full turn around the vertical axis through the eight views, a soft landing
         if (reduced()) { await sleep(160); return; }
-        const T = 620;
-        star.animate([
-            {transform: 'translateY(0) scale(1.06,.9)', offset: 0}, {transform: 'translateY(-4%) scale(.96,1.08)', offset: .12},
-            {transform: 'translateY(-14%) scale(1.14)', offset: .5}, {transform: 'translateY(0) scale(1.08,.9)', offset: .86}, {transform: 'translateY(0) scale(1)', offset: 1}
-        ], {duration: T, easing: 'ease-in-out'});
-        const t0 = performance.now();
-        await new Promise(res => {
-            const step = now => {
-                const k = Math.min(1, (now - t0) / T), turn = Math.min(1, k / .86), i = Math.min(FRAMES.length - 1, Math.floor(turn * (FRAMES.length - 1) + .5));
-                img.src = FRAMES[i];
-                if (k < 1) requestAnimationFrame(step); else res();
-            };
-            requestAnimationFrame(step);
-        });
+        solidEl.classList.add('is-flipping');
+        const an = solidEl.animate([
+            {transform: 'rotateY(0deg) translateY(0) scale(1.05,.93)', offset: 0}, {transform: 'rotateY(-24deg) translateY(-3%) scale(.97,1.05)', offset: .14},
+            {transform: 'rotateY(180deg) translateY(-13%) scale(1.13)', offset: .52}, {transform: 'rotateY(360deg) translateY(0) scale(1.07,.92)', offset: .88}, {transform: 'rotateY(360deg) translateY(0) scale(1)', offset: 1}
+        ], {duration: 780, easing: 'ease-in-out'});
+        try { await an.finished; } catch (_) {}
+        solidEl.classList.remove('is-flipping');
     };
     const pulse = cls => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
     const showReward = async (rw, color) => {
         const r = $('.dr-reward');
         const label = rw.kind === 'GRAM' ? num(rw.amount) + ' GRAM' : rw.kind === 'BALL' ? num(rw.amount) + ' шаров' : rw.title;
-        r.innerHTML = '<div class="dr-rw-art"><i class="dr-rw-rays"></i><i class="dr-rw-aura"></i><img src="' + e(thumb(rw.image, 480)) + '" alt=""></div><h2>' + e(label) + '</h2>' +
+        const conf = Array.from({length: 34}, (_, i) => '<i style="left:' + ((i * 29) % 100) + '%;--d:' + (2.4 + (i * 7) % 20 / 10).toFixed(1) + 's;--w:' + ((i * 23) % 80 - 40) + 'px;--c:' + [color, '#ffffff', '#ffd36b', '#7cc8ff', '#ff7a9a'][i % 5] + ';animation-delay:' + ((i * 13) % 12 / 10).toFixed(1) + 's"></i>').join('');
+        r.innerHTML = '<div class="dr-conf">' + conf + '</div><span class="dr-rw-chip">' + e(EN[RAR[s.rarity]]) + '</span><div class="dr-rw-art"><i class="dr-rw-rays"></i><i class="dr-rw-aura"></i><img src="' + e(thumb(rw.image, 480)) + '" alt=""></div><div class="dr-rw-plate"><h2>' + e(label) + '</h2></div>' +
             (rw.kind === 'NFT' ? '<small class="dr-rw-note">NFT · уже в вашем инвентаре</small>' : rw.kind === 'PACK' ? '<small class="dr-rw-note">Закрытый пак · в инвентаре</small>' : '') +
             '<div class="dr-rw-btns">' + (s.qty > 0 ? '<button type="button" class="dr-btn is-main" data-more>Следующий дроп (' + s.qty + ')</button>' : '') + '<button type="button" class="dr-btn" data-done>Готово</button></div>';
         r.hidden = false; void r.offsetWidth; r.classList.add('is-pop');
@@ -120,7 +125,8 @@ async function open(dropId, opts) {
     const reveal = async rw => {                          // the star charges and trembles, flashes, bursts: the reward appears on its place
         const color = COLORS[RAR[s.rarity]];
         $('.dr-bottom').classList.add('is-gone'); $('.dr-top').classList.add('is-gone');
-        img.src = A + 'snowman-open-charge.webp'; el.classList.add('is-charge');
+        el.classList.add('is-charge');
+        img.src = A + 'snowman-open-charge.webp';
         if (!reduced()) star.animate([{transform: 'translate(0,0) scale(1)'}, {transform: 'translate(-6px,2px) scale(1.04)'}, {transform: 'translate(6px,-2px) scale(1.07)'}, {transform: 'translate(-8px,0) scale(1.1)'}, {transform: 'translate(8px,2px) scale(1.14)'}, {transform: 'translate(0,0) scale(1.2)'}], {duration: 640, easing: 'ease-in', fill: 'forwards'});
         await sleep(reduced() ? 150 : 700);
         el.classList.add('is-flash', 'is-pop-out'); shake(14, 520); burst(46, 1.7, color);
@@ -158,6 +164,11 @@ async function open(dropId, opts) {
     };
     el.addEventListener('click', ev => { if (ev.target.closest('.dr-reward')) return; tap(); });
     el.addEventListener('keydown', ev => { if ((ev.key === 'Enter' || ev.key === ' ') && !finished) { ev.preventDefault(); tap(); } });
+    let tiltRaf = 0;
+    el.addEventListener('pointermove', ev => {
+        if (busy || tiltRaf || reduced()) return;
+        tiltRaf = requestAnimationFrame(() => { tiltRaf = 0; const r = star.getBoundingClientRect(); const dx = (ev.clientX - (r.left + r.width / 2)) / innerWidth, dy = (ev.clientY - (r.top + r.height / 2)) / innerHeight; star.style.setProperty('--ry', (dx * 26).toFixed(1) + 'deg'); star.style.setProperty('--rx', (-dy * 18).toFixed(1) + 'deg'); });
+    });
     star.focus();
 }
 
