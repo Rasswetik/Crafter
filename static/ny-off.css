@@ -7,7 +7,7 @@ html.ny-off #app.arena-view .arena-board-frame::after,
 html.ny-off #app.craft-view .craft-page::after { display: none !important; content: none !important; background: none !important; }
 
 /* without the New Year the balls are points: every picture of the ball turns into the coin */
-html.ny-off img[src$="new-year-ornament.svg"]{content:url("/static/assets/points.svg")}
+html.ny-off img[src$="new-year-ornament.svg"],html.ny-off img[src$="crafter-winter-ornament.png"]{content:url("/static/assets/points.svg")}
 html.ny-off #app > header > .winter-currency-balance{display:inline-flex!important}
 
 /* the loading screen of the usual look: no garland and no snowy ground (those rules of the festive file would otherwise stay) */

@@ -7,10 +7,12 @@ const e = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&l
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : String(v); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const BALL = '/static/assets/new-year-ornament.svg';
+const PTS = document.documentElement.classList.contains('ny-off');                // without the New Year the balls are points
+const BALLS = PTS ? 'Поинты' : 'Шары';
 const toast = m => { try { (window.toast || (() => {}))(m); } catch (_) {} };
 const left = s => { s = Math.max(0, Math.floor(s)); const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + 'д. ' + h + 'ч.' : h ? h + 'ч. ' + m + 'м.' : m + 'м.'; };
 const thumb = (u, w) => /^\/(static\/assets\/(chests|packs)\/[\w.-]+\.(png|webp|jpe?g)|media\/shop\/[0-9a-f]{32})$/.test(u || '') ? '/thumb?u=' + encodeURIComponent(u) + '&w=' + w : u;
-const CUR = {BALL: ['Шары', BALL], DONATE: ['Донат', '/static/assets/gram.svg']};
+const CUR = {BALL: [BALLS, BALL], DONATE: ['Донат', '/static/assets/gram.svg']};
 const KIND_TITLES = {mega: 'Мегаквесты', daily: 'Квесты дня', weekly: 'Квесты недели', special: 'Особые квесты', season: 'Квесты сезона'};
 const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* a padlock drawn as a picture (no emoji) */
@@ -70,7 +72,7 @@ function canClaimAny() { return S.levels.some(l => l.level <= S.me.level && ((l.
 
 function wallet() {
     const b = S.me.balance || {}, gram = S.me.gram !== undefined ? S.me.gram : null;
-    return '<div class="sp-wallet"><span class="sp-w" title="Шары"><img src="' + BALL + '" alt=""><b>' + num(b.balls || 0) + '</b></span>' + (b.donate ? '<span class="sp-w" title="Донат"><img src="/static/assets/gram.svg" alt=""><b>' + num(b.donate) + '</b></span>' : '') +
+    return '<div class="sp-wallet"><span class="sp-w" title="' + BALLS + '"><img src="' + BALL + '" alt=""><b>' + num(b.balls || 0) + '</b></span>' + (b.donate ? '<span class="sp-w" title="Донат"><img src="/static/assets/gram.svg" alt=""><b>' + num(b.donate) + '</b></span>' : '') +
         (gram !== null ? '<span class="sp-w is-gram" title="Баланс GRAM"><img src="/static/assets/gram.svg" alt=""><b>' + num(gram) + '</b><small>GRAM</small></span>' : '') + '</div>';
 }
 
@@ -80,7 +82,7 @@ function head() {
     const next = S.levels.find(l => l.level === me.level + 1);
     const nextPic = next ? (next.plus.rewards[0] || next.free.rewards[0]) : null;
     return '<header class="sp-head"><button type="button" class="sp-back" data-back aria-label="К событиям"><i>‹</i><span>События</span></button>' +
-        '<div class="sp-banner" ' + (s.banner ? 'style="background-image:linear-gradient(100deg,rgba(130,30,20,.5),rgba(20,10,60,.15)),url(' + e(thumb(s.banner, 800)) + ')"' : '') + '><small>СЕЗОН ' + s.number + '</small><h1>' + e(s.title) + '</h1></div>' +
+        '<div class="sp-banner" ' + (s.banner ? 'style="--bn:url(' + e(thumb(s.banner, 800)) + ')"' : '') + '><small>СЕЗОН ' + s.number + '</small><h1>' + e(s.title) + '</h1></div>' +
         '<div class="sp-mid"><div class="sp-tabs"><button type="button" class="' + (tab === 'rewards' ? 'is-on' : '') + '" data-tab="rewards">Награды</button><button type="button" class="' + (tab === 'quests' ? 'is-on' : '') + '" data-tab="quests">Квесты' + (hasReady() ? '<i class="sp-dot"></i>' : '') + '</button></div>' +
         '<div class="sp-lvrow"><span class="sp-lvbadge" data-lvbadge title="Ваш уровень">' + me.level + '</span><div class="sp-xpwrap"><div class="sp-xp-track"><i style="--w:' + pct + '%"></i><b>' + (me.xp_for_next ? num(me.xp_in_level) + ' / ' + num(me.xp_for_next) + ' XP' : 'МАКСИМУМ') + '</b></div>' +
         (s.ends_at ? '<span class="sp-ends">Сезон закончится через <b>' + left(s.ends_at - S.now) + '</b></span>' : '') + '</div>' +
@@ -263,7 +265,7 @@ async function showGiven(res) {
         const plan = [];
         Object.values(packs).forEach(p => plan.push({it: {kind: 'PACK', pack: {image: p.i.image, title: p.i.title}, image_url: p.i.image, bundle: p.ids.length}, result: {packIds: p.ids, count: p.ids.length, head: 'Награда сезона', title: 'Вы получили: <b>' + e(p.i.title) + (p.ids.length > 1 ? ' ×' + num(p.ids.length) : '') + '</b>'}}));
         if (gram) plan.push({it: {kind: 'GRAM', image_url: '/static/assets/gram.svg', rarity: 'res'}, result: {head: 'Награда сезона', title: 'Зачислено: ' + num(gram) + ' GRAM', text: 'Баланс уже обновлён.'}});
-        if (balls) plan.push({it: {kind: 'BALL', image_url: BALL, rarity: 'res'}, result: {head: 'Награда сезона', title: 'Зачислено шаров: ' + num(balls), text: 'Баланс уже обновлён.'}});
+        if (balls) plan.push({it: {kind: 'BALL', image_url: BALL, rarity: 'res'}, result: {head: 'Награда сезона', title: (PTS ? 'Зачислено поинтов: ' : 'Зачислено шаров: ') + num(balls), text: 'Баланс уже обновлён.'}});
         shown.forEach(i => plan.push({it: {kind: i.kind, image_url: i.image, rarity: 'res'}, result: {head: 'Награда сезона', title: 'Получено: ' + e(i.title) + (i.count > 1 ? ' ×' + i.count : ''), text: i.kind === 'NFT' ? 'Он уже в вашем инвентаре.' : 'Награда уже у вас.'}}));
         for (const step of plan) {
             await new Promise(done => { F.reveal({it: step.it}, step.result, {refresh: done}, () => {}); });

@@ -427,3 +427,23 @@ body.sp-open{overflow:hidden}
 .sp-qsec>header small,.sp-mega>header small{font-weight:700!important}
 
 .sp-banner small{width:max-content;justify-self:start}
+
+/* ---- v15: smooth page. Backgrounds move by transform on their own layer (no repaint of the whole screen), no heavy shadow filters on 100+ pictures ---- */
+.sp-pat{will-change:transform;top:-92px;bottom:0;height:auto}
+.sp-pat.pat-snow{background:radial-gradient(circle,rgba(255,255,255,.75) 0 2px,transparent 3px) 0 0/46px 46px,radial-gradient(circle,rgba(255,255,255,.5) 0 1.5px,transparent 2.5px) 17px 11px/23px 23px;animation:sp-snow2 3.4s linear infinite}
+@keyframes sp-snow2{to{transform:translate3d(0,46px,0)}}
+.sp-pat.pat-dots,.sp-pat.pat-diamonds{top:0;bottom:0;left:-64px;right:0;height:auto}
+.sp-pat.pat-dots{animation:sp-driftx 6s linear infinite}
+.sp-pat.pat-diamonds{animation:sp-driftx 8s linear infinite}
+@keyframes sp-driftx{to{transform:translate3d(56px,0,0)}}
+.sp-glow{will-change:transform,opacity}
+.sp-rw .sp-rw-img,.sp-lockico,.sp-next{filter:none!important}
+.sp-col{contain:layout style}
+html.ny-off .sp-pat.pat-snow{display:none}
+
+/* ---- the banner of the season: a clear picture card with the name on it (not a faded block) ---- */
+.sp-root .sp-head .sp-banner{position:relative;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;width:clamp(250px,21vw,360px);height:78px;min-height:78px!important;margin:9px 0!important;padding:10px 16px 9px!important;border-radius:16px;overflow:hidden;border:2px solid rgba(255,255,255,.55);background:var(--bn,none) center/cover,linear-gradient(135deg,var(--sp-c1,#5b2cff),var(--sp-c2,#c24fd8))!important;box-shadow:0 8px 22px rgba(0,0,0,.45),0 0 0 1px rgba(8,12,44,.6)!important}
+.sp-root .sp-head .sp-banner::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,12,44,0) 20%,rgba(8,12,44,.82) 100%)}
+.sp-root .sp-head .sp-banner small{position:absolute;left:10px;top:8px;z-index:2;display:block;padding:3px 9px;border-radius:99px;background:linear-gradient(180deg,#ffd64a,#ff9a1f);color:#3a2300!important;font:900 11px/1 var(--sp-font)!important;letter-spacing:.1em;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.sp-root .sp-head .sp-banner h1{position:relative;z-index:2;margin:0!important;font:900 clamp(22px,2vw,30px)/1 var(--sp-font)!important;letter-spacing:.01em;color:#fff!important;text-shadow:0 2px 8px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.9)!important;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:1100px){.sp-root .sp-head .sp-banner{width:100%;height:64px;min-height:64px!important;margin:4px 0!important}}

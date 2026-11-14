@@ -292,7 +292,7 @@ def create_app(config=None):
     @app.get('/season')
     def season_page():
         # the season pass is a separate page with its own template
-        return render_template('season.html')
+        return render_template('season.html', ny_on=new_year_enabled())
 
     @app.get('/shop/preview')
     def shop_preview_page():
