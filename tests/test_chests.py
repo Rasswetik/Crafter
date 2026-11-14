@@ -148,3 +148,19 @@ def test_thumbs_give_small_copies_of_our_pictures_only(client):
     assert again.data == ok.data                                   # the second time it comes from the cache
     for bad in ('/static/assets/chests/../../app.py', '/etc/passwd', 'https://example.com/a.png', '/media/shop/zzz'):
         assert client.get('/thumb', query_string={'u': bad, 'w': 320}).status_code == 404
+
+
+def test_clear_a_section_removes_its_offers(client):
+    admin = signed(42)
+    sec = client.post('/api/admin/new-year/shop-sections', headers=admin, json={'title': 'Чистка', 'icon': 'builtin:gift'})
+    assert sec.status_code == 200, sec.get_data(as_text=True)
+    sid = sec.json.get('id') or sec.json['sections'][-1]['id']
+    for n in (1, 3):
+        assert client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'CHEST', 'amount': 'santa', 'bundle': n, 'price_balls': 10, 'size': 'small', 'section_id': sid}).status_code == 200
+    keep = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BALL', 'amount': '5', 'price_balls': 1, 'size': 'small'})
+    assert keep.status_code == 200
+    assert client.post('/api/admin/new-year/shop-clear', headers=admin, json={'section_id': sid}).status_code == 400      # needs a confirmation
+    done = client.post('/api/admin/new-year/shop-clear', headers=admin, json={'section_id': sid, 'confirm': True})
+    assert done.status_code == 200 and done.json['removed'] == 2
+    left = client.get('/api/admin/new-year/shop', headers=admin).json['items']
+    assert [x['id'] for x in left] == [keep.json['id']]

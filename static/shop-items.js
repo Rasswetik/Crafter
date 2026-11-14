@@ -123,6 +123,12 @@ async function admin(content) {
         ev.preventDefault(); ev.stopPropagation();
         try { r.bg_library = (await api('admin/new-year/shop-bg-library/delete', {url: d.dataset.bgLibDel})).library; toast('Фон убран из сохранённых'); redrawBoard(); if (typeof draw === 'function') draw(); } catch (err) { toast(err.message); }
     }, true);
+    sec.addEventListener('click', async ev => {                       // clear a whole section: every offer of it is deleted
+        if (!ev.target.closest('[data-sb-clear]')) return;
+        const list = visible(), name = boardTab === '' ? 'Авто' : secTitle(boardTab) || 'раздел';
+        if (!list.length || !confirm('Удалить ВСЕ акции раздела «' + name + '» (' + list.length + ' шт.)? Это нельзя отменить. То, что игроки уже получили, останется у них.')) return;
+        try { const res = await api('admin/new-year/shop-clear', {section_id: boardTab, confirm: true}); const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.sections = fresh.sections || r.sections; selected = null; toast('Удалено акций: ' + res.removed); redrawBoard(); } catch (err) { toast(err.message); }
+    });
     sec.addEventListener('click', ev => { const b = ev.target.closest('[data-sb-tab]'); if (!b) return; boardTab = b.dataset.sbTab; selected = null; redrawBoard(); });
     const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, items: [], bgram: '', bballs: '', size: 'small', view: 'phone', description: '', rarity: 'auto', badge: '', endsH: '', endsAt: null, section_id: '', heading: '', card_bg: '', mode: '', startsMsk: '', endsMsk: ''};
     let secForm = null;
@@ -271,6 +277,21 @@ async function admin(content) {
         wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
         document.body.appendChild(wrap); paint();
     };
+    // random pack / choice: the same cells with a «+» as in a bundle (packs of the offer, the number of each is changed right on the cell)
+    const mixCellsHTML = () => '<div class="bnd-cells">' + Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => { const pk = packs.find(x => x.id === id); if (!pk) return '';
+        return '<div class="bnd-cell"><button type="button" class="bnd-x" data-mix-del="' + e(id) + '" aria-label="Убрать">×</button><img src="' + e(pk.image) + '" alt=""><b>×' + n + '</b><span>' + e(pk.title) + '</span>' +
+            '<span class="bnd-step"><button type="button" data-mix-dec="' + e(id) + '" aria-label="Меньше">−</button><button type="button" data-mix-inc="' + e(id) + '" aria-label="Больше">+</button></span></div>'; }).join('') +
+        '<button type="button" class="bnd-cell bnd-plus" data-mix-add aria-label="Добавить пак"><i>+</i><span>Добавить пак</span></button></div>';
+    const openMixAdder = () => {
+        const wrap = document.createElement('div');
+        wrap.className = 'bnd-modal';
+        const close = () => wrap.remove();
+        wrap.innerHTML = '<div class="bnd-box"><div class="bnd-top"><b>Какой пак добавить?</b><button type="button" data-x aria-label="Закрыть">×</button></div><div class="bnd-grid">' + packs.map(p => '<button type="button" class="bnd-opt' + ((f.mix[p.id] || 0) > 0 ? ' is-on' : '') + '" data-id="' + e(p.id) + '"><img src="' + e(p.image) + '" alt=""><span>' + e(p.title) + '</span></button>').join('') + '</div></div>';
+        wrap.querySelector('[data-x]').addEventListener('click', close);
+        wrap.querySelectorAll('.bnd-opt').forEach(b => b.addEventListener('click', () => { f.mix[b.dataset.id] = (f.mix[b.dataset.id] || 0) + 1; close(); draw(); }));
+        wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
+        document.body.appendChild(wrap);
+    };
     const autoTitle = () => {
         if (f.kind === 'BUNDLE' && !f.mode) return 'Бандл: ' + (f.items.map(x => { const v = itemInfo(x); return x.type === 'GRAM' ? num(x.amount) + ' GRAM' : x.type === 'BALL' ? num(x.amount) + ' шаров' : v.name + (x.count > 1 ? ' ×' + x.count : ''); }).join(' + ') || '…');
         if (f.kind === 'BUNDLE') return 'Бандл: ' + ([].concat(Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => (packs.find(p => p.id === id)?.title || 'Пак') + (n > 1 ? ' ×' + n : '')), Number(f.bgram) > 0 ? [num(f.bgram) + ' GRAM'] : [], Number(f.bballs) > 0 ? [num(f.bballs) + ' шаров'] : []).join(' + ') || '…');
@@ -287,7 +308,7 @@ async function admin(content) {
     const sizeShape = s => '<span class="sz-shape sz-' + s + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>';
     let boardTab = '*';                                           // the board shows one section at a time, as a puzzle of that section
     const visible = () => boardTab === '*' ? r.items : r.items.filter(it => (it.section_id || '') === boardTab);
-    const tabsHTML = () => '<div class="sb-tabs">' + [['*', 'Все', r.items.length], ['', 'Авто', r.items.filter(i => !i.section_id).length]].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title, r.items.filter(i => i.section_id === x.id).length])).map(t => '<button type="button" class="sb-tab' + (boardTab === t[0] ? ' is-on' : '') + '" data-sb-tab="' + e(t[0]) + '">' + e(t[1]) + '<i>' + t[2] + '</i></button>').join('') + '</div>';
+    const tabsHTML = () => '<div class="sb-tabs">' + [['*', 'Все', r.items.length], ['', 'Авто', r.items.filter(i => !i.section_id).length]].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title, r.items.filter(i => i.section_id === x.id).length])).map(t => '<button type="button" class="sb-tab' + (boardTab === t[0] ? ' is-on' : '') + '" data-sb-tab="' + e(t[0]) + '">' + e(t[1]) + '<i>' + t[2] + '</i></button>').join('') + (boardTab !== '*' && visible().length ? '<button type="button" class="sb-clear" data-sb-clear>Очистить раздел: удалить все акции (' + visible().length + ')</button>' : '') + '</div>';
     const boardHTML = () => visible().map(it => '<div class="sb-cell sb-' + sizeOf(it) + (it.status === 'hidden' ? ' is-hidden' : '') + (selected === it.id ? ' is-sel' : '') + '" data-sb="' + e(it.id) + '">' +
         (window.crafterFestive ? window.crafterFestive.card({key: it.id, src: 'shop', it}, {board: true}) : (tiles([it], true)[0] || '')) +
         '<button type="button" class="sb-handle" data-sb-drag aria-label="Перетащить лот" title="Перетащите, чтобы переставить">' + GRIP + '</button>' +
@@ -482,7 +503,7 @@ async function admin(content) {
         const step2 = f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + PROMO_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length)).map(k => tile(f.promo === k[0], 'data-promo="' + k[0] + '"', k[2], k[1])).join('') + '</div></div>' : '';
         const mixTotal = Object.values(f.mix).reduce((x, n) => x + n, 0);
         const what = f.kind === 'BUNDLE'
-            ? '<div class="adm-step"><h4>Состав: бандл, акция с выбором или случайный пак</h4><div class="adm-chips" style="margin-bottom:10px">' + [['', 'Всё сразу (бандл)'], ['choice', 'Игрок выбирает один пак'], ['random', 'Случайный пак']].map(m => '<button type="button" data-mode="' + m[0] + '"' + (f.mode === m[0] ? ' class="is-on"' : '') + '>' + m[1] + '</button>').join('') + '</div><p class="sub">' + (f.mode === 'choice' ? 'Игрок смотрит варианты и покупает любой один: отметьте от 2 разных паков (число рядом — сколько штук такого пака он получит).' : f.mode === 'random' ? 'Игрок покупает чёрный пак со знаком вопроса и получает случайный из отмеченных (от 2 разных).' : 'Игрок получит всё сразу за одну покупку.') + (f.mode ? ' Паков сейчас: <b>' + mixTotal + '</b>.' : '') + '</p>' + (f.mode ? '<div class="si-mix">' + packs.map(p => '<div class="si-mix-row' + ((f.mix[p.id] || 0) > 0 ? ' is-on' : '') + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.title) + '</b><span class="si-mix-step"><button type="button" data-mix-dec="' + e(p.id) + '" aria-label="Меньше">−</button><input class="si-mix-n" type="number" min="0" max="500" data-mix-set="' + e(p.id) + '" value="' + (f.mix[p.id] || 0) + '"><button type="button" data-mix-inc="' + e(p.id) + '" aria-label="Больше">+</button></span></div>').join('') + '</div>' + (f.mode ? '' : '<div class="adm-row3" style="margin-top:12px"><div class="adm-field"><label>GRAM на баланс</label><input data-f="bgram" inputmode="decimal" value="' + e(f.bgram) + '" placeholder="Без GRAM"></div><div class="adm-field"><label>Новогодние шары</label><input data-f="bballs" inputmode="numeric" value="' + e(f.bballs) + '" placeholder="Без шаров"></div></div>') : cellsHTML() + '<p class="sub">Нажмите «+», чтобы добавить в бандл пак, ящик, GRAM или шары. Игрок получит всё сразу за одну покупку.</p>') + '</div>'
+            ? '<div class="adm-step"><h4>Состав: бандл, акция с выбором или случайный пак</h4><div class="adm-chips" style="margin-bottom:10px">' + [['', 'Всё сразу (бандл)'], ['choice', 'Игрок выбирает один пак'], ['random', 'Случайный пак']].map(m => '<button type="button" data-mode="' + m[0] + '"' + (f.mode === m[0] ? ' class="is-on"' : '') + '>' + m[1] + '</button>').join('') + '</div><p class="sub">' + (f.mode === 'choice' ? 'Игрок смотрит варианты и покупает любой один: добавьте через «+» от 2 разных паков (число на карточке — сколько штук такого пака он получит).' : f.mode === 'random' ? 'Игрок покупает чёрный пак со знаком вопроса и получает случайный из добавленных (от 2 разных).' : 'Игрок получит всё сразу за одну покупку.') + (f.mode ? ' Паков сейчас: <b>' + mixTotal + '</b>.' : '') + '</p>' + (f.mode ? mixCellsHTML() + (f.mode ? '' : '<div class="adm-row3" style="margin-top:12px"><div class="adm-field"><label>GRAM на баланс</label><input data-f="bgram" inputmode="decimal" value="' + e(f.bgram) + '" placeholder="Без GRAM"></div><div class="adm-field"><label>Новогодние шары</label><input data-f="bballs" inputmode="numeric" value="' + e(f.bballs) + '" placeholder="Без шаров"></div></div>') : cellsHTML() + '<p class="sub">Нажмите «+», чтобы добавить в бандл пак, ящик, GRAM или шары. Игрок получит всё сразу за одну покупку.</p>') + '</div>'
             : eff() === 'PACK'
             ? '<div class="adm-step"><h4>Какой пак</h4>' + window.crafterPacks.packTiles(packs, f.pack) + '</div>'
             : eff() === 'CHEST'
@@ -544,6 +565,8 @@ async function admin(content) {
         sec.querySelector('[data-auto-open]')?.addEventListener('click', () => { pull(); openAuto(); });
         sec.querySelectorAll('[data-bnd-del]').forEach(b => b.addEventListener('click', () => { pull(); f.items.splice(+b.dataset.bndDel, 1); draw(); }));
         sec.querySelectorAll('[data-mix-inc]').forEach(b => b.addEventListener('click', () => { pull(); const t = Object.values(f.mix).reduce((x, n) => x + n, 0); if (t < 500) f.mix[b.dataset.mixInc] = (f.mix[b.dataset.mixInc] || 0) + 1; draw(); }));
+        sec.querySelector('[data-mix-add]')?.addEventListener('click', () => { pull(); openMixAdder(); });
+        sec.querySelectorAll('[data-mix-del]').forEach(b => b.addEventListener('click', () => { pull(); f.mix[b.dataset.mixDel] = 0; draw(); }));
         sec.querySelectorAll('[data-mix-set]').forEach(i => i.addEventListener('change', () => { pull(); f.mix[i.dataset.mixSet] = Math.max(0, Math.min(500, Math.floor(Number(i.value) || 0))); draw(); }));
         sec.querySelectorAll('[data-mix-dec]').forEach(b => b.addEventListener('click', () => { pull(); f.mix[b.dataset.mixDec] = Math.max(0, (f.mix[b.dataset.mixDec] || 0) - 1); draw(); }));
         sec.querySelectorAll('[data-adm-pack]').forEach(b => b.addEventListener('click', () => { pull(); f.pack = b.dataset.admPack; draw(); }));

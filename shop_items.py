@@ -644,6 +644,27 @@ def install_shop_items(app, db, auth, record, audit):
         audit('Shop item ' + iid + ' ' + status)
         return {'ok': True}
 
+    @app.post('/api/admin/new-year/shop-clear')
+    @auth(admin=True)
+    def admin_shop_clear():
+        """Remove every offer of one section at once ('' = the offers without a section). What players already got stays theirs."""
+        body = request.get_json(silent=True) or {}
+        section_id = str(body.get('section_id') or '').strip()
+        if body.get('confirm') is not True:
+            abort(400, description='Подтвердите очистку раздела')
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            if section_id:
+                where, args = "section_id=?", (section_id,)
+            else:
+                where, args = "(section_id IS NULL OR section_id='')", ()
+            ids = [r['id'] for r in db().execute("SELECT id FROM shop_items WHERE " + where, args).fetchall()]
+            for iid in ids:
+                db().execute("DELETE FROM shop_item_buys WHERE item_id=?", (iid,))
+                db().execute("DELETE FROM shop_items WHERE id=?", (iid,))
+        audit('Shop section cleared %s: %d offers' % (section_id or '(auto)', len(ids)))
+        return {'ok': True, 'removed': len(ids)}
+
     @app.post('/api/admin/new-year/shop/<iid>/delete')
     @auth(admin=True)
     def admin_shop_delete(iid):
