@@ -4,7 +4,7 @@
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? ''));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
 const ORN = '<img src="/static/assets/new-year-ornament.svg" alt="" aria-hidden="true">';
-const LABEL = {GRAM: 'Баланс GRAM', BALL: 'Новогодние шары', PACK: 'Карточный пак', BUNDLE: 'Бандл', STAR: 'Подарок Telegram', PROMO: 'Промокод', CHEST: 'Ящик'};
+const LABEL = {GRAM: 'Баланс GRAM', BALL: 'Новогодние шары', PACK: 'Карточный пак', BUNDLE: 'Бандл', STAR: 'Подарок Telegram', PROMO: 'Промокод', CHEST: 'Ящик', DROP: 'Дроп', PASS: 'Pass Plus'};
 let STARS = [], CHESTS = [], DROPS = [];
 const MIXPRICE = {};                                          // choice offer: the price of every option (empty = the price of the lot)
 const SIZES = [['small', 'Обычная', '1×1', 'Маленькая плитка в сетке'], ['wide', 'Широкая', '2×1', 'Вытянута на две колонки'],
@@ -43,6 +43,7 @@ function art(it) {
     if (it.kind === 'STAR') return it.star?.image || '/static/assets/stargifts/bear.png';
     if (it.kind === 'CHEST') return it.chest?.image || '/static/assets/chests/gingerbread.png';
     if (it.kind === 'DROP') return it.drop?.image || '/static/assets/drops/snowman.png';
+    if (it.kind === 'PASS') return it.pass?.image || '/static/assets/pass/ticket-plus.svg';
     return '/static/assets/community-reward.svg';
 }
 const unavailable = it => (it.left !== null && it.left <= 0) || (it.per_user !== null && it.mine >= it.per_user);
@@ -53,6 +54,7 @@ function describe(it) {
     if (it.kind === 'BUNDLE') return 'В бандле: ' + [].concat((it.contents || []).map(c => c.pack.title + (c.count > 1 ? ' ×' + c.count : '')), (it.chests_in || []).map(c => c.chest.title + (c.count > 1 ? ' ×' + c.count : '')), (it.drops_in || []).map(c => c.drop.title + (c.count > 1 ? ' ×' + c.count : '')), it.gram ? [num(it.gram) + ' GRAM'] : [], it.balls ? [num(it.balls) + ' новогодних шаров'] : []).join(' + ') + '. Всё сразу за одну покупку.';
     if (it.kind === 'PACK' && it.contents && it.contents.length > 1) return 'В наборе: ' + it.contents.map(c => c.pack.title + (c.count > 1 ? ' ×' + c.count : '')).join(' + ') + '.';
     if (it.kind === 'PACK') return it.bundle > 1 ? 'Вы получите ' + it.bundle + ' карточных паков.' : 'Карточный пак с GRAM и подарками.';
+    if (it.kind === 'PASS') return 'Pass Plus' + (it.pass?.season ? ' сезона «' + it.pass.season.title + '»' : '') + ': откроется верхняя дорога наград и особые квесты. Покупается один раз за сезон.';
     if (it.kind === 'DROP') return 'Дроп открывается сразу после покупки, как ящик: четыре нажатия поднимают редкость, и в конце выпадает одна награда — GRAM, шары, пак или NFT.';
     if (it.kind === 'CHEST') return 'Ящик открывается сразу после покупки: внутри шары, GRAM, паки или подарки. Что выпадет, решает случай.';
     if (it.kind === 'STAR') return 'Подарок Telegram' + (it.bundle > 1 ? ' ×' + it.bundle : '') + ' попадёт в «Мои подарки»: его можно продать сайту за GRAM, вывести в Telegram или использовать в апгрейде и крафте.';
@@ -108,6 +110,7 @@ const KIND_TILES = [
     ['BUNDLE', 'Бандл / выбор / случайный', 'Несколько паков сразу, на выбор или случайный', '/static/assets/community-reward.svg'],
     ['CHEST', 'Ящик', 'Открывается сразу: награды по шансам', '/static/assets/chests/gingerbread.png'],
     ['DROP', 'Дроп', 'Открывается сразу: 4 нажатия, одна награда', '/static/assets/drops/snowman.png'],
+    ['PASS', 'Pass Plus', 'Открывает Pass Plus текущего сезона', '/static/assets/pass/ticket-plus.svg'],
     ['PROMO', 'Промокод', 'Уникальный код для покупателя', '/static/assets/community-reward.svg'],
 ];
 const PROMO_TILES = [['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg'], ['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png']];
@@ -582,6 +585,8 @@ async function admin(content) {
             ? '<div class="adm-step"><h4>Какой пак</h4>' + window.crafterPacks.packTiles(packs, f.pack) + '</div>'
             : eff() === 'DROP'
             ? '<div class="adm-step"><h4>Какой дроп</h4><div class="adm-field"><select data-f="amount">' + DROPS.map(c => '<option value="' + e(c.id) + '"' + (f.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select><small class="sub">Дроп открывается сразу после покупки, как ящик (4 нажатия поднимают редкость, в конце одна награда).</small></div></div>'
+            : eff() === 'PASS'
+            ? '<div class="adm-step"><h4>Pass Plus</h4><p class="sub">Игрок получит Pass Plus сезона, который идёт сейчас (его настраивают в разделе «Пасс»). Если сезона нет или Pass Plus уже куплен, покупка не пройдёт, шары не спишутся. Цена в шарах задаётся ниже, отдельно от цены внутри самого пасса.</p></div>'
             : eff() === 'CHEST'
             ? '<div class="adm-step"><h4>Какой ящик</h4><div class="adm-field"><select data-f="amount">' + CHESTS.map(c => '<option value="' + e(c.id) + '"' + (f.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select><small class="sub">Ящики создаются во вкладке «Ящики». Ящик открывается сразу, в инвентаре его нет.</small></div></div>'
             : eff() === 'STAR'
@@ -635,7 +640,7 @@ async function admin(content) {
         sec.querySelector('[data-f="endsMsk"]')?.addEventListener('change', () => { f.endsH = ''; });
         bindSections();
         sec.querySelectorAll('[data-rar]').forEach(b => b.addEventListener('click', () => { pull(); f.rarity = b.dataset.rar; draw(); }));
-        sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'DROP' ? (DROPS[0]?.id || '') : eff() === 'CHEST' ? (CHESTS[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
+        sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'PASS' ? 'plus' : eff() === 'DROP' ? (DROPS[0]?.id || '') : eff() === 'CHEST' ? (CHESTS[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'CHEST' ? (CHESTS[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelector('[data-bnd-add]')?.addEventListener('click', () => { pull(); openAdder(); });
         sec.querySelector('[data-gr-go]')?.addEventListener('click', async () => { pull(); try { const res = await api('admin/drops/grant', {user_id: sec.querySelector('[data-gr-user]').value.trim(), drop_id: f.amount, qty: sec.querySelector('[data-gr-qty]').value.trim() || 1}); toast('Выдано. У игрока теперь: ' + res.qty); } catch (err) { toast(err.message); } });

@@ -11,7 +11,7 @@ const thumb = (u, w) => /^\/(static\/assets\/(chests|packs)\/[\w.-]+\.(png|webp|
 const ORN = '<img class="fm-ball" src="/static/assets/new-year-ornament.svg" alt="">';
 const SI = () => window.crafterShopItems || {};
 const NAMES = {common: 'Акция', rare: 'Редкая акция', special: 'Особая акция', epic: 'Эпическая акция', mythic: 'Мифическая акция', legend: 'Легендарная акция', res: 'Ресурсы'};
-const TYPES = {DROP: 'Дроп', GRAM: 'Баланс GRAM', BALL: 'Шары', PACK: 'Пак', BUNDLE: 'Набор', STAR: 'Подарок Telegram', CHEST: 'Ящик', PROMO: 'Промокод', REWARD: 'Награда сообщества'};
+const TYPES = {PASS: 'Pass Plus', DROP: 'Дроп', GRAM: 'Баланс GRAM', BALL: 'Шары', PACK: 'Пак', BUNDLE: 'Набор', STAR: 'Подарок Telegram', CHEST: 'Ящик', PROMO: 'Промокод', REWARD: 'Награда сообщества'};
 const WIDTH = {small: 1, tall: 1, wide: 1.6, large: 2, banner: 2.6};
 let offset = 0;                                                    // server time minus the time of this device
 const nowSec = () => Math.floor(Date.now() / 1000) + offset;
@@ -98,15 +98,16 @@ function leftText(s) {
     const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
     return d ? d + 'д. ' + h + 'ч.' : h ? h + 'ч. ' + m + 'м.' : m + 'м. ' + (s % 60) + 'с.';
 }
-function dropLayers() {                                          // many layers of the same picture: the drop looks solid and turns with a thickness
-    const n = innerWidth < 760 ? 7 : 11, d = n > 9 ? 2.6 : 3.6, f = '/static/assets/drops/snowman-idle.webp';
+function dropLayers(art) {
+    art = art || 'snowman';                                          // many layers of the same picture: the drop looks solid and turns with a thickness
+    const n = innerWidth < 760 ? 7 : 11, d = n > 9 ? 2.6 : 3.6, f = '/static/assets/drops/' + art + '-idle.webp';
     let out = '';
     for (let i = n; i >= 1; i--) out += '<i class="ps-l" style="--z:' + (-i * d).toFixed(1) + 'px;--b:' + (1 - Math.min(.5, i * .5 / n)).toFixed(2) + ';--k:' + (1 - i * .0034).toFixed(4) + '"><img alt="" draggable="false" src="' + f + '"></i>';
-    out += '<i class="ps-l ps-back" style="--z:' + (-(n + 1) * d).toFixed(1) + 'px"><img alt="" draggable="false" src="/static/assets/drops/snowman-turn-180.webp"></i>';
+    out += '<i class="ps-l ps-back" style="--z:' + (-(n + 1) * d).toFixed(1) + 'px"><img alt="" draggable="false" src="/static/assets/drops/' + art + '-turn-180.webp"></i>';
     return out + '<i class="ps-l ps-front"><img alt="" draggable="false" src="' + f + '"></i>';
 }
 function artOf(it) {
-    if (it.drop) return '<div class="fm-dropart"><i class="fm-drop-rays"></i><i class="fm-drop-halo"></i><span class="fm-drop-spin"><span class="ps3d fm-solid">' + dropLayers() + '</span></span><i class="fm-drop-sp s1"></i><i class="fm-drop-sp s2"></i><i class="fm-drop-sp s3"></i><i class="fm-drop-sh"></i></div>';
+    if (it.drop) return '<div class="fm-dropart"><i class="fm-drop-rays"></i><i class="fm-drop-halo"></i><span class="fm-drop-spin"><span class="ps3d fm-solid">' + dropLayers(it.drop.art) + '</span></span><i class="fm-drop-sp s1"></i><i class="fm-drop-sp s2"></i><i class="fm-drop-sp s3"></i><i class="fm-drop-sh"></i></div>';
     if (it.mode === 'random' && it.contents && it.contents.length) {                 // a black pack with a question mark
         return '<div class="fm-mystery"><img class="si-solo" src="' + e(it.contents[0].pack.image) + '" alt=""><b>?</b><i></i><i></i><i></i></div>';
     }
@@ -458,6 +459,7 @@ async function perform(o, ctx, choice) {
     if (res.drop_granted) return {drop: res.drop_granted};
     if (res.chest_open) return {chest: res.chest_open};
     if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};
+    if (res.pass_plus) return {head: 'Покупка совершена', title: 'Pass Plus открыт!', text: 'Верхняя дорога наград и особые квесты сезона' + (res.pass_season ? ' «' + res.pass_season.title + '»' : '') + ' ждут в разделе «События» → «Сезон».'};
     if (res.code) { const cc = window.crafterCommunity; return {title: 'Ваш промокод', text: 'Он привязан к вашему аккаунту и работает один раз.', html: cc.codeBlock(res.code), bind: root => cc.bindCode(root, res.code)}; }
     return {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : 'Зачислено шаров: ' + num(res.balls_gain), text: 'Баланс уже обновлён.'};
 }
@@ -465,7 +467,7 @@ async function perform(o, ctx, choice) {
 /* ---------- the market ---------- */
 function render(main, ctx) {
     if (ctx.shopState?.now) offset = ctx.shopState.now - Math.floor(Date.now() / 1000);
-    const usable = it => !(it.left !== null && it.left !== undefined && it.left <= 0) && !(it.per_user && it.mine >= it.per_user) && !(it.ends_at && it.ends_at <= nowSec());
+    const usable = it => !(it.kind === 'PASS' && (!it.pass || !it.pass.season || it.pass.owned)) && !(it.left !== null && it.left !== undefined && it.left <= 0) && !(it.per_user && it.mine >= it.per_user) && !(it.ends_at && it.ends_at <= nowSec());
     const items = (ctx.shopState?.items || []).filter(usable).map(it => ({key: it.id, it, src: 'shop'}));
     const packs = (ctx.packState?.shop || []).map(p => ({key: 'pk:' + p.id, src: 'pack', p, it: {id: 'pk:' + p.id, kind: 'PACK', amount: p.id, title: 'Pack ' + p.title, image_url: p.image, pack: {image: p.image, title: p.title, accent: p.accent, id: p.id}, price_balls: p.price_balls, size: 'small', bundle: 1, left: null, mine: 0, rarity: 'auto', badge: '', description: ''}}));
     const rewards = (ctx.shared?.milestones || []).filter(m => m.reached && !m.redeemed && !(m.reward_kind === 'PACK' && m.code)).map(m => ({key: 'cm:' + m.id, src: 'cm', m, it: {

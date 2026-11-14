@@ -476,6 +476,33 @@ def install_season_pass(app, db, auth, audit, record):
             result = {'ok': True, 'plus': True, 'balance': wallet(uid)}
         return result
 
+    def grant_plus(uid, source):
+        """Open Pass Plus without paying here (the shop took the price). A refusal cancels the purchase of the caller."""
+        now = int(time.time())
+        season = current_season(now)
+        if not season:
+            abort(409, description='Сезона сейчас нет: Pass Plus купить нельзя')
+        urow = user_row(uid, season['id'])
+        if urow['plus']:
+            abort(409, description='Pass Plus этого сезона уже открыт')
+        db().execute("UPDATE pass_users SET plus=1 WHERE user_id=? AND season_id=?", (uid, season['id']))
+        record('pass_plus_buy', {'season': season['id'], 'source': source}, uid=uid)
+        return {'id': season['id'], 'number': int(season['number']), 'title': season['title']}
+
+    def pass_short(uid=None):
+        """What the shop shows for an offer of Pass Plus: the running season, its ticket and whether the player already has it."""
+        season = current_season(int(time.time()))
+        if not season:
+            return {'season': None, 'owned': False, 'image': ''}
+        owned = False
+        if uid:
+            row = db().execute("SELECT plus FROM pass_users WHERE user_id=? AND season_id=?", (uid, season['id'])).fetchone()
+            owned = bool(row and row['plus'])
+        return {'season': {'id': season['id'], 'number': int(season['number']), 'title': season['title']}, 'owned': owned, 'image': season['plus_ticket'] or '/static/assets/pass/ticket-plus.svg'}
+
+    app.extensions['crafter_pass_grant_plus'] = grant_plus
+    app.extensions['crafter_pass_short'] = pass_short
+
     @app.post('/api/pass/buy-level')
     @auth()
     def pass_buy_level():

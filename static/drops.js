@@ -59,7 +59,8 @@ async function open(dropId, opts) {
     opts = opts || {};
     let s;
     try { s = await api('drops/' + dropId + '/open', {}); } catch (err) { toast(err.message); return; }
-    await preload([A + 'snowman-idle.webp', A + 'snowman-turn-180.webp', A + 'snowman-open-charge.webp', A + 'bg-common.webp?v=2']);
+    const P = (s.drop && s.drop.art) || 'snowman', bgOf = r => A + (P === 'snowman' ? 'bg-' : P + '-bg-') + RAR[r] + '.webp?v=2';
+    await preload([A + P + '-idle.webp', A + P + '-turn-180.webp', A + P + '-open-charge.webp', bgOf(s.rarity)]);
     document.querySelector('.dr-play')?.remove();
     const el = document.createElement('div');
     el.className = 'dr-play is-' + RAR[s.rarity];
@@ -69,14 +70,14 @@ async function open(dropId, opts) {
     el.innerHTML = '<div class="dr-bg"><i class="dr-bg-a"></i><i class="dr-bg-b"></i></div><i class="dr-rays"></i><div class="dr-fx"></div>' +
         '<div class="dr-top"><h1 class="dr-rarity" data-t="' + e(EN[RAR[s.rarity]]) + '">' + e(EN[RAR[s.rarity]]) + '</h1></div>' +
         '<div class="dr-snow">' + Array.from({length: 16}, (_, i) => '<i style="left:' + ((i * 61) % 100) + '%;--d:' + (7 + (i * 5) % 7) + 's;--w:' + ((i * 17) % 40 - 20) + 'px;--s:' + (3 + (i * 3) % 5) + 'px;animation-delay:-' + ((i * 3) % 9) + 's"></i>').join('') + '</div><i class="dr-rflash"></i>' +
-        '<div class="dr-stage"><div class="dr-halo"></div><i class="dr-ground"></i><div class="dr-orbit" aria-hidden="true">' + Array.from({length: 7}, (_, i) => { const a = i * 2 * Math.PI / 7, r = 36 + (i % 3) * 6; return '<i style="left:' + (50 + r * Math.cos(a)).toFixed(1) + '%;top:' + (50 + r * Math.sin(a)).toFixed(1) + '%;--s:' + (10 + (i % 3) * 5) + 'px;--t:' + (2.2 + (i % 4) * .5).toFixed(1) + 's;animation-delay:-' + (i * .7).toFixed(1) + 's"></i>'; }).join('') + '</div><button type="button" class="dr-star" aria-label="Улучшить дроп"><span class="ps3d dr-solid">' + solidHTML(A + 'snowman-idle.webp', A + 'snowman-turn-180.webp', innerWidth < 760 ? 8 : 14) + '</span></button><i class="dr-ring"></i><i class="dr-ring r2"></i><i class="dr-wave"></i><i class="dr-flash"></i></div>' +
+        '<div class="dr-stage"><div class="dr-halo"></div><i class="dr-ground"></i><div class="dr-orbit" aria-hidden="true">' + Array.from({length: 7}, (_, i) => { const a = i * 2 * Math.PI / 7, r = 36 + (i % 3) * 6; return '<i style="left:' + (50 + r * Math.cos(a)).toFixed(1) + '%;top:' + (50 + r * Math.sin(a)).toFixed(1) + '%;--s:' + (10 + (i % 3) * 5) + 'px;--t:' + (2.2 + (i % 4) * .5).toFixed(1) + 's;animation-delay:-' + (i * .7).toFixed(1) + 's"></i>'; }).join('') + '</div><button type="button" class="dr-star" aria-label="Улучшить дроп"><span class="ps3d dr-solid">' + solidHTML(A + P + '-idle.webp', A + P + '-turn-180.webp', innerWidth < 760 ? 8 : 14) + '</span></button><i class="dr-ring"></i><i class="dr-ring r2"></i><i class="dr-wave"></i><i class="dr-flash"></i></div>' +
         '<div class="dr-bottom"><h2 class="dr-title">Попытки улучшения</h2><div class="dr-orbs"></div><p class="dr-hint">Нажмите на экран</p></div>' +
         '<div class="dr-reward" hidden></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
     const $ = q => el.querySelector(q);
     const star = $('.dr-star'), img = $('.dr-front'), solidEl = $('.dr-solid'), orbsEl = $('.dr-orbs'), titleEl = $('.dr-rarity'), stage = $('.dr-stage'), fx = $('.dr-fx');
-    const setBg = r => { $('.dr-bg-a').style.backgroundImage = 'url(' + A + 'bg-' + RAR[r] + '.webp?v=2)'; };
+    const setBg = r => { $('.dr-bg-a').style.backgroundImage = 'url(' + bgOf(r) + ')'; };
     const drawOrbs = pop => { orbsEl.innerHTML = orbs(s); orbsEl.setAttribute('aria-label', 'Осталось попыток: ' + s.attempts_left); if (pop !== undefined) orbsEl.children[pop]?.classList.add('is-pop'); };
     setBg(s.rarity);
     // a session that was already started: the history of the attempts is not shown (the server does not give the future); the past is drawn as the current rarity
@@ -126,7 +127,7 @@ async function open(dropId, opts) {
         const color = COLORS[RAR[s.rarity]];
         $('.dr-bottom').classList.add('is-gone'); $('.dr-top').classList.add('is-gone');
         el.classList.add('is-charge');
-        img.src = A + 'snowman-open-charge.webp';
+        img.src = A + P + '-open-charge.webp';
         if (!reduced()) star.animate([{transform: 'translate(0,0) scale(1)'}, {transform: 'translate(-6px,2px) scale(1.04)'}, {transform: 'translate(6px,-2px) scale(1.07)'}, {transform: 'translate(-8px,0) scale(1.1)'}, {transform: 'translate(8px,2px) scale(1.14)'}, {transform: 'translate(0,0) scale(1.2)'}], {duration: 640, easing: 'ease-in', fill: 'forwards'});
         await sleep(reduced() ? 150 : 700);
         el.classList.add('is-flash', 'is-pop-out'); shake(14, 520); burst(46, 1.7, color);
@@ -156,7 +157,8 @@ async function open(dropId, opts) {
             titleEl.textContent = EN[RAR[res.rarity]]; titleEl.dataset.t = EN[RAR[res.rarity]]; pulse('is-up');
             burst(18 + res.rarity * 4, 1 + res.rarity * .12, color); shake(5 + res.rarity, 360);
         } else { pulse('is-same'); burst(7, .6, color); }
-        img.src = A + 'snowman-idle.webp';
+        img.src = A + P + (up && P !== 'snowman' && res.state !== 'revealed' ? '-surprised' : '-idle') + '.webp';
+        if (up && P !== 'snowman' && res.state !== 'revealed') setTimeout(() => { if (!finished && !el.classList.contains('is-charge')) img.src = A + P + '-idle.webp'; }, 900);
         drawOrbs(res.attempt - 1);
         if (res.state === 'revealed') { await sleep(300); await reveal(res.reward); return; }
         $('.dr-hint').textContent = 'Нажмите на экран';

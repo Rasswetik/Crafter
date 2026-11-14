@@ -118,8 +118,9 @@ def install_chests(app, db, auth, audit, record):
                                  (uuid.uuid4().hex[:12], 'reindeer', i, kind, amount, cnt_min, cnt_max, str(weight)))
             db().execute("INSERT INTO settings(key,payload) VALUES('chest_reindeer_v1','1') ON CONFLICT(key) DO NOTHING")
 
-    from chests_seed import BOXES                                 # the boxes that came as bundles: Santa, Honey Holidays, Candy Cane
-    for box_id, box in BOXES.items():
+    from chests_seed import BOXES                                 # the boxes that came as bundles: Santa, Honey Holidays, Candy Cane, Goshan
+    from drops_seed_goshan import BOX as GOSHAN_BOX
+    for box_id, box in {**BOXES, 'goshan': GOSHAN_BOX}.items():
         with app.app_context(), db():
             db().execute('BEGIN IMMEDIATE')
             if db().execute("SELECT 1 FROM settings WHERE key=?", ('chest_%s_v1' % box_id,)).fetchone():

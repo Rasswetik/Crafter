@@ -12,10 +12,13 @@ import uuid
 from flask import abort, g, request
 
 from drops_seed import DROPS
+from drops_seed_goshan import DROPS as MORE_DROPS
+DROPS = {**DROPS, **MORE_DROPS}
 
 rng = random.SystemRandom()
 RARITY_KEYS = ('common', 'rare', 'epic', 'mythic', 'legendary', 'secret')
-IMAGES = {'snowman_drop': '/static/assets/drops/snowman.png'}
+IMAGES = {'snowman_drop': '/static/assets/drops/snowman.png', 'santa_drop': '/static/assets/drops/santa.png', 'goshan_drop': '/static/assets/drops/goshan.png'}
+ART = {'snowman_drop': 'snowman', 'santa_drop': 'santa', 'goshan_drop': 'goshan'}      # the prefix of the pictures of a drop in static/assets/drops
 REQUEST_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_-]{7,99}')
 
 
@@ -82,7 +85,7 @@ def install_drops(app, db, auth, audit):
         cfg = DROPS.get(drop_id)
         if not cfg:
             return None
-        return {'id': drop_id, 'title': cfg['title'], 'image': IMAGES.get(drop_id, ''), 'attempts': cfg['attempts'], 'rarities': cfg['rarities']}
+        return {'id': drop_id, 'title': cfg['title'], 'image': IMAGES.get(drop_id, ''), 'art': ART.get(drop_id, 'snowman'), 'attempts': cfg['attempts'], 'rarities': cfg['rarities']}
 
     def stock_of(uid, drop_id):
         row = db().execute("SELECT qty FROM drop_stock WHERE user_id=? AND drop_id=?", (uid, drop_id)).fetchone()
