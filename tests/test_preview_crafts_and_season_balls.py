@@ -18,6 +18,7 @@ def _season_setup(client, monkeypatch):
     admin=signed(42)
     assert client.get('/api/me',headers=admin).status_code==200
     assert client.post('/api/admin/new-year/settings',headers=admin,json={'enabled':True}).status_code==200
+    assert client.post('/api/admin/new-year/points-rate',headers=admin,json={'per_ton':10}).status_code==200   # points for trades are off by default: the old rate is set here
     source={'id':'preview-nft-100','name':'Lunar Snake','collection_id':'lunar',
             'number':12345,'model':'Main','symbol':'Sparkle','backdrop':'Night',
             'price':'1.25','price_unit':'TON',

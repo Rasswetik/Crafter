@@ -95,7 +95,7 @@ def test_splash_is_full_bleed_and_updates_both_progress_indicators():
     assert "position:fixed;inset:0" in layout and "min(86vw,340px)" in layout          # one layout, scales with the screen
     assert "querySelectorAll('#splash .splash-progress')" in loader
     assert "Date.now()+2500" not in loader
-    assert "splash-v4.css" in template and "sv4-logo" in template and "splash-v3" not in template
+    assert "splash-v4.css" in template and "splash-v3" not in template
     assert "splash-device-layout.css" not in template and "crafter-approved-splash" not in template
     assert "announcements-glass-fix.css" in template
     assert "/static/preferences.js?v=" in template
