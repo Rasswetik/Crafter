@@ -576,7 +576,7 @@ async function admin(content) {
     const sectionsHTML = () => {
         const list = (r.sections || []).map(s => '<div class="fm-srow' + (s.enabled ? '' : ' is-off') + '"><span class="fm-sico">' + icoOf(s.icon) + '</span><b>' + e(s.title) + '</b><small>' + (s.kind === 'custom' ? 'свой раздел' : s.kind === 'exchange' ? 'раздел обмена' : 'встроенный') + ' · фон: ' + e(bgName(s)) + (s.enabled ? '' : ' · скрыт') + '</small>' +
             (s.preview ? '<img class="fm-spv" src="' + e(s.preview) + '" alt="">' : '') +
-            '<span class="fm-sbt"><button type="button" data-sec-up="' + e(s.id) + '" aria-label="Выше">↑</button><button type="button" data-sec-down="' + e(s.id) + '" aria-label="Ниже">↓</button><button type="button" data-sec-edit="' + e(s.id) + '">Изменить</button>' +
+            '<span class="fm-sbt"><button type="button" data-sec-up="' + e(s.id) + '" aria-label="Выше">↑</button><button type="button" data-sec-down="' + e(s.id) + '" aria-label="Ниже">↓</button><button type="button" class="fm-vis' + (s.enabled ? '' : ' is-off') + '" data-sec-vis="' + e(s.id) + '" data-shown="' + (s.enabled ? 1 : 0) + '">' + (s.enabled ? 'Скрыть' : 'Показать') + '</button><button type="button" data-sec-edit="' + e(s.id) + '">Изменить</button>' +
             (s.kind !== 'smart' ? '<button type="button" data-sec-del="' + e(s.id) + '">Удалить</button>' : '') + '</span></div>').join('');
         let form = '';
         if (secForm) {
@@ -601,6 +601,10 @@ async function admin(content) {
         sec.querySelector('#sec-add-ex')?.addEventListener('click', () => { secForm = {title: 'Обмен', icon: 'builtin:gem', preview: '', bg: 'blue', enabled: true, kind: 'exchange'}; redraw(); });
         sec.querySelector('#sec-cancel')?.addEventListener('click', () => { secForm = null; redraw(); });
         sec.querySelectorAll('[data-sec-edit]').forEach(b => b.addEventListener('click', () => { const s = r.sections.find(x => x.id === b.dataset.secEdit); secForm = {id: s.id, title: s.title, icon: s.icon, preview: s.preview, bg: s.bg, enabled: s.enabled}; redraw(); sec.querySelector('.fm-sform')?.scrollIntoView({behavior: 'smooth', block: 'center'}); }));
+        sec.querySelectorAll('[data-sec-vis]').forEach(b => b.addEventListener('click', async () => {
+            const show = b.dataset.shown !== '1';
+            try { await api('admin/new-year/shop-sections/' + b.dataset.secVis + '/visibility', {enabled: show}); const fresh = await api('admin/new-year/shop'); r.sections = fresh.sections || r.sections; r.items = fresh.items || r.items; toast(show ? 'Раздел показан игрокам' : 'Раздел скрыт: всё из него пропало'); redraw(); } catch (err) { toast(err.message); }
+        }));
         sec.querySelectorAll('[data-sec-del]').forEach(b => b.addEventListener('click', async () => { if (!confirm('Удалить раздел? Его лоты вернутся в автоматические разделы.')) return; try { await api('admin/new-year/shop-sections/' + b.dataset.secDel + '/delete', {}); await reload(); toast('Раздел удалён'); redraw(); } catch (err) { toast(err.message); } }));
         sec.querySelectorAll('[data-sec-up],[data-sec-down]').forEach(b => b.addEventListener('click', async () => {
             const id = b.dataset.secUp || b.dataset.secDown, ids = r.sections.map(s => s.id), at = ids.indexOf(id), to = b.dataset.secUp ? at - 1 : at + 1;

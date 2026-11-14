@@ -129,6 +129,19 @@ def install_shop_sections(app, db, auth, audit):
         audit('Shop section saved: ' + title)
         return {'ok': True, 'id': sid}
 
+    @app.post('/api/admin/new-year/shop-sections/<sid>/visibility')
+    @auth(admin=True)
+    def admin_section_visibility(sid):
+        """One tap: hide the section (its offers disappear for everybody, the administrators too) or show it again."""
+        shown = 1 if (request.get_json(silent=True) or {}).get('enabled') in (True, 1, '1', 'true', 'on') else 0
+        with db():
+            row = db().execute("SELECT title FROM shop_sections WHERE id=?", (sid,)).fetchone()
+            if not row:
+                abort(404, description='Раздел не найден')
+            db().execute("UPDATE shop_sections SET enabled=? WHERE id=?", (shown, sid))
+        audit('Shop section ' + ('shown: ' if shown else 'hidden: ') + row['title'])
+        return {'ok': True, 'enabled': bool(shown)}
+
     @app.post('/api/admin/new-year/shop-sections/<sid>/delete')
     @auth(admin=True)
     def admin_section_delete(sid):

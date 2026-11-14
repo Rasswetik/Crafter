@@ -212,3 +212,5 @@
 .hb-row b{flex:1}
 .hb-pv{position:relative;width:120px;height:56px;border-radius:10px;overflow:hidden;background:rgba(255,255,255,.08);display:grid;place-items:center;font-size:11px;color:#9fb2d6;flex:none}
 .hb-pv i{position:absolute;inset:0;background:center/cover}.hb-pv .ls{position:absolute}
+
+.fm-srow .fm-vis{border-color:rgba(255,120,120,.45);color:#ffb4b4}.fm-srow .fm-vis.is-off{border-color:rgba(120,220,150,.5);color:#a8f0c0}

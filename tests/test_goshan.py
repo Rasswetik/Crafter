@@ -149,3 +149,15 @@ def test_points_for_trades_are_off_by_default_and_hub_buttons_get_backgrounds(cl
     assert client.get('/api/new-year/locks', headers=player).json['hub_bg']['market'] == 'vice-neon'
     assert client.post('/api/admin/new-year/hub-bg', headers=admin, json={'card': 'market', 'bg': 'nope'}).status_code == 400
     assert client.post('/api/admin/new-year/hub-bg', headers=admin, json={'card': 'market', 'bg': ''}).json['hub_bg'] == {'season': 'live-gold'}
+
+
+def test_section_hide_and_show_in_one_tap(client):
+    admin, player = signed(42), signed(71)
+    client.get('/api/me', headers=player)
+    shop = client.get('/api/admin/new-year/shop', headers=admin).json
+    sid = [s['id'] for s in shop['sections'] if s['enabled']][0]
+    assert client.post('/api/admin/new-year/shop-sections/%s/visibility' % sid, headers=admin, json={'enabled': False}).json['enabled'] is False
+    assert [s for s in client.get('/api/admin/new-year/shop', headers=admin).json['sections'] if s['id'] == sid][0]['enabled'] is False
+    assert client.post('/api/admin/new-year/shop-sections/%s/visibility' % sid, headers=admin, json={'enabled': True}).json['enabled'] is True
+    assert client.post('/api/admin/new-year/shop-sections/nope/visibility', headers=admin, json={'enabled': True}).status_code == 404
+    assert client.post('/api/admin/new-year/shop-sections/%s/visibility' % sid, headers=signed(72), json={'enabled': False}).status_code in (401, 403)
