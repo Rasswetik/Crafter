@@ -7,7 +7,7 @@ from test_pass import make_season
 def test_santa_and_goshan_drops_have_exact_chances_and_their_own_art(client):
     admin, player = signed(42), signed(61)
     client.get('/api/me', headers=player)
-    for drop_id, art in (('santa_drop', 'santa'), ('goshan_drop', 'goshan')):
+    for drop_id, art in (('santa_drop', 'santa'), ('goshan_drop', 'goshan'), ('nikolay_drop', 'nikolay')):
         info = client.get('/api/drops/%s/chances' % drop_id, headers=player).json
         assert info['drop']['art'] == art and info['drop']['image'].endswith('/%s.png' % art)
         assert [r['chance'] for r in info['rarities']] == [49.5, 28.0, 15.0, 5.0, 2.0, 0.5]
@@ -25,11 +25,12 @@ def test_santa_and_goshan_drops_have_exact_chances_and_their_own_art(client):
 def test_goshan_box_gives_two_to_six_rewards(client):
     admin, player = signed(42), signed(62)
     client.get('/api/me', headers=player)
+    assert client.get('/api/chests/nikolay', headers=player).json['chest']['title'] == 'Nikolay Box'
     info = client.get('/api/chests/goshan', headers=player).json
     assert info['chest']['title'] == 'Goshan Box'
     seen = set()
     for _ in range(40):
-        r = client.post('/api/admin/new-year/chests/goshan/preview', headers=admin)
+        r = client.post('/api/admin/new-year/chests/%s/preview' % ('goshan' if _ % 2 else 'nikolay'), headers=admin)
         assert r.status_code == 200, r.get_data(as_text=True)
         seen.add(len(r.json['items']))
     assert seen and min(seen) >= 2 and max(seen) <= 6
