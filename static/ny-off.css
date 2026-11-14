@@ -2,8 +2,10 @@
 html.ny-off #winter-garland,
 html.ny-off .crafter-snowfall,
 html.ny-off .site-winter-garland,
-html.ny-off .winter-currency-balance,
-html.ny-off #app > header > .winter-currency-balance,
 html.ny-off #app > header::before,
 html.ny-off #app.arena-view .arena-board-frame::after,
 html.ny-off #app.craft-view .craft-page::after { display: none !important; content: none !important; background: none !important; }
+
+/* without the New Year the balls are points: every picture of the ball turns into the coin */
+html.ny-off img[src$="new-year-ornament.svg"]{content:url("/static/assets/points.svg")}
+html.ny-off #app > header > .winter-currency-balance{display:inline-flex!important}

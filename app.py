@@ -432,7 +432,8 @@ def create_app(config=None):
                     referral_tier_rates=referral_data['levels'], referral_commission_live=True,
                     referral_balance=referral_data['balance'], referral_rate=referral_data['rate'],
                     referral_earned=referral_data['total_earned'], new_year_enabled=new_year_enabled(),
-                    new_year_reward_per_ton=10, new_year_gram_per_ton=str(seasonal_conversion()),
+                    currency=app.extensions['crafter_ny_currency_mode'](), ny_notice=app.extensions['crafter_ny_currency_notice'](g.user['id']),
+                    new_year_reward_per_ton=100, new_year_gram_per_ton=str(seasonal_conversion()),
                     market_test_purchases=purchase_mode() == 'test', purchase_mode=purchase_mode(),
                     market_backend=app.extensions['crafter_market_backend'](),
                     invite_link=link)

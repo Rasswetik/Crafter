@@ -102,3 +102,20 @@ def test_gift_calendars_and_chains_share_the_order_of_the_shop(client):
     assert again.status_code == 200
     shop = client.get('/api/shop-items', headers=player).json
     assert [x['id'] for x in shop['items']] == [a, b] and shop['extra_order']['fb:cal1'] > shop['items'][1]['position']
+
+
+def test_new_year_switch_turns_balls_into_points_with_a_notice(client):
+    admin, player = signed(42), signed(67)
+    me = client.get('/api/me', headers=player).json
+    assert me['currency'] == 'points' and me['ny_notice'] is None                  # the New Year is off by default: points, nothing to tell
+    client.post('/api/admin/new-year/wallet', headers=admin, json={'user_id': '67', 'balls': '250', 'donate': '0', 'tinsel': '0'})
+    assert client.post('/api/admin/new-year/settings', headers=admin, json={'enabled': True}).status_code == 200
+    me = client.get('/api/me', headers=player).json
+    assert me['currency'] == 'balls' and me['ny_notice'] == {'from': 'points', 'to': 'balls', 'amount': 250}
+    assert client.get('/api/me', headers=player).json['ny_notice'] is not None       # it is shown until the player confirms
+    assert client.post('/api/new-year/ack', headers=player).status_code == 200
+    assert client.get('/api/me', headers=player).json['ny_notice'] is None
+    client.post('/api/admin/new-year/settings', headers=admin, json={'enabled': False})
+    me = client.get('/api/me', headers=player).json
+    assert me['currency'] == 'points' and me['ny_notice'] == {'from': 'balls', 'to': 'points', 'amount': 250}
+    assert client.get('/api/new-year', headers=player).status_code == 200            # the section does not disappear

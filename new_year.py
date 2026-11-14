@@ -208,13 +208,38 @@ def install_new_year(app, db, auth, record, audit):
     @app.get('/api/new-year/status')
     @auth()
     def new_year_status():
-        return {'enabled':enabled()}
+        return {'enabled':enabled(), 'currency':'balls' if enabled() else 'points'}
+
+    def mode():
+        return 'balls' if enabled() else 'points'
+
+    def currency_notice(uid):
+        """When the New Year is switched, every player is told once: the balls became points (or the points became balls), the same number."""
+        key='ny_currency_seen:'+str(uid)
+        row=db().execute("SELECT payload FROM settings WHERE key=?",(key,)).fetchone()
+        now=mode()
+        if not row:
+            with db():
+                db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO NOTHING",(key,now))
+            return None
+        if row['payload']==now:
+            return None
+        return {'from':row['payload'],'to':now,'amount':wallet(uid)['balls']}
+
+    @app.post('/api/new-year/ack')
+    @auth()
+    def new_year_ack():
+        with db():
+            db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
+                         ('ny_currency_seen:'+str(g.user['id']),mode()))
+        return {'ok':True,'currency':mode()}
+
+    app.extensions['crafter_ny_currency_notice']=currency_notice
+    app.extensions['crafter_ny_currency_mode']=mode
 
     @app.get('/api/new-year')
     @auth()
     def new_year_market():
-        if not enabled() and not g.is_admin:
-            abort(404,description='Раздел Новый год пока отключён')
         rows=db().execute(
             "SELECT * FROM new_year_lots WHERE status='active' ORDER BY created DESC"
         ).fetchall()
@@ -244,8 +269,6 @@ def install_new_year(app, db, auth, record, audit):
     @app.get('/api/new-year/lots/<lot_id>/details')
     @auth()
     def new_year_lot_details(lot_id):
-        if not enabled() and not g.is_admin:
-            abort(404)
         row = db().execute("SELECT * FROM new_year_lots WHERE id=?",(lot_id,)).fetchone()
         if not row or row['status'] != 'active':
             abort(404, description='Лот уже недоступен')
@@ -376,8 +399,6 @@ def install_new_year(app, db, auth, record, audit):
             if previous:
                 if previous['lot_id']!=lot_id:abort(409,description='Номер покупки уже использован')
                 return json.loads(previous['result'])
-            if not enabled():
-                abort(409,description='Особый маркет сейчас выключен')
             lot=db().execute("SELECT * FROM new_year_lots WHERE id=? AND status='active'",
                              (lot_id,)).fetchone()
             if not lot:

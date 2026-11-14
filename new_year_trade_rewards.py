@@ -1,13 +1,13 @@
 """New Year rewards for real settlements and explicitly marked preview operations.
 
-Every 1 TON of recorded activity earns 10 seasonal balls. Preview gifts
+Every 1 TON of recorded activity earns 100 points (the balls of the New Year). Preview gifts
 never become real NFT custody or real-balance transactions.
 """
 import json
 import time
 from decimal import Decimal, InvalidOperation, ROUND_DOWN
 
-BALLS_PER_TON = Decimal('10')
+BALLS_PER_TON = Decimal('100')
 SUPPORTED = {'buy': {'crafter', 'portals-partner'},
              'sale': {'crafter'}}
 MAX_PRICE = Decimal('10000000000')
@@ -62,9 +62,6 @@ def install_new_year_trade_rewards(app, db, audit=None):
         else:
             return 0
         if is_preview and not app.config.get('MARKET_TEST_PURCHASES',False):
-            return 0
-        flag=db().execute("SELECT payload FROM settings WHERE key='new_year_enabled_v1'").fetchone()
-        if not flag or flag[0]!='true':
             return 0
         if db().execute("SELECT 1 FROM new_year_trade_rewards WHERE history_id=?",
                         (history_id,)).fetchone():

@@ -19,7 +19,8 @@ def test_new_year_permissions_lots_balances_and_idempotent_checkout(client,monke
     player=signed(43)
     assert client.get('/api/me',headers=admin).status_code==200
     assert client.get('/api/me',headers=player).status_code==200
-    assert client.get('/api/new-year',headers=player).status_code==404
+    off=client.get('/api/new-year',headers=player)                          # the section stays when the New Year is off: only the look and the currency change
+    assert off.status_code==200 and off.json['enabled'] is False
     assert client.get('/api/admin/new-year',headers=player).status_code==403
     assert client.get('/api/admin/new-year',headers=admin).json['enabled'] is False
 

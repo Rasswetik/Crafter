@@ -1,4 +1,4 @@
-"""New Year 10 balls/TON rewards only for settled live market trades."""
+"""New Year 100 points/TON rewards only for settled live market trades."""
 import json
 import sqlite3
 
@@ -58,16 +58,16 @@ def test_winter_trade_rewards_exact_ton_conversion_both_parties_and_no_double_cr
     payload={'id':offer['id'],'expected_price':'5.00','request_id':'unique-ball-trade'}
     purchased=client.post('/api/resale/buy',headers=buyer,json=payload)
     assert purchased.status_code==200,purchased.json
-    assert client.get('/api/balance',headers=admin).json['new_year']['balls']==25
-    assert client.get('/api/balance',headers=buyer).json['new_year']['balls']==25
+    assert client.get('/api/balance',headers=admin).json['new_year']['balls']==250
+    assert client.get('/api/balance',headers=buyer).json['new_year']['balls']==250
     retry=client.post('/api/resale/buy',headers=buyer,json=payload)
     assert retry.status_code==200 and retry.json==purchased.json
-    assert client.get('/api/balance',headers=buyer).json['new_year']['balls']==25
+    assert client.get('/api/balance',headers=buyer).json['new_year']['balls']==250
     with sqlite3.connect(client.application.config['DATABASE']) as connection:
         entries=connection.execute("SELECT user_id,balls_delta FROM new_year_trade_rewards ORDER BY user_id").fetchall()
-        assert entries==[(42,25),(43,25)]
+        assert entries==[(42,250),(43,250)]
     me=client.get('/api/me',headers=buyer).json
-    assert me['new_year_reward_per_ton']==10
+    assert me['new_year_reward_per_ton']==100
     assert me['new_year_gram_per_ton']=='2'
 
 
@@ -77,9 +77,9 @@ def test_winter_remainder_carries_over_small_sales(client,monkeypatch):
     for n in range(2):
         gift=_deposit(client,n+1)
         _trade(client,gift,'0.10',str(n))
-    # Each 0.10 GRAM transaction earns 0.5 balls; both trades equal 1.
-    assert client.get('/api/balance',headers=admin).json['new_year']['balls']==1
-    assert client.get('/api/balance',headers=buyer).json['new_year']['balls']==1
+    # Each 0.10 GRAM transaction earns 5 points; both trades equal 10.
+    assert client.get('/api/balance',headers=admin).json['new_year']['balls']==10
+    assert client.get('/api/balance',headers=buyer).json['new_year']['balls']==10
     with sqlite3.connect(client.application.config['DATABASE']) as connection:
         fraction=connection.execute("SELECT fraction FROM new_year_trade_remainders WHERE user_id=42").fetchone()[0]
         assert fraction in ('0.00','0.0','0')

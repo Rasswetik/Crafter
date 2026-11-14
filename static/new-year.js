@@ -22,7 +22,9 @@ const SLEIGH_SCENE = '<svg class="ny-sleigh" viewBox="0 0 280 120" aria-hidden="
 const SLEIGH_ICON = '<svg class="ny-nav-sleigh" viewBox="0 0 32 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
     '<path d="M2 20h14q3 0 3-3"/><path d="M3 9.5h13l-1 6.5H4z"/><path d="M4.5 9.5Q3 4 7 4t3.5 5.5"/><path d="M19 12.5h2"/>' +
     '<ellipse cx="25" cy="14" rx="4.4" ry="2.8"/><path d="M28 11.5l1.8-3.6"/><circle cx="30.4" cy="7" r="1.5"/><path d="M29.6 5.4l-.8-3m.8 3l2-1.8"/><path d="M22.4 16.4L21.4 21M27 16.6l1 4.4"/></svg>';
-const SEASON_ICON=SLEIGH_ICON;
+const EVENT_ICON='<svg class="ny-nav-event" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="m12 12.4.9 1.9 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3z"/></svg>';
+const seasonIcon=()=>active()?SLEIGH_ICON:EVENT_ICON;
+const currencyName=()=>active()?'Новогодние шары':'Поинты';
 const pending=new Map();
 let busy=false;
 let lastData=null;
@@ -39,8 +41,8 @@ function updateHeaderWallet(balance){
     const num=Number(balance?.balls||0);
     const value=el.querySelector('b');
     if(value)value.textContent=safeInt(num);
-    el.title='Новогодние шары';
-    el.setAttribute('aria-label','Новогодние шары: '+safeInt(num));
+    el.title=currencyName();
+    el.setAttribute('aria-label',currencyName()+': '+safeInt(num));
     for(const key of ['balls','donate','tinsel']){
         const hud=document.querySelector('[data-ny-wallet="'+key+'"]');
         if(hud)hud.textContent=safeInt(balance?.[key]||0);
@@ -51,12 +53,12 @@ function navSeason(){
     document.querySelector('#nav .nav-main .ny-nav-tab')?.remove();      // on the phone the event is not in the bottom bar: it lives in the Games section
     const desktop=document.querySelector('#crafter-desktop-sidebar .desktop-sidebar-menu');
     desktop?.querySelector('.ny-desktop-link')?.remove();
-    if(active()&&desktop){
+    if(desktop){
         const button=document.createElement('button');
         button.type='button';
         button.className='desktop-sidebar-link ny-desktop-link'+(state.page==='new-year'?' is-active':'');
         button.setAttribute('aria-current',state.page==='new-year'?'page':'false');
-        button.innerHTML='<span class="desktop-sidebar-link-icon">'+SEASON_ICON+'</span><span>Событие</span>';
+        button.innerHTML='<span class="desktop-sidebar-link-icon">'+seasonIcon()+'</span><span>События</span>';
         button.addEventListener('click',()=>go('new-year'));
         const market=desktop.querySelector('button[onclick*="market"]');
         if(market)market.after(button);else desktop.prepend(button);
@@ -64,8 +66,8 @@ function navSeason(){
 }
 function addSeasonTile(){
     const wrap=document.querySelector('#main .crafter-games');
-    if(!wrap||!active()||wrap.querySelector('.ny-game-tile'))return;
-    wrap.insertAdjacentHTML('afterbegin','<button class="crafter-game-tile ny-game-tile" type="button" onclick="go(\'new-year\')"><span class="crafter-game-label"><strong>Событие</strong><span>Новогодний маркет, адвент-календарь и события сообщества</span><span class="crafter-game-open">Открыть</span></span><span class="ny-art" aria-hidden="true">'+SLEIGH_SCENE+'</span></button>');
+    if(!wrap||wrap.querySelector('.ny-game-tile'))return;
+    wrap.insertAdjacentHTML('afterbegin','<button class="crafter-game-tile ny-game-tile" type="button" onclick="go(\'new-year\')"><span class="crafter-game-label"><strong>События</strong><span>'+(active()?'Новогодний маркет, адвент-календарь и события сообщества':'Маркет акций, календарь подарков и события сообщества')+'</span><span class="crafter-game-open">Открыть</span></span><span class="ny-art" aria-hidden="true">'+SLEIGH_SCENE+'</span></button>');
 }
 if(typeof renderGamesHub==='function'){
     const hubBefore=renderGamesHub;
@@ -101,7 +103,7 @@ function lotTile(lot){
 let view='hub';
 function community(){return window.crafterCommunity||null;}
 let lockInfo={locks:{},now:0,at:0},lockTimer=null;
-function isHiddenSection(name){return !state?.me?.is_admin&&(lockInfo.hidden||[]).includes(name);}
+function isHiddenSection(name){return (lockInfo.hidden||[]).includes(name);}                // a hidden section is hidden from the administrators too
 function lockLeft(name){const ts=lockInfo.locks[name];if(!ts)return 0;return Math.max(0,Math.ceil(ts-(lockInfo.now+(Date.now()-lockInfo.at)/1000)));}
 function lockText(s){const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60),p=n=>String(n).padStart(2,'0');return (d?d+' д ':'')+(d||h?h+' ч ':'')+p(m)+' мин '+p(s%60)+' с';}
 async function showNewYear(next){
@@ -123,8 +125,7 @@ async function showNewYear(next){
         lockInfo={locks:(lockReply&&lockReply.locks)||{},now:(lockReply&&lockReply.now)||0,at:Date.now(),hidden:(lockReply&&lockReply.hidden)||[]};
         if(view!=='hub'&&lockLeft(view)){toast('Раздел откроется позже');view='hub';}
         if(view!=='hub'&&isHiddenSection(view)){view='hub';document.querySelector('#app')?.classList.remove('fm-full');}
-        if(!data.enabled&&!state.me?.is_admin){
-            state.me.new_year_enabled=false;await go('market');return;
+        if(false){
         }
         lastData=data;lastData.community=shared;lastData.packs=packState;lastData.advent=advState;updateHeaderWallet(data.balance);
         if(view==='community'&&community()&&shared?.event){community().page(main,shared,{back:()=>showNewYear('hub'),market:()=>showNewYear('market')});return;}
@@ -374,7 +375,6 @@ go=async function(page,...args){
         }
         return beforeGo.call(this,page,...args);
     }
-    if(!active())return toast('Раздел Новый год пока отключён');
     if(state.crafting)return;
     if(state.page==='arena'&&typeof leaveArena==='function')leaveArena();
     view=window.__nyOpen==='advent'?'advent':'hub';window.__nyOpen=null;
@@ -392,12 +392,41 @@ async function pollSeason(){
         const status=await api('new-year/status');
         if(typeof status.enabled==='boolean'&&status.enabled!==active()){
             state.me.new_year_enabled=status.enabled;
+            document.documentElement.classList.toggle('ny-off',!status.enabled);          // the look, the balance and the sound follow the switch
             nav();
-            if(state.page==='new-year'&&!status.enabled&&!state.me.is_admin)go('market');
+            if(window.crafterNYSound)window.crafterNYSound.setMusic(window.crafterNYSound.music);
+            try{state.me=Object.assign(state.me,await api('me'));}catch(_){}
+            showCurrencyNotice();
         }
     }catch(_){}
 }
 setInterval(pollSeason,30000);
+/* when the New Year is switched, the player is told once what happened to the balance */
+let noticeOpen=false;
+function showCurrencyNotice(){
+    const n=state?.me?.ny_notice;
+    if(!n||noticeOpen)return;
+    noticeOpen=true;
+    const toPoints=n.to==='points';
+    const amount=safeInt(n.amount);
+    const el=document.createElement('div');
+    el.className='ny-notice';
+    el.innerHTML='<div class="ny-notice-box" role="dialog" aria-modal="true"><div class="ny-notice-coins"><img src="'+ORNAMENT+'" alt=""><i>→</i><img src="/static/assets/points.svg" alt=""></div>'+
+        '<h3>'+(toPoints?'Новый год закончился':'Новый год начался')+'</h3>'+
+        '<p>'+(toPoints?'Ваши <b>'+amount+' шаров</b> превратились в <b>'+amount+' поинтов</b>.':'Ваши <b>'+amount+' поинтов</b> превратились в <b>'+amount+' шаров</b>.')+'</p>'+
+        '<small>'+(toPoints?'Поинты работают так же, как шары: ими платят в маркете и акциях.':'Шары снова работают в праздничном маркете и акциях.')+'</small>'+
+        '<button type="button" class="primary">Понятно</button></div>';
+    if(!toPoints){const img=el.querySelectorAll('.ny-notice-coins img');img[0].src='/static/assets/points.svg';img[1].src=ORNAMENT;img[1].classList.add('is-ball');}
+    document.body.appendChild(el);
+    requestAnimationFrame(()=>el.classList.add('is-in'));
+    el.querySelector('button').addEventListener('click',async()=>{
+        el.classList.remove('is-in');setTimeout(()=>el.remove(),250);noticeOpen=false;
+        try{await api('new-year/ack',{});}catch(_){}
+        if(state.me)state.me.ny_notice=null;
+    });
+}
+window.crafterShowCurrencyNotice=showCurrencyNotice;
+(function waitForMe(){let tries=0;const t=setInterval(()=>{tries++;if(window.state&&state.me){clearInterval(t);showCurrencyNotice();}else if(tries>120)clearInterval(t);},400);})();
 window.addEventListener('popstate',()=>{                      // Back and Forward between the hub, the market and a lot
     if(state?.page!=='new-year')return;
     const p=location.pathname.replace(/\/+$/,'');

@@ -25,7 +25,7 @@ function row(kind,amount,unit='GRAM',note=''){
     const count=value(amount,unit);
     if(count===null)return '';
     const verb=kind==='craft'?'Награда за крафт':kind==='sale'?'Награда за продажу':'Награда за покупку';
-    const explanation=note||'После завершённой сделки · 1 TON = 10 шаров';
+    const explanation=note||'После завершённой сделки · 1 TON = 100 поинтов';
     return '<div class="crafter-season-reward" data-season-kind="'+kind+'">'+
         '<div><span>'+verb+'</span><small>'+explanation+'</small></div>'+
         '<strong><span data-season-amount>'+count.toLocaleString('ru-RU')+'</span> '+ICON+'</strong></div>';

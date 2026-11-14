@@ -94,3 +94,17 @@
 /* the event tile in the Games section */
 .ny-game-tile{background:linear-gradient(135deg,rgba(255,92,110,.24),rgba(255,196,84,.16) 60%,transparent),#17181d}
 .ny-game-emblem img{width:74px;height:74px;filter:drop-shadow(0 8px 14px rgba(0,0,0,.45))}
+
+/* the notice about the balance */
+.ny-notice{position:fixed;inset:0;z-index:100050;display:grid;place-items:center;padding:20px;background:rgba(5,9,30,.66);opacity:0;transition:opacity .25s}
+.ny-notice.is-in{opacity:1}
+.ny-notice-box{width:min(380px,100%);padding:24px 22px 20px;border-radius:22px;text-align:center;color:#fff;background:linear-gradient(180deg,#22347a,#121c4e);border:1.5px solid rgba(255,255,255,.2);box-shadow:0 24px 60px rgba(0,0,0,.55);transform:translateY(14px) scale(.96);transition:transform .35s cubic-bezier(.2,1.3,.4,1)}
+.ny-notice.is-in .ny-notice-box{transform:none}
+.ny-notice-coins{display:flex;align-items:center;justify-content:center;gap:16px;margin-bottom:12px}
+.ny-notice-coins img{width:58px;height:58px;padding:9px;border-radius:50%;background:rgba(255,255,255,.1)}
+.ny-notice-coins img.is-ball{background:rgba(255,255,255,.14)}
+.ny-notice-coins i{font-style:normal;font-size:28px;font-weight:900;color:#ffd25e}
+.ny-notice h3{margin:0 0 8px;font-size:21px;font-weight:800}
+.ny-notice p{margin:0 0 8px;font-size:16px;line-height:1.35}.ny-notice p b{color:#ffd25e}
+.ny-notice small{display:block;margin-bottom:16px;color:#b9c8f0;font-size:13px;line-height:1.35}
+.ny-notice button{width:100%;padding:13px;border-radius:14px;border:0;font:800 16px/1 system-ui;color:#2a1700;background:linear-gradient(#ffd45a,#ff9e1b);cursor:pointer}

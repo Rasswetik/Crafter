@@ -474,7 +474,7 @@ function showGiftDetail(gift, source) {
               ? (window.crafterSeasonRewardForFloor?.(gift) || '')
               : !own && !gift.own_listing && !gift.catalog_only
               ? (window.crafterSeasonRewardHTML?.('purchase',gift.price,gift.price_unit || 'GRAM',
-                    state.me?.market_test_purchases?'Покупка · 1 TON = 10 шаров':'После подтверждённой покупки · 1 TON = 10 шаров') || '')
+                    state.me?.market_test_purchases?'Покупка · 1 TON = 100 поинтов':'После подтверждённой покупки · 1 TON = 100 поинтов') || '')
               : ''}
         ${listed ? `<button class="primary" onclick="startResale('unlist', ${arg(gift.id)})">Снять с продажи</button>` :
             own && gift.test_only && ['market-test','demo-craft'].includes(gift.origin) ?
