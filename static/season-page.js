@@ -73,13 +73,13 @@ function head() {
     const pct = me.xp_for_next ? Math.min(100, Math.round(me.xp_in_level / me.xp_for_next * 100)) : 100;
     const next = S.levels.find(l => l.level === me.level + 1);
     const nextPic = next ? (next.plus.rewards[0] || next.free.rewards[0]) : null;
-    return '<header class="sp-head"><button type="button" class="sp-back" data-back aria-label="К событиям">‹ События</button>' +
-        '<div class="sp-banner" ' + (s.banner ? 'style="background-image:linear-gradient(100deg,rgba(130,30,20,.55),rgba(20,10,60,.2)),url(' + e(thumb(s.banner, 800)) + ')"' : '') + '><small>СЕЗОН ' + s.number + '</small><h1>' + e(s.title) + '</h1></div>' +
-        '<div class="sp-tabs"><button type="button" class="' + (tab === 'rewards' ? 'is-on' : '') + '" data-tab="rewards">Награды</button><button type="button" class="' + (tab === 'quests' ? 'is-on' : '') + '" data-tab="quests">Квесты' + (hasReady() ? '<i class="sp-dot"></i>' : '') + '</button></div>' + wallet() + '</header>' +
-        '<div class="sp-lvrow"><div class="sp-lvbox"><span class="sp-lvbadge" data-lvbadge>' + me.level + '</span><small>УРОВЕНЬ</small></div><div class="sp-xp-track"><i style="--w:' + pct + '%"></i><b>' + (me.xp_for_next ? num(me.xp_in_level) + ' / ' + num(me.xp_for_next) + ' XP' : 'МАКСИМУМ') + '</b></div>' +
-        (nextPic ? '<span class="sp-nextbox" title="Награда следующего уровня"><img class="sp-next" src="' + e(thumb(nextPic.image, 80)) + '" alt=""><small>Ур. ' + (me.level + 1) + '</small></span>' : '') +
-        (s.ends_at ? '<span class="sp-ends">Сезон закончится через <b>' + left(s.ends_at - S.now) + '</b></span>' : '') +
-        '<div class="sp-tools">' + (s.level_price > 0 && me.level < me.max_level ? '<button type="button" class="sp-buylvl" data-buylvl>Купить уровень <span><img src="' + cur[1] + '" alt="">' + num(s.level_price) + '</span></button>' : '') + (canClaimAny() ? '<button type="button" class="sp-claimall" data-claimall>Забрать всё</button>' : '') + '</div></div>';
+    return '<header class="sp-head"><button type="button" class="sp-back" data-back aria-label="К событиям"><i>‹</i><span>События</span></button>' +
+        '<div class="sp-banner" ' + (s.banner ? 'style="background-image:linear-gradient(100deg,rgba(130,30,20,.5),rgba(20,10,60,.15)),url(' + e(thumb(s.banner, 800)) + ')"' : '') + '><small>СЕЗОН ' + s.number + '</small><h1>' + e(s.title) + '</h1></div>' +
+        '<div class="sp-mid"><div class="sp-tabs"><button type="button" class="' + (tab === 'rewards' ? 'is-on' : '') + '" data-tab="rewards">Награды</button><button type="button" class="' + (tab === 'quests' ? 'is-on' : '') + '" data-tab="quests">Квесты' + (hasReady() ? '<i class="sp-dot"></i>' : '') + '</button></div>' +
+        '<div class="sp-lvrow"><span class="sp-lvbadge" data-lvbadge title="Ваш уровень">' + me.level + '</span><div class="sp-xpwrap"><div class="sp-xp-track"><i style="--w:' + pct + '%"></i><b>' + (me.xp_for_next ? num(me.xp_in_level) + ' / ' + num(me.xp_for_next) + ' XP' : 'МАКСИМУМ') + '</b></div>' +
+        (s.ends_at ? '<span class="sp-ends">Сезон закончится через <b>' + left(s.ends_at - S.now) + '</b></span>' : '') + '</div>' +
+        (nextPic ? '<span class="sp-nextbox" title="Награда следующего уровня"><img class="sp-next" src="' + e(thumb(nextPic.image, 80)) + '" alt=""><small>Ур. ' + (me.level + 1) + '</small></span>' : '') + '</div></div>' +
+        '<div class="sp-side">' + wallet() + '<div class="sp-tools">' + (s.level_price > 0 && me.level < me.max_level ? '<button type="button" class="sp-buylvl" data-buylvl>Купить уровень <span><img src="' + cur[1] + '" alt="">' + num(s.level_price) + '</span></button>' : '') + (canClaimAny() ? '<button type="button" class="sp-claimall" data-claimall>Забрать всё</button>' : '') + '</div></div></header>';
 }
 
 function rewardsTab() {

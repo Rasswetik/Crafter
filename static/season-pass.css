@@ -209,3 +209,23 @@ body.sp-open{overflow:hidden}
 .sp-tocur{top:8px;bottom:auto}
 @media(max-width:1180px){.sp-ends{display:none}}
 @media(max-width:860px){.sp-lvrow{flex-wrap:wrap}.sp-root{--ch:clamp(96px,calc((100dvh - 350px) / 2),190px)}}
+/* ---- the head as in the games: a banner at the left, tabs and the progress in the middle, the balance and the buttons at the right ---- */
+.sp-head{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;align-items:stretch;gap:0 16px;padding:0 16px 0 0;background:linear-gradient(180deg,rgba(8,12,44,.7),rgba(8,12,44,.3))}
+.sp-back{align-self:center;display:inline-flex;align-items:center;gap:6px;margin-left:12px;padding:0;width:auto;height:42px;border:3px solid #14213f;border-radius:99px;background:rgba(10,16,60,.75);color:#fff;font:900 14px/1 system-ui;cursor:pointer}
+.sp-back i{display:grid;place-items:center;width:36px;font:900 26px/1 system-ui;font-style:normal;margin-top:-3px}.sp-back span{padding-right:14px}
+.sp-banner{align-self:stretch;display:grid;align-content:center;min-height:98px;padding:10px 50px 10px 26px;clip-path:polygon(0 0,100% 0,90% 100%,0 100%);border-bottom:0}
+.sp-banner small{text-align:left;font-size:14px;letter-spacing:.1em}
+.sp-banner h1{font-size:clamp(20px,2.7vw,36px);-webkit-text-stroke:7px #14213f}
+.sp-mid{display:grid;align-content:center;justify-items:center;gap:8px;padding:8px 0;min-width:0}
+.sp-tabs{align-self:center}.sp-tabs button{border-bottom:3px solid #14213f;border-radius:12px;padding:10px 26px}
+.sp-lvrow{display:flex;align-items:center;gap:12px;width:min(100%,720px);padding:0;background:none;flex-wrap:nowrap}
+.sp-lvbadge{flex:none}
+.sp-xpwrap{flex:1;display:grid;gap:4px;min-width:0}.sp-xpwrap .sp-xp-track{max-width:none;flex:none}
+.sp-ends{text-align:center}
+.sp-side{display:grid;align-content:center;justify-items:end;gap:8px;padding:8px 0}
+.sp-side .sp-wallet{margin:0}.sp-side .sp-tools{margin:0;justify-content:flex-end}
+.sp-tocur{left:14px;bottom:10px;top:auto;transform:none;padding:8px 16px}
+.sp-root{--ch:clamp(104px,calc((100dvh - 236px) / 2),250px)}
+@media(max-width:1100px){.sp-head{grid-template-columns:auto minmax(0,1fr) auto}.sp-banner{grid-column:1/-1;grid-row:2;clip-path:none;padding:8px 18px;min-height:0;text-align:center}.sp-banner small{text-align:center}.sp-back{grid-row:1}.sp-mid{grid-row:1;grid-column:2}.sp-side{grid-row:1;grid-column:3}}
+@media(max-width:860px){.sp-head{grid-template-columns:auto 1fr;padding:6px 8px}.sp-back{height:38px;margin:0}.sp-back span{display:none}.sp-back i{width:34px}.sp-banner{grid-row:1;grid-column:2;text-align:left}.sp-banner small,.sp-banner h1{text-align:left}.sp-mid{grid-row:2;grid-column:1/-1}.sp-side{grid-row:3;grid-column:1/-1;justify-items:stretch}.sp-side .sp-tools{justify-content:space-between}.sp-lvrow{width:100%}
+  .sp-root{--ch:clamp(96px,calc((100dvh - 372px) / 2),190px)}}
