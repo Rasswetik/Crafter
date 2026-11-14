@@ -49,7 +49,7 @@ async function open(dropId, opts) {
     opts = opts || {};
     let s;
     try { s = await api('drops/' + dropId + '/open', {}); } catch (err) { toast(err.message); return; }
-    await preload(FRAMES.concat([A + 'snowman-idle.webp', A + 'snowman-open-charge.webp', A + 'bg-common.webp']));
+    await preload(FRAMES.concat([A + 'snowman-idle.webp', A + 'snowman-open-charge.webp', A + 'bg-common.webp?v=2']));
     document.querySelector('.dr-play')?.remove();
     const el = document.createElement('div');
     el.className = 'dr-play is-' + RAR[s.rarity];
@@ -65,7 +65,7 @@ async function open(dropId, opts) {
     requestAnimationFrame(() => el.classList.add('is-in'));
     const $ = q => el.querySelector(q);
     const img = $('.dr-star img'), star = $('.dr-star'), orbsEl = $('.dr-orbs'), titleEl = $('.dr-rarity'), stage = $('.dr-stage'), fx = $('.dr-fx');
-    const setBg = r => { $('.dr-bg-a').style.backgroundImage = 'url(' + A + 'bg-' + RAR[r] + '.webp)'; };
+    const setBg = r => { $('.dr-bg-a').style.backgroundImage = 'url(' + A + 'bg-' + RAR[r] + '.webp?v=2)'; };
     const drawOrbs = pop => { orbsEl.innerHTML = orbs(s); orbsEl.setAttribute('aria-label', 'Осталось попыток: ' + s.attempts_left); if (pop !== undefined) orbsEl.children[pop]?.classList.add('is-pop'); };
     setBg(s.rarity);
     // a session that was already started: the history of the attempts is not shown (the server does not give the future); the past is drawn as the current rarity
@@ -146,7 +146,7 @@ async function open(dropId, opts) {
         res.history = hist; Object.assign(s, res);
         if (up) {
             el.className = el.className.replace(/is-(common|rare|epic|mythic|legendary|secret)/, 'is-' + RAR[res.rarity]);
-            const bb = $('.dr-bg-b'); bb.style.transition = 'none'; bb.style.backgroundImage = $('.dr-bg-a').style.backgroundImage; bb.style.opacity = 1; setBg(res.rarity); void bb.offsetWidth; bb.style.transition = 'opacity .7s'; bb.style.opacity = 0;
+            const bb = $('.dr-bg-b'); bb.style.transition = 'none'; bb.style.backgroundImage = $('.dr-bg-a').style.backgroundImage; bb.style.opacity = 1; setBg(res.rarity); void bb.offsetWidth; bb.style.transition = 'opacity .7s'; bb.style.opacity = 0; setTimeout(() => { bb.style.backgroundImage = ''; }, 800);
             titleEl.textContent = EN[RAR[res.rarity]]; titleEl.dataset.t = EN[RAR[res.rarity]]; pulse('is-up');
             burst(18 + res.rarity * 4, 1 + res.rarity * .12, color); shake(5 + res.rarity, 360);
         } else { pulse('is-same'); burst(7, .6, color); }
