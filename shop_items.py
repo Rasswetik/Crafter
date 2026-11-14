@@ -105,6 +105,9 @@ def install_shop_items(app, db, auth, record, audit):
         if key.startswith('drop:'):
             d = app.extensions['crafter_drop_short'](key[5:])
             return {'id': key, 'title': d['title'], 'image': d['image'], 'type': 'DROP'} if d else None
+        if key == 'pass:plus':
+            ps = app.extensions['crafter_pass_short']() if app.extensions.get('crafter_pass_short') else None
+            return {'id': key, 'title': 'Pass Plus' + (' «' + ps['season']['title'] + '»' if ps and ps['season'] else ''), 'image': (ps or {}).get('image') or '/static/assets/pass/ticket-plus.svg', 'type': 'PASS'}
         return app.extensions['crafter_pack_short'](key)
 
     def view(row, uid=None):
@@ -122,7 +125,8 @@ def install_shop_items(app, db, auth, record, audit):
                 if isinstance(raw, dict):
                     parts = {'gram': raw.get('gram') or None, 'balls': int(raw.get('balls') or 0) or None,
                              'chests': [x for x in ({'chest': app.extensions['crafter_chest_short'](c['chest_id']), 'count': int(c['count'])} for c in (raw.get('chests') or [])) if x['chest']] or None,
-                             'drops': [x for x in ({'drop': app.extensions['crafter_drop_short'](c['drop_id']), 'count': int(c['count'])} for c in (raw.get('drops') or [])) if x['drop']] or None}
+                             'drops': [x for x in ({'drop': app.extensions['crafter_drop_short'](c['drop_id']), 'count': int(c['count'])} for c in (raw.get('drops') or [])) if x['drop']] or None,
+                             'pass_in': (app.extensions['crafter_pass_short'](uid) if raw.get('pass') and app.extensions.get('crafter_pass_short') else None)}
                     raw = raw.get('packs') or []
                 mix = [{'pack': option_pack(c['pack_id']), 'count': int(c['count']), 'price': (int(c['price']) if c.get('price') is not None else None)} for c in raw]
                 mix = [c for c in mix if c['pack']] or None
@@ -136,7 +140,7 @@ def install_shop_items(app, db, auth, record, audit):
         pass_info = app.extensions['crafter_pass_short'](uid) if row['kind'] == 'PASS' and app.extensions.get('crafter_pass_short') else None
         left = None if row['stock'] is None else max(0, int(row['stock']) - int(row['sold']))
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
-                'title': row['title'], 'pass': pass_info, 'image_url': row['image_url'] or (pass_info['image'] if pass_info else '') or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else '') or (drop['image'] if drop else ''), 'chest': chest, 'drop': drop, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'), 'drops_in': parts.get('drops'),
+                'title': row['title'], 'pass': pass_info, 'image_url': row['image_url'] or (pass_info['image'] if pass_info else '') or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else '') or (drop['image'] if drop else ''), 'chest': chest, 'drop': drop, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'), 'pass_in': parts.get('pass_in'), 'drops_in': parts.get('drops'),
                 'price_balls': int(row['price_balls']), 'old_price_balls': (int(row['old_price_balls']) if row['old_price_balls'] else None),
                 'discount_percent': (round((1 - int(row['price_balls']) / int(row['old_price_balls'])) * 100) if row['old_price_balls'] and int(row['old_price_balls']) > int(row['price_balls']) else None),
                 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
@@ -245,6 +249,8 @@ def install_shop_items(app, db, auth, record, audit):
                 for c in spec.get('drops', []):
                     app.extensions['crafter_start_drops'](uid, c['drop_id'], int(c['count']), 'shop:' + iid)
                     result.update(drop_granted={'drop': app.extensions['crafter_drop_short'](c['drop_id']), 'qty': int(c['count'])})
+                if spec.get('pass'):                                  # Pass Plus inside the bundle (no season or already open: the whole purchase is cancelled)
+                    result.update(pass_plus=True, pass_season=app.extensions['crafter_pass_grant_plus'](uid, 'shop:' + iid))
                 if opens:
                     result.update(chest_opens=opens, chest_open=opens[0])
                     balls = opens[-1]['balance']['balls']
@@ -264,6 +270,9 @@ def install_shop_items(app, db, auth, record, audit):
                     opens = [app.extensions['crafter_open_chest'](uid, picked['pack_id'][6:], 'shop:' + iid) for _ in range(int(picked['count']))]
                     result.update(chest_open=opens[0], chest_opens=opens, balance=opens[-1]['balance'], gram_balance=opens[-1]['gram_balance'], picked=picked['pack_id'])
                     balls = opens[-1]['balance']['balls']
+                    ids = []
+                elif picked and str(picked['pack_id']) == 'pass:plus':            # the option is Pass Plus
+                    result.update(pass_plus=True, pass_season=app.extensions['crafter_pass_grant_plus'](uid, 'shop:' + iid), picked=picked['pack_id'])
                     ids = []
                 elif picked and str(picked['pack_id']).startswith('drop:'):      # the option is a drop: it opens at once
                     app.extensions['crafter_start_drops'](uid, picked['pack_id'][5:], int(picked['count']), 'shop:' + iid)
@@ -345,7 +354,7 @@ def install_shop_items(app, db, auth, record, audit):
             gram = plain(money(gram_in)) if gram_in not in ('', '0') else ''
             balls_in = str(spec_in.get('balls') or '').strip()
             balls_n = whole(balls_in, 1, _LIMIT, 'Шары') if balls_in not in ('', '0') else 0
-            bundle_spec = {'gram': gram, 'balls': balls_n}
+            bundle_spec = {'gram': gram, 'balls': balls_n, 'pass': bool(spec_in.get('pass'))}
             chests = {}
             for entry in (spec_in.get('chests') if isinstance(spec_in.get('chests'), list) else []):
                 cid = str((entry or {}).get('chest_id') or '')
@@ -389,6 +398,8 @@ def install_shop_items(app, db, auth, record, audit):
                     pid = 'chest:' + str(entry['chest_id'])
                 if mode and not pid and (entry or {}).get('drop_id'):
                     pid = 'drop:' + str(entry['drop_id'])
+                if mode and not pid and (entry or {}).get('pass'):
+                    pid = 'pass:plus'
                 raw_price = (entry or {}).get('price')
                 if mode == 'choice' and str(raw_price if raw_price is not None else '').strip() not in ('', 'None'):
                     option_price[pid] = whole(raw_price, 0, _LIMIT, 'Цена варианта')
@@ -404,6 +415,8 @@ def install_shop_items(app, db, auth, record, audit):
                 elif mode and pid.startswith('drop:'):
                     if not app.extensions['crafter_drop_exists'](pid[5:]):
                         abort(400, description='Среди вариантов есть несуществующий дроп')
+                elif mode and pid == 'pass:plus':
+                    pass
                 elif not app.extensions['crafter_pack_exists'](pid):
                     abort(400, description='В наборе есть несуществующий пак')
                 merged[pid] = merged.get(pid, 0) + n
@@ -424,8 +437,8 @@ def install_shop_items(app, db, auth, record, audit):
         elif mode:
             abort(400, description='Добавьте паки, из которых выбирать')
         if eff == 'BUNDLE':
-            if not (bundle_spec.get('packs') or bundle_spec['gram'] or bundle_spec['balls'] or bundle_spec['chests'] or bundle_spec['drops']):
-                abort(400, description='Добавьте в бандл хотя бы один пак, ящик, дроп, GRAM или шары')
+            if not (bundle_spec.get('packs') or bundle_spec['gram'] or bundle_spec['balls'] or bundle_spec['chests'] or bundle_spec['drops'] or bundle_spec['pass']):
+                abort(400, description='Добавьте в бандл хотя бы один пак, ящик, дроп, Pass Plus, GRAM или шары')
             bundle_spec.setdefault('packs', [])
             mix = json.dumps(bundle_spec)
             amount = bundle_spec['packs'][0]['pack_id'] if bundle_spec['packs'] else ''
@@ -434,6 +447,8 @@ def install_shop_items(app, db, auth, record, audit):
                 parts_t.append(bundle_spec['gram'] + ' GRAM')
             if bundle_spec['balls']:
                 parts_t.append(str(bundle_spec['balls']) + ' шаров')
+            if bundle_spec['pass']:
+                parts_t.append('Pass Plus')
             for c in bundle_spec['drops']:
                 parts_t.append(((app.extensions['crafter_drop_short'](c['drop_id']) or {}).get('title') or 'Дроп') + (' ×' + str(c['count']) if c['count'] > 1 else ''))
             for c in bundle_spec['chests']:

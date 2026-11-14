@@ -160,6 +160,7 @@ function includes(o) {
     if (it.drop) out.push({img: thumb(it.drop.image, 200), label: it.drop.title, count: '×' + (it.bundle || 1)});
     (it.chests_in || []).forEach(c => out.push({img: thumb(c.chest.image, 200), label: c.chest.title, count: '×' + c.count}));
     (it.drops_in || []).forEach(c => out.push({img: thumb(c.drop.image, 200), label: c.drop.title, count: '×' + c.count}));
+    if (it.pass_in) out.push({img: it.pass_in.image, label: 'Pass Plus', count: '×1'});
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
     if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: 'Новогодние шары', count: num(it.balls)});
     if (!out.length) {

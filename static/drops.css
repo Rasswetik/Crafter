@@ -3,7 +3,7 @@ body.dr-open{overflow:hidden}
 .dr-play{position:fixed;inset:0;z-index:10040;display:flex;flex-direction:column;align-items:center;overflow:hidden;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;opacity:0;transition:opacity .25s;--rc:#b9cde0;-webkit-tap-highlight-color:transparent;user-select:none}
 .dr-play.is-in{opacity:1}
 .dr-play.is-common{--rc:#b9cde0}.dr-play.is-rare{--rc:#4aa8ff}.dr-play.is-epic{--rc:#c25bff}.dr-play.is-mythic{--rc:#ff4f78}.dr-play.is-legendary{--rc:#ffb62e}.dr-play.is-secret{--rc:#27f0d6}
-.dr-bg{position:absolute;inset:0;background:#10162e}
+.dr-bg{position:absolute;inset:0;background:#10162e;overflow:hidden}
 .dr-bg i{position:absolute;inset:0;background:center/cover no-repeat}
 .dr-bg-b{opacity:0}
 .dr-rays{position:absolute;left:50%;top:44%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;background:repeating-conic-gradient(from 0deg,rgba(255,255,255,.1) 0 6deg,transparent 6deg 18deg);-webkit-mask-image:radial-gradient(circle,#000 0,transparent 38%);mask-image:radial-gradient(circle,#000 0,transparent 38%);animation:dr-spin 40s linear infinite;pointer-events:none;opacity:.6}
@@ -235,3 +235,9 @@ body.dr-open{overflow:hidden}
 .fm-dropart .fm-solid{position:relative;width:100%;height:100%}
 .fm-dropart{perspective:900px}
 @media(prefers-reduced-motion:reduce){.dr-solid,.dr-shine,.dr-orbit,.dr-orbit i,.dr-snow i,.dr-conf i{animation:none!important}}
+
+/* the picture of the background is shown as it is: the haze over it is thin */
+.dr-halo{opacity:.16!important}
+.dr-rays{opacity:.14!important}
+.dr-play.is-charge .dr-rays{opacity:.4!important}
+.dr-bg i{will-change:transform,opacity;backface-visibility:hidden}

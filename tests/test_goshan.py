@@ -56,3 +56,30 @@ def test_pass_plus_is_sold_in_the_shop(client):
     assert client.get('/api/pass', headers=player).json['me']['balance']['balls'] == 380
     listed = [x for x in client.get('/api/shop-items', headers=player).json['items'] if x['kind'] == 'PASS'][0]
     assert listed['pass']['owned'] is True
+
+
+def test_pass_plus_inside_a_bundle_and_a_choice_offer(client):
+    admin, player = signed(42), signed(64)
+    client.get('/api/me', headers=player)
+    make_season(client, admin)
+    client.post('/api/admin/new-year/wallet', headers=admin, json={'user_id': '64', 'balls': '1000', 'donate': '0', 'tinsel': '0'})
+    bundle = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BUNDLE', 'price_balls': 200, 'size': 'small', 'contents': {'pass': True, 'gram': '1', 'packs': []}})
+    assert bundle.status_code == 200, bundle.get_data(as_text=True)
+    assert 'Pass Plus' in bundle.json['title'] if 'title' in bundle.json else True
+    listed = [x for x in client.get('/api/shop-items', headers=player).json['items'] if x['id'] == bundle.json['id']][0]
+    assert listed['pass_in']['season']['title'] == 'Зимний сезон'
+    ok = client.post('/api/shop-items/buy', headers=player, json={'item_id': bundle.json['id'], 'request_id': 'bundle-pass-0001'})
+    assert ok.status_code == 200, ok.get_data(as_text=True)
+    assert ok.json['pass_plus'] and ok.json['balance']['balls'] == 800 and ok.json['gram'] == '1'
+    assert client.get('/api/pass', headers=player).json['me']['plus'] is True
+    again = client.post('/api/shop-items/buy', headers=player, json={'item_id': bundle.json['id'], 'request_id': 'bundle-pass-0002'})
+    assert again.status_code == 409                                                     # the pass is already open: nothing is taken
+    assert client.get('/api/pass', headers=player).json['me']['balance']['balls'] == 800
+    choice = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'PACK', 'mode': 'choice', 'price_balls': 10, 'size': 'small', 'contents': [{'pass': True, 'count': 1}, {'pack_id': 'newyear', 'count': 1}]})
+    assert choice.status_code == 200, choice.get_data(as_text=True)
+    other = signed(65)
+    client.get('/api/me', headers=other)
+    client.post('/api/admin/new-year/wallet', headers=admin, json={'user_id': '65', 'balls': '100', 'donate': '0', 'tinsel': '0'})
+    got = client.post('/api/shop-items/buy', headers=other, json={'item_id': choice.json['id'], 'request_id': 'choice-pass-0001', 'choice': 'pass:plus'})
+    assert got.status_code == 200, got.get_data(as_text=True)
+    assert got.json['pass_plus'] and client.get('/api/pass', headers=other).json['me']['plus'] is True

@@ -78,6 +78,17 @@ async function open(dropId, opts) {
     const $ = q => el.querySelector(q);
     const star = $('.dr-star'), img = $('.dr-front'), solidEl = $('.dr-solid'), orbsEl = $('.dr-orbs'), titleEl = $('.dr-rarity'), stage = $('.dr-stage'), fx = $('.dr-fx');
     const setBg = r => { $('.dr-bg-a').style.backgroundImage = 'url(' + bgOf(r) + ')'; };
+    /* the old picture dissolves while it slowly grows, the new one settles from a bright flash: a soft, sharp change of the background (no blur) */
+    const crossBg = r => {
+        const a = $('.dr-bg-a'), bb = $('.dr-bg-b');
+        a.getAnimations().forEach(x => x.cancel()); bb.getAnimations().forEach(x => x.cancel());
+        bb.style.backgroundImage = a.style.backgroundImage; bb.style.opacity = 1;
+        setBg(r);
+        if (reduced() || !bb.animate) { bb.style.opacity = 0; bb.style.backgroundImage = ''; return; }
+        const gone = bb.animate([{opacity: 1, transform: 'scale(1)'}, {opacity: 0, transform: 'scale(1.09)'}], {duration: 1100, easing: 'ease-in-out', fill: 'forwards'});
+        a.animate([{transform: 'scale(1.12)', filter: 'brightness(1.45) saturate(1.25)'}, {transform: 'scale(1)', filter: 'brightness(1) saturate(1)'}], {duration: 1100, easing: 'cubic-bezier(.2,.8,.3,1)'});
+        gone.onfinish = () => { bb.style.opacity = 0; bb.style.backgroundImage = ''; gone.cancel(); };
+    };
     const drawOrbs = pop => { orbsEl.innerHTML = orbs(s); orbsEl.setAttribute('aria-label', 'Осталось попыток: ' + s.attempts_left); if (pop !== undefined) orbsEl.children[pop]?.classList.add('is-pop'); };
     setBg(s.rarity);
     // a session that was already started: the history of the attempts is not shown (the server does not give the future); the past is drawn as the current rarity
@@ -140,23 +151,26 @@ async function open(dropId, opts) {
         busy = true; el.classList.add('is-busy');
         $('.dr-hint').textContent = '';
         let res;
+        const t0 = performance.now();
+        const spin = flip();                              // the spin starts at the very touch, the answer of the server is awaited while the star turns
         try {
-            const [r] = await Promise.all([api('drops/sessions/' + s.session_id + '/tap', {request_id: rid(), revision: s.revision}), sleep(120)]);
-            res = r;
+            res = await api('drops/sessions/' + s.session_id + '/tap', {request_id: rid(), revision: s.revision});
         } catch (err) {
+            try { await spin; } catch (_) {}
             if (err.status === 409) { try { s = {...await api('drops/sessions/' + s.session_id), history: hist}; drawOrbs(); } catch (_) {} } else toast(err.message);
             busy = false; el.classList.remove('is-busy'); $('.dr-hint').textContent = 'Нажмите на экран'; return;
         }
-        await flip();
+        await sleep(reduced() ? 0 : Math.max(0, 400 - (performance.now() - t0)));      // the new rarity appears when the star shows its back: at the middle of the spin
         const up = res.rarity > s.rarity, color = COLORS[RAR[res.rarity]];
         hist[res.attempt - 1] = RAR[res.rarity];
         res.history = hist; Object.assign(s, res);
         if (up) {
             el.className = el.className.replace(/is-(common|rare|epic|mythic|legendary|secret)/, 'is-' + RAR[res.rarity]);
-            const bb = $('.dr-bg-b'); bb.style.transition = 'none'; bb.style.backgroundImage = $('.dr-bg-a').style.backgroundImage; bb.style.opacity = 1; setBg(res.rarity); void bb.offsetWidth; bb.style.transition = 'opacity .7s'; bb.style.opacity = 0; setTimeout(() => { bb.style.backgroundImage = ''; }, 800);
+            crossBg(res.rarity);
             titleEl.textContent = EN[RAR[res.rarity]]; titleEl.dataset.t = EN[RAR[res.rarity]]; pulse('is-up');
             burst(18 + res.rarity * 4, 1 + res.rarity * .12, color); shake(5 + res.rarity, 360);
         } else { pulse('is-same'); burst(7, .6, color); }
+        try { await spin; } catch (_) {}
         img.src = A + P + (up && P !== 'snowman' && res.state !== 'revealed' ? '-surprised' : '-idle') + '.webp';
         if (up && P !== 'snowman' && res.state !== 'revealed') setTimeout(() => { if (!finished && !el.classList.contains('is-charge')) img.src = A + P + '-idle.webp'; }, 900);
         drawOrbs(res.attempt - 1);
