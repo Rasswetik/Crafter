@@ -51,12 +51,13 @@ const rewardCell = (lv, track) => {
 function questCard(q, big, i) {
     const pct = Math.round(q.progress / q.target * 100);
     const status = q.claimed ? 'is-claimed' : q.locked ? 'is-locked' : q.need_plus ? 'is-needplus' : q.done ? 'is-done' : '';
-    const rewardChips = q.reward.map(r => '<span class="sp-chip"><img src="' + e(thumb(r.image, 80)) + '" alt="">' + (r.kind === 'BALL' || r.kind === 'GRAM' ? num(r.amount) : '×' + r.count) + '</span>').join('');
-    const timer = q.opens_in ? '<small class="sp-timer">Откроется через ' + left(q.opens_in) + '</small>' : q.ends_in && q.kind !== 'daily' && q.kind !== 'weekly' && q.ends_in < 86400 * 14 ? '<small class="sp-timer">До конца ' + left(q.ends_in) + '</small>' : '';
-    return '<div class="sp-q ' + (big ? 'is-big ' : '') + status + '" data-q="' + e(q.id) + '" style="--i:' + (i || 0) + '">' + (q.plus_only ? '<em class="sp-plusonly">ТОЛЬКО С PASS PLUS</em>' : '') + timer +
-        '<div class="sp-q-art">' + icon(q.icon, big ? 120 : 68, q.metric) + '</div><div class="sp-q-body"><h4>' + e(q.title) + '</h4>' +
-        (q.locked ? '<div class="sp-bar is-lock">' + LOCK + '</div>' : '<div class="sp-bar"><i style="--w:' + pct + '%"></i><span>' + num(q.progress) + '/' + num(q.target) + '</span></div>') +
-        '<div class="sp-q-foot"><span class="sp-xp"><b>XP</b>' + num(q.xp) + '</span>' + rewardChips + (q.done && !q.claimed && !q.locked && !q.need_plus ? '<button type="button" class="sp-take" data-take="' + e(q.id) + '">Забрать</button>' : q.claimed ? '<span class="sp-got">Получено</span>' : '') + '</div></div></div>';
+    const chips = q.reward.map(r => '<span class="sp-chip"><img src="' + e(thumb(r.image, 80)) + '" alt="">' + (r.kind === 'BALL' || r.kind === 'GRAM' ? num(r.amount) : '×' + r.count) + '</span>').join('');
+    const timer = q.opens_in ? '<span class="sp-tag is-time">Откроется через ' + left(q.opens_in) + '</span>' : q.ends_in && q.kind !== 'daily' && q.kind !== 'weekly' && q.ends_in < 86400 * 14 ? '<span class="sp-tag is-time">Ещё ' + left(q.ends_in) + '</span>' : '';
+    const act = q.done && !q.claimed && !q.locked && !q.need_plus ? '<button type="button" class="sp-take" data-take="' + e(q.id) + '">Забрать</button>' : q.claimed ? '<span class="sp-got">Получено</span>' : q.need_plus ? '<span class="sp-tag is-plus">Только Pass Plus</span>' : '';
+    return '<div class="sp-q ' + (big ? 'is-big ' : '') + status + '" data-q="' + e(q.id) + '" style="--i:' + (i || 0) + '"><div class="sp-q-art">' + icon(q.icon, big ? 84 : 64, q.metric) + '</div><div class="sp-q-main">' +
+        '<div class="sp-q-top"><h4>' + e(q.title) + '</h4><span class="sp-xp"><b>XP</b>' + num(q.xp) + '</span></div>' +
+        (q.locked ? '<div class="sp-bar is-lock">' + LOCK + '<span>Закрыт</span></div>' : '<div class="sp-bar"><i style="--w:' + pct + '%"></i><span>' + num(q.progress) + ' / ' + num(q.target) + '</span></div>') +
+        '<div class="sp-q-meta">' + (q.plus_only && !q.need_plus ? '<span class="sp-tag is-plus">Pass Plus</span>' : '') + timer + chips + act + '</div></div></div>';
 }
 
 function hasReady() { return Object.values(S.quests).flat().some(q => q.done && !q.claimed && !q.locked && !q.need_plus); }
@@ -85,16 +86,40 @@ function head() {
 function rewardsTab() {
     const s = S.season, me = S.me, cur = CUR[s.plus_currency] || CUR.BALL;
     const cols = S.levels.map((lv, i) => '<div class="sp-col' + (lv.level === me.level ? ' is-cur' : '') + '" style="--i:' + Math.min(i, 14) + '">' + rewardCell(lv, 'plus') + '<div class="sp-lvl' + (me.level >= lv.level ? ' is-reached' : '') + '"><b>' + lv.level + '</b></div>' + rewardCell(lv, 'free') + '</div>').join('');
-    return '<div class="sp-road"><aside class="sp-tickets"><button type="button" class="sp-ticket plus' + (me.plus ? ' is-own' : '') + '" data-getplus><span>PASS PLUS</span><img src="' + e(thumb(s.plus_ticket, 320)) + '" alt="">' + (me.plus ? '<i>Открыт</i>' : '<i><img src="' + cur[1] + '" alt="">' + num(s.plus_price) + '</i>') + '</button>' +
-        '<div class="sp-lvmid"></div><div class="sp-ticket free"><span>FREE</span><img src="' + e(thumb(s.free_ticket, 320)) + '" alt=""></div></aside>' +
-        '<div class="sp-trackwrap"><button type="button" class="sp-arrow l" data-scroll="-1" aria-label="Назад">‹</button><div class="sp-track" data-track>' + (cols || '<p class="sp-empty">В этом сезоне пока нет уровней</p>') + '</div><button type="button" class="sp-arrow r" data-scroll="1" aria-label="Вперёд">›</button>' +
-        '<button type="button" class="sp-tocur" data-tocur>К моему уровню</button></div></div>';
+    const chevL = '<svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>', chevR = '<svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    return '<div class="sp-road"><aside class="sp-tickets"><button type="button" class="sp-ticket plus' + (me.plus ? ' is-own' : '') + '" data-getplus><span class="sp-tk-img"><img src="' + e(thumb(s.plus_ticket, 240)) + '" alt=""></span><b>PASS PLUS</b>' + (me.plus ? '<i>Открыт</i>' : '<i><img src="' + cur[1] + '" alt="">' + num(s.plus_price) + '</i>') + '</button>' +
+        '<div class="sp-lvmid"></div><div class="sp-ticket free"><span class="sp-tk-img"><img src="' + e(thumb(s.free_ticket, 240)) + '" alt=""></span><b>FREE</b></div></aside>' +
+        '<div class="sp-trackwrap"><div class="sp-track" data-track>' + (cols || '<p class="sp-empty">В этом сезоне пока нет уровней</p>') + '</div></div></div>' +
+        '<div class="sp-nav"><button type="button" class="sp-navbtn" data-scroll="-1" aria-label="Назад">' + chevL + '</button><input type="range" class="sp-slider" data-slider min="0" max="1000" value="0" aria-label="Прокрутка по уровням"><button type="button" class="sp-navbtn" data-scroll="1" aria-label="Вперёд">' + chevR + '</button><button type="button" class="sp-tocur" data-tocur>К моему уровню</button></div>';
+}
+
+function megaDeck() {
+    const list = S.quests.mega || [];
+    if (!list.length) return '';
+    const idx = Math.max(0, list.findIndex(x => !x.claimed)), cur = list[idx] || list[list.length - 1];
+    const behind = Math.min(4, list.length - idx - 1);
+    const ends = S.season.ends_at ? S.season.ends_at - S.now : 0;
+    const layers = Array.from({length: behind}, (_, k) => '<i class="sp-deck-l" style="--k:' + (k + 1) + '"></i>').join('');
+    return '<section class="sp-mega"><header><h3><svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" fill="#fff" stroke="#14213f" stroke-width="2"/><path d="M8 12.5l3 3 5-6" fill="none" stroke="#e8203a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Мегаквесты</h3>' + (ends > 0 ? '<small>Окончание через <b>' + left(ends) + '</b></small>' : '') + '</header>' +
+        '<div class="sp-deck">' + layers + questCard(cur, true, 0) + '</div>' +
+        '<div class="sp-mega-foot"><span>Квест ' + Math.min(idx + 1, list.length) + ' из ' + list.length + '</span>' + (list.length > 1 ? '<button type="button" class="sp-megaall" data-megaall>Все мегаквесты</button>' : '') + '</div></section>';
+}
+
+function megaAll() {
+    const list = S.quests.mega || [];
+    const m = modal('<button type="button" class="sp-x" data-close aria-label="Закрыть">×</button><h2>МЕГАКВЕСТЫ</h2><p>Проходите квесты по порядку: следующий откроется после награды за этот.</p><div class="sp-megarow">' +
+        list.map((x, i) => (i ? '<i class="sp-mg-arrow"><svg viewBox="0 0 24 24"><path d="M5 6l7 6-7 6M13 6l7 6-7 6" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i>' : '') + questCard(x, true, i)).join('') + '</div>');
+    m.querySelector('.sp-modal-box').classList.add('sp-megabox');
+    m.addEventListener('click', ev => { const t = ev.target.closest('[data-take]'); if (t) { m.remove(); takeQuest(t.dataset.take, t); } });
 }
 
 function questsTab() {
-    const q = S.quests, block = (kind, extra) => q[kind].length ? '<section class="sp-qsec ' + kind + '"><header><h3>' + KIND_TITLES[kind] + '</h3>' + (extra || '') + '</header><div class="sp-qlist">' + q[kind].map((x, i) => questCard(x, kind === 'mega', i)).join('') + '</div></section>' : '';
-    const out = block('mega') + block('daily', '<small>До обновления ' + left(S.refresh.daily_in) + '</small>') + block('weekly', '<small>До обновления ' + left(S.refresh.weekly_in) + '</small>') + block('special') + block('season');
-    return '<div class="sp-quests">' + (out || '<p class="sp-empty">Квестов пока нет</p>') + '</div>';
+    const q = S.quests;
+    const sec = (kind, extra) => q[kind].length ? '<section class="sp-qsec ' + kind + '"><header><h3>' + KIND_TITLES[kind] + '</h3>' + (extra || '') + '</header><div class="sp-qlist">' + q[kind].map((x, i) => questCard(x, false, i)).join('') + '</div></section>' : '';
+    const cols = [[sec('daily', '<small>обновится через ' + left(S.refresh.daily_in) + '</small>'), sec('weekly', '<small>обновится через ' + left(S.refresh.weekly_in) + '</small>')].join(''), [sec('special'), sec('season')].join('')].filter(Boolean);
+    const mega = megaDeck();
+    if (!mega && !cols.length) return '<div class="sp-quests"><p class="sp-empty">Квестов пока нет</p></div>';
+    return '<div class="sp-quests' + (mega ? ' has-mega' : '') + '">' + mega + '<div class="sp-qright cols-' + Math.max(1, cols.length) + '">' + cols.map(c => '<div class="sp-qcol">' + c + '</div>').join('') + '</div></div>';
 }
 
 function draw() {
@@ -103,27 +128,77 @@ function draw() {
     if (!S || !S.season) { root.className = 'sp-root'; root.innerHTML = '<button type="button" class="sp-back sp-back-solo" data-back>‹ События</button><div class="sp-none"><h2>Сезонного пасса пока нет</h2><p>Как только сезон начнётся, он появится здесь.</p></div>'; root.style.cssText = ''; return; }
     root.className = 'sp-root' + (enter ? ' is-enter' : '');
     root.style.cssText = bgStyle(S.season);
-    root.innerHTML = '<i class="sp-pat pat-' + e((S.season.theme || {}).pattern || 'snow') + '"></i><i class="sp-glow"></i>' + head() + '<div class="sp-body">' + (tab === 'rewards' ? rewardsTab() : questsTab()) + '</div>';
+    root.innerHTML = '<i class="sp-pat pat-' + e((S.season.theme || {}).pattern || 'snow') + '"></i>' + ((S.season.theme || {}).image ? '<i class="sp-scrim"></i>' : '') + '<i class="sp-glow"></i>' + head() + '<div class="sp-body">' + (tab === 'rewards' ? rewardsTab() : questsTab()) + '</div>';
     // the bars fill from zero after the first paint
     requestAnimationFrame(() => requestAnimationFrame(() => root && root.classList.add('is-run')));
     const tr = root.querySelector('[data-track]');
     if (tr) {
         tr.scrollLeft = keep;
-        if (!keep) { const cur = tr.querySelector('.sp-rw.is-ready') || tr.querySelector('.sp-col.is-cur'); if (cur) tr.scrollTo({left: Math.max(0, (cur.closest('.sp-col') || cur).offsetLeft - 40), behavior: reduced() ? 'auto' : 'smooth'}); }
+        if (!keep) { const cur = tr.querySelector('.sp-rw.is-ready') || tr.querySelector('.sp-col.is-cur'); if (cur) setTimeout(() => glide(tr, Math.max(0, (cur.closest('.sp-col') || cur).offsetLeft - 40)), 350); }
         wireTrack(tr);
     }
     const qs = root.querySelector('.sp-quests'); if (qs) qs.scrollTop = keepY;
+    fitRoad();
     if (lastLevel !== null && S.me.level > lastLevel) levelUp(S.me.level);
     lastLevel = S.me.level;
     enter = false;
     justClaimed = new Set();
 }
 
+/* the two rows of cards take exactly the height that is left in the window */
+function fitRoad() {
+    if (!root) return;
+    const road = root.querySelector('.sp-road');
+    if (!road) return;
+    const H = road.clientHeight;
+    if (!H) return;
+    const lh = Math.max(44, Math.min(60, (H - 16) / 2 * .3));
+    const ch = Math.max(96, Math.min(250, Math.floor((H - lh - 10) / 2)));
+    root.style.setProperty('--ch', ch + 'px');
+    root.style.setProperty('--lh', Math.round(lh) + 'px');
+}
+window.addEventListener('resize', () => fitRoad());
+
 /* the road scrolls by the wheel, by dragging with the mouse, by the arrows and by the keys */
+/* the road glides to the place with easing instead of a jump; a touch or the wheel stops it */
+let gliding = 0;
+function glide(tr, to) {
+    const max = Math.max(0, tr.scrollWidth - tr.clientWidth);
+    to = Math.max(0, Math.min(max, to));
+    if (reduced()) { tr.scrollLeft = to; return; }
+    const from = tr.scrollLeft, dist = to - from, dur = Math.min(900, 380 + Math.abs(dist) * .35), t0 = performance.now(), id = ++gliding;
+    tr.classList.add('is-glide');
+    const step = now => {
+        if (id !== gliding || !tr.isConnected) { tr.classList.remove('is-glide'); return; }
+        const k = Math.min(1, (now - t0) / dur), ease = 1 - Math.pow(1 - k, 4);
+        tr.scrollLeft = from + dist * ease;
+        if (k < 1) requestAnimationFrame(step); else tr.classList.remove('is-glide');
+    };
+    requestAnimationFrame(step);
+}
+
+/* the lots come to life as they enter the window: a short flip and a rise, one after another */
+function revealCols(tr) {
+    const cols = [...tr.querySelectorAll('.sp-col')];
+    if (reduced() || !('IntersectionObserver' in window)) { cols.forEach(c => c.classList.add('is-seen')); return; }
+    let batch = 0, timer = 0;
+    const io = new IntersectionObserver(list => {
+        list.filter(x => x.isIntersecting).sort((a, b) => a.boundingClientRect.left - b.boundingClientRect.left).forEach(x => {
+            x.target.style.setProperty('--d', (batch++ * 55) + 'ms'); x.target.classList.add('is-seen'); io.unobserve(x.target);
+        });
+        clearTimeout(timer); timer = setTimeout(() => { batch = 0; }, 120);
+    }, {root: tr, threshold: .15});
+    cols.forEach(c => io.observe(c));
+}
+
 function wireTrack(tr) {
-    const wrap = tr.parentElement;
-    const upd = () => { wrap.classList.toggle('at-start', tr.scrollLeft < 8); wrap.classList.toggle('at-end', tr.scrollLeft + tr.clientWidth >= tr.scrollWidth - 8); };
+    revealCols(tr);
+    tr.addEventListener('wheel', () => { gliding++; }, {passive: true});
+    tr.addEventListener('touchstart', () => { gliding++; }, {passive: true});
+    const wrap = tr.parentElement, sl = root.querySelector('[data-slider]');
+    const upd = () => { wrap.classList.toggle('at-start', tr.scrollLeft < 8); wrap.classList.toggle('at-end', tr.scrollLeft + tr.clientWidth >= tr.scrollWidth - 8); if (sl && !sl.matches(':active')) { const max = Math.max(1, tr.scrollWidth - tr.clientWidth); sl.value = Math.round(tr.scrollLeft / max * 1000); sl.style.setProperty('--p', sl.value / 10 + '%'); } };
     tr.addEventListener('scroll', upd, {passive: true}); upd();
+    if (sl) sl.addEventListener('input', () => { tr.scrollLeft = sl.value / 1000 * Math.max(1, tr.scrollWidth - tr.clientWidth); sl.style.setProperty('--p', sl.value / 10 + '%'); });
     tr.addEventListener('wheel', ev => { if (Math.abs(ev.deltaY) > Math.abs(ev.deltaX)) { tr.scrollLeft += ev.deltaY * 1.2; ev.preventDefault(); } }, {passive: false});
     let down = null, moved = false;
     tr.addEventListener('pointerdown', ev => { if (ev.pointerType !== 'mouse' || ev.button !== 0) return; down = {x: ev.clientX, left: tr.scrollLeft}; moved = false; });
@@ -167,12 +242,27 @@ async function showGiven(res) {
     const g = res.given || res;
     if (g.chest_opens && window.crafterChests) await window.crafterChests.playMany(g.chest_opens, {bg: 'cozy', toast, refresh() {}});
     const items = g.items || [];
-    if (items.length) {
-        const el = document.createElement('div');
-        el.className = 'sp-modal';
-        el.innerHTML = '<div class="sp-modal-box sp-gotbox"><h2>Получено!</h2><div class="sp-gotlist">' + items.map((i, k) => '<div class="sp-got-it" style="--i:' + k + '"><img src="' + e(thumb(i.image, 200)) + '" alt=""><b>' + e(i.kind === 'GRAM' ? num(i.amount) + ' GRAM' : i.kind === 'BALL' ? num(i.amount) + ' шаров' : i.title + (i.count > 1 ? ' ×' + i.count : '')) + '</b></div>').join('') + '</div><button type="button" class="sp-btn" data-ok>Отлично</button></div>';
-        document.body.appendChild(el);
-        await new Promise(done => { el.addEventListener('click', ev => { if (ev.target === el || ev.target.closest('[data-ok]')) { el.remove(); done(); } }); });
+    const F = window.crafterFestive;
+    if (items.length && !F) { toast('Награды получены'); }
+    else if (items.length) {
+        /* the same screen as after a purchase: packs fan out, currencies get their own plate */
+        const packs = {}, shown = [];
+        let balls = 0, gram = 0;
+        items.forEach(i => {
+            if (i.kind === 'BALL') balls += Number(i.amount) || 0;
+            else if (i.kind === 'GRAM') gram += Number(i.amount) || 0;
+            else if (i.kind === 'PACK' && (i.pack_ids || []).length) { (packs[i.amount] = packs[i.amount] || {i, ids: []}).ids.push(...i.pack_ids); }
+            else shown.push(i);
+        });
+        const plan = [];
+        Object.values(packs).forEach(p => plan.push({it: {kind: 'PACK', pack: {image: p.i.image, title: p.i.title}, image_url: p.i.image, bundle: p.ids.length}, result: {packIds: p.ids, count: p.ids.length, head: 'Награда сезона', title: 'Вы получили: <b>' + e(p.i.title) + (p.ids.length > 1 ? ' ×' + num(p.ids.length) : '') + '</b>'}}));
+        if (gram) plan.push({it: {kind: 'GRAM', image_url: '/static/assets/gram.svg', rarity: 'res'}, result: {head: 'Награда сезона', title: 'Зачислено: ' + num(gram) + ' GRAM', text: 'Баланс уже обновлён.'}});
+        if (balls) plan.push({it: {kind: 'BALL', image_url: BALL, rarity: 'res'}, result: {head: 'Награда сезона', title: 'Зачислено шаров: ' + num(balls), text: 'Баланс уже обновлён.'}});
+        shown.forEach(i => plan.push({it: {kind: i.kind, image_url: i.image, rarity: 'res'}, result: {head: 'Награда сезона', title: 'Получено: ' + e(i.title) + (i.count > 1 ? ' ×' + i.count : ''), text: i.kind === 'NFT' ? 'Он уже в вашем инвентаре.' : 'Награда уже у вас.'}}));
+        for (const step of plan) {
+            await new Promise(done => { F.reveal({it: step.it}, step.result, {refresh: done}, () => {}); });
+        }
+        window.crafterNewYearUpdateBalance && S && load();
     }
     if (g.drop_granted && window.crafterDrops) window.crafterDrops.afterPurchase(g.drop_granted, {refresh() { load(); }});
 }
@@ -256,8 +346,9 @@ function bind() {
         if (ev.target.closest('[data-buylvl]')) { buyLevel(); return; }
         if (ev.target.closest('[data-claimall]')) { claim({track: 'all'}); return; }
         const sc = ev.target.closest('[data-scroll]');
-        if (sc) { const tr = root.querySelector('[data-track]'); tr.scrollBy({left: Number(sc.dataset.scroll) * Math.max(300, tr.clientWidth * .75), behavior: 'smooth'}); return; }
-        if (ev.target.closest('[data-tocur]')) { const tr = root.querySelector('[data-track]'), c = tr.querySelector('.sp-col.is-cur'); if (c) tr.scrollTo({left: Math.max(0, c.offsetLeft - 40), behavior: 'smooth'}); return; }
+        if (ev.target.closest('[data-megaall]')) { megaAll(); return; }
+        if (sc) { const tr = root.querySelector('[data-track]'); glide(tr, tr.scrollLeft + Number(sc.dataset.scroll) * Math.max(300, tr.clientWidth * .75)); return; }
+        if (ev.target.closest('[data-tocur]')) { const tr = root.querySelector('[data-track]'), c = tr.querySelector('.sp-col.is-cur'); if (c) glide(tr, Math.max(0, c.offsetLeft - 40)); return; }
         const rw = ev.target.closest('.sp-rw[data-lv]');
         if (rw) {
             if (rw.classList.contains('is-ready')) claim({level: Number(rw.dataset.lv), track: rw.dataset.track}, rw);

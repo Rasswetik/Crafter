@@ -27,6 +27,7 @@ window.api = async function (path, body) {
         throw err;
     } finally { clearTimeout(timer); }
 };
+window.closeSheet = window.closeSheet || function () {};
 window.toast = function (message) {
     var box = document.getElementById('sp-toasts');
     if (!box) return;
