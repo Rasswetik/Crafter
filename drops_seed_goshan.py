@@ -352,3 +352,28 @@ for _kind, _amount, _w in _box['loot']:
     _loot.append((_kind, _amount, _w))
 _box['loot'] = _loot
 BOXES['vice'] = _box
+
+
+# ---- Ocean Drive: the same rules and the same ladder of values as the other drops and boxes, the gifts of the sea coast
+OCEAN_NFT = ['chillflame:Sea Horse', 'moodpack:Turtle Shell', 'moodpack:Aquarium', 'eternalcandle:Deep Sea', 'lovecandle:Coral Reef', 'lovecandle:Ocean Breeze', 'homemadecake:Ocean Wave',
+             'bdaycandle:Tropic Dream', 'recordplayer:Sunset Beach', 'bunnymuffin:Sea Cruise', 'jesterhat:Sandy Beach', 'starnotepad:Ocean Wave', 'hangingstar:Azure Lagoon',
+             'deskcalendar:Deep Ocean', 'diamondring:Ocean Gem']                      # 11 .. 55 TON, the expensive ones stand where the chances are the smallest
+_drop = _copy.deepcopy(DROPS['vicecity_drop'])
+_drop['version'] = 'oceandrive-drop-v1'
+_drop['title'] = 'Ocean Drive Drop'
+_drop['rewards']['NFT'] = [['NFT', x] for x in OCEAN_NFT]
+_drop['rewards']['PACK'] = [['PACK', 'oceandrive' if p[1] == 'vicecity' else p[1]] for p in _drop['rewards']['PACK']]
+DROPS['oceandrive_drop'] = _drop
+
+_box = _copy.deepcopy(BOXES['vice'])
+_box['title'] = 'Ocean Drive Box'
+_nft_i = iter(OCEAN_NFT)
+_loot = []
+for _kind, _amount, _w in _box['loot']:
+    if _kind == 'NFT':
+        _amount = next(_nft_i)
+    elif _kind == 'PACK' and _amount == 'vicecity':
+        _amount = 'oceandrive'
+    _loot.append((_kind, _amount, _w))
+_box['loot'] = _loot
+BOXES['ocean'] = _box

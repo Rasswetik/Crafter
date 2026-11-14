@@ -174,3 +174,23 @@ def test_gifts_not_on_the_market_have_zero_chance_in_drops():
     assert available_cfg(cfg, None) is cfg
     assert available_cfg(cfg, lambda *a: True) is cfg
     assert len(cfg['rewards']['NFT']) == 15 and sum(1 for x in cfg['rewards']['NFT'] if x[1].startswith('diamondring')) == 1   # a ring is one gift of fifteen
+
+
+def test_ocean_drive_collection_pack_box_drop_and_backgrounds(client):
+    from pathlib import Path
+    admin, player = signed(42), signed(71)
+    client.get('/api/me', headers=player)
+    assert client.get('/api/chests/ocean', headers=player).json['chest']['title'] == 'Ocean Drive Box'
+    assert any(p['id'] == 'oceandrive' for p in client.get('/api/admin/new-year/packs', headers=admin).json['packs'])
+    drop = client.get('/api/drops/oceandrive_drop/chances', headers=player).json
+    assert drop['drop']['title'] == 'Ocean Drive Drop' and drop['drop']['art'] == 'oceandrive' and abs(sum(x['chance'] for x in drop['loot']) - 100) < 0.05
+    for _ in range(15):
+        r = client.post('/api/admin/new-year/chests/ocean/preview', headers=admin)
+        assert r.status_code == 200 and 2 <= len(r.json['items']) <= 6
+    for key in ('ocean-beach', 'ocean-secret'):
+        assert client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BALL', 'amount': '10', 'price_balls': 5, 'size': 'small', 'card_bg': key}).status_code == 200
+    root = Path(__file__).resolve().parent.parent / 'static' / 'assets'
+    for name in ('oceandrive.png', 'oceandrive-idle.webp', 'oceandrive-joy.webp', 'oceandrive-open-charge.webp', 'oceandrive-surprised.webp', 'oceandrive-front-000.webp',
+                 'oceandrive-bg-secret.webp') + tuple('oceandrive-turn-%03d.webp' % a for a in range(45, 360, 45)):
+        assert (root / 'drops' / name).exists(), name
+    assert (root / 'packs' / 'oceandrive-pack.webp').exists() and (root / 'chests' / 'ocean-open.png').exists() and (root / 'ocean' / 'scene-beach.webp').exists()

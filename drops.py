@@ -17,8 +17,8 @@ DROPS = {**DROPS, **MORE_DROPS}
 
 rng = random.SystemRandom()
 RARITY_KEYS = ('common', 'rare', 'epic', 'mythic', 'legendary', 'secret')
-IMAGES = {'snowman_drop': '/static/assets/drops/snowman.png', 'santa_drop': '/static/assets/drops/santa.png', 'goshan_drop': '/static/assets/drops/goshan.png', 'nikolay_drop': '/static/assets/drops/nikolay.png', 'vicecity_drop': '/static/assets/drops/vicecity.png'}
-ART = {'snowman_drop': 'snowman', 'santa_drop': 'santa', 'goshan_drop': 'goshan', 'nikolay_drop': 'nikolay', 'vicecity_drop': 'vicecity'}      # the prefix of the pictures of a drop in static/assets/drops
+IMAGES = {'snowman_drop': '/static/assets/drops/snowman.png', 'santa_drop': '/static/assets/drops/santa.png', 'goshan_drop': '/static/assets/drops/goshan.png', 'nikolay_drop': '/static/assets/drops/nikolay.png', 'vicecity_drop': '/static/assets/drops/vicecity.png', 'oceandrive_drop': '/static/assets/drops/oceandrive.png'}
+ART = {'snowman_drop': 'snowman', 'santa_drop': 'santa', 'goshan_drop': 'goshan', 'nikolay_drop': 'nikolay', 'vicecity_drop': 'vicecity', 'oceandrive_drop': 'oceandrive'}      # the prefix of the pictures of a drop in static/assets/drops
 REQUEST_ID = re.compile(r'[A-Za-z0-9][A-Za-z0-9_-]{7,99}')
 
 

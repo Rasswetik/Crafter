@@ -93,7 +93,7 @@ PACK_BACKDROPS = {
 
 
 # The accent colour of a pack (r g b): the opening screen glows with it instead of one common blue.
-PACK_ACCENTS = {'vicecity': '255 92 190', 'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'gifton': '70 150 255', 'nikolay': '60 170 110', 'goshan': '230 90 90', 'honey': '240 190 60'}
+PACK_ACCENTS = {'oceandrive': '40 200 200', 'vicecity': '255 92 190', 'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'gifton': '70 150 255', 'nikolay': '60 170 110', 'goshan': '230 90 90', 'honey': '240 190 60'}
 DEFAULT_ACCENT = '59 134 238'
 
 
@@ -700,6 +700,14 @@ def install_packs(app, db, auth, record, audit):
     def seed_vice_pack():
         seed_premium_pack('vicecity', 'Vice City', '/static/assets/packs/vicecity-pack.webp', VICE_GIFTS, VICE_GRAM, VICE_CARDS, VICE_NFT_SHARE, 'packs_vicecity_v1')
 
+    # Ocean Drive Pack: the sea coast pack, the same value as the other premium packs
+    OCEAN_GIFTS = (('chillflame', 'Sea Horse', '11'), ('eternalcandle', 'Deep Sea', '18'), ('lovecandle', 'Coral Reef', '20'), ('homemadecake', 'Ocean Wave', '20'),
+                   ('bdaycandle', 'Tropic Dream', '22'), ('recordplayer', 'Sunset Beach', '22'), ('bunnymuffin', 'Sea Cruise', '25'), ('starnotepad', 'Ocean Wave', '27'),
+                   ('deskcalendar', 'Deep Ocean', '47'), ('diamondring', 'Ocean Gem', '55'))
+
+    def seed_ocean_pack():
+        seed_premium_pack('oceandrive', 'Ocean Drive', '/static/assets/packs/oceandrive-pack.webp', OCEAN_GIFTS, NIKOLAY_GRAM, NIKOLAY_CARDS, VICE_NFT_SHARE, 'packs_oceandrive_v1')
+
     def seed_nikolay_pack():
         seed_premium_pack('nikolay', 'Nikolay', '/static/assets/packs/nikolay-pack.webp', NIKOLAY_GIFTS, NIKOLAY_GRAM, NIKOLAY_CARDS, NIKOLAY_NFT_SHARE, 'packs_nikolay_v1')
 
@@ -750,6 +758,7 @@ def install_packs(app, db, auth, record, audit):
         seed_gifton_pack()
         seed_goshan_pack()
         seed_vice_pack()
+        seed_ocean_pack()
         seed_nikolay_pack()
 
     def grant(uid, pack_id, source, request_id=None):

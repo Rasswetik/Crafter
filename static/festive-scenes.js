@@ -75,6 +75,7 @@ const bokeh = n => Array.from({length: n}, (_, i) => '<i class="ls-bk" style="--
 const snow = n => '<i class="ls-snow s1"></i><i class="ls-snow s2"></i>' + (n > 2 ? '<i class="ls-snow s3"></i>' : '');
 const VICE_IMG = {};
 ['pastel', 'neon', 'beach', 'marina', 'rooftop', 'highway', 'common', 'rare', 'epic', 'mythic', 'legendary', 'secret'].forEach(k => { VICE_IMG['vice-' + k] = '/static/assets/vice/scene-' + k + '.webp'; });
+['beach', 'marina', 'common', 'rare', 'epic', 'mythic', 'legendary', 'secret'].forEach(k => { VICE_IMG['ocean-' + k] = '/static/assets/ocean/scene-' + k + '.webp'; });
 const SC = {
     photo: () => '<i class="ls-photo"></i><i class="ls-photo-glow"></i><i class="ls-sheen"></i>' + bokeh(6) + '<i class="ls-neon n1"></i><i class="ls-neon n2"></i><i class="ls-vig2"></i>',
     wave: () => '<i class="ls-base"></i><i class="ls-blob b1"></i><i class="ls-blob b2"></i><i class="ls-blob b3"></i><i class="ls-sheen"></i>' + bokeh(6) + snow(2),
