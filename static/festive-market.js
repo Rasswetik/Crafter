@@ -6,6 +6,8 @@
 'use strict';
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
+// a phone decodes every picture into memory: our big pictures come as small copies (/thumb), otherwise a dozen cards can kill the page
+const thumb = (u, w) => /^\/(static\/assets\/(chests|packs)\/[\w.-]+\.(png|webp|jpe?g)|media\/shop\/[0-9a-f]{32})$/.test(u || '') ? '/thumb?u=' + encodeURIComponent(u) + '&w=' + w : u;
 const ORN = '<img class="fm-ball" src="/static/assets/new-year-ornament.svg" alt="">';
 const SI = () => window.crafterShopItems || {};
 const NAMES = {common: 'Акция', rare: 'Редкая акция', special: 'Особая акция', epic: 'Эпическая акция', mythic: 'Мифическая акция', legend: 'Легендарная акция', res: 'Ресурсы'};
@@ -65,7 +67,7 @@ function railButton(s) {
 }
 function bgHTML(key) {
     if (window.crafterScenes && !(key && key.startsWith('image:'))) return '<div class="fm-bgx">' + window.crafterScenes.render(key || 'night') + '</div>';
-    if (key && key.startsWith('image:')) return '<div class="fm-bgx bg-image" style="background-image:url(' + e(key.slice(6)) + ')"></div>';
+    if (key && key.startsWith('image:')) return '<div class="fm-bgx bg-image" style="background-image:url(' + e(thumb(key.slice(6), 1000)) + ')"></div>';
     if (key === 'village' && window.crafterVillage) return '<div class="fm-bgx bg-village">' + window.crafterVillage() + '</div>';
     const k = key === 'village' ? 'night' : (key || 'night');
     let kids = '';
@@ -105,7 +107,7 @@ function artOf(it) {
         return '<div class="fm-choiceart">' + list.map((c, i) => '<img src="' + e(c.pack.image) + '" alt="" style="--i:' + i + ';--n:' + n + '">').join('') + '</div>';
     }
     const f = SI().artHTML;
-    return f ? f(it) : '<img class="si-solo" src="' + e(it.image_url || '/static/assets/community-reward.svg') + '" alt="">';
+    return f ? f(it) : '<img class="si-solo" src="' + e(thumb(it.image_url || '/static/assets/community-reward.svg', 480)) + '" alt="">';
 }
 function descOf(it) {
     const d = SI().describe;
@@ -128,7 +130,7 @@ function card(o, opts = {}) {
     const cbg = it.card_bg || '';
     const scene = cbg && !cbg.startsWith('image:') && window.crafterScenes ? '<div class="fm-cbs">' + window.crafterScenes.render(cbg) + '</div>' : '';
     const cbClass = cbg ? (cbg.startsWith('image:') ? ' cb-image' : (scene ? ' has-cbs' + (window.crafterScenes.light(cbg) ? ' is-light' : '') : ' cb-' + cbg)) : '';
-    const cbStyle = cbg.startsWith('image:') ? ' style="background-image:linear-gradient(rgba(8,12,40,.18),rgba(8,12,40,.5)),url(' + e(cbg.slice(6)) + ')"' : '';
+    const cbStyle = cbg.startsWith('image:') ? ' style="background-image:linear-gradient(rgba(8,12,40,.18),rgba(8,12,40,.5)),url(' + e(thumb(cbg.slice(6), 800)) + ')"' : '';
     return '<div class="fm-card r-' + r + (it.chest ? ' fm-chestcard' : '') + ' fm-s-' + size + (opts.board ? ' is-board' : '') + (opts.fresh ? ' is-fresh' : '') + '" data-fm="' + e(o.key) + '" style="--u:' + WIDTH[size] + '" tabindex="0" role="button" aria-label="' + e(it.title) + '">' +
         tab + (it.badge ? '<span class="fm-new">' + e(it.badge) + '</span>' : '') +
         '<div class="fm-body' + cbClass + '"' + cbStyle + '>' + scene + '<i class="fm-rays"></i><i class="fm-dots"></i><i class="fm-glint"></i>' +
@@ -144,7 +146,7 @@ function card(o, opts = {}) {
 function includes(o) {
     const it = o.it, out = [];
     (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.id}));
-    (it.chests_in || []).forEach(c => out.push({img: c.chest.image, label: c.chest.title, count: '×' + c.count}));
+    (it.chests_in || []).forEach(c => out.push({img: thumb(c.chest.image, 200), label: c.chest.title, count: '×' + c.count}));
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
     if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: 'Новогодние шары', count: num(it.balls)});
     if (!out.length) {
@@ -342,7 +344,7 @@ function stage(o, ctx, opts2 = {}) {
         '<div class="fm-buy"><button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
         '<p class="fm-err" role="alert"></p></div>' +
         '<div class="fm-confirm" hidden><div class="fm-cbox"><b>Подтвердить?</b><span class="fm-cwhat" data-fm-cwhat></span><button type="button" class="fm-yes" data-fm-yes>ДА</button><button type="button" class="fm-no" data-fm-no>Отмена</button></div></div>';
-    if (it.card_bg && it.card_bg.startsWith('image:')) el.style.backgroundImage = 'linear-gradient(rgba(8,12,40,.3),rgba(8,12,40,.55)),url(' + it.card_bg.slice(6) + ')', el.style.backgroundSize = 'cover';
+    if (it.card_bg && it.card_bg.startsWith('image:')) el.style.backgroundImage = 'linear-gradient(rgba(8,12,40,.3),rgba(8,12,40,.55)),url(' + thumb(it.card_bg.slice(6), 1000) + ')', el.style.backgroundSize = 'cover';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
     // every lot has its own address: a link opens the lot, Back closes it
@@ -367,7 +369,7 @@ function stage(o, ctx, opts2 = {}) {
     el.querySelector('[data-fm-chances]')?.addEventListener('click', () => it.chest ? window.crafterChests.chances(it.chest.id, api) : openChances(chancesList(), ctx));
     if (it.chest && window.crafterChests) {                           // the chest stands in the window as a 3D model, the picture is the fallback
         const art = el.querySelector('[data-fm-heroart]');
-        art.innerHTML = '<div class="cx-host"><img class="si-solo" src="' + e(it.chest.image) + '" alt=""></div>';
+        art.innerHTML = '<div class="cx-host"><img class="si-solo" src="' + e(thumb(it.chest.image, 640)) + '" alt=""></div>';
         const v = window.crafterChests.viewer(art.firstChild, it.chest, {drag: true});
         v.ready.catch(() => {});
         new MutationObserver((_, ob) => { if (!el.isConnected) { v.dispose(); ob.disconnect(); } }).observe(document.body, {childList: true});
@@ -568,7 +570,7 @@ function render(main, ctx) {
         if (!root.isConnected) return;
         root.querySelectorAll('[data-fm-bal]').forEach(b => { if (ctx.balance) b.textContent = num(ctx.balance()); });
         root.querySelectorAll('[data-fm-end]').forEach(t => { const s = Number(t.dataset.fmEnd) - nowSec(); t.textContent = leftText(s); if (s <= 0 && !t.dataset.over) { t.dataset.over = '1'; t.closest('.fm-card')?.classList.add('is-over'); } });
-        setTimeout(tick, 1000);
+        setTimeout(tick, document.hidden ? 5000 : 1000);
     };
     tick();
     const openKey = (key, fromUrl) => {

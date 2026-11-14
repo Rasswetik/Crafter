@@ -31,6 +31,9 @@ function decorate() {
         empty.insertAdjacentHTML('afterbegin', `<div class="nyp-snow" aria-hidden="true">${flakes(12)}</div>`);
     }
 }
-setInterval(decorate, 600);
-new MutationObserver(decorate).observe(document.documentElement, {childList: true, subtree: true});
+// the page changes often (timers, animations): the decoration is checked once per pause, not on every mutation and every 600 ms
+let decorateTimer = 0;
+const soon = () => { if (decorateTimer) return; decorateTimer = setTimeout(() => { decorateTimer = 0; decorate(); }, 250); };
+new MutationObserver(muts => { if (muts.some(m => m.addedNodes.length)) soon(); }).observe(document.documentElement, {childList: true, subtree: true});
+decorate();
 })();

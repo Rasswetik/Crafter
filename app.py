@@ -1491,6 +1491,8 @@ def create_app(config=None):
     install_shop_sections(app,db,auth,audit)
     from shop_exchange import install_shop_exchange
     install_shop_exchange(app,db,auth,audit,record)
+    from thumbs import install_thumbs
+    install_thumbs(app,db)
     from chests import install_chests
     install_chests(app,db,auth,audit,record)
     from chains import install_chains

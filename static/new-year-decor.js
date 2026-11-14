@@ -67,7 +67,7 @@ function start() {
     build();
     window.addEventListener('resize', schedule, {passive: true});
     if (window.ResizeObserver) { const app = document.querySelector('#app'); if (app) new ResizeObserver(schedule).observe(app); }
-    setInterval(() => { if (!document.getElementById('winter-garland')) build(); }, 2000);   // survives full re-renders
+    setInterval(() => { if (!document.hidden && !document.getElementById('winter-garland')) build(); }, 3000);   // survives full re-renders
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {once: true}); else start();
 })();

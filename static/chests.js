@@ -19,6 +19,8 @@ function loadLibs() {
     if (!libs) libs = script('/static/vendor/three.min.js?v=147').then(() => script('/static/vendor/GLTFLoader.js?v=147')).catch(err => { libs = null; throw err; });
     return libs;
 }
+// on a phone the full-screen backgrounds come smaller (a 1672 px picture is ~6 MB in memory, two of them plus the sprites are too much for the Telegram browser)
+const small = u => (innerWidth < 760 && /^\/(static\/assets\/(chests|packs)\/[\w.-]+\.(png|webp|jpe?g)|media\/shop\/[0-9a-f]{32})$/.test(u || '')) ? '/thumb?u=' + encodeURIComponent(u) + '&w=1000' : u;
 function webgl() {
     try { const c = document.createElement('canvas'); return Boolean(window.WebGLRenderingContext && (c.getContext('webgl2') || c.getContext('webgl'))); } catch (_) { return false; }
 }
@@ -141,7 +143,7 @@ function viewer(host, chest, opts = {}) {
     if (chest.image_open) return sprite(host, chest);
     if (!webgl()) return flat(host, chest);
     let dead = false, raf = 0, ro = null, renderer = null;
-    const ctl = {dispose() { dead = true; cancelAnimationFrame(raf); ro && ro.disconnect(); if (renderer) { renderer.dispose(); renderer.domElement.remove(); } }, open: async () => 0, ready: null};
+    const ctl = {dispose() { dead = true; cancelAnimationFrame(raf); ro && ro.disconnect(); if (renderer) { renderer.dispose(); try { renderer.forceContextLoss(); } catch (_) {} renderer.domElement.remove(); } }, open: async () => 0, ready: null};
     const url = (phone() && chest.model_mobile) || chest.model;
     let state = {t0: performance.now(), opening: 0, opened: false}, pivot = null, mixer = null, action = null, burstAt = 0, burstRes = null;
     ctl.ready = loadLibs().then(() => loadModel(url)).then(gltf => {
@@ -250,8 +252,8 @@ function play(res, opts = {}) {
         '<div class="cx-reward" hidden></div><div class="cx-left" hidden>ОСТАЛОСЬ НАГРАД <b></b></div><div class="cx-sum" hidden></div>';
     document.body.appendChild(el);
     requestAnimationFrame(() => el.classList.add('is-in'));
-    if (chest.bg_open) el.querySelector('.cx-bg-a').style.backgroundImage = 'url(' + chest.bg_open + ')';
-    if (chest.bg_reward) el.querySelector('.cx-bg-b').style.backgroundImage = 'url(' + chest.bg_reward + ')';
+    if (chest.bg_open) el.querySelector('.cx-bg-a').style.backgroundImage = 'url(' + small(chest.bg_open) + ')';
+    if (chest.bg_reward) el.querySelector('.cx-bg-b').style.backgroundImage = 'url(' + small(chest.bg_reward) + ')';
     const v = viewer(el.querySelector('.cx-model'), chest);
     const reward = el.querySelector('.cx-reward'), left = el.querySelector('.cx-left'), sum = el.querySelector('.cx-sum');
     const packIds = items.flatMap(p => p.item.pack_ids || []);

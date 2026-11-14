@@ -138,3 +138,13 @@ def test_auto_offers_for_every_new_box(client):
     assert len(lots) == 9
     big = next(x for x in lots if x['bundle'] == 10)
     assert big['discount_percent'] > 0 and big['ends_at'] and big['card_bg'].startswith('image:/static/assets/chests/')
+
+
+def test_thumbs_give_small_copies_of_our_pictures_only(client):
+    ok = client.get('/thumb', query_string={'u': '/static/assets/chests/santa-bg-collection.webp', 'w': 640})
+    assert ok.status_code == 200 and ok.mimetype == 'image/webp'
+    assert len(ok.data) < 60000
+    again = client.get('/thumb', query_string={'u': '/static/assets/chests/santa-bg-collection.webp', 'w': 640})
+    assert again.data == ok.data                                   # the second time it comes from the cache
+    for bad in ('/static/assets/chests/../../app.py', '/etc/passwd', 'https://example.com/a.png', '/media/shop/zzz'):
+        assert client.get('/thumb', query_string={'u': bad, 'w': 320}).status_code == 404
