@@ -18,7 +18,7 @@ DEFAULTS = (
     ('rewards', 'Награды', 'rewards', 'builtin:cup', 'gold'),
     ('gifts', 'Подарки', 'gifts', 'builtin:gift', 'snow'),
 )
-BACKGROUNDS = ('village', 'snow', 'night', 'aurora', 'garland', 'frost', 'candy', 'blue', 'violet', 'crimson', 'emerald', 'gold',
+BACKGROUNDS = ('live-sunset', 'live-ice', 'live-aurora', 'live-village', 'live-candy', 'live-ornaments', 'live-gifts', 'live-lights', 'live-berry', 'live-gold', 'live-emerald', 'live-violet', 'village', 'snow', 'night', 'aurora', 'garland', 'frost', 'candy', 'blue', 'violet', 'crimson', 'emerald', 'gold',
                'tree', 'stars', 'mitten', 'cozy', 'ice', 'pine', 'berry', 'cocoa', 'polar', 'moon',
                'cabin', 'bauble', 'gifts', 'sparklers', 'champagne', 'northpole', 'wreath', 'skating', 'santa', 'sunrise', 'desert', 'jungle', 'cherry', 'space', 'cyber', 'bubbles', 'storm', 'hex',
                'nikolay', 'goshan', 'gifton', 'collab',

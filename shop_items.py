@@ -13,7 +13,7 @@ from flask import abort, g, request
 KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO', 'BUNDLE', 'CHEST', 'DROP', 'PASS')
 PROMO_KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'CHEST')
 RARITIES = ('auto', 'common', 'rare', 'special', 'epic', 'mythic', 'legend')   # the colour and the name of an offer; auto = by price
-CARD_BGS = ('ny-snow', 'ny-candy', 'ny-lights', 'ny-frost', 'ny-ginger', 'ny-bells', 'ny-fire', 'ny-aurora',
+CARD_BGS = ('blend', 'live-sunset', 'live-ice', 'live-aurora', 'live-village', 'live-candy', 'live-ornaments', 'live-gifts', 'live-lights', 'live-berry', 'live-gold', 'live-emerald', 'live-violet', 'ny-snow', 'ny-candy', 'ny-lights', 'ny-frost', 'ny-ginger', 'ny-bells', 'ny-fire', 'ny-aurora',
             'c-blue', 'c-violet', 'c-crimson', 'c-emerald', 'c-gold', 'c-pink',
             'ny-tree', 'ny-stars', 'ny-mitten', 'ny-cozy', 'ny-ice', 'ny-gold', 'ny-pine', 'ny-berry', 'ny-cocoa', 'ny-polar', 'ny-moon',
             'ny-cabin', 'ny-bauble', 'ny-gifts', 'ny-sparklers', 'ny-champagne', 'ny-northpole', 'ny-wreath', 'ny-skating', 'ny-santa', 'c-sunrise', 'c-desert', 'c-jungle', 'c-cherry', 'c-space', 'c-cyber', 'c-bubbles', 'c-storm', 'c-hex',

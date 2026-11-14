@@ -75,3 +75,18 @@
 
 /* a picture in the middle of the lot window always fills it, whatever its own size */
 .fm-heroart img.fm-pickart{width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain}
+
+/* a card that merges with the live background of the section */
+.fm-body.is-blend{background:transparent!important;box-shadow:none!important;border-color:transparent!important}
+.fm-body.is-blend::before,.fm-body.is-blend::after{opacity:.0}
+.fm-body.is-blend .fm-rays{opacity:.5}
+.fm-body.is-blend .fm-art img,.fm-body.is-blend .fm-art .fm-rot img,.fm-body.is-blend .fm-trio img{filter:drop-shadow(0 14px 14px rgba(0,0,0,.45))}
+.fm-card:has(.is-blend)::before{content:"";position:absolute;inset:0;z-index:0;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(255,255,255,0) 40%);pointer-events:none}
+/* the timer over an offer: a small slanted plate with a clock, like a tab on the corner of the card */
+.fm-tab{height:30px!important;padding:0 14px 0 34px!important;border-radius:9px 9px 0 0!important;background:linear-gradient(180deg,#1b2a78,#0f1850)!important;font-size:14px!important;font-style:italic;letter-spacing:.03em;color:#fff;box-shadow:inset 0 2px 0 rgba(255,255,255,.22),0 -2px 0 rgba(0,0,0,.2);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 100%,0 100%)}
+.fm-tab::before{content:"";position:absolute;left:10px;top:50%;width:16px;height:16px;margin-top:-8px;border-radius:50%;border:3px solid #ffd25e;background:radial-gradient(circle,#10163a 0 3px,transparent 3.5px);box-sizing:border-box}
+.fm-tab::after{content:"";position:absolute;left:17px;top:calc(50% - 5px);width:2px;height:6px;background:#ffd25e;transform-origin:50% 100%;animation:fm-clock 6s linear infinite}
+@keyframes fm-clock{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.fm-tab::after{animation:none}}
+.fm-body.is-blend .fm-name{background:linear-gradient(90deg,rgba(10,18,60,.6),rgba(10,18,60,0));border-radius:12px;padding:8px 14px 8px 12px;margin-left:-10px;max-width:92%}
+.fm-body.is-blend .fm-title{text-shadow:0 3px 0 rgba(0,0,0,.35),0 0 18px rgba(10,18,60,.55)}

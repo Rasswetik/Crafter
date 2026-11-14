@@ -37,16 +37,9 @@ const ICONS = {
     bag: S('<path d="M6 7V6a6 6 0 0 1 12 0v1h2l1 15H3L4 7zm2 0h8V6a4 4 0 0 0-8 0z"/>'),
 };
 ICONS.featured = ICONS.star; ICONS.packs = ICONS.pack; ICONS.bundles = ICONS.bundle; ICONS.res = ICONS.gem; ICONS.rewards = ICONS.cup; ICONS.gifts = ICONS.gift;
-const BG_KEYS = [['softsky', 'Мягкое небо'], ['softberry', 'Ягодный'], ['softmint', 'Мятный'], ['softgold', 'Тёплое золото'], ['softnight', 'Тихая ночь'], ['softrose', 'Розовый'], ['softocean', 'Глубокий океан'], ['softlilac', 'Сирень'], ['softember', 'Тёплые угли'], ['softcocoa', 'Какао'], ['softpine', 'Хвоя'], ['softslate', 'Графит'], ['village', 'Деревня'], ['snow', 'Снегопад'], ['night', 'Звёздная ночь'], ['aurora', 'Северное сияние'], ['garland', 'Гирлянды'], ['frost', 'Мороз'], ['candy', 'Леденцы'],
-    ['blue', 'Синий'], ['violet', 'Фиолетовый'], ['crimson', 'Алый'], ['emerald', 'Изумрудный'], ['gold', 'Золотой'],
-    ['cabin', 'Домик'], ['bauble', 'Шары на ёлке'], ['gifts', 'Подарки'], ['sparklers', 'Бенгальские огни'], ['champagne', 'Шампанское'], ['northpole', 'Северный полюс'], ['wreath', 'Венок'], ['skating', 'Каток'], ['santa', 'Дед Мороз'], ['sunrise', 'Рассвет'], ['desert', 'Пустыня'], ['jungle', 'Джунгли'], ['cherry', 'Сакура'], ['space', 'Космос'], ['cyber', 'Кибер'], ['bubbles', 'Пузыри'], ['storm', 'Гроза'], ['hex', 'Соты'], ['collab', 'Коллаборация'], ['nikolay', 'Николай'], ['goshan', 'Гошан'], ['gifton', 'GiftTon'],
-    ['fireworks', 'Фейерверк'], ['confetti', 'Конфетти'], ['snowstorm', 'Метель'], ['galaxy', 'Галактика'], ['neon', 'Неон'], ['sunset', 'Закат'], ['ocean', 'Океан'], ['forest', 'Лес'], ['mint', 'Мята'], ['rose', 'Роза'], ['steel', 'Сталь'], ['lava', 'Лава'],
-    ['tree', 'Ёлка'], ['stars', 'Звёздный'], ['mitten', 'Варежки'], ['cozy', 'Уют'], ['ice', 'Лёд'], ['pine', 'Хвоя'], ['berry', 'Ягоды'], ['cocoa', 'Какао'], ['polar', 'Полярный'], ['moon', 'Лунная ночь']];
-const CARD_BG_KEYS = [['', 'По редкости'], ['c-softsky', 'Мягкое небо'], ['c-softberry', 'Ягодный'], ['c-softmint', 'Мятный'], ['c-softgold', 'Тёплое золото'], ['c-softnight', 'Тихая ночь'], ['c-softrose', 'Розовый'], ['c-softocean', 'Глубокий океан'], ['c-softlilac', 'Сирень'], ['c-softember', 'Тёплые угли'], ['c-softcocoa', 'Какао'], ['c-softpine', 'Хвоя'], ['c-softslate', 'Графит'], ['ny-snow', 'Снежная ночь'], ['ny-candy', 'Леденцы'], ['ny-lights', 'Гирлянды'], ['ny-frost', 'Иней'], ['ny-ginger', 'Пряник'], ['ny-bells', 'Колокольчики'], ['ny-fire', 'Камин'],
-    ['ny-aurora', 'Сияние'], ['c-blue', 'Синий'], ['c-violet', 'Фиолетовый'], ['c-crimson', 'Алый'], ['c-emerald', 'Изумрудный'], ['c-gold', 'Золотой'], ['c-pink', 'Розовый'],
-    ['ny-cabin', 'Домик'], ['ny-bauble', 'Шары на ёлке'], ['ny-gifts', 'Подарки'], ['ny-sparklers', 'Бенгальские огни'], ['ny-champagne', 'Шампанское'], ['ny-northpole', 'Северный полюс'], ['ny-wreath', 'Венок'], ['ny-skating', 'Каток'], ['ny-santa', 'Дед Мороз'], ['c-sunrise', 'Рассвет'], ['c-desert', 'Пустыня'], ['c-jungle', 'Джунгли'], ['c-cherry', 'Сакура'], ['c-space', 'Космос'], ['c-cyber', 'Кибер'], ['c-bubbles', 'Пузыри'], ['c-storm', 'Гроза'], ['c-hex', 'Соты'], ['ny-collab', 'Коллаборация'], ['ny-nikolay', 'Николай'], ['ny-goshan', 'Гошан'], ['ny-gifton', 'GiftTon'],
-    ['ny-fireworks', 'Фейерверк'], ['ny-confetti', 'Конфетти'], ['ny-snowstorm', 'Метель'], ['c-galaxy', 'Галактика'], ['c-neon', 'Неон'], ['c-sunset', 'Закат'], ['c-ocean', 'Океан'], ['c-forest', 'Лес'], ['c-mint', 'Мята'], ['c-rose', 'Роза'], ['c-steel', 'Сталь'], ['c-lava', 'Лава'],
-    ['ny-tree', 'Ёлка'], ['ny-stars', 'Звёзды'], ['ny-mitten', 'Варежки'], ['ny-cozy', 'Уют'], ['ny-ice', 'Лёд'], ['ny-gold', 'Золото'], ['ny-pine', 'Хвоя'], ['ny-berry', 'Ягоды'], ['ny-cocoa', 'Какао'], ['ny-polar', 'Полярный'], ['ny-moon', 'Лунная ночь']];
+const LIVE_KEYS = [['live-sunset', 'Закат'], ['live-ice', 'Ледяной'], ['live-aurora', 'Сияние'], ['live-village', 'Деревня'], ['live-candy', 'Леденцы'], ['live-ornaments', 'Шары и звёзды'], ['live-gifts', 'Подарки'], ['live-lights', 'Гирлянды'], ['live-berry', 'Ягодный'], ['live-gold', 'Золото'], ['live-emerald', 'Хвоя'], ['live-violet', 'Ночь']];
+const BG_KEYS = LIVE_KEYS;                                            // backgrounds of sections: live, they move all the time
+const CARD_BG_KEYS = [['', 'По редкости'], ['blend', 'Сливается с фоном']].concat(LIVE_KEYS);
 const DEFAULT_SECTIONS = [
     {id: 'featured', title: 'Акции', kind: 'smart', rule: 'featured', icon: 'builtin:star', preview: '', bg: 'village', enabled: true},
     {id: 'packs', title: 'Паки', kind: 'smart', rule: 'packs', icon: 'builtin:pack', preview: '', bg: 'night', enabled: true},
@@ -66,24 +59,8 @@ function railButton(s) {
         (s.preview && /^\/media\/shop\//.test(s.preview) ? '<img class="fm-pic" src="' + e(s.preview) + '" alt="" draggable="false">' : '');
 }
 function bgHTML(key) {
-    if (window.crafterScenes && !(key && key.startsWith('image:'))) return '<div class="fm-bgx">' + window.crafterScenes.render(key || 'night') + '</div>';
     if (key && key.startsWith('image:')) return '<div class="fm-bgx bg-image" style="background-image:url(' + e(thumb(key.slice(6), 1000)) + ')"></div>';
-    if (key === 'village' && window.crafterVillage) return '<div class="fm-bgx bg-village">' + window.crafterVillage() + '</div>';
-    const k = key === 'village' ? 'night' : (key || 'night');
-    let kids = '';
-    if (false) for (let i = 0; i < 38; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 37 + 7) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (9 + i % 7) + 's;--d:-' + ((i * 1.7) % 11).toFixed(1) + 's;--dx:' + (i % 2 ? 24 : -24) + 'px"></i>';
-    if (['snow', 'tree', 'pine', 'ice', 'polar', 'moon', 'cozy', 'cocoa'].includes(k)) for (let i = 0; i < 26; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 41 + 9) % 100) + '%;--s:' + (2 + i % 4) + 'px;--t:' + (10 + i % 6) + 's;--d:-' + ((i * 1.9) % 12).toFixed(1) + 's;--dx:' + (i % 2 ? 20 : -20) + 'px"></i>';
-    if (k === 'fireworks') {
-        const cols = ['#ff5c6e', '#ffd27a', '#6ac7ff', '#9be37f', '#c39bff', '#ff9ad5'];
-        for (let i = 0; i < 9; i++) kids += '<i class="fm-fw" style="--x:' + ((i * 37 + 12) % 88 + 6) + '%;--y:' + ((i * 23 + 10) % 48 + 8) + '%;--s:' + (110 + (i * 29) % 90) + 'px;--c:' + cols[i % cols.length] + ';--d:-' + ((i * 0.9) % 5).toFixed(1) + 's"></i><i class="fm-fw b" style="--x:' + ((i * 37 + 12) % 88 + 6) + '%;--y:' + ((i * 23 + 10) % 48 + 8) + '%;--s:' + (70 + (i * 17) % 60) + 'px;--c:#fff;--d:-' + ((i * 0.9 + .3) % 5).toFixed(1) + 's"></i>';
-    }
-    if (k === 'confetti') for (let i = 0; i < 34; i++) kids += '<i class="fm-conf" style="--x:' + ((i * 29 + 5) % 100) + '%;--c:' + ['#ff5c6e', '#ffd27a', '#6ac7ff', '#9be37f', '#c39bff'][i % 5] + ';--t:' + (7 + i % 6) + 's;--d:-' + ((i * 1.3) % 9).toFixed(1) + 's;--r:' + (i * 47 % 360) + 'deg"></i>';
-    if (k === 'snowstorm') for (let i = 0; i < 70; i++) kids += '<i class="fm-flake" style="--x:' + ((i * 31 + 3) % 100) + '%;--s:' + (2 + i % 5) + 'px;--t:' + (4 + i % 5) + 's;--d:-' + ((i * 0.7) % 6).toFixed(1) + 's;--dx:' + (i % 2 ? 90 : -60) + 'px"></i>';
-    if (k === 'night' || k === 'stars' || k === 'moon' || k === 'galaxy' || k === 'fireworks') for (let i = 0; i < 46; i++) kids += '<i class="fm-star" style="--x:' + ((i * 53 + 11) % 100) + '%;--y:' + ((i * 29 + 5) % 100) + '%;--s:' + (1 + i % 3) + 'px;--d:-' + ((i * .7) % 5).toFixed(1) + 's"></i>';
-    if (k === 'aurora') kids = '<i class="fm-blob a"></i><i class="fm-blob b"></i><i class="fm-blob c"></i>';
-    if (k === 'garland') { let b = ''; for (let i = 0; i < 18; i++) b += '<i class="fm-bulb" style="--x:' + (i * 5.8).toFixed(1) + '%;--c:' + ['#ff5c6e', '#ffd27a', '#6ac7ff', '#9be37f', '#c39bff'][i % 5] + ';--d:-' + ((i * .45) % 3).toFixed(1) + 's"></i>'; kids = '<span class="fm-wire"></span>' + b; }
-    if (k === 'frost') for (let i = 0; i < 9; i++) kids += '<i class="fm-crystal" style="--x:' + ((i * 41 + 9) % 100) + '%;--y:' + ((i * 23 + 13) % 100) + '%;--s:' + (50 + (i * 37) % 90) + 'px;--r:' + (i * 31 % 90) + 'deg"></i>';
-    return '<div class="fm-bgx bg-' + e(k) + '">' + kids + '</div>';
+    return '<div class="fm-bgx">' + (window.crafterScenes ? window.crafterScenes.render(key || 'live-village') : '') + '</div>';
 }
 
 function rarityOf(it) {
@@ -158,8 +135,9 @@ function card(o, opts = {}) {
     const off = it.discount_percent > 0 ? '<span class="fm-off"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '';
     const showDesc = ['wide', 'large', 'banner'].includes(size) && descOf(it);
     const cbg = it.card_bg || '';
-    const scene = cbg && !cbg.startsWith('image:') && window.crafterScenes ? '<div class="fm-cbs">' + window.crafterScenes.render(cbg) + '</div>' : '';
-    const cbClass = cbg ? (cbg.startsWith('image:') ? ' cb-image' : (scene ? ' has-cbs' + (window.crafterScenes.light(cbg) ? ' is-light' : '') : ' cb-' + cbg)) : '';
+    const blend = cbg === 'blend';                                   // no fill of its own: the moving background of the section shows through
+    const scene = cbg && cbg !== 'blend' && !cbg.startsWith('image:') && window.crafterScenes ? '<div class="fm-cbs">' + window.crafterScenes.render(cbg) + '</div>' : '';
+    const cbClass = blend ? ' is-blend' : cbg ? (cbg.startsWith('image:') ? ' cb-image' : (scene ? ' has-cbs' + (window.crafterScenes.light(cbg) ? ' is-light' : '') : ' cb-' + cbg)) : '';
     const cbStyle = cbg.startsWith('image:') ? ' style="background-image:linear-gradient(rgba(8,12,40,.18),rgba(8,12,40,.5)),url(' + e(thumb(cbg.slice(6), 800)) + ')"' : '';
     return '<div class="fm-card r-' + r + (it.chest ? ' fm-chestcard' : '') + ' fm-s-' + size + (opts.board ? ' is-board' : '') + (opts.fresh ? ' is-fresh' : '') + '" data-fm="' + e(o.key) + '" style="--u:' + WIDTH[size] + '" tabindex="0" role="button" aria-label="' + e(it.title) + '">' +
         tab + (it.badge ? '<span class="fm-new">' + e(it.badge) + '</span>' : '') +
@@ -354,7 +332,7 @@ function stage(o, ctx, opts2 = {}) {
     const it = o.it, r = rarityOf(it);
     document.querySelector('.fm-stage')?.remove();
     const el = document.createElement('div');
-    const stageScene = it.card_bg && !it.card_bg.startsWith('image:') && window.crafterScenes ? '<div class="fm-cbs">' + window.crafterScenes.render(it.card_bg) + '</div>' : '';
+    const stageScene = it.card_bg && it.card_bg !== 'blend' && !it.card_bg.startsWith('image:') && window.crafterScenes ? '<div class="fm-cbs">' + window.crafterScenes.render(it.card_bg) + '</div>' : '';
     el.className = 'fm-stage r-' + r + (it.card_bg ? (it.card_bg.startsWith('image:') ? '' : (stageScene ? ' has-cbs' : ' cb-' + it.card_bg)) : '');
     const inc = includes(o);
     const choice = it.mode === 'choice' && it.contents && it.contents.length > 1 ? it.contents : null;
