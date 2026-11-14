@@ -106,7 +106,26 @@ function dropLayers(art) {
     out += '<i class="ps-l ps-back" style="--z:' + (-(n + 1) * d).toFixed(1) + 'px"><img alt="" draggable="false" src="/static/assets/drops/' + art + '-turn-180.webp"></i>';
     return out + '<i class="ps-l ps-front"><img alt="" draggable="false" src="' + f + '"></i>';
 }
+const mixOf = it => {                                            // what a bundle holds, when it holds several things
+    if (it.mode || !(it.kind === 'BUNDLE' || (it.kind === 'PACK' && it.contents && it.contents.length > 1))) return null;
+    const inc = includes({it});
+    return inc.length >= 2 ? inc : null;
+};
+setInterval(() => {                                               // the pictures of a small bundle tile follow one another
+    if (document.hidden) return;
+    document.querySelectorAll('.fm-rot').forEach(r => {
+        const k = [...r.children], i = k.findIndex(x => x.classList.contains('is-on'));
+        if (k.length < 2) return;
+        k[i]?.classList.remove('is-on'); k[(i + 1) % k.length].classList.add('is-on');
+    });
+}, 2300);
 function artOf(it) {
+    const mix = mixOf(it);
+    if (mix) {
+        const sz = sizeOf(it);
+        if (sz === 'small' || sz === 'tall') return '<div class="fm-rot">' + mix.map((x, i) => '<img class="' + (i ? '' : 'is-on') + '" src="' + e(thumb(x.img, 480)) + '" alt="" draggable="false">').join('') + '</div>';
+        return '<div class="fm-trio n' + Math.min(mix.length, 4) + '">' + mix.slice(0, 4).map(x => '<img src="' + e(thumb(x.img, 480)) + '" alt="" draggable="false">').join('') + '</div>';
+    }
     if (it.drop) return '<div class="fm-dropart"><i class="fm-drop-rays"></i><i class="fm-drop-halo"></i><span class="fm-drop-spin"><span class="ps3d fm-solid">' + dropLayers(it.drop.art) + '</span></span><i class="fm-drop-sp s1"></i><i class="fm-drop-sp s2"></i><i class="fm-drop-sp s3"></i><i class="fm-drop-sh"></i></div>';
     if (it.mode === 'random' && it.contents && it.contents.length) {                 // a black pack with a question mark
         return '<div class="fm-mystery"><img class="si-solo" src="' + e(it.contents[0].pack.image) + '" alt=""><b>?</b><i></i><i></i><i></i></div>';
@@ -343,7 +362,9 @@ function stage(o, ctx, opts2 = {}) {
     const lines = descOf(it).split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 5);
     const packsIn = inc.filter(x => x.pack).map(x => ({id: x.pack, title: x.label, image: x.img}));
     const optArt = i => '<img class="si-solo fm-pickart" src="' + e(choice[i].pack.image) + '" alt="">' + (choice[i].count > 1 ? '<b class="fm-pickcount">×' + choice[i].count + '</b>' : '');
-    const heroInner = choice ? optArt(0) : artOf(it);
+    const mixIn = !choice ? mixOf(it) : null;                      // a bundle: a tap on a part shows it in the middle
+    const mixArt = i => '<img class="si-solo fm-pickart" src="' + e(thumb(mixIn[i].img, 640)) + '" alt="">' + (/^×(\d+)$/.test(mixIn[i].count) && Number(mixIn[i].count.slice(1)) > 1 ? '<b class="fm-pickcount">' + e(mixIn[i].count) + '</b>' : '');
+    const heroInner = choice ? optArt(0) : mixIn ? mixArt(0) : artOf(it);
     const incHead = it.mode === 'random' ? 'Может выпасть' : choice ? 'Выберите один' : 'Включает';
     el.innerHTML = stageScene + '<i class="fm-rays big"></i><i class="fm-dots"></i>' +
         '<button type="button" class="fm-back" data-fm-close aria-label="Назад"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>' +
@@ -354,7 +375,7 @@ function stage(o, ctx, opts2 = {}) {
         '<div class="fm-hero">' + (choice ? '<button type="button" class="fm-harrow l" data-fm-h="-1" aria-label="Предыдущий">' + CHEV('m15 5-7 7 7 7') + '</button><button type="button" class="fm-harrow r" data-fm-h="1" aria-label="Следующий">' + CHEV('m9 5 7 7-7 7') + '</button>' : '') +
         '<div class="fm-floor"></div><div class="fm-heroart' + (it.chest ? ' is-chest' : '') + '" data-fm-heroart>' + heroInner + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
         '<div class="fm-inc"><div class="fm-inc-head"><b>' + incHead + '</b>' + (packsIn.length || it.chest || it.drop ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
-        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + (choice && !i ? ' is-pick' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '><img src="' + e(x.img) + '" alt=""><b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
+        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + ((choice || mixIn) && !i ? ' is-pick' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : mixIn ? ' data-fm-show="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '><img src="' + e(x.img) + '" alt=""><b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
         '<div class="fm-buy"><button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
         '<p class="fm-err" role="alert"></p></div>' +
         '<div class="fm-confirm" hidden><div class="fm-cbox"><b>Подтвердить?</b><span class="fm-cwhat" data-fm-cwhat></span><button type="button" class="fm-yes" data-fm-yes>ДА</button><button type="button" class="fm-no" data-fm-no>Отмена</button></div></div>';
@@ -400,6 +421,15 @@ function stage(o, ctx, opts2 = {}) {
         const pr = optPrice(), buyP = el.querySelector('[data-fm-buy] span'); if (buyP) buyP.innerHTML = pr ? ORN + '<b>' + num(pr) + '</b>' : '<b>Получить</b>';
         nameEl.innerHTML = 'Ваш выбор: <b>' + e(choice[pick].pack.title) + (choice[pick].count > 1 ? ' ×' + choice[pick].count : '') + '</b>';
     };
+    if (mixIn) {
+        const hero = el.querySelector('[data-fm-heroart]');
+        const show = i => {
+            hero.classList.remove('fm-swap'); void hero.offsetWidth;
+            hero.innerHTML = mixArt(i); hero.classList.add('fm-swap');
+            el.querySelectorAll('[data-fm-show]').forEach(b => b.classList.toggle('is-pick', Number(b.dataset.fmShow) === i));
+        };
+        el.querySelectorAll('[data-fm-show]').forEach(b => b.addEventListener('click', () => show(Number(b.dataset.fmShow))));
+    }
     if (choice) {
         setPick(0);
         el.querySelectorAll('[data-fm-opt]').forEach(b => b.addEventListener('click', () => setPick(Number(b.dataset.fmOpt))));
@@ -477,6 +507,10 @@ function render(main, ctx) {
     const all = items.concat(packs);
     const fbs = (ctx.freebies || []).map(ev => ({key: 'fb:' + ev.id, src: 'fb', ev, it: {id: 'fb:' + ev.id, kind: 'FREEBIE', title: ev.title, size: 'wide', rarity: 'special', price_balls: 0}}));
     const chs = (ctx.chains || []).map(ch => ({key: 'ch:' + ch.id, src: 'ch', ch, it: {id: 'ch:' + ch.id, kind: 'CHAIN', title: ch.title, size: 'wide', rarity: 'special', price_balls: 0, section_id: ch.section_id || ''}}));
+    /* the order of the administrator is one for everything: offers, gift calendars and chains stand in the places he gave them */
+    const manual = ctx.shopState?.order === 'manual', xorder = ctx.shopState?.extra_order || {};
+    const posOf = o => o.src === 'shop' ? o.it.position : (o.src === 'fb' || o.src === 'ch') ? xorder[o.key] : undefined;
+    const byPos = list => !manual ? list : list.map((o, i) => [o, i]).sort((a, b) => { const x = posOf(a[0]), y = posOf(b[0]); return (x == null) - (y == null) || (x != null && y != null ? x - y : 0) || a[1] - b[1]; }).map(a => a[0]);
     const sections = (ctx.shopState?.sections && ctx.shopState.sections.length ? ctx.shopState.sections : DEFAULT_SECTIONS).filter(s => ctx.showEmpty || s.enabled !== false);
     const customIds = new Set(sections.filter(s => s.kind !== 'exchange' && s.id !== 'gifts').map(s => s.id));
     const mine = o => o.it.section_id && customIds.has(o.it.section_id);
@@ -485,7 +519,7 @@ function render(main, ctx) {
     const isBundle = o => !o.it.mode && (o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1))));
     const lots = ctx.data?.lots || [];
     const rule = {
-        featured: () => fbs.concat(chs.filter(o => !mine(o))).concat(all.filter(o => !mine(o) && (o.it.mode || o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge))).concat(rewards),
+        featured: () => byPos(fbs.concat(chs.filter(o => !mine(o))).concat(all.filter(o => !mine(o) && (o.it.mode || o.it.old_price_balls > o.it.price_balls || ['banner', 'large'].includes(sizeOf(o.it)) || o.it.badge)))).concat(rewards),
         packs: () => all.filter(o => !mine(o) && !o.it.mode && o.it.kind === 'PACK' && !isBundle(o) && !isCollab(o)),
         collab: () => all.filter(o => !mine(o) && isCollab(o)),
         bundles: () => all.filter(o => !mine(o) && isBundle(o)),
@@ -494,7 +528,7 @@ function render(main, ctx) {
         gifts: () => lots,
     };
     const exAll = ctx.shopState?.exchanges || [];
-    const SEC = sections.map(s => ({s, list: s.kind === 'exchange' ? exAll.filter(x => x.section_id === s.id).map(x => ({key: 'ex:' + x.id, src: 'ex', ex: x})) : s.kind === 'custom' ? all.concat(chs).filter(o => o.it.section_id === s.id) : (rule[s.rule] ? rule[s.rule]() : []).concat(s.rule !== 'gifts' ? all.filter(o => o.it.section_id === s.id) : [])})).filter(x => x.list.length || ctx.showEmpty);
+    const SEC = sections.map(s => ({s, list: s.kind === 'exchange' ? exAll.filter(x => x.section_id === s.id).map(x => ({key: 'ex:' + x.id, src: 'ex', ex: x})) : s.kind === 'custom' ? byPos(all.concat(chs).filter(o => o.it.section_id === s.id)) : (rule[s.rule] ? rule[s.rule]() : []).concat(s.rule !== 'gifts' ? all.filter(o => o.it.section_id === s.id) : [])})).filter(x => x.list.length || ctx.showEmpty);
     const railW = 224;
     let active = ctx.section && SEC.some(x => x.s.id === ctx.section) ? ctx.section : (SEC[0] ? SEC[0].s.id : '');
     const root = document.createElement('div');

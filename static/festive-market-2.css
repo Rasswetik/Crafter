@@ -61,3 +61,14 @@
 .fm-ch-top{background:linear-gradient(180deg,rgba(6,10,40,.7),rgba(6,10,40,0))}
 .fm-ch-tab:hover{transform:translateY(-2px)}
 .fm-ch-chip{background:rgba(255,255,255,.1)}
+
+/* bundles of several things: the small tile shows them one after another, the wide one all together */
+.fm-art .fm-rot,.fm-art .fm-trio{position:absolute;inset:4% 6%}
+.fm-rot img{position:absolute;inset:0;margin:auto;max-width:92%;max-height:96%;width:auto;height:auto;object-fit:contain;opacity:0;transform:scale(.78) rotate(-5deg);transition:opacity .55s ease,transform .7s cubic-bezier(.2,1.25,.4,1);filter:drop-shadow(0 10px 10px rgba(0,0,0,.35))}
+.fm-rot img.is-on{opacity:1;transform:none}
+.fm-trio{display:flex;align-items:center;justify-content:center;gap:1%}
+.fm-trio img{flex:1 1 0;min-width:0;max-width:34%;max-height:88%;object-fit:contain;filter:drop-shadow(0 10px 10px rgba(0,0,0,.35));transition:transform .4s}
+.fm-trio.n2 img{max-width:44%}.fm-trio.n4 img{max-width:25%}
+.fm-trio img:nth-child(odd){transform:rotate(-4deg)}.fm-trio img:nth-child(even){transform:rotate(4deg) scale(1.08);z-index:1}
+.fm-card:hover .fm-trio img:nth-child(odd){transform:rotate(-6deg) translateY(-4px)}.fm-card:hover .fm-trio img:nth-child(even){transform:rotate(6deg) scale(1.12) translateY(-4px)}
+@media(prefers-reduced-motion:reduce){.fm-rot img{transition:opacity .01s;transform:none}}

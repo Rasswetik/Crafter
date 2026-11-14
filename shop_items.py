@@ -140,7 +140,7 @@ def install_shop_items(app, db, auth, record, audit):
         pass_info = app.extensions['crafter_pass_short'](uid) if row['kind'] == 'PASS' and app.extensions.get('crafter_pass_short') else None
         left = None if row['stock'] is None else max(0, int(row['stock']) - int(row['sold']))
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
-                'title': row['title'], 'pass': pass_info, 'image_url': row['image_url'] or (pass_info['image'] if pass_info else '') or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else '') or (drop['image'] if drop else ''), 'chest': chest, 'drop': drop, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'), 'pass_in': parts.get('pass_in'), 'drops_in': parts.get('drops'),
+                'title': row['title'], 'position': row['position'], 'pass': pass_info, 'image_url': row['image_url'] or (pass_info['image'] if pass_info else '') or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else '') or (drop['image'] if drop else ''), 'chest': chest, 'drop': drop, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'), 'pass_in': parts.get('pass_in'), 'drops_in': parts.get('drops'),
                 'price_balls': int(row['price_balls']), 'old_price_balls': (int(row['old_price_balls']) if row['old_price_balls'] else None),
                 'discount_percent': (round((1 - int(row['price_balls']) / int(row['old_price_balls'])) * 100) if row['old_price_balls'] and int(row['old_price_balls']) > int(row['price_balls']) else None),
                 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
@@ -157,6 +157,15 @@ def install_shop_items(app, db, auth, record, audit):
         except (ValueError, TypeError, AttributeError):
             return 'price'
 
+    def extra_order():
+        """Places of the tiles that are not offers (the gift calendars 'fb:<id>' and the chains 'ch:<id>') in the same numbering as the offers."""
+        row = db().execute("SELECT payload FROM settings WHERE key='shop_extra_order_v1'").fetchone()
+        try:
+            data = json.loads(row['payload']) if row else {}
+        except (ValueError, TypeError):
+            data = {}
+        return {k: int(v) for k, v in data.items() if isinstance(k, str) and k[:3] in ('fb:', 'ch:') and isinstance(v, int)} if isinstance(data, dict) else {}
+
     def ordered(rows):
         if order_mode() == 'manual':
             return sorted(rows, key=lambda r: (r['position'] is None, r['position'] or 0, int(r['price_balls']), r['created']))
@@ -169,7 +178,7 @@ def install_shop_items(app, db, auth, record, audit):
         rows = ordered(db().execute("SELECT * FROM shop_items WHERE status='active' AND (ends_at IS NULL OR ends_at>?) AND (starts_at IS NULL OR starts_at<=?)", (now, now)).fetchall())
         hidden = app.extensions['crafter_hidden_sections']()
         rows = [r for r in rows if (r['section_id'] or '') not in hidden]
-        return {'items': [view(r, g.user['id']) for r in rows], 'now': now, 'sections': app.extensions['crafter_shop_sections'](False), **app.extensions['crafter_exchange_public'](g.user['id'])}
+        return {'items': [view(r, g.user['id']) for r in rows], 'order': order_mode(), 'extra_order': extra_order(), 'now': now, 'sections': app.extensions['crafter_shop_sections'](False), **app.extensions['crafter_exchange_public'](g.user['id'])}
 
     @app.post('/api/shop-items/buy')
     @auth()
@@ -325,7 +334,7 @@ def install_shop_items(app, db, auth, record, audit):
     @auth(admin=True)
     def admin_shop():
         rows = ordered(db().execute("SELECT * FROM shop_items").fetchall())[:300]
-        return {'items': [view(r) for r in rows], 'order': order_mode(), 'now': int(time.time()), 'sections': app.extensions['crafter_shop_sections'](True), 'bg_library': app.extensions['crafter_bg_library']()}
+        return {'items': [view(r) for r in rows], 'order': order_mode(), 'extra_order': extra_order(), 'now': int(time.time()), 'sections': app.extensions['crafter_shop_sections'](True), 'bg_library': app.extensions['crafter_bg_library']()}
 
     def whole(value, low, high, name):
         try:
@@ -709,9 +718,16 @@ def install_shop_items(app, db, auth, record, audit):
         with db():
             db().execute('BEGIN IMMEDIATE')
             known = [r['id'] for r in ordered(db().execute("SELECT * FROM shop_items").fetchall())]
-            chosen = [i for i in dict.fromkeys(wanted) if i in known]
-            for number, item in enumerate(chosen + [i for i in known if i not in chosen], 1):
-                db().execute("UPDATE shop_items SET position=? WHERE id=?", (number, item))
+            extras_now = extra_order()
+            chosen = [i for i in dict.fromkeys(wanted) if i in known or i[:3] in ('fb:', 'ch:')]
+            tail = [i for i in known if i not in chosen] + [k for k, _ in sorted(extras_now.items(), key=lambda kv: kv[1]) if k not in chosen]
+            places = {}
+            for number, item in enumerate(chosen + tail, 1):
+                if item in known:
+                    db().execute("UPDATE shop_items SET position=? WHERE id=?", (number, item))
+                else:
+                    places[item] = number
+            db().execute("INSERT INTO settings(key,payload) VALUES('shop_extra_order_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps(places),))
             db().execute("INSERT INTO settings(key,payload) VALUES('shop_items_order_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload", (json.dumps({'mode': 'manual'}),))
         audit('Shop items rearranged')
         return {'ok': True}

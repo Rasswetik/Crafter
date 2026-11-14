@@ -121,6 +121,9 @@ async function admin(content) {
     try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) { STARS = []; }
     try { CHESTS = (await api('admin/new-year/chests')).chests.map(c => c.chest); } catch (_) { CHESTS = []; }
     try { DROPS = (await api('admin/drops')).drops; } catch (_) { DROPS = []; }
+    let FBX = [], CHX = [];                                  // the gift calendars and the chains stand on the same board and in the same order as the offers
+    try { const fr = await api('freebies'); FBX = (fr.events || []).map(x => Object.assign({now: fr.now}, x)); } catch (_) {}
+    try { CHX = (await api('chains')).chains || []; } catch (_) {}
     if (!content?.isConnected) return;
     const sec = document.createElement('section');
     sec.className = 'ny-admin-section si-admin';
@@ -135,7 +138,7 @@ async function admin(content) {
         if (!ev.target.closest('[data-sb-clear]')) return;
         const list = visible(), name = boardTab === '' ? 'Авто' : secTitle(boardTab) || 'раздел';
         if (!list.length || !confirm('Удалить ВСЕ акции раздела «' + name + '» (' + list.length + ' шт.)? Это нельзя отменить. То, что игроки уже получили, останется у них.')) return;
-        try { const res = await api('admin/new-year/shop-clear', {section_id: boardTab, confirm: true}); const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.sections = fresh.sections || r.sections; selected = null; toast('Удалено акций: ' + res.removed); redrawBoard(); } catch (err) { toast(err.message); }
+        try { const res = await api('admin/new-year/shop-clear', {section_id: boardTab, confirm: true}); const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.extra_order = fresh.extra_order || r.extra_order; r.order = fresh.order || r.order; r.sections = fresh.sections || r.sections; selected = null; toast('Удалено акций: ' + res.removed); redrawBoard(); } catch (err) { toast(err.message); }
     });
     sec.addEventListener('click', ev => { const b = ev.target.closest('[data-sb-tab]'); if (!b) return; boardTab = b.dataset.sbTab; selected = null; redrawBoard(); });
     const f = {kind: 'GRAM', promo: 'GRAM', amount: '1', pack: packs[0]?.id || '', price: '0', old: '', stock: '', per: '0', bundle: '1', image: '', title: '', mix: {}, items: [], bgram: '', bballs: '', size: 'small', view: 'phone', description: '', rarity: 'auto', badge: '', endsH: '', endsAt: null, section_id: '', heading: '', card_bg: '', mode: '', startsMsk: '', endsMsk: ''};
@@ -280,7 +283,7 @@ async function admin(content) {
                     }
                     toast('Создано акций: ' + made);
                 } catch (err) { toast((made ? 'Создано ' + made + ', потом ошибка: ' : '') + err.message); }
-                try { const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.sections = fresh.sections || r.sections; } catch (_) {}
+                try { const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.extra_order = fresh.extra_order || r.extra_order; r.order = fresh.order || r.order; r.sections = fresh.sections || r.sections; } catch (_) {}
                 close(); draw();
             });
         };
@@ -363,7 +366,7 @@ async function admin(content) {
                     for (const r of list) { await api('admin/new-year/shop', r.payload); made++; }
                     toast('Создано акций: ' + made);
                 } catch (err) { toast((made ? 'Создано ' + made + ', потом ошибка: ' : '') + err.message); }
-                try { const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.sections = fresh.sections || r.sections; } catch (_) {}
+                try { const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.extra_order = fresh.extra_order || r.extra_order; r.order = fresh.order || r.order; r.sections = fresh.sections || r.sections; } catch (_) {}
                 impState.busy = false; impState.sheets = []; impState.picked = new Set();
                 close(); draw();
             });
@@ -386,9 +389,18 @@ async function admin(content) {
     const COG = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
     const sizeShape = s => '<span class="sz-shape sz-' + s + '" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></span>';
     let boardTab = '*';                                           // the board shows one section at a time, as a puzzle of that section
-    const visible = () => boardTab === '*' ? r.items : r.items.filter(it => (it.section_id || '') === boardTab);
+    const extraList = () => FBX.map(ev => ({id: 'fb:' + ev.id, src: 'fb', ev, section_id: ''})).concat(CHX.map(ch => ({id: 'ch:' + ch.id, src: 'ch', ch, section_id: ch.section_id || ''})));
+    const placeOf = x => x.src ? (r.extra_order || {})[x.id] : x.position;
+    const boardAll = () => {                                 // everything of the shop window in the order the players see
+        const ex = extraList();
+        if (r.order !== 'manual') return ex.concat(r.items);
+        return r.items.concat(ex).map((x, i) => [x, i]).sort((a, b) => { const p = placeOf(a[0]), q = placeOf(b[0]); return (p == null) - (q == null) || (p != null && q != null ? p - q : 0) || a[1] - b[1]; }).map(a => a[0]);
+    };
+    const visible = () => boardTab === '*' ? boardAll() : boardAll().filter(it => (it.section_id || '') === boardTab);
+    const extraCell = x => '<div class="sb-cell sb-wide sb-extra" data-sb="' + e(x.id) + '">' + window.crafterFestive.card(x.src === 'fb' ? {key: x.id, src: 'fb', ev: x.ev} : {key: x.id, src: 'ch', ch: x.ch}, {board: true}) +
+        '<button type="button" class="sb-handle" data-sb-drag aria-label="Перетащить" title="Перетащите, чтобы переставить">' + GRIP + '</button><span class="sb-badge">' + (x.src === 'fb' ? 'календарь подарков' : 'цепочка акций') + '</span></div>';
     const tabsHTML = () => '<div class="sb-tabs">' + [['*', 'Все', r.items.length], ['', 'Авто', r.items.filter(i => !i.section_id).length]].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title, r.items.filter(i => i.section_id === x.id).length])).map(t => '<button type="button" class="sb-tab' + (boardTab === t[0] ? ' is-on' : '') + '" data-sb-tab="' + e(t[0]) + '">' + e(t[1]) + '<i>' + t[2] + '</i></button>').join('') + (boardTab !== '*' && visible().length ? '<button type="button" class="sb-clear" data-sb-clear>Очистить раздел: удалить все акции (' + visible().length + ')</button>' : '') + '</div>';
-    const boardHTML = () => visible().map(it => '<div class="sb-cell sb-' + sizeOf(it) + (it.status === 'hidden' ? ' is-hidden' : '') + (selected === it.id ? ' is-sel' : '') + '" data-sb="' + e(it.id) + '">' +
+    const boardHTML = () => visible().map(it => it.src ? extraCell(it) : '<div class="sb-cell sb-' + sizeOf(it) + (it.status === 'hidden' ? ' is-hidden' : '') + (selected === it.id ? ' is-sel' : '') + '" data-sb="' + e(it.id) + '">' +
         (window.crafterFestive ? window.crafterFestive.card({key: it.id, src: 'shop', it}, {board: true}) : (tiles([it], true)[0] || '')) +
         '<button type="button" class="sb-handle" data-sb-drag aria-label="Перетащить лот" title="Перетащите, чтобы переставить">' + GRIP + '</button>' +
         '<button type="button" class="sb-gear" data-sb-gear aria-label="Настройки лота" title="Настройки лота">' + COG + '</button>' +
@@ -467,8 +479,12 @@ async function admin(content) {
             ghost.remove(); cell.classList.remove('is-drag');
             const shown = [...board.children].map(c => c.dataset.sb).filter(Boolean), cur = visible().map(i => i.id);
             if (shown.join() === cur.join()) return;
-            let k = 0; const ids = r.items.map(i => i.id).map(id => cur.includes(id) ? shown[k++] : id);   // the others keep their places
-            r.items = ids.map(id => r.items.find(i => i.id === id)); r.order = 'manual';
+            const whole = boardAll().map(i => i.id);
+            let k = 0; const ids = whole.map(id => cur.includes(id) ? shown[k++] : id);   // the tiles of other sections keep their places
+            const byId = new Map(r.items.map(i => [i.id, i]));
+            r.items = ids.filter(id => byId.has(id)).map(id => byId.get(id));
+            r.extra_order = {}; ids.forEach((id, n) => { if (!byId.has(id)) r.extra_order[id] = n + 1; else byId.get(id).position = n + 1; });
+            r.order = 'manual';
             try { await api('admin/new-year/shop-arrange', {ids}); toast('Порядок сохранён'); } catch (err) { toast(err.message); }
             redrawBoard();
         };
@@ -490,7 +506,7 @@ async function admin(content) {
             drawer.querySelectorAll('[data-sb-q]').forEach(i => { patch[i.dataset.sbQ] = i.value; });
             try {
                 await api('admin/new-year/shop/' + it.id + '/style', patch);
-                const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.sections = fresh.sections || r.sections;
+                const fresh = await api('admin/new-year/shop'); r.items = fresh.items; r.extra_order = fresh.extra_order || r.extra_order; r.order = fresh.order || r.order; r.sections = fresh.sections || r.sections;
                 redrawBoard(); toast('Сохранено');
             } catch (err) { toast(err.message); }
         });

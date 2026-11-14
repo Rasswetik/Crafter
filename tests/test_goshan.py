@@ -83,3 +83,21 @@ def test_pass_plus_inside_a_bundle_and_a_choice_offer(client):
     got = client.post('/api/shop-items/buy', headers=other, json={'item_id': choice.json['id'], 'request_id': 'choice-pass-0001', 'choice': 'pass:plus'})
     assert got.status_code == 200, got.get_data(as_text=True)
     assert got.json['pass_plus'] and client.get('/api/pass', headers=other).json['me']['plus'] is True
+
+
+def test_gift_calendars_and_chains_share_the_order_of_the_shop(client):
+    admin, player = signed(42), signed(66)
+    client.get('/api/me', headers=player)
+    a = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BALL', 'amount': '10', 'price_balls': 5, 'size': 'small'}).json['id']
+    b = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BALL', 'amount': '20', 'price_balls': 9, 'size': 'small'}).json['id']
+    done = client.post('/api/admin/new-year/shop-arrange', headers=admin, json={'ids': [b, 'fb:cal1', a, 'ch:chain1']})
+    assert done.status_code == 200, done.get_data(as_text=True)
+    shop = client.get('/api/shop-items', headers=player).json
+    assert shop['order'] == 'manual'
+    pos = {x['id']: x['position'] for x in shop['items']}
+    assert pos[b] < shop['extra_order']['fb:cal1'] < pos[a] < shop['extra_order']['ch:chain1']
+    assert [x['id'] for x in shop['items']] == [b, a]
+    again = client.post('/api/admin/new-year/shop-arrange', headers=admin, json={'ids': [a, b]})                  # the tiles that were not named go after
+    assert again.status_code == 200
+    shop = client.get('/api/shop-items', headers=player).json
+    assert [x['id'] for x in shop['items']] == [a, b] and shop['extra_order']['fb:cal1'] > shop['items'][1]['position']
