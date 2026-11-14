@@ -73,3 +73,9 @@
 .fm-stage.has-cbs>.fm-dots{display:none}
 .fm-stage>.fm-cbs{z-index:0}
 .fm-body.is-light .fm-title,.fm-body.is-light .fm-name b{-webkit-text-stroke-color:rgba(10,24,70,.85)}
+
+/* the background of a section: one solid colour with patterns that slide over it, nothing else (the offers stay clear on it) */
+.ls-section .ls-base{background:linear-gradient(180deg,var(--c1),color-mix(in srgb,var(--c1) 82%,var(--c2)))}
+.ls-section .ls-pat{background-size:210px 210px;opacity:.26;inset:-210px;--p:210px}
+.ls-section .ls-pat.p2{background-size:320px 320px;opacity:.14;inset:-320px;--p:320px}
+.ls-vig2{inset:0;background:radial-gradient(ellipse at 50% 45%,transparent 55%,rgba(0,0,0,.28))}

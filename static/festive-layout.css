@@ -1,0 +1,74 @@
+/* layout of the market that used to live in the files of the old pictures */
+/* more New Year backgrounds for offers (cb-*, also the window of a lot) and for sections (bg-*); the gallery of the administrator */
+/* sections */
+/* the gallery of backgrounds in the administrator */
+.fm-gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:12px;margin-top:6px}
+.fm-sw{position:relative;display:grid;gap:6px;justify-items:stretch;padding:0;border:0;background:none;color:inherit;text-align:center;cursor:pointer}
+.fm-swp{position:relative;display:block;height:78px;border-radius:12px;overflow:hidden;border:2px solid rgba(255,255,255,.16);background:#222a48 center/cover;transition:transform .2s,border-color .2s,box-shadow .2s}
+.fm-swc{position:absolute;inset:0;display:block;overflow:hidden}
+.fm-swc.cb-none{background:linear-gradient(165deg,#2f7bff,#4fd6ff)}
+.fm-sw em{font-style:normal;font-size:12px;font-weight:700;color:#c3ccea;line-height:1.2}
+.fm-sw:hover .fm-swp{transform:translateY(-2px);border-color:rgba(255,255,255,.5)}
+.fm-sw.is-on .fm-swp{border-color:#fff;box-shadow:0 0 0 3px #4aa8ff}
+.fm-sw.is-on::after{content:"✓";position:absolute;right:6px;top:6px;width:22px;height:22px;display:grid;place-items:center;border-radius:50%;background:#4aa8ff;color:#fff;font-size:13px;font-weight:900}
+.fm-swup .fm-swp{display:grid;place-items:center;border-style:dashed;font-size:30px;color:#9fb2d6}
+.fm-swup b{font-weight:400}
+.fm-special{margin:12px 0;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.04)}
+.fm-special summary{cursor:pointer;font-weight:800}
+.fm-special .adm-field{margin-top:12px}
+.si-editing{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0;padding:12px 16px;border-radius:14px;background:rgba(74,168,255,.14);border:1px solid rgba(74,168,255,.5)}
+.si-editing b{color:#9ed3ff}
+.sb-set{margin-top:12px}.sb-set>label{display:block;margin-bottom:6px;font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9fb2d6}
+.sb-chips{display:flex;flex-wrap:wrap;gap:6px}
+.sb-chips button{padding:7px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.05);color:inherit;font-weight:700;font-size:13px}
+.sb-chips button.is-on{background:#2b7be033;border-color:#4aa8ff;color:#9ed3ff}
+.sb-set input[type=text],.sb-set input:not([type]){width:100%;max-width:360px}
+.sb-sec{position:absolute;left:8px;bottom:8px;z-index:5;padding:3px 9px;border-radius:999px;background:rgba(10,14,44,.82);color:#fff;font-size:11px;font-weight:800;pointer-events:none}
+.adm-chips button.is-on{background:#2b7be033;border-color:#4aa8ff;color:#9ed3ff}
+/* the art of a choice offer: the packs stand in a fan */
+.fm-choiceart{position:relative;width:100%;height:100%}
+.fm-choiceart img{position:absolute;left:50%;bottom:4%;height:80%;max-width:60%;object-fit:contain;filter:drop-shadow(0 10px 12px rgba(0,0,0,.45));transform:translateX(-50%) translateX(calc((var(--i) - (var(--n) - 1) / 2) * 30%)) rotate(calc((var(--i) - (var(--n) - 1) / 2) * 8deg));z-index:calc(10 - var(--i))}
+.fm-card.is-vis .fm-choiceart img{animation:fm-bobc 6s ease-in-out infinite;animation-delay:calc(var(--i) * -1.2s)}
+@keyframes fm-bobc{50%{translate:0 -6px}}
+/* the lot window: a hidden dialog must not block the clicks (display:grid used to beat the hidden attribute) */
+/* PC: the offers stand in one row, big, vertically in the middle of the market */
+.fm-root:not(.fm-phone){--ch:clamp(440px,calc(100dvh - 210px),680px)}
+.fm-root:not(.fm-phone) .fm-main{align-self:stretch;display:flex;flex-direction:column;justify-content:center;min-height:calc(100dvh - 90px)}
+.fm-root:not(.fm-phone) .fm-card{height:var(--ch);width:calc(var(--ch) * .64 * var(--u) + (var(--u) - 1) * 16px)}
+.fm-root:not(.fm-phone) .fm-card.is-board{width:100%;height:100%}
+.fm-root:not(.fm-phone) .fm-title{font-size:clamp(24px,calc(var(--ch) * .055),38px)}
+.fm-root:not(.fm-phone) .fm-name b{font-size:clamp(15px,calc(var(--ch) * .036),22px)}
+.fm-root:not(.fm-phone) .fm-name small{font-size:clamp(12px,calc(var(--ch) * .026),15px)}
+.fm-root:not(.fm-phone) .fm-price{height:clamp(56px,calc(var(--ch) * .12),80px);font-size:clamp(24px,calc(var(--ch) * .055),36px)}
+.fm-root:not(.fm-phone) .fm-art{top:calc(var(--ch) * .15);bottom:calc(var(--ch) * .27)}
+.fm-root:not(.fm-phone) .fm-s-small .fm-art,.fm-root:not(.fm-phone) .fm-s-tall .fm-art{bottom:calc(var(--ch) * .3)}
+.sb-quick{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px;margin-bottom:10px}
+.sb-quick label{display:grid;gap:4px;font-size:12px;font-weight:700;color:#9fb2d6}
+.sb-quick input,.sb-quick textarea{width:100%;max-width:none}
+.sb-quick .sb-q-wide{grid-column:1/-1}
+
+/* more backgrounds: fireworks, confetti, blizzard, galaxy, neon, sunset, ocean, forest, mint, rose, steel, lava */
+/* sections */
+/* cards and the window of a lot */
+@media(prefers-reduced-motion:reduce){.fm-fw,.fm-conf{animation:none!important}}
+/* the discount badge stands above the price plate on every size of a card */
+.fm-root:not(.fm-phone) .fm-off{bottom:calc(clamp(56px,calc(var(--ch) * .12),80px) + 12px)}
+.fm-root:not(.fm-phone) .fm-s-small .fm-off,.fm-root:not(.fm-phone) .fm-s-tall .fm-off{bottom:calc(clamp(56px,calc(var(--ch) * .12),80px) + 62px)}
+.fm-root:not(.fm-phone) .fm-s-wide .fm-off,.fm-root:not(.fm-phone) .fm-s-large .fm-off,.fm-root:not(.fm-phone) .fm-s-banner .fm-off{bottom:calc(clamp(56px,calc(var(--ch) * .12),80px) + 12px);right:14px}
+.fm-card.fm-s-wide .fm-name,.fm-card.fm-s-large .fm-name,.fm-card.fm-s-banner .fm-name{bottom:calc(clamp(56px,calc(var(--ch) * .12),80px) + 14px)}
+/* the reveal after a purchase wears the background of the offer */
+.fm-rv-bg{position:absolute;inset:0;z-index:0;pointer-events:none}
+.fm-reveal .fm-rays.big{z-index:0}
+/* the balance of balls stands in the top right corner of the market */
+@media(min-width:760px){.fm-root:not(.fm-phone) .fm-balpill{position:absolute;top:18px;right:18px;z-index:8;height:44px;padding:0 18px;font-size:18px}.fm-root:not(.fm-phone) .fm-balpill .fm-ball{width:24px;height:24px}}
+.fm-phone .fm-head{justify-content:space-between}
+/* a blurred village behind the hub and the pages of the event */
+.ny-bgblur{display:none}
+#app.new-year-view > .ny-bgblur{display:block;position:absolute;inset:0;z-index:0;overflow:hidden;pointer-events:none;border-radius:inherit}
+#app.new-year-view > .ny-bgblur svg{position:absolute;inset:-4%;width:108%;height:108%;filter:blur(7px) saturate(1.1) brightness(.78)}
+#app.new-year-view > .ny-bgblur i{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,12,40,.55),rgba(8,12,40,.25) 40%,rgba(8,12,40,.5))}
+#app.new-year-view > header,#app.new-year-view > main{position:relative;z-index:1}
+#app.new-year-view:not(.fm-full) > header{background:transparent}
+
+/* a hidden dialog must not block the clicks (display:grid beats the hidden attribute) */
+.fm-confirm[hidden]{display:none!important}

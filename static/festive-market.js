@@ -60,7 +60,7 @@ function railButton(s) {
 }
 function bgHTML(key) {
     if (key && key.startsWith('image:')) return '<div class="fm-bgx bg-image" style="background-image:url(' + e(thumb(key.slice(6), 1000)) + ')"></div>';
-    return '<div class="fm-bgx">' + (window.crafterScenes ? window.crafterScenes.render(key || 'live-village') : '') + '</div>';
+    return '<div class="fm-bgx">' + (window.crafterScenes ? window.crafterScenes.render(key || 'live-village', {section: true}) : '') + '</div>';
 }
 
 function rarityOf(it) {

@@ -66,6 +66,7 @@ const SC = {
     night: () => '<i class="ls-base v"></i><i class="ls-stars"></i><i class="ls-stars b"></i><i class="ls-moon"></i><i class="ls-hill h1"></i><i class="ls-firs"></i><i class="ls-hill h2"></i><i class="ls-hill h3"></i>' + snow(3),
     aurora: () => '<i class="ls-base v"></i><i class="ls-stars"></i><i class="ls-stars b"></i><i class="ls-rib r1"></i><i class="ls-rib r2"></i><i class="ls-rib r3"></i><i class="ls-hill h3"></i>' + snow(2),
     stripes: () => '<i class="ls-base"></i><i class="ls-stripe"></i><i class="ls-blob b1"></i><i class="ls-blob b2"></i><i class="ls-vig"></i>' + bokeh(4) + snow(2),
+    section: () => '<i class="ls-base"></i><i class="ls-pat"></i><i class="ls-pat p2"></i><i class="ls-vig2"></i>',
     pattern: () => '<i class="ls-base"></i><i class="ls-blob b1"></i><i class="ls-blob b2"></i><i class="ls-pat"></i><i class="ls-pat p2"></i><i class="ls-sheen"></i>' + snow(2),
     sunset: () => '<i class="ls-base v"></i><i class="ls-sun"></i><i class="ls-cloud c1"></i><i class="ls-cloud c2"></i><i class="ls-cloud c3"></i><i class="ls-hill h1"></i><i class="ls-firs"></i><i class="ls-hill h3"></i>' + snow(2),
     lights: () => '<i class="ls-base v"></i><i class="ls-stars"></i><i class="ls-swag"></i><i class="ls-bulbs g0"></i><i class="ls-bulbs g1"></i><i class="ls-bulbs g2"></i>' + bokeh(5) + snow(2),
@@ -73,7 +74,7 @@ const SC = {
 
 const cache = new Map();
 function render(key, opts = {}) {
-    const k = norm(key), [scene, pal] = resolve(k), p = PAL[pal] || PAL.night;
+    const k = norm(key), r = resolve(k), pal = r[1], scene = opts.section ? 'section' : r[0], p = PAL[pal] || PAL.night;
     let html = cache.get(scene);
     if (!html) { html = SC[scene](); cache.set(scene, html); }
     return '<div class="ls ls-' + scene + (opts.still ? ' is-still' : '') + '" style="--c1:' + p[0] + ';--c2:' + p[1] + ';--c3:' + p[2] + ';--c4:' + p[3] + '" aria-hidden="true">' + html + '</div>';

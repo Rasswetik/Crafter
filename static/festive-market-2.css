@@ -90,3 +90,10 @@
 @media(prefers-reduced-motion:reduce){.fm-tab::after{animation:none}}
 .fm-body.is-blend .fm-name{background:linear-gradient(90deg,rgba(10,18,60,.6),rgba(10,18,60,0));border-radius:12px;padding:8px 14px 8px 12px;margin-left:-10px;max-width:92%}
 .fm-body.is-blend .fm-title{text-shadow:0 3px 0 rgba(0,0,0,.35),0 0 18px rgba(10,18,60,.55)}
+
+/* the offers stand clear of the background of the section */
+.fm-root .fm-card .fm-body:not(.is-blend){box-shadow:0 16px 32px rgba(0,0,0,.5),0 0 0 3px rgba(8,12,50,.7)}
+
+.fm-art .fm-trio{inset:0}
+.fm-trio img{max-width:36%;max-height:100%;height:auto}
+.fm-trio img:nth-child(even){transform:rotate(4deg) scale(1.18)}
