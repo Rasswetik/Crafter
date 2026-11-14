@@ -123,8 +123,8 @@ function artOf(it) {
     const mix = mixOf(it);
     if (mix) {
         const sz = sizeOf(it);
-        if (sz === 'small' || sz === 'tall') return '<div class="fm-rot">' + mix.map((x, i) => '<img class="' + (i ? '' : 'is-on') + '" src="' + e(thumb(x.img, 480)) + '" alt="" draggable="false">').join('') + '</div>';
-        return '<div class="fm-trio n' + Math.min(mix.length, 4) + '">' + mix.slice(0, 4).map(x => '<img src="' + e(thumb(x.img, 480)) + '" alt="" draggable="false">').join('') + '</div>';
+        if (sz === 'small' || sz === 'tall') return '<div class="fm-rot">' + mix.map((x, i) => '<img class="' + (i ? '' : 'is-on') + '" src="' + e(thumb(x.full || x.img, 480)) + '" alt="" draggable="false">').join('') + '</div>';
+        return '<div class="fm-trio n' + Math.min(mix.length, 4) + '">' + mix.slice(0, 4).map(x => '<img src="' + e(thumb(x.full || x.img, 480)) + '" alt="" draggable="false">').join('') + '</div>';
     }
     if (it.drop) return '<div class="fm-dropart"><i class="fm-drop-rays"></i><i class="fm-drop-halo"></i><span class="fm-drop-spin"><span class="ps3d fm-solid">' + dropLayers(it.drop.art) + '</span></span><i class="fm-drop-sp s1"></i><i class="fm-drop-sp s2"></i><i class="fm-drop-sp s3"></i><i class="fm-drop-sh"></i></div>';
     if (it.mode === 'random' && it.contents && it.contents.length) {                 // a black pack with a question mark
@@ -177,8 +177,8 @@ function includes(o) {
     const it = o.it, out = [];
     (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.type ? undefined : c.pack.id}));
     if (it.drop) out.push({img: thumb(it.drop.image, 200), label: it.drop.title, count: '×' + (it.bundle || 1)});
-    (it.chests_in || []).forEach(c => out.push({img: thumb(c.chest.image, 200), label: c.chest.title, count: '×' + c.count}));
-    (it.drops_in || []).forEach(c => out.push({img: thumb(c.drop.image, 200), label: c.drop.title, count: '×' + c.count}));
+    (it.chests_in || []).forEach(c => out.push({full: c.chest.image, img: thumb(c.chest.image, 200), label: c.chest.title, count: '×' + c.count}));
+    (it.drops_in || []).forEach(c => out.push({full: c.drop.image, img: thumb(c.drop.image, 200), label: c.drop.title, count: '×' + c.count}));
     if (it.pass_in) out.push({img: it.pass_in.image, label: 'Pass Plus', count: '×1'});
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
     if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: 'Новогодние шары', count: num(it.balls)});
@@ -363,7 +363,7 @@ function stage(o, ctx, opts2 = {}) {
     const packsIn = inc.filter(x => x.pack).map(x => ({id: x.pack, title: x.label, image: x.img}));
     const optArt = i => '<img class="si-solo fm-pickart" src="' + e(choice[i].pack.image) + '" alt="">' + (choice[i].count > 1 ? '<b class="fm-pickcount">×' + choice[i].count + '</b>' : '');
     const mixIn = !choice ? mixOf(it) : null;                      // a bundle: a tap on a part shows it in the middle
-    const mixArt = i => '<img class="si-solo fm-pickart" src="' + e(thumb(mixIn[i].img, 640)) + '" alt="">' + (/^×(\d+)$/.test(mixIn[i].count) && Number(mixIn[i].count.slice(1)) > 1 ? '<b class="fm-pickcount">' + e(mixIn[i].count) + '</b>' : '');
+    const mixArt = i => '<img class="si-solo fm-pickart" src="' + e(thumb(mixIn[i].full || mixIn[i].img, 640)) + '" alt="">' + (/^×(\d+)$/.test(mixIn[i].count) && Number(mixIn[i].count.slice(1)) > 1 ? '<b class="fm-pickcount">' + e(mixIn[i].count) + '</b>' : '');
     const heroInner = choice ? optArt(0) : mixIn ? mixArt(0) : artOf(it);
     const incHead = it.mode === 'random' ? 'Может выпасть' : choice ? 'Выберите один' : 'Включает';
     el.innerHTML = stageScene + '<i class="fm-rays big"></i><i class="fm-dots"></i>' +
