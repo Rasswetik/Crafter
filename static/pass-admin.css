@@ -1,0 +1,39 @@
+/* admin section «Пасс» */
+.pa-wrap h3{margin:0 0 4px}
+.pa-seasons{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.pa-s{display:grid;gap:2px;padding:10px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:#fff;text-align:left;cursor:pointer;font-family:inherit}
+.pa-s small{opacity:.7;font-size:12px}.pa-s.is-on{border-color:#5aa2ff;background:rgba(90,162,255,.18)}.pa-new{place-content:center;font-weight:800}
+.pa-tabs button.is-on{background:#2f7bff;color:#fff}
+.pa-ups{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px;margin-bottom:14px}
+.pa-up{display:grid;gap:6px;justify-items:start;padding:12px;border-radius:12px;border:1px dashed rgba(255,255,255,.25);background:rgba(255,255,255,.04)}
+.pa-up img{max-width:100%;max-height:90px;object-fit:contain;border-radius:8px}.pa-up span{opacity:.6;font-size:13px}.pa-up small{opacity:.65;font-size:12px}
+.pa-file{display:inline-block;padding:7px 14px;border-radius:9px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);cursor:pointer;font-size:13px}
+.pa-link{background:none;border:0;color:#ff9a9a;cursor:pointer;font-size:13px;padding:0}
+.pa-pat{margin:12px 0}
+.pa-preview{position:relative;overflow:hidden;display:grid;place-items:center;height:110px;border-radius:14px;border:3px solid #14213f;margin-top:8px;isolation:isolate}
+.pa-preview .sp-pat{position:absolute;inset:0;z-index:-1}.pa-preview span{font:900 italic 28px/1 system-ui;-webkit-text-stroke:6px #14213f;paint-order:stroke fill;color:#fff;text-transform:uppercase}
+.pa-scroll{overflow-x:auto}
+.pa-table{width:100%;border-collapse:collapse;min-width:760px}
+.pa-table th{padding:8px;text-align:left;font-size:12px;letter-spacing:.05em;text-transform:uppercase;opacity:.7}
+.pa-table td{padding:6px 8px;border-top:1px solid rgba(255,255,255,.08);vertical-align:middle}
+.pa-n{font-weight:900;font-size:18px;width:40px}.pa-sum{opacity:.65;font-size:13px;white-space:nowrap}
+.pa-xp{width:90px;padding:8px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);color:#fff}
+.pa-cells{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.pa-cell{position:relative;display:grid;justify-items:center;gap:2px;width:62px;padding:6px 4px 4px;border-radius:10px;background:rgba(255,255,255,.1)}
+.pa-cell img{width:36px;height:36px;object-fit:contain}.pa-cell i{font-style:normal;font-size:11px;opacity:.7}.pa-cell b{font-size:11px;text-align:center;line-height:1.1}
+.pa-x{position:absolute;right:-5px;top:-5px;width:20px;height:20px;border-radius:50%;border:0;background:#e23b3b;color:#fff;font-size:13px;line-height:1;cursor:pointer}
+.pa-add{width:42px;height:50px;border-radius:10px;border:1px dashed rgba(255,255,255,.35);background:none;color:#5aa2ff;font-size:24px;cursor:pointer}
+.pa-act{white-space:nowrap}.pa-act button{width:30px;height:30px;margin-left:3px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);color:#fff;cursor:pointer}
+.pa-gen{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:10px 0 14px;font-size:13px}.pa-gen label{display:grid;gap:4px}
+.pa-gen input{width:130px;padding:8px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);color:#fff}
+.pa-gen button,.pa-addlvl,.pa-addq button{padding:9px 16px;border-radius:10px;border:1px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;cursor:pointer;font-weight:700}
+.pa-addlvl{margin-top:12px}.pa-addq{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.pa-q{padding:14px;margin:0 0 12px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05)}
+.pa-q-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}.pa-q-top button{margin-left:6px;padding:6px 12px;border-radius:8px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);color:#fff;cursor:pointer}
+.pa-icons{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.pa-icons button{padding:6px 12px;border-radius:99px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#fff;cursor:pointer;font-size:12px}.pa-icons button.is-on{background:#2f7bff}
+.pa-save{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px;position:sticky;bottom:0;padding:12px 0;background:linear-gradient(180deg,transparent,var(--panel,#10141f) 35%)}
+.pa-danger{padding:10px 18px;border-radius:12px;border:1px solid rgba(255,90,90,.5);background:rgba(255,70,70,.12);color:#ffb3b3;font-weight:800;cursor:pointer;margin-left:auto}
+.pa-iconrow{display:flex;gap:14px;align-items:flex-start;margin:12px 0;padding:12px;border-radius:12px;background:rgba(255,255,255,.04)}
+.pa-iconprev{display:grid;place-items:center;flex:none;width:84px;height:84px;border-radius:14px;border:2px dashed rgba(255,255,255,.3);background:rgba(255,255,255,.06)}.pa-iconprev img{width:100%;height:100%;object-fit:contain;border-radius:12px}.pa-iconprev em{font-size:11px;opacity:.6;text-align:center}
+.pa-iconbtns{display:flex;gap:10px;align-items:center;margin:6px 0}
+.pa-lib{display:flex;flex-wrap:wrap;gap:6px}.pa-lib button{width:46px;height:46px;padding:3px;border-radius:10px;border:2px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);cursor:pointer}.pa-lib button.is-on{border-color:#5aa2ff}.pa-lib img{width:100%;height:100%;object-fit:contain}

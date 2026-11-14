@@ -1497,6 +1497,8 @@ def create_app(config=None):
     install_chests(app,db,auth,audit,record)
     from drops import install_drops
     install_drops(app,db,auth,audit)
+    from season_pass import install_season_pass
+    install_season_pass(app,db,auth,audit,record)
     from shop_import import install_shop_import
     install_shop_import(app,db,auth,audit)
     from chains import install_chains

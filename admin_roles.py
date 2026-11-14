@@ -13,7 +13,7 @@ SECTIONS = (
     "finance", "users", "maintenance", "audit", "nft_withdraw", "ton_withdraw",
     "tonconnect", "relayer", "crafts", "modes", "staking", "arena", "banners",
     "craft_banner", "ice_banner", "events", "portal", "telegram-bot",
-    "announcements", "snow", "new-year", "promocodes", "creators",
+    "announcements", "snow", "new-year", "promocodes", "creators", "pass",
 )
 
 def ensure_admin_tables(db):
@@ -111,6 +111,8 @@ def required_section(path):
         return "arena"
     if p.startswith("new-year"):
         return "new-year"
+    if p.startswith("pass"):
+        return "pass"
     if p.startswith("promocodes"):
         return "promocodes"
     if p.startswith("creators"):

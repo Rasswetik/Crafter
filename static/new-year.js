@@ -155,6 +155,7 @@ function drawHub(main,data,shared,advState){
         (community()&&shared?.event&&!isHiddenSection('community')?community().card(shared):'')+
         (window.crafterAdvent&&advState?.enabled&&!isHiddenSection('advent')?window.crafterAdvent.card(advState):'')+
         '</div>';
+    window.crafterSeasonPass?.hubCard?.(main);                    // the card of the season pass
     ['market','community','advent'].forEach(name=>{
         const card=main.querySelector('[data-nyh="'+name+'"]');if(!card)return;
         if(lockLeft(name)){

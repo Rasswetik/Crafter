@@ -1,5 +1,5 @@
 """Everything to put into the shop for the chests: value of every chest (Monte Carlo over the real drop tables), prices, offers, bundles, chains, sections.
-Run: python exports_shop_plan.py  ->  exports/chests-shop-plan.xlsx"""
+Run: python exports_shop_plan.py  ->  exports/shop-plan-full.xlsx"""
 import gzip
 import json
 import os
@@ -61,6 +61,8 @@ def pack_ev(pid):
 
 
 PACK_EV = {pid: pack_ev(pid) for pid in packs}
+ANCHOR_PACK, ANCHOR_PRICE = 'honey', 450                    # the cheapest pack of the shop costs 450 balls: the price of everything else follows from it
+RATE = int(round(ANCHOR_PRICE / PACK_EV[ANCHOR_PACK]))         # balls per 1 GRAM of average content
 
 from drops import DROPS, final_chances  # noqa: E402
 cfg = DROPS['snowman_drop']
@@ -144,7 +146,7 @@ for line in [
     ['GRAM как есть. Шары по курсу 1 GRAM = %d шаров (поменяйте, если у вас другой курс: цены растут пропорционально, в листе ценности есть колонки для курсов 50 и 200). Пак: среднее содержимое по его призам и весам. NFT: цена модели из каталога.' % RATE],
     ['Цена за 1 ящик = ценность + %d%% наценки. Скидка растёт до %d%% на пачке из 10 ящиков (на 3 штуках около 3%%, на 5 штуках около 7%%).' % (MARKUP, DISC)],
     ['Если пак внутри ящика у вас продаётся дешевле своей средней ценности, игроки будут выкупать паки через ящики: сверяйте колонку «Паки внутри».'],
-    ['Цены паков в наборах (лист «Наборы») взяты условно %d шаров за пак: замените на ваши.' % PACK_GUESS],
+    ['Цены паков считаются от самого дешёвого: Honey Holidays = %d шаров, остальные пропорционально средней ценности содержимого (курс получается 1 GRAM = %d шаров). Если у вас у паков другие цены, впишите их в листе «Акции - паки».' % (ANCHOR_PRICE, RATE)],
 ]:
     ws.append(line)
 ws.column_dimensions['A'].width = 150
@@ -201,7 +203,7 @@ pk.append(HEADER)
 COLLAB = ('gifton', 'goshan', 'nikolay')
 for pid, pack in packs.items():
     ev = PACK_EV.get(pid, 0)
-    base = max(10, r10(ev * RATE * (1 + MARKUP / 100), 5))
+    base = max(ANCHOR_PRICE, r10(ev * RATE, 10))
     for n in (1, 3, 5, 10):
         d = disc(n)
         full = base * n
@@ -222,7 +224,7 @@ style(rs, WIDTHS)
 # ---- 4. bundles (the «target» is a sum of parts with «+»: it is imported as a bundle)
 bs = wb.create_sheet('Акции - наборы')
 bs.append(HEADER)
-pack_price = {pid: max(10, r10(PACK_EV.get(pid, 0) * RATE * (1 + MARKUP / 100), 5)) for pid in packs}
+pack_price = {pid: max(ANCHOR_PRICE, r10(PACK_EV.get(pid, 0) * RATE, 10)) for pid in packs}
 by_id = {r['id']: r for r in rows}
 sets = [
     ('Стартовый набор', ['%s ×1' % rows[0]['title'], 'Snowman Drop ×1', 'New Year ×1', '200 шаров'], rows[0]['sell'] + r10(drop_ev * RATE * 1.1) + pack_price.get('newyear', 100) + 200 // 1, 15, 'Широкая', 'Редкая', 'НОВИНКА', '', ''),
@@ -334,7 +336,7 @@ ds.append([])
 ds.append(['Как создать', 'Магазин → Новый товар → «Дроп» → Snowman Drop; штук за покупку 1/3/5/10; цена из этого листа; размер «Большая», раздел «Ящики» или «Дропы».'])
 ds.append(['Выдать вручную', 'В форме лота «Дроп» снизу: Telegram ID игрока и количество.'])
 style(ds, [52, 16])
-wb.save('exports/chests-shop-plan.xlsx')
+wb.save('exports/shop-plan-full.xlsx')
 print('saved')
 for r in rows:
     print(r['title'], 'GRAM', round(r['ev'], 2), 'balls', round(r['balls']), 'base', r['base'], 'sell', r['sell'])
