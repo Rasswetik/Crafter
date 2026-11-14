@@ -637,7 +637,15 @@ function crafterOpenSettings() {
                 <input type="checkbox" role="switch" ${crafterPrefs.animations ? 'checked' : ''}>
             </label>
         </section>
-        <button type="button" class="primary crafter-support" onclick="crafterOpenSupport()">Поддержка</button>
+${window.crafterNYSound && window.crafterNYSound.available ? `<section class="crafter-settings-section">
+            <label class="crafter-animation-setting"><span>Новогодняя музыка</span>
+                <input type="checkbox" role="switch" data-ny-sound="music" ${window.crafterNYSound.music ? 'checked' : ''}>
+            </label>
+            <label class="crafter-animation-setting"><span>Звуки нажатий</span>
+                <input type="checkbox" role="switch" data-ny-sound="clicks" ${window.crafterNYSound.clicks ? 'checked' : ''}>
+            </label>
+        </section>` : ''}
+                <button type="button" class="primary crafter-support" onclick="crafterOpenSupport()">Поддержка</button>
     </div>`);
     const root = document.querySelector('#crafter-settings');
     root.querySelector('input[role="switch"]').onchange = event => {
@@ -645,6 +653,7 @@ function crafterOpenSettings() {
         crafterStorePrefs();
         crafterApplyTheme();
     };
+    root.querySelectorAll('[data-ny-sound]').forEach(input => { input.onchange = event => { const n = window.crafterNYSound; if (!n) return; if (input.dataset.nySound === 'music') n.setMusic(event.target.checked); else n.setClicks(event.target.checked); }; });
     crafterLocalizeTree(appSheet);
 }
 function crafterAddProfileSettings() {
