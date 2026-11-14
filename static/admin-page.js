@@ -13,7 +13,7 @@ const adminSections = {
     modes:        {label:'Режимы',detail:'Управление доступностью игр',group:'manage',glyph:'grid',render:renderAdminModes},
     staking:      {label:'Стейкинг',detail:'Годовой APR и ограничения',group:'manage',glyph:'gift',render:renderAdminStaking},
     arena:        {label:'Arena',detail:'Банк, комиссии, ставки, сброс рекордов',group:'manage',glyph:'grid',render:renderAdminArena},
-    'new-year': {label:'Новый год',detail:'Сезон, магазин NFT и праздничная валюта',group:'manage',glyph:'gift',render:renderAdminNewYear},
+    'new-year': {label:'Управление сезоном',detail:'Сезон, валюта, магазин, паки и события',group:'manage',glyph:'season',render:renderAdminNewYear},
     pass: {label:'Пасс',detail:'Сезонный пропуск: уровни, награды, квесты',group:'manage',glyph:'gift',render:content=>window.renderAdminPass(content)},
     creators:     {label:'Заявки по видео',detail:'Выплаты авторам роликов, чат с игроком',group:'money',glyph:'gift',render:renderAdminCreators},
     promocodes: {label:'Промокоды',detail:'Коды, GRAM и количество активаций',group:'manage',glyph:'gift',render:renderAdminPromocodes},

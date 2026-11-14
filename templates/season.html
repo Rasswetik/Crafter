@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru" class="{{ '' if ny_on else 'ny-off' }}">
 <head>
-    <meta charset="utf-8">
+    <meta charset="utf-8">{% if cur.kind != 'balls' %}<style id="cur-style">img[src$="new-year-ornament.svg"],img[src$="crafter-winter-ornament.png"]{content:url("{{ cur.icon }}")}</style>{% endif %}<script>window.crafterCurrency={{ cur|tojson }};</script>
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/crafter-32.png?v=1"><link rel="shortcut icon" href="/favicon.ico?v=1"><link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=1">
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
     <meta name="theme-color" content="#1a0f4a">
@@ -17,11 +17,11 @@
     <div id="sp-app"><div class="sp-boot">Загрузка…</div></div>
     <div id="sp-toasts" aria-live="polite"></div>
     <script src="/static/season-core.js?v=1"></script>
-    <script src="/static/chests.js?v=21"></script>
-    <script src="/static/drops.js?v=11"></script>
+    <script src="/static/chests.js?v=cur1"></script>
+    <script src="/static/drops.js?v=cur1"></script>
     <script src="/static/festive-scenes.js?v=10"></script>
     <script src="/static/packs.js?v=buy2"></script>
-    <script src="/static/festive-market.js?v=41"></script>
-    <script src="/static/season-page.js?v=11"></script>
+    <script src="/static/festive-market.js?v=cur1"></script>
+    <script src="/static/season-page.js?v=cur1"></script>
 </body>
 </html>

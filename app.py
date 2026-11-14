@@ -289,6 +289,13 @@ def create_app(config=None):
     for _rule, _name in (('/new-year/market', 'section_new_year_market'), ('/new-year/market/<path:lot>', 'section_new_year_lot')):
         app.add_url_rule(_rule, _name, lambda lot=None: index())
 
+    @app.context_processor
+    def _currency_for_templates():
+        try:
+            return {'cur': app.extensions['crafter_currency']()}
+        except Exception:
+            return {'cur': {'kind': 'balls', 'name': 'Шары', 'gen': 'шаров', 'icon': '/static/assets/new-year-ornament.svg', 'epoch': 0}}
+
     @app.get('/season')
     def season_page():
         # the season pass is a separate page with its own template

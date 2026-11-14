@@ -117,7 +117,7 @@ def install_freebies(app, db, auth, audit, record):
         if kind == 'GRAM':
             return {'title': plain(Decimal(amount)) + ' GRAM', 'image': '/static/assets/gram.svg', 'kind': kind, 'count': 1}
         if kind == 'BALL':
-            return {'title': format(int(amount), ',').replace(',', ' ') + ' ' + ('шаров' if (app.extensions.get('crafter_ny_currency_mode') or (lambda: 'balls'))() == 'balls' else 'поинтов'), 'image': '/static/assets/new-year-ornament.svg', 'kind': kind, 'count': 1}
+            return {'title': format(int(amount), ',').replace(',', ' ') + ' ' + ((app.extensions.get('crafter_currency') or (lambda: {'gen': 'шаров'}))()['gen']), 'image': '/static/assets/new-year-ornament.svg', 'kind': kind, 'count': 1}
         if kind == 'PACK':
             pack = app.extensions['crafter_pack_short'](amount) or {}
             return {'title': (pack.get('title') or 'Пак') + (' ×' + str(count) if count > 1 else ''), 'image': pack.get('image') or '', 'kind': kind, 'count': count}

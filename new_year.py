@@ -5,7 +5,7 @@ New-year purchases intentionally create non-transferable TEST inventory entries.
 No on-chain or Portals purchase is performed by these routes.
 """
 import json
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 import re
 import time
 import uuid
@@ -206,33 +206,76 @@ def install_new_year(app, db, auth, record, audit):
                     gift=gift_from_lot(row),created=int(row['created']),
                     buyer_id=row['buyer_id'])
 
+    # ---- the currency of the site: New Year balls, points, coins or an own one (name and picture). Without a choice it follows the New Year switch (balls / points) ----
+    CUR_KEY='currency_v1'
+    CUR_LAST='currency_last_v1'
+    PRESETS={'balls':{'name':'Шары','gen':'шаров','icon':'/static/assets/new-year-ornament.svg'},
+             'points':{'name':'Поинты','gen':'поинтов','icon':'/static/assets/points.svg'},
+             'coins':{'name':'Коины','gen':'коинов','icon':'/static/assets/coins.svg'}}
+    ICON_OK=re.compile(r'/media/shop/[0-9a-f]{32}|/static/assets/[A-Za-z0-9_./-]{1,100}\.(?:svg|png|webp)')
+
+    def currency():
+        row=db().execute("SELECT payload FROM settings WHERE key=?",(CUR_KEY,)).fetchone()
+        if row:
+            try:
+                data=json.loads(row['payload'])
+            except (TypeError,ValueError):
+                data=None
+            if isinstance(data,dict) and data.get('kind') in ('balls','points','coins','custom'):
+                base=PRESETS.get(data['kind']) or {}
+                name=str(data.get('name') or base.get('name') or 'Валюта')[:24]
+                return {'kind':data['kind'],'name':name,'gen':str(data.get('gen') or base.get('gen') or name.lower())[:24],
+                        'icon':str(data.get('icon') or base.get('icon') or PRESETS['points']['icon']),'epoch':int(data.get('epoch') or 0)}
+        kind='balls' if enabled() else 'points'
+        return {'kind':kind,**PRESETS[kind],'epoch':0}
+
+    def cur_sig(c):
+        return json.dumps({k:c[k] for k in ('kind','name','gen','icon','epoch')},ensure_ascii=False,sort_keys=True)
+
     @app.get('/api/new-year/status')
     @auth()
     def new_year_status():
-        return {'enabled':enabled(), 'currency':'balls' if enabled() else 'points'}
+        c=currency()
+        return {'enabled':enabled(), 'currency':c['kind'], 'currency_info':c, 'sig':cur_sig(c)}
 
     def mode():
-        return 'balls' if enabled() else 'points'
+        return currency()['kind']
 
     def currency_notice(uid):
         """When the New Year is switched, every player is told once: the balls became points (or the points became balls), the same number."""
         key='ny_currency_seen:'+str(uid)
         row=db().execute("SELECT payload FROM settings WHERE key=?",(key,)).fetchone()
-        now=mode()
+        now=currency()
+        sig=cur_sig(now)
         if not row:
             with db():
-                db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO NOTHING",(key,now))
+                db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO NOTHING",(key,sig))
             return None
-        if row['payload']==now:
+        if row['payload']==sig:
             return None
-        return {'from':row['payload'],'to':now,'amount':wallet(uid)['balls']}
+        try:
+            prev=json.loads(row['payload']) if str(row['payload']).startswith('{') else {'kind':row['payload'],**PRESETS[row['payload']],'epoch':0}
+        except Exception:
+            prev={'kind':'balls',**PRESETS['balls'],'epoch':0}
+        if all(prev.get(k)==now[k] for k in ('kind','name','icon','epoch')):          # only the old way of writing the same currency: nothing to tell
+            return None
+        rate='1'
+        try:
+            last=db().execute("SELECT payload FROM settings WHERE key=?",(CUR_LAST,)).fetchone()
+            last=json.loads(last['payload']) if last else {}
+            if int((last.get('to') or {}).get('epoch') or -1)==now['epoch']:
+                rate=str(last.get('rate') or '1')
+        except Exception:
+            pass
+        pick=lambda c:{k:c.get(k) for k in ('kind','name','gen','icon')}
+        return {'from':pick(prev),'to':pick(now),'amount':wallet(uid)['balls'],'rate':rate}
 
     @app.post('/api/new-year/ack')
     @auth()
     def new_year_ack():
         with db():
             db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
-                         ('ny_currency_seen:'+str(g.user['id']),mode()))
+                         ('ny_currency_seen:'+str(g.user['id']),cur_sig(currency())))
         return {'ok':True,'currency':mode()}
 
     POINTS_KEY='points_per_ton_v1'
@@ -263,6 +306,77 @@ def install_new_year(app, db, auth, record, audit):
         return {'ok':True,'per_ton':value}
 
     app.extensions['crafter_ny_currency_notice']=currency_notice
+    app.extensions['crafter_currency']=currency
+
+    # ---- the administrator: choose the currency and make the recalculation ----
+    def clean_currency(body):
+        kind=str(body.get('kind') or '')
+        if kind in PRESETS:
+            c={'kind':kind,**PRESETS[kind]}
+        elif kind=='custom':
+            name=' '.join(str(body.get('name') or '').split())
+            gen=' '.join(str(body.get('gen') or '').split()) or name.lower()
+            icon=str(body.get('icon') or '').strip()
+            if not 1<=len(name)<=24 or len(gen)>24:
+                abort(400,description='Название валюты: от 1 до 24 знаков')
+            if not ICON_OK.fullmatch(icon):
+                abort(400,description='Загрузите картинку валюты')
+            c={'kind':'custom','name':name,'gen':gen,'icon':icon}
+        else:
+            abort(400,description='Выберите валюту')
+        raw=body.get('rate')
+        try:
+            rate=Decimal(str(raw if raw not in (None,'') else '1').replace(',','.'))
+        except InvalidOperation:
+            abort(400,description='Курс пересчёта: число')
+        if not rate.is_finite() or not Decimal('0.0001')<=rate<=Decimal('100000'):
+            abort(400,description='Курс пересчёта: от 0,0001 до 100 000')
+        return c,rate
+
+    def after(balls,rate):
+        return int((Decimal(int(balls))*rate).quantize(Decimal('1'),rounding=ROUND_HALF_UP))
+
+    def recalc_stats(rate):
+        rows=db().execute("SELECT user_id,balls FROM new_year_wallets WHERE balls<>0").fetchall()
+        return {'holders':len(rows),'before':sum(int(r['balls']) for r in rows),'after':sum(after(r['balls'],rate) for r in rows),
+                'users':int(db().execute("SELECT COUNT(*) AS n FROM users").fetchone()['n'])}
+
+    def changes(c,rate):
+        now=currency()
+        return not (c['kind']==now['kind'] and c['name']==now['name'] and c['icon']==now['icon'] and rate==Decimal('1'))
+
+    @app.get('/api/admin/currency')
+    @auth(admin=True)
+    def admin_currency():
+        last=db().execute("SELECT payload FROM settings WHERE key=?",(CUR_LAST,)).fetchone()
+        try:
+            last=json.loads(last['payload']) if last else None
+        except (TypeError,ValueError):
+            last=None
+        return {'current':currency(),'presets':[{'kind':k,**v} for k,v in PRESETS.items()],'stats':recalc_stats(Decimal('1')),'last':last,'new_year':enabled()}
+
+    @app.post('/api/admin/currency/preview')
+    @auth(admin=True)
+    def admin_currency_preview():
+        c,rate=clean_currency(request.get_json(silent=True) or {})
+        return {'ok':True,'from':currency(),'to':c,'rate':str(rate),'changes':changes(c,rate),**recalc_stats(rate)}
+
+    @app.post('/api/admin/currency/apply')
+    @auth(admin=True)
+    def admin_currency_apply():
+        c,rate=clean_currency(request.get_json(silent=True) or {})
+        if not changes(c,rate):
+            abort(409,description='Валюта и курс не меняются: нечего пересчитывать')
+        old=currency()
+        with db():
+            for r in db().execute("SELECT user_id,balls FROM new_year_wallets WHERE balls<>0").fetchall():
+                db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?",(after(r['balls'],rate),r['user_id']))
+            new={**c,'epoch':old['epoch']+1}
+            db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",(CUR_KEY,json.dumps(new,ensure_ascii=False)))
+            db().execute("INSERT INTO settings(key,payload) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
+                         (CUR_LAST,json.dumps({'from':{k:old[k] for k in ('kind','name','gen','icon')},'to':new,'rate':str(rate),'at':int(time.time())},ensure_ascii=False)))
+        audit('Currency recalculated %s -> %s, rate %s'%(old['name'],c['name'],rate))
+        return {'ok':True,'current':currency(),**recalc_stats(Decimal('1'))}
     app.extensions['crafter_ny_currency_mode']=mode
 
     @app.get('/api/new-year')

@@ -174,8 +174,8 @@ def install_chests(app, db, auth, audit, record):
         return lo, hi
 
     def ball_title():
-        mode = app.extensions.get('crafter_ny_currency_mode')
-        return 'Шары' if not mode or mode() == 'balls' else 'Поинты'
+        cur = app.extensions.get('crafter_currency')
+        return cur()['name'] if cur else 'Шары'
 
     def entry_item(row):
         kind, amount = row['kind'], row['amount']

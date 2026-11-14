@@ -8,7 +8,8 @@ const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? '').replace(/[&
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
 // a phone decodes every picture into memory: our big pictures come as small copies (/thumb), otherwise a dozen cards can kill the page
 const thumb = (u, w) => /^\/(static\/assets\/(chests|packs)\/[\w.-]+\.(png|webp|jpe?g)|media\/shop\/[0-9a-f]{32})$/.test(u || '') ? '/thumb?u=' + encodeURIComponent(u) + '&w=' + w : u;
-const POINTS = () => document.documentElement.classList.contains('ny-off');                 // without the New Year the balls are points
+const CUR = () => (window.crafterCurrency || {kind: 'balls', name: 'Шары', gen: 'шаров'});                 // the chosen currency of the site (balls, points, coins or an own one)
+const POINTS = () => CUR().kind !== 'balls';
 const ORN = '<img class="fm-ball" src="/static/assets/new-year-ornament.svg" alt="">';
 const SI = () => window.crafterShopItems || {};
 const NAMES = {common: 'Акция', rare: 'Редкая акция', special: 'Особая акция', epic: 'Эпическая акция', mythic: 'Мифическая акция', legend: 'Легендарная акция', res: 'Ресурсы'};
@@ -164,7 +165,7 @@ function includes(o) {
     (it.drops_in || []).forEach(c => out.push({full: c.drop.image, img: thumb(c.drop.image, 200), label: c.drop.title, count: '×' + c.count}));
     if (it.pass_in) out.push({img: it.pass_in.image, label: 'Pass Plus', count: '×1'});
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
-    if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: POINTS() ? 'Поинты' : 'Новогодние шары', count: num(it.balls)});
+    if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: POINTS() ? CUR().name : 'Новогодние шары', count: num(it.balls)});
     if (!out.length) {
         const pic = it.pack?.image || it.star?.image || it.image_url || (it.kind === 'GRAM' ? '/static/assets/gram.svg' : '/static/assets/new-year-ornament.svg');
         const count = it.kind === 'GRAM' ? num(it.amount) + ' GRAM' : it.kind === 'BALL' ? num(it.amount) : it.bundle > 1 ? '×' + it.bundle : '1';
@@ -466,7 +467,7 @@ async function perform(o, ctx, choice) {
     if (res.gram_balance !== undefined && state?.me) { state.me.balance = res.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
     if (res.chest_opens && res.chest_opens.length) {                  // several chests: they open one after another, then the rest of the purchase is shown
         const ids = res.pack_id ? (res.pack_ids || [res.pack_id]) : null;
-        const rest = ids ? {packIds: ids, count: ids.length} : (res.gram || res.balls_gain) ? {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : (POINTS() ? 'Зачислено поинтов: ' : 'Зачислено шаров: ') + num(res.balls_gain), text: 'Баланс уже обновлён.'} : null;
+        const rest = ids ? {packIds: ids, count: ids.length} : (res.gram || res.balls_gain) ? {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : ('Зачислено ' + CUR().gen + ': ') + num(res.balls_gain), text: 'Баланс уже обновлён.'} : null;
         return {chests: res.chest_opens, rest};
     }
     if (res.pack_id) { const ids = res.pack_ids || [res.pack_id]; return {packIds: ids, count: ids.length, picked: res.picked}; }
@@ -475,7 +476,7 @@ async function perform(o, ctx, choice) {
     if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};
     if (res.pass_plus) return {head: 'Покупка совершена', title: 'Pass Plus открыт!', text: 'Верхняя дорога наград и особые квесты сезона' + (res.pass_season ? ' «' + res.pass_season.title + '»' : '') + ' ждут в разделе «События» → «Сезон».'};
     if (res.code) { const cc = window.crafterCommunity; return {title: 'Ваш промокод', text: 'Он привязан к вашему аккаунту и работает один раз.', html: cc.codeBlock(res.code), bind: root => cc.bindCode(root, res.code)}; }
-    return {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : (POINTS() ? 'Зачислено поинтов: ' : 'Зачислено шаров: ') + num(res.balls_gain), text: 'Баланс уже обновлён.'};
+    return {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : ('Зачислено ' + CUR().gen + ': ') + num(res.balls_gain), text: 'Баланс уже обновлён.'};
 }
 
 /* ---------- the market ---------- */

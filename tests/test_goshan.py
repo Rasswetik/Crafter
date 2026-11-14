@@ -111,13 +111,13 @@ def test_new_year_switch_turns_balls_into_points_with_a_notice(client):
     client.post('/api/admin/new-year/wallet', headers=admin, json={'user_id': '67', 'balls': '250', 'donate': '0', 'tinsel': '0'})
     assert client.post('/api/admin/new-year/settings', headers=admin, json={'enabled': True}).status_code == 200
     me = client.get('/api/me', headers=player).json
-    assert me['currency'] == 'balls' and me['ny_notice'] == {'from': 'points', 'to': 'balls', 'amount': 250}
+    assert me['currency'] == 'balls' and (me['ny_notice']['from']['kind'], me['ny_notice']['to']['kind'], me['ny_notice']['amount'], me['ny_notice']['rate']) == ('points', 'balls', 250, '1')
     assert client.get('/api/me', headers=player).json['ny_notice'] is not None       # it is shown until the player confirms
     assert client.post('/api/new-year/ack', headers=player).status_code == 200
     assert client.get('/api/me', headers=player).json['ny_notice'] is None
     client.post('/api/admin/new-year/settings', headers=admin, json={'enabled': False})
     me = client.get('/api/me', headers=player).json
-    assert me['currency'] == 'points' and me['ny_notice'] == {'from': 'balls', 'to': 'points', 'amount': 250}
+    assert me['currency'] == 'points' and (me['ny_notice']['from']['kind'], me['ny_notice']['to']['kind'], me['ny_notice']['amount']) == ('balls', 'points', 250)
     assert client.get('/api/new-year', headers=player).status_code == 200            # the section does not disappear
 
 
@@ -194,3 +194,32 @@ def test_ocean_drive_collection_pack_box_drop_and_backgrounds(client):
                  'oceandrive-bg-secret.webp') + tuple('oceandrive-turn-%03d.webp' % a for a in range(45, 360, 45)):
         assert (root / 'drops' / name).exists(), name
     assert (root / 'packs' / 'oceandrive-pack.webp').exists() and (root / 'chests' / 'ocean-open.png').exists() and (root / 'ocean' / 'scene-beach.webp').exists()
+
+
+def test_currency_management_choose_recalculate_and_tell_everybody(client):
+    admin, player = signed(42), signed(80)
+    client.get('/api/me', headers=player)
+    assert client.post('/api/admin/new-year/wallet', headers=admin, json={'user_id': '80', 'balls': 100}).status_code == 200
+    cur = client.get('/api/admin/currency', headers=admin).json
+    assert cur['current']['kind'] == 'points' and cur['stats']['before'] == 100 and [p['kind'] for p in cur['presets']] == ['balls', 'points', 'coins']
+    assert client.get('/api/admin/currency', headers=signed(81)).status_code in (401, 403)
+    pre = client.post('/api/admin/currency/preview', headers=admin, json={'kind': 'coins', 'rate': '2'}).json
+    assert pre['changes'] and pre['before'] == 100 and pre['after'] == 200 and pre['to']['name'] == 'Коины'
+    assert client.post('/api/admin/currency/preview', headers=admin, json={'kind': 'custom', 'name': 'Звёзды'}).status_code == 400      # a picture is needed
+    assert client.post('/api/admin/currency/preview', headers=admin, json={'kind': 'coins', 'rate': '0'}).status_code == 400
+    assert client.post('/api/admin/currency/apply', headers=admin, json={'kind': 'points'}).status_code == 409                          # the same currency and rate: nothing to do
+    assert client.get('/api/me', headers=player).json['ny_notice'] is None                                                              # nothing changed yet
+    done = client.post('/api/admin/currency/apply', headers=admin, json={'kind': 'coins', 'rate': '2'})
+    assert done.status_code == 200 and done.json['current']['name'] == 'Коины'
+    me = client.get('/api/me', headers=player).json
+    assert me['ny_notice']['from']['name'] == 'Поинты' and me['ny_notice']['to']['name'] == 'Коины' and me['ny_notice']['amount'] == 200 and me['ny_notice']['rate'] == '2'
+    assert client.get('/api/balance', headers=player).json['new_year']['balls'] == 200
+    assert client.post('/api/new-year/ack', headers=player, json={}).status_code == 200
+    assert client.get('/api/me', headers=player).json['ny_notice'] is None                                                              # told once
+    assert client.get('/api/new-year/status', headers=player).json['currency_info']['name'] == 'Коины'
+    html = client.get('/').get_data(as_text=True)
+    assert 'window.crafterCurrency' in html and 'coins.svg' in html and 'cur-style' in html                                              # the pictures follow the currency
+    ok = client.post('/api/admin/currency/apply', headers=admin, json={'kind': 'custom', 'name': 'Звёзды', 'gen': 'звёзд', 'icon': '/static/assets/gram.svg', 'rate': '1'})
+    assert ok.status_code == 200 and ok.json['current']['kind'] == 'custom' and ok.json['current']['gen'] == 'звёзд'
+    drop = client.get('/api/chests/goshan', headers=player)
+    assert drop.status_code == 200

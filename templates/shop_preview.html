@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ru">
 <head>
-<meta charset="utf-8">
+<meta charset="utf-8">{% if cur.kind != 'balls' %}<style id="cur-style">img[src$="new-year-ornament.svg"],img[src$="crafter-winter-ornament.png"]{content:url("{{ cur.icon }}")}</style>{% endif %}<script>window.crafterCurrency={{ cur|tojson }};</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>Предпросмотр маркета</title>
@@ -21,7 +21,7 @@ window.toast = function () {};
 window.api = function () { return Promise.reject(new Error('Это предпросмотр')); };
 </script>
 <script src="/static/shop-items.js?v=mix31"></script>
-<script src="/static/festive-scenes.js?v=10"></script><script src="/static/chests.js?v=21"></script><script src="/static/drops.js?v=11"></script><script src="/static/chains.js?v=drop3"></script><script src="/static/festive-market.js?v=41"></script>
+<script src="/static/festive-scenes.js?v=10"></script><script src="/static/chests.js?v=cur1"></script><script src="/static/drops.js?v=cur1"></script><script src="/static/chains.js?v=drop3"></script><script src="/static/festive-market.js?v=cur1"></script>
 <script>
 (function () {
     var main = document.getElementById('main');

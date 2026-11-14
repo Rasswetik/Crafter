@@ -1,0 +1,41 @@
+/* Admin → Управление сезоном: a hub of clear buttons, each opens its own page; the page of the currency */
+.nys-hub[hidden],.nys-bar[hidden]{display:none!important}
+.ny-admin-section[data-pane].nys-on{display:block!important}
+.nys-gh{margin:22px 0 10px;font-size:15px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:#9fb0cc}
+.nys-gh:first-child{margin-top:4px}
+.nys-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.nys-card{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;column-gap:12px;row-gap:3px;align-items:center;text-align:left;padding:14px 16px;border-radius:16px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,rgba(255,255,255,.09),rgba(255,255,255,.04));color:#fff;cursor:pointer;transition:transform .15s,border-color .15s,background .15s}
+.nys-card:hover{transform:translateY(-2px);border-color:rgba(90,160,255,.7);background:linear-gradient(180deg,rgba(60,120,230,.28),rgba(255,255,255,.05))}
+.nys-card:active{transform:scale(.98)}
+.nys-ic{grid-row:1/3;display:grid;place-items:center;width:44px;height:44px;border-radius:12px;background:rgba(60,130,240,.22);color:#8cc0ff}
+.nys-ic svg{width:24px;height:24px}
+.nys-card b{font-size:15px;font-weight:800}
+.nys-card small{font-size:12px;line-height:1.3;color:#a9b6cf}
+.nys-bar{display:flex;align-items:center;gap:14px;margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.1)}
+.nys-bar h2{margin:0;font-size:20px;font-weight:800}
+.nys-back{padding:10px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}
+.nys-back:hover{background:rgba(60,120,230,.4)}
+/* the currency page */
+.nys-currency h3{margin:20px 0 10px}.nys-currency h3:first-child{margin-top:0}
+.nys-now{display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1)}
+.nys-now>img{width:46px;height:46px;object-fit:contain}
+.nys-now div{flex:1;min-width:0}.nys-now b{display:block;font-size:18px}.nys-now small{display:block;margin-top:3px;color:#a9b6cf;line-height:1.35}
+.nys-now>span{display:grid;justify-items:end;font-size:22px;font-weight:900}.nys-now>span small{font-size:11px;font-weight:600}
+.nys-opts{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px}
+.nys-opt{display:grid;justify-items:center;gap:6px;padding:16px 10px;border-radius:16px;border:2px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);color:#fff;cursor:pointer;transition:border-color .15s,background .15s,transform .15s}
+.nys-opt:hover{transform:translateY(-2px)}
+.nys-opt img{width:48px;height:48px;object-fit:contain}.nys-opt b{font-size:15px}.nys-opt small{font-size:12px;color:#a9b6cf}
+.nys-opt.is-on{border-color:#4aa8ff;background:rgba(74,168,255,.18);box-shadow:0 0 0 3px rgba(74,168,255,.25)}
+.nys-custom{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;padding:14px;border-radius:14px;background:rgba(255,255,255,.05)}
+.nys-custom label{display:grid;gap:6px;font-size:13px;color:#b9c5dc}
+.nys-custom input[type=text],.nys-custom input:not([type]){padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(8,14,40,.6);color:#fff;font-size:15px}
+.nys-up{display:flex;align-items:center;gap:12px}.nys-up img{width:48px;height:48px;object-fit:contain;border-radius:10px;background:rgba(255,255,255,.08)}
+.nys-noimg{display:grid;place-items:center;width:48px;height:48px;border-radius:10px;border:1px dashed rgba(255,255,255,.3);font-size:9px;color:#9fb0cc;text-align:center}
+.nys-file{padding:10px 14px;border-radius:10px;background:rgba(74,168,255,.2);border:1px solid rgba(74,168,255,.5);color:#fff;font-weight:700;cursor:pointer}.nys-file input{display:none}
+.nys-rate{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.nys-rate input{width:120px!important;max-width:120px;flex:none;padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(8,14,40,.6);color:#fff;font-size:16px;font-weight:700;text-align:center}
+.nys-sum{margin:14px 0;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.2)}
+.nys-sum p{margin:6px 0}.nys-flow{display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:8px}.nys-flow img{width:40px;height:40px;object-fit:contain}.nys-flow i{font-style:normal;font-size:22px}
+.nys-err{color:#ff8a8a;font-weight:700}
+.nys-go{width:100%;padding:16px;font-size:17px;font-weight:900;border-radius:14px}
+.nys-go:disabled{opacity:.45;cursor:not-allowed}
+@media(max-width:640px){.nys-grid{grid-template-columns:1fr 1fr}.nys-card{grid-template-columns:1fr;text-align:center;justify-items:center}.nys-ic{grid-row:auto}.nys-bar h2{font-size:17px}}

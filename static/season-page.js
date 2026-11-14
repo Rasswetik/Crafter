@@ -7,8 +7,8 @@ const e = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&l
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : String(v); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const BALL = '/static/assets/new-year-ornament.svg';
-const PTS = document.documentElement.classList.contains('ny-off');                // without the New Year the balls are points
-const BALLS = PTS ? 'Поинты' : 'Шары';
+const CURR = (window.crafterCurrency || {kind: 'balls', name: 'Шары', gen: 'шаров'});                // the chosen currency of the site
+const BALLS = CURR.name;
 const toast = m => { try { (window.toast || (() => {}))(m); } catch (_) {} };
 const left = s => { s = Math.max(0, Math.floor(s)); const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60); return d ? d + 'д. ' + h + 'ч.' : h ? h + 'ч. ' + m + 'м.' : m + 'м.'; };
 const thumb = (u, w) => /^\/(static\/assets\/(chests|packs)\/[\w.-]+\.(png|webp|jpe?g)|media\/shop\/[0-9a-f]{32})$/.test(u || '') ? '/thumb?u=' + encodeURIComponent(u) + '&w=' + w : u;
@@ -265,7 +265,7 @@ async function showGiven(res) {
         const plan = [];
         Object.values(packs).forEach(p => plan.push({it: {kind: 'PACK', pack: {image: p.i.image, title: p.i.title}, image_url: p.i.image, bundle: p.ids.length}, result: {packIds: p.ids, count: p.ids.length, head: 'Награда сезона', title: 'Вы получили: <b>' + e(p.i.title) + (p.ids.length > 1 ? ' ×' + num(p.ids.length) : '') + '</b>'}}));
         if (gram) plan.push({it: {kind: 'GRAM', image_url: '/static/assets/gram.svg', rarity: 'res'}, result: {head: 'Награда сезона', title: 'Зачислено: ' + num(gram) + ' GRAM', text: 'Баланс уже обновлён.'}});
-        if (balls) plan.push({it: {kind: 'BALL', image_url: BALL, rarity: 'res'}, result: {head: 'Награда сезона', title: (PTS ? 'Зачислено поинтов: ' : 'Зачислено шаров: ') + num(balls), text: 'Баланс уже обновлён.'}});
+        if (balls) plan.push({it: {kind: 'BALL', image_url: BALL, rarity: 'res'}, result: {head: 'Награда сезона', title: ('Зачислено ' + CURR.gen + ': ') + num(balls), text: 'Баланс уже обновлён.'}});
         shown.forEach(i => plan.push({it: {kind: i.kind, image_url: i.image, rarity: 'res'}, result: {head: 'Награда сезона', title: 'Получено: ' + e(i.title) + (i.count > 1 ? ' ×' + i.count : ''), text: i.kind === 'NFT' ? 'Он уже в вашем инвентаре.' : 'Награда уже у вас.'}}));
         for (const step of plan) {
             await new Promise(done => { F.reveal({it: step.it}, step.result, {refresh: done}, () => {}); });

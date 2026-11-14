@@ -25,7 +25,8 @@ const SLEIGH_ICON = '<svg class="ny-nav-sleigh" viewBox="0 0 32 24" fill="none" 
 const EVENT_SCENE='<svg class="ny-sleigh" viewBox="0 0 280 120" aria-hidden="true" focusable="false"><rect x="70" y="30" width="116" height="78" rx="12" fill="#2a3f94"/><rect x="70" y="30" width="116" height="22" rx="12" fill="#ff6a5a"/><path d="M96 24v14M160 24v14" stroke="#fff" stroke-width="5" stroke-linecap="round"/><g fill="#fff" opacity=".9"><circle cx="98" cy="72" r="5"/><circle cx="128" cy="72" r="5"/><circle cx="158" cy="72" r="5"/><circle cx="98" cy="92" r="5"/><circle cx="128" cy="92" r="5"/></g><path d="m214 40 5 11 12 1.500-9 8.200 2.500 11.800-10.500-6-10.500 6 2.500-11.800-9-8.200 12-1.500z" fill="#ffd25e"/><path d="M40 84l4 8 9 1.200-6.500 6.200 1.600 9-8.100-4.400-8.100 4.400 1.600-9-6.500-6.200 9-1.200z" fill="#7ae0a8" opacity=".9"/></svg>';
 const EVENT_ICON='<svg class="ny-nav-event" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="m12 12.4.9 1.9 2.1.3-1.5 1.5.4 2.1-1.9-1-1.9 1 .4-2.1-1.5-1.5 2.1-.3z"/></svg>';
 const seasonIcon=()=>active()?SLEIGH_ICON:EVENT_ICON;
-const currencyName=()=>active()?'Новогодние шары':'Поинты';
+const curInfo=()=>window.crafterCurrency||{kind:'balls',name:'Шары',gen:'шаров',icon:'/static/assets/new-year-ornament.svg'};
+const currencyName=()=>curInfo().kind==='balls'?'Новогодние шары':curInfo().name;
 const pending=new Map();
 let busy=false;
 let lastData=null;
@@ -415,6 +416,12 @@ async function pollSeason(){
             try{state.me=Object.assign(state.me,await api('me'));}catch(_){}
             showCurrencyNotice();
         }
+        const info=status.currency_info,now=curInfo();
+        if(info&&(info.kind!==now.kind||info.name!==now.name||info.icon!==now.icon||info.epoch!==now.epoch)){        // the currency was changed and recalculated by the administrator
+            window.crafterCurrency=info;
+            try{state.me=Object.assign(state.me,await api('me'));}catch(_){}
+            if(state.me&&state.me.ny_notice)showCurrencyNotice();else location.reload();
+        }
     }catch(_){}
 }
 setInterval(pollSeason,30000);
@@ -424,26 +431,29 @@ function showCurrencyNotice(){
     const n=state?.me?.ny_notice;
     if(!n||noticeOpen)return;
     noticeOpen=true;
-    const toPoints=n.to==='points';
+    const from=n.from||{},to=n.to||{};
     const amount=safeInt(n.amount);
+    const rate=Number(n.rate||1);
+    const pic=u=>'<img src="'+escapeHTML(String(u||'')+(String(u||'').indexOf('?')<0?'?i':''))+'" alt="">';           // a query keeps the picture from being swapped to the chosen currency
     const el=document.createElement('div');
     el.className='ny-notice';
-    el.innerHTML='<div class="ny-notice-box" role="dialog" aria-modal="true"><div class="ny-notice-coins"><img src="'+ORNAMENT+'" alt=""><i>→</i><img src="/static/assets/points.svg" alt=""></div>'+
-        '<h3>'+(toPoints?'Новый год закончился':'Новый год начался')+'</h3>'+
-        '<p>'+(toPoints?'Ваши <b>'+amount+' шаров</b> превратились в <b>'+amount+' поинтов</b>.':'Ваши <b>'+amount+' поинтов</b> превратились в <b>'+amount+' шаров</b>.')+'</p>'+
-        '<small>'+(toPoints?'Поинты работают так же, как шары: ими платят в маркете и акциях.':'Шары снова работают в праздничном маркете и акциях.')+'</small>'+
+    el.innerHTML='<div class="ny-notice-box" role="dialog" aria-modal="true"><div class="ny-notice-coins">'+pic(from.icon)+'<i>→</i>'+pic(to.icon)+'</div>'+
+        '<h3>Валюта изменилась: '+escapeHTML(String(from.name||''))+' → '+escapeHTML(String(to.name||''))+'</h3>'+
+        '<p>'+(rate===1?'Ваш баланс пересчитан один к одному.':'Ваш баланс пересчитан: 1 '+escapeHTML(String(from.gen||''))+' = <b>'+escapeHTML(String(rate).replace('.',','))+' '+escapeHTML(String(to.gen||''))+'</b>.')+' Теперь у вас <b>'+amount+' '+escapeHTML(String(to.gen||''))+'</b>.</p>'+
+        '<small>Новой валютой платят в маркете, акциях и сезоне — так же, как раньше.</small>'+
         '<button type="button" class="primary">Понятно</button></div>';
-    if(!toPoints){const img=el.querySelectorAll('.ny-notice-coins img');img[0].src='/static/assets/points.svg';img[1].src=ORNAMENT;img[1].classList.add('is-ball');}
     document.body.appendChild(el);
     requestAnimationFrame(()=>el.classList.add('is-in'));
     el.querySelector('button').addEventListener('click',async()=>{
         el.classList.remove('is-in');setTimeout(()=>el.remove(),250);noticeOpen=false;
         try{await api('new-year/ack',{});}catch(_){}
         if(state.me)state.me.ny_notice=null;
+        const c=window.crafterCurrency||{};
+        if(to&&(to.name!==c.name||to.icon!==c.icon)){window.crafterCurrency=Object.assign({},c,to);location.reload();}else if(to&&document.querySelector('#cur-style')===null&&to.kind!=='balls')location.reload();
     });
 }
 window.crafterShowCurrencyNotice=showCurrencyNotice;
-(function waitForMe(){let tries=0;const t=setInterval(()=>{tries++;if(window.state&&state.me){clearInterval(t);showCurrencyNotice();}else if(tries>120)clearInterval(t);},400);})();
+(function waitForMe(){let tries=0;const t=setInterval(()=>{tries++;if(typeof state!=='undefined'&&state&&state.me){clearInterval(t);showCurrencyNotice();}else if(tries>120)clearInterval(t);},400);})();
 window.addEventListener('popstate',()=>{                      // Back and Forward between the hub, the market and a lot
     if(state?.page!=='new-year')return;
     const p=location.pathname.replace(/\/+$/,'');
@@ -463,7 +473,7 @@ function adminLot(lot){
 async function renderAdminNewYear(content=document.querySelector('#admin-content')){
     const result=await api('admin/new-year');
     if(!content?.isConnected)return;
-    content.innerHTML='<section class="ny-admin-section"><h3>Новый год</h3>'+
+    content.innerHTML='<section class="ny-admin-section"><h3>Новогоднее оформление</h3>'+
       '<label class="ny-admin-switch"><span><b>Показывать Новый год всем игрокам</b><small class="sub" style="display:block;margin-top:6px">Включает весь Новый год на сайте: раздел и кнопка для игроков, гирлянды, снег и праздничная загрузка. При выключении всё это пропадает и возвращается обычный вид.</small></span>'+
       '<input type="checkbox" id="ny-admin-enabled" '+(result.enabled?'checked':'')+'></label></section>'+
       '<section class="ny-admin-section"><h3>Поинты за сделки</h3><p class="sub" style="margin:0 0 10px">Сколько поинтов игрок получает за 1 TON завершённой сделки. 0 — не начислять (по умолчанию).</p><div class="ny-admin-points"><input id="ny-points-rate" type="number" min="0" step="1" value="'+Number(result.points_per_ton||0)+'"><button type="button" class="primary" id="ny-points-save">Сохранить</button></div></section>'+
@@ -517,14 +527,30 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
             finally{if(button.isConnected)button.disabled=false;}
         });
     }
-    content.querySelectorAll(':scope > .ny-admin-section').forEach(x=>{x.dataset.pane='main';});
-    const tabs=document.createElement('div');
-    tabs.className='ny-tabs';
-    const names=[['main','Основное'],['events','События сообщества'],['packs','Паки'],['shop','Магазин'],['exchange','Обмен и коды'],['freebies','Подарки по дням'],['chests','Ящики'],['chains','Цепочки акций'],['advent','Адвент']];
-    const setTab=name=>{window.crafterNyTab=name;content.dataset.nyTab=name;tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('is-on',b.dataset.tab===name));};
-    tabs.innerHTML=names.map(([id,label])=>'<button type="button" data-tab="'+id+'">'+label+'</button>').join('');
-    tabs.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>setTab(b.dataset.tab)));
-    content.prepend(tabs);setTab(window.crafterNyTab||'main');
+    ['main','currency','lots','balances','lots'].forEach((pane,i)=>{const x=content.querySelectorAll(':scope > .ny-admin-section')[i];if(x)x.dataset.pane=pane;});
+    /* the hub: clear buttons grouped by what they do; a button opens its own page with a «back» bar (no strip of tabs) */
+    const GROUPS=[
+        ['Сезон и события',[['main','Основное','Включение Нового года и разделы страницы «Событие»','settings'],['events','События сообщества','Конкурсы, лидеры, награды','grid'],['advent','Адвент','Календарь подарков по дням','gift'],['freebies','Подарки по дням','Бесплатные награды по расписанию','gift'],['chains','Цепочки акций','Покупки по шагам с наградами','rotate-ccw']]],
+        ['Магазин и награды',[['shop','Магазин','Акции, наборы, разделы и фоны','market'],['packs','Паки','Карточные паки и шансы','gift'],['chests','Ящики','Награды ящиков и фоны','gift'],['exchange','Обмен и коды','Обмен валюты и промокоды','rotate-ccw']]],
+        ['Валюта и игроки',[['currency','Управление валютой','Шары, поинты, коины или своя валюта и перерасчёт','wallet'],['balances','Балансы игроков','Начислить или списать вручную','wallet'],['lots','NFT-лоты','Создать лот и скрыть/вернуть существующие','gift']]]
+    ];
+    const TITLES={};GROUPS.forEach(g=>g[1].forEach(x=>{TITLES[x[0]]=x[1];}));
+    const hub=document.createElement('div');hub.className='nys-hub';
+    hub.innerHTML=GROUPS.map(g=>'<h2 class="nys-gh">'+g[0]+'</h2><div class="nys-grid">'+g[1].map(([id,label,hint,glyph])=>'<button type="button" class="nys-card" data-tab="'+id+'"><span class="nys-ic">'+(typeof icon==='function'?icon(glyph):'')+'</span><b>'+label+'</b><small>'+hint+'</small></button>').join('')+'</div>').join('');
+    const bar=document.createElement('div');bar.className='nys-bar';
+    bar.innerHTML='<button type="button" class="nys-back">‹ Управление сезоном</button><h2></h2>';
+    const setTab=name=>{
+        const open=name&&name!=='hub'&&TITLES[name]?name:'hub';
+        window.crafterNyTab=open;content.dataset.nyTab=open;
+        hub.hidden=open!=='hub';bar.hidden=open==='hub';
+        bar.querySelector('h2').textContent=TITLES[open]||'';
+        content.querySelectorAll(':scope > .ny-admin-section[data-pane]').forEach(x=>x.classList.toggle('nys-on',x.dataset.pane===open));
+    };
+    hub.querySelectorAll('[data-tab]').forEach(b=>b.addEventListener('click',()=>{setTab(b.dataset.tab);content.scrollIntoView({block:'start'});}));
+    bar.querySelector('.nys-back').addEventListener('click',()=>setTab('hub'));
+    content.prepend(bar);content.prepend(hub);
+    new MutationObserver(()=>setTab(window.crafterNyTab||'hub')).observe(content,{childList:true});          // sections added later by the other scripts get their page too
+    setTab(window.crafterNyTab||'hub');
     window.crafterCommunity?.admin?.(content);
     window.crafterPacks?.admin?.(content);
     window.crafterShopItems?.admin?.(content);
@@ -534,6 +560,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     window.crafterChainsAdmin?.admin?.(content);
     window.crafterAdvent?.admin?.(content);
     window.crafterNyLocks?.admin?.(content);
+    window.crafterCurrencyAdmin?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{
         button.addEventListener('click',async()=>{
             const lot=result.lots.find(l=>l.id===button.dataset.nyAdminLot);

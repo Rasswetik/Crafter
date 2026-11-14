@@ -1,4 +1,4 @@
-/* Admin → Новый год: when each section of the New Year page opens. Until then its button is grey with a countdown. */
+/* Admin → Управление сезоном: when each section of the New Year page opens. Until then its button is grey with a countdown. */
 (function () {
 'use strict';
 const NAMES = {market: 'Особый маркет', community: 'События сообщества', advent: 'Адвент-календарь', season: 'Сезон и Pass'};
