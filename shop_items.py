@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from flask import abort, g, request
 
-KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO', 'BUNDLE', 'CHEST')
+KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO', 'BUNDLE', 'CHEST', 'DROP')
 PROMO_KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'CHEST')
 RARITIES = ('auto', 'common', 'rare', 'special', 'epic', 'mythic', 'legend')   # the colour and the name of an offer; auto = by price
 CARD_BGS = ('ny-snow', 'ny-candy', 'ny-lights', 'ny-frost', 'ny-ginger', 'ny-bells', 'ny-fire', 'ny-aurora',
@@ -113,7 +113,7 @@ def install_shop_items(app, db, auth, record, audit):
                     parts = {'gram': raw.get('gram') or None, 'balls': int(raw.get('balls') or 0) or None,
                              'chests': [x for x in ({'chest': app.extensions['crafter_chest_short'](c['chest_id']), 'count': int(c['count'])} for c in (raw.get('chests') or [])) if x['chest']] or None}
                     raw = raw.get('packs') or []
-                mix = [{'pack': app.extensions['crafter_pack_short'](c['pack_id']), 'count': int(c['count'])} for c in raw]
+                mix = [{'pack': app.extensions['crafter_pack_short'](c['pack_id']), 'count': int(c['count']), 'price': (int(c['price']) if c.get('price') is not None else None)} for c in raw]
                 mix = [c for c in mix if c['pack']] or None
             except (ValueError, KeyError, TypeError):
                 mix = None
@@ -121,9 +121,10 @@ def install_shop_items(app, db, auth, record, audit):
         if row['kind'] == 'STAR' or (row['kind'] == 'PROMO' and row['promo_kind'] == 'STAR'):
             star = app.extensions['crafter_star_gift_short'](row['amount'])
         chest = app.extensions['crafter_chest_short'](row['amount']) if row['kind'] == 'CHEST' or (row['kind'] == 'PROMO' and row['promo_kind'] == 'CHEST') else None
+        drop = app.extensions['crafter_drop_short'](row['amount']) if row['kind'] == 'DROP' else None
         left = None if row['stock'] is None else max(0, int(row['stock']) - int(row['sold']))
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
-                'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else ''), 'chest': chest, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'),
+                'title': row['title'], 'image_url': row['image_url'] or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else '') or (drop['image'] if drop else ''), 'chest': chest, 'drop': drop, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'),
                 'price_balls': int(row['price_balls']), 'old_price_balls': (int(row['old_price_balls']) if row['old_price_balls'] else None),
                 'discount_percent': (round((1 - int(row['price_balls']) / int(row['old_price_balls'])) * 100) if row['old_price_balls'] and int(row['old_price_balls']) > int(row['price_balls']) else None),
                 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
@@ -190,6 +191,8 @@ def install_shop_items(app, db, auth, record, audit):
                 if int(have) >= int(row['per_user']):
                     abort(409, description='Лимит покупок на игрока исчерпан')
             price, balls = int(row['price_balls']), wallet_balls(uid)
+            if row['mode'] == 'choice' and picked and picked.get('price') is not None:
+                price = int(picked['price'])
             if balls < price:
                 abort(409, description='Недостаточно новогодних шаров')
             if price:
@@ -253,6 +256,10 @@ def install_shop_items(app, db, auth, record, audit):
                 opened = opens[-1]
                 result.update(chest_open=opens[0], chest_opens=opens, balance=opened['balance'], gram_balance=opened['gram_balance'])
                 balls = opened['balance']['balls']
+            elif row['kind'] == 'DROP':                              # a drop goes to the inventory; the player opens it himself (4 attempts)
+                n = int(row['bundle'] or 1)
+                have = app.extensions['crafter_grant_drop'](uid, row['amount'], n, 'shop:' + iid)
+                result.update(drop_granted={'drop': app.extensions['crafter_drop_short'](row['amount']), 'qty': n, 'stock': have})
             elif row['kind'] == 'STAR':
                 ids = [app.extensions['crafter_grant_star_gift'](uid, row['amount'], 'shop:' + iid) for _ in range(int(row['bundle'] or 1))]
                 result.update(star_gift=row['amount'], gift_ids=ids, count=len(ids))
@@ -330,9 +337,12 @@ def install_shop_items(app, db, auth, record, audit):
         if mode and kind != 'PACK':
             abort(400, description='Выбор и случайный пак работают только с паками')
         if (kind == 'PACK' or kind == 'BUNDLE') and isinstance(packs_in, list) and packs_in:
-            merged = {}
+            merged, option_price = {}, {}
             for entry in packs_in:
                 pid = str((entry or {}).get('pack_id') or '')
+                raw_price = (entry or {}).get('price')
+                if mode == 'choice' and str(raw_price if raw_price is not None else '').strip() not in ('', 'None'):
+                    option_price[pid] = whole(raw_price, 0, _LIMIT, 'Цена варианта')
                 try:
                     n = int((entry or {}).get('count') or 0)
                 except (TypeError, ValueError):
@@ -344,7 +354,7 @@ def install_shop_items(app, db, auth, record, audit):
                 merged[pid] = merged.get(pid, 0) + n
             if not merged or sum(merged.values()) > 500:
                 abort(400, description='В наборе от 1 до 500 паков')
-            mix = json.dumps([{'pack_id': k, 'count': v} for k, v in merged.items()])
+            mix = json.dumps([({'pack_id': k, 'count': v, 'price': option_price[k]} if k in option_price else {'pack_id': k, 'count': v}) for k, v in merged.items()])
             if bundle_spec is not None:
                 bundle_spec['packs'] = json.loads(mix)
             mix_title = ' + '.join(((app.extensions['crafter_pack_short'](k) or {}).get('title', 'Пак')) + (' ×' + str(v) if v > 1 else '') for k, v in merged.items())
@@ -383,6 +393,10 @@ def install_shop_items(app, db, auth, record, audit):
             amount = str(body.get('amount') or '')
             if not app.extensions['crafter_chest_exists'](amount):
                 abort(400, description='Выберите существующий ящик')
+        elif eff == 'DROP':
+            amount = str(body.get('amount') or '')
+            if not app.extensions['crafter_drop_exists'](amount):
+                abort(400, description='Выберите существующий дроп')
         elif eff == 'BALL':
             amount = str(whole(body.get('amount'), 1, _LIMIT, 'Шары'))
         else:
@@ -399,7 +413,7 @@ def install_shop_items(app, db, auth, record, audit):
         bundle = 1
         if eff == 'BUNDLE':
             bundle = max(1, sum(c['count'] for c in bundle_spec['packs']))
-        elif eff in ('PACK', 'STAR', 'CHEST'):
+        elif eff in ('PACK', 'STAR', 'CHEST', 'DROP'):
             bundle = whole(body.get('bundle') or 1, 1, 20, 'Штук за одну покупку')
         image = str(body.get('image_url') or '').strip()
         if image and not (image.startswith('https://') or re.fullmatch(r'/static/[A-Za-z0-9_./-]+', image)):
@@ -414,6 +428,8 @@ def install_shop_items(app, db, auth, record, audit):
                 title = (app.extensions['crafter_star_gift_short'](amount) or {}).get('title', 'Подарок') + (' ×' + str(bundle) if bundle > 1 else '')
             elif eff == 'CHEST':
                 title = (app.extensions['crafter_chest_short'](amount) or {}).get('title', 'Ящик') + (' ×' + str(bundle) if bundle > 1 else '')
+            elif eff == 'DROP':
+                title = (app.extensions['crafter_drop_short'](amount) or {}).get('title', 'Дроп') + (' ×' + str(bundle) if bundle > 1 else '')
             elif eff == 'BALL':
                 title = amount + ' шаров'
             else:

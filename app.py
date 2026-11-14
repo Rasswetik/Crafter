@@ -1495,6 +1495,8 @@ def create_app(config=None):
     install_thumbs(app,db)
     from chests import install_chests
     install_chests(app,db,auth,audit,record)
+    from drops import install_drops
+    install_drops(app,db,auth,audit)
     from chains import install_chains
     install_chains(app,db,auth,audit,record)
     from freebies import install_freebies

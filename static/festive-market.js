@@ -11,7 +11,7 @@ const thumb = (u, w) => /^\/(static\/assets\/(chests|packs)\/[\w.-]+\.(png|webp|
 const ORN = '<img class="fm-ball" src="/static/assets/new-year-ornament.svg" alt="">';
 const SI = () => window.crafterShopItems || {};
 const NAMES = {common: 'Акция', rare: 'Редкая акция', special: 'Особая акция', epic: 'Эпическая акция', mythic: 'Мифическая акция', legend: 'Легендарная акция', res: 'Ресурсы'};
-const TYPES = {GRAM: 'Баланс GRAM', BALL: 'Шары', PACK: 'Пак', BUNDLE: 'Набор', STAR: 'Подарок Telegram', CHEST: 'Ящик', PROMO: 'Промокод', REWARD: 'Награда сообщества'};
+const TYPES = {DROP: 'Дроп', GRAM: 'Баланс GRAM', BALL: 'Шары', PACK: 'Пак', BUNDLE: 'Набор', STAR: 'Подарок Telegram', CHEST: 'Ящик', PROMO: 'Промокод', REWARD: 'Награда сообщества'};
 const WIDTH = {small: 1, tall: 1, wide: 1.6, large: 2, banner: 2.6};
 let offset = 0;                                                    // server time minus the time of this device
 const nowSec = () => Math.floor(Date.now() / 1000) + offset;
@@ -99,6 +99,7 @@ function leftText(s) {
     return d ? d + 'д. ' + h + 'ч.' : h ? h + 'ч. ' + m + 'м.' : m + 'м. ' + (s % 60) + 'с.';
 }
 function artOf(it) {
+    if (it.drop) return '<div class="fm-dropart"><i class="fm-drop-rays"></i><i class="fm-drop-halo"></i><span class="fm-drop-spin"><img class="si-solo" src="/static/assets/drops/snowman-idle.webp" alt="" draggable="false"></span><i class="fm-drop-sp s1"></i><i class="fm-drop-sp s2"></i><i class="fm-drop-sp s3"></i><i class="fm-drop-sh"></i></div>';
     if (it.mode === 'random' && it.contents && it.contents.length) {                 // a black pack with a question mark
         return '<div class="fm-mystery"><img class="si-solo" src="' + e(it.contents[0].pack.image) + '" alt=""><b>?</b><i></i><i></i><i></i></div>';
     }
@@ -115,7 +116,8 @@ function descOf(it) {
     if (!it.description && it.mode === 'random') return 'Случайный пак из ' + (it.contents || []).length + ': какой выпадет, узнаете после покупки.';
     return it.description || (d ? d(it) : '');
 }
-const priceOf = it => it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Бесплатно</b>';
+const optionPrices = it => (it.mode === 'choice' && it.contents ? it.contents.map(c => (c.price !== null && c.price !== undefined ? c.price : it.price_balls)) : []);
+const priceOf = it => { const ps = optionPrices(it); const lo = ps.length ? Math.min(...ps) : it.price_balls; const from = ps.length && Math.max(...ps) !== lo ? '<small class="fm-from">от</small>' : ''; return lo ? from + ORN + '<b>' + num(lo) + '</b>' : '<b>Бесплатно</b>'; };
 const headingOf = it => it.heading || (it.mode === 'choice' ? 'Акция с выбором' : it.mode === 'random' ? 'Случайный пак' : NAMES[rarityOf(it)]);
 
 /* ---------- one offer card ---------- */
@@ -146,6 +148,7 @@ function card(o, opts = {}) {
 function includes(o) {
     const it = o.it, out = [];
     (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.id}));
+    if (it.drop) out.push({img: thumb(it.drop.image, 200), label: it.drop.title, count: '×' + (it.bundle || 1)});
     (it.chests_in || []).forEach(c => out.push({img: thumb(c.chest.image, 200), label: c.chest.title, count: '×' + c.count}));
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
     if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: 'Новогодние шары', count: num(it.balls)});
@@ -339,7 +342,7 @@ function stage(o, ctx, opts2 = {}) {
         (lines.length ? '<ul class="fm-lines">' + lines.map(l => '<li>' + e(l) + '</li>').join('') + '</ul>' : '') + '</div>' +
         '<div class="fm-hero">' + (choice ? '<button type="button" class="fm-harrow l" data-fm-h="-1" aria-label="Предыдущий">' + CHEV('m15 5-7 7 7 7') + '</button><button type="button" class="fm-harrow r" data-fm-h="1" aria-label="Следующий">' + CHEV('m9 5 7 7-7 7') + '</button>' : '') +
         '<div class="fm-floor"></div><div class="fm-heroart' + (it.chest ? ' is-chest' : '') + '" data-fm-heroart>' + heroInner + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
-        '<div class="fm-inc"><div class="fm-inc-head"><b>' + incHead + '</b>' + (packsIn.length || it.chest ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
+        '<div class="fm-inc"><div class="fm-inc-head"><b>' + incHead + '</b>' + (packsIn.length || it.chest || it.drop ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
         '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + (choice && !i ? ' is-pick' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '><img src="' + e(x.img) + '" alt=""><b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
         '<div class="fm-buy"><button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
         '<p class="fm-err" role="alert"></p></div>' +
@@ -366,7 +369,7 @@ function stage(o, ctx, opts2 = {}) {
     document.addEventListener('keydown', onKey); window.addEventListener('popstate', onPop);
     el.querySelector('[data-fm-close]').addEventListener('click', () => close());
     const chancesList = () => { const first = choice ? packsIn[pick] : null; return first ? [first].concat(packsIn.filter((_, j) => j !== pick)) : packsIn; };
-    el.querySelector('[data-fm-chances]')?.addEventListener('click', () => it.chest ? window.crafterChests.chances(it.chest.id, api) : openChances(chancesList(), ctx));
+    el.querySelector('[data-fm-chances]')?.addEventListener('click', () => it.drop ? window.crafterDrops.chances(it.drop.id) : it.chest ? window.crafterChests.chances(it.chest.id, api) : openChances(chancesList(), ctx));
     if (it.chest && window.crafterChests) {                           // the chest stands in the window as a 3D model, the picture is the fallback
         const art = el.querySelector('[data-fm-heroart]');
         art.innerHTML = '<div class="cx-host"><img class="si-solo" src="' + e(thumb(it.chest.image, 640)) + '" alt=""></div>';
@@ -376,12 +379,14 @@ function stage(o, ctx, opts2 = {}) {
     }
     el.querySelectorAll('[data-fm-pk]').forEach(b => b.addEventListener('click', () => { const i = packsIn.findIndex(p => p.id === b.dataset.fmPk); openChances(i > 0 ? [packsIn[i]].concat(packsIn.filter((_, j) => j !== i)) : packsIn, ctx); }));
     const nameEl = el.querySelector('[data-fm-pickname]');
+    const optPrice = () => (choice && choice[pick].price !== null && choice[pick].price !== undefined ? choice[pick].price : it.price_balls);
     const setPick = i => {
         pick = (i + choice.length) % choice.length;
         const art = el.querySelector('[data-fm-heroart]');
         art.classList.remove('fm-swap'); void art.offsetWidth;
         art.innerHTML = optArt(pick); art.classList.add('fm-swap');
         el.querySelectorAll('[data-fm-opt]').forEach(b => b.classList.toggle('is-pick', Number(b.dataset.fmOpt) === pick));
+        const pr = optPrice(), buyP = el.querySelector('[data-fm-buy] span'); if (buyP) buyP.innerHTML = pr ? ORN + '<b>' + num(pr) + '</b>' : '<b>Получить</b>';
         nameEl.innerHTML = 'Ваш выбор: <b>' + e(choice[pick].pack.title) + (choice[pick].count > 1 ? ' ×' + choice[pick].count : '') + '</b>';
     };
     if (choice) {
@@ -395,7 +400,7 @@ function stage(o, ctx, opts2 = {}) {
     btn.addEventListener('click', ev => {
         ev.stopPropagation(); err.textContent = '';
         if (o.src === 'cm') { close(); window.crafterCommunity.claim(o.m, ctx.refresh); return; }
-        el.querySelector('[data-fm-cwhat]').innerHTML = (choice ? e(choice[pick].pack.title) + (choice[pick].count > 1 ? ' ×' + choice[pick].count : '') : e(it.title)) + (it.price_balls ? ' · ' + ORN + '<b>' + num(it.price_balls) + '</b>' : ' · бесплатно');
+        el.querySelector('[data-fm-cwhat]').innerHTML = (choice ? e(choice[pick].pack.title) + (choice[pick].count > 1 ? ' ×' + choice[pick].count : '') : e(it.title)) + (optPrice() ? ' · ' + ORN + '<b>' + num(optPrice()) + '</b>' : ' · бесплатно');
         bubble.hidden = false; requestAnimationFrame(() => bubble.classList.add('is-in'));
     });
     bubble.addEventListener('click', ev => { if (!ev.target.closest('.fm-cbox')) hide(); });
@@ -409,7 +414,8 @@ function stage(o, ctx, opts2 = {}) {
             if (res.chests) {
                 await window.crafterChests.playMany(res.chests, {bg: it.card_bg || res.chests[0].chest.bg, refresh: ctx.refresh, toast});
                 if (res.rest) reveal(o, res.rest, ctx, () => close()); else close();
-            } else if (res.chest) window.crafterChests.play(res.chest, {bg: it.card_bg || res.chest.chest.bg, refresh: ctx.refresh, toast, onDone: () => close()});
+            } else if (res.drop) window.crafterDrops.afterPurchase(res.drop, {refresh: ctx.refresh, onDone: () => close()});
+            else if (res.chest) window.crafterChests.play(res.chest, {bg: it.card_bg || res.chest.chest.bg, refresh: ctx.refresh, toast, onDone: () => close()});
             else reveal(o, res, ctx, () => close());
         } catch (error) { hide(); err.textContent = error.message; }
         yes.disabled = false;
@@ -437,6 +443,7 @@ async function perform(o, ctx, choice) {
         return {chests: res.chest_opens, rest};
     }
     if (res.pack_id) { const ids = res.pack_ids || [res.pack_id]; return {packIds: ids, count: ids.length, picked: res.picked}; }
+    if (res.drop_granted) return {drop: res.drop_granted};
     if (res.chest_open) return {chest: res.chest_open};
     if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};
     if (res.code) { const cc = window.crafterCommunity; return {title: 'Ваш промокод', text: 'Он привязан к вашему аккаунту и работает один раз.', html: cc.codeBlock(res.code), bind: root => cc.bindCode(root, res.code)}; }
@@ -560,6 +567,7 @@ function render(main, ctx) {
     };
     main.innerHTML = '<div class="new-year-page fm-page"></div>';
     main.querySelector('.fm-page').appendChild(root);
+    if (!ctx.preview && window.crafterDrops) window.crafterDrops.mount(root);
     root.querySelector('[data-fm-back]')?.addEventListener('click', ctx.back);
     apply();
     show(active, true);

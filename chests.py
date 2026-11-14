@@ -224,6 +224,44 @@ def install_chests(app, db, auth, audit, record):
         kinds += [rng.choices(list(pool), weights=list(pool.values()))[0] for _ in range(n - len(kinds))]
         return [pick(k) for k in kinds]
 
+    def grant_loot(uid, items, label):
+        """Give the items (as made by roll()/loot_item()) to the player: balls, GRAM, packs, direct NFT, Telegram gifts. Mutates items with the ids of what was given."""
+        balls, gram = 0, Decimal('0')
+        for it in items:
+            if it['kind'] == 'BALL':
+                balls += int(it['amount'])
+            elif it['kind'] == 'GRAM':
+                gram += Decimal(it['amount'])
+            elif it['kind'] == 'NFT':
+                col, _, model = it['amount'].partition(':')
+                got = app.extensions['crafter_grant_nft'](uid, col, model, label)
+                it.update(nft_id=got.get('nft_id'), number=got.get('number'), credited=got.get('credited'))
+            elif it['kind'] == 'PACK':
+                it['pack_ids'] = [app.extensions['crafter_grant_pack'](uid, it['amount'], label) for _ in range(it['count'])]
+            else:
+                it['gift_ids'] = [app.extensions['crafter_grant_star_gift'](uid, it['amount'], label) for _ in range(it['count'])]
+        if balls:
+            new = balls_of(uid) + balls
+            if new > LIMIT:
+                abort(409, description='Баланс шаров превысит максимум')
+            db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
+            db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (new, uid))
+        if gram:
+            db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance", (uid, str(gram_of(uid) + gram)))
+
+    def loot_item(kind, amount, count=1):
+        """One fixed item for the reveal screen and for grant_loot()."""
+        if kind == 'BALL':
+            return {'kind': 'BALL', 'title': 'Шары', 'image': BALL_ICON, 'amount': str(int(amount)), 'count': 1}
+        if kind == 'GRAM':
+            return {'kind': 'GRAM', 'title': 'GRAM', 'image': GRAM_ICON, 'amount': plain(Decimal(str(amount))), 'count': 1}
+        if kind == 'NFT':
+            cid, _, model = amount.partition(':')
+            info = app.extensions['crafter_nft_short'](cid, model) or {}
+            return {'kind': 'NFT', 'title': info.get('model') or model or 'NFT', 'collection': info.get('collection') or cid, 'image': info.get('image') or '', 'amount': amount, 'count': 1, 'value': info.get('value') or '0'}
+        pack = app.extensions['crafter_pack_short'](amount) or {}
+        return {'kind': 'PACK', 'title': pack.get('title') or 'Пак', 'image': pack.get('image') or '', 'amount': amount, 'count': count}
+
     def open_chest(uid, cid_, source, preview=False):
         cid = cid_
         row = db().execute("SELECT * FROM chests WHERE id=?", (cid,)).fetchone()
@@ -231,32 +269,13 @@ def install_chests(app, db, auth, audit, record):
             abort(409, description='Этот ящик сейчас недоступен')
         items = roll(row)
         if not preview:
-            balls, gram = 0, Decimal('0')
-            for it in items:
-                if it['kind'] == 'BALL':
-                    balls += int(it['amount'])
-                elif it['kind'] == 'GRAM':
-                    gram += Decimal(it['amount'])
-                elif it['kind'] == 'NFT':
-                    col, _, model = it['amount'].partition(':')
-                    got = app.extensions['crafter_grant_nft'](uid, col, model, 'chest:' + cid_)
-                    it.update(nft_id=got.get('nft_id'), number=got.get('number'), credited=got.get('credited'))
-                elif it['kind'] == 'PACK':
-                    it['pack_ids'] = [app.extensions['crafter_grant_pack'](uid, it['amount'], 'chest:' + cid) for _ in range(it['count'])]
-                else:
-                    it['gift_ids'] = [app.extensions['crafter_grant_star_gift'](uid, it['amount'], 'chest:' + cid) for _ in range(it['count'])]
-            if balls:
-                new = balls_of(uid) + balls
-                if new > LIMIT:
-                    abort(409, description='Баланс шаров превысит максимум')
-                db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
-                db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (new, uid))
-            if gram:
-                db().execute("INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance", (uid, str(gram_of(uid) + gram)))
+            grant_loot(uid, items, 'chest:' + cid_)
             db().execute("INSERT INTO chest_opens(id,user_id,chest_id,source,result,created) VALUES(?,?,?,?,?,?)",
                          (uuid.uuid4().hex, uid, cid, str(source)[:60], json.dumps(items, ensure_ascii=False), int(time.time())))
         return {'chest': view(row), 'items': items, 'preview': preview, 'balance': {'balls': balls_of(uid)}, 'gram_balance': str(gram_of(uid))}
 
+    app.extensions['crafter_grant_loot'] = grant_loot
+    app.extensions['crafter_loot_item'] = loot_item
     app.extensions['crafter_open_chest'] = open_chest
     app.extensions['crafter_chest_exists'] = lambda cid: bool(db().execute("SELECT 1 FROM chests WHERE id=?", (cid,)).fetchone())
     app.extensions['crafter_chest_short'] = lambda cid: (lambda r: view(r) if r else None)(db().execute("SELECT * FROM chests WHERE id=?", (cid,)).fetchone())
