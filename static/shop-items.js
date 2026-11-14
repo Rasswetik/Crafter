@@ -109,6 +109,7 @@ const KIND_TILES = [
     ['PACK', 'Карточный пак', 'Пак попадает в инвентарь', '/static/assets/packs/new-year-pack.webp'],
     ['BUNDLE', 'Бандл / выбор / случайный', 'Несколько паков сразу, на выбор или случайный', '/static/assets/community-reward.svg'],
     ['CHEST', 'Ящик', 'Открывается сразу: награды по шансам', '/static/assets/chests/gingerbread.png'],
+    ['CAPSULE', 'Капсула', 'Открывается сразу: короткая анимация, награды по шансам', '/static/assets/chests/vicecapsule.png'],
     ['DROP', 'Дроп', 'Открывается сразу: 4 нажатия, одна награда', '/static/assets/drops/snowman.png'],
     ['PASS', 'Pass Plus', 'Открывает Pass Plus текущего сезона', '/static/assets/pass/ticket-plus.svg'],
     ['PROMO', 'Промокод', 'Уникальный код для покупателя', '/static/assets/community-reward.svg'],
@@ -177,6 +178,7 @@ async function admin(content) {
     const secTitle = id => ((r.sections || []).find(x => x.id === id) || {}).title || '';
     const sectionChips = (cur, attr) => [['', 'Авто (по правилам)']].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title])).map(c => '<button type="button" class="' + (cur === c[0] ? 'is-on' : '') + '" ' + attr + '="' + e(c[0]) + '">' + e(c[1]) + '</button>').join('');
     const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
+    const capOn = () => { if (f.cap === undefined) f.cap = Boolean(CHESTS.find(c => c.id === f.amount)?.image_release); return f.cap; };          // a capsule is a box with the third frame: it has its own tile
     const range = (key, label, min, max, val, fmt) => '<div class="adm-range"><div class="adm-range-top"><label>' + label + '</label><b data-out="' + key + '">' + fmt(Number(val)) + '</b></div>' +
         '<input type="range" data-f="' + key + '" data-fmt="' + (key === 'per' ? 'per' : 'bundle') + '" min="' + min + '" max="' + max + '" step="1" value="' + val + '" style="--p:' + ((val - min) / (max - min) * 100) + '%"></div>';
     const fmtPer = v => v === 0 ? 'Без ограничений' : 'до ' + v;
@@ -218,20 +220,20 @@ async function admin(content) {
         const shell = (title, body) => { wrap.innerHTML = '<div class="bnd-box"><div class="bnd-top"><b>' + title + '</b><button type="button" data-x aria-label="Закрыть">×</button></div>' + body + '</div>'; wrap.querySelector('[data-x]').addEventListener('click', close); };
         const counter = (id, type) => '<div class="bnd-count"><label>Сколько штук</label><input type="number" min="1" max="50" value="1" data-bnd-n><button type="button" class="primary" data-bnd-ok>Добавить</button></div>';
         const pickOne = type => {
-            const list = type === 'PACK' ? packs.map(p => ({id: p.id, title: p.title, image: p.image})) : type === 'DROP' ? DROPS : CHESTS;
-            shell(type === 'PACK' ? 'Какой пак?' : type === 'DROP' ? 'Какой дроп?' : 'Какой ящик?', '<div class="bnd-grid">' + (list.length ? list.map(x => '<button type="button" class="bnd-opt" data-id="' + e(x.id) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') : '<p class="sub">Пока нечего выбрать.</p>') + '</div>');
+            const list = type === 'PACK' ? packs.map(p => ({id: p.id, title: p.title, image: p.image})) : type === 'DROP' ? DROPS : type === 'CAPSULE' ? CHESTS.filter(c => c.image_release) : CHESTS.filter(c => !c.image_release);
+            shell(type === 'PACK' ? 'Какой пак?' : type === 'DROP' ? 'Какой дроп?' : type === 'CAPSULE' ? 'Какая капсула?' : 'Какой ящик?', '<div class="bnd-grid">' + (list.length ? list.map(x => '<button type="button" class="bnd-opt" data-id="' + e(x.id) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') : '<p class="sub">Пока нечего выбрать.</p>') + '</div>');
             wrap.querySelectorAll('.bnd-opt').forEach(b => b.addEventListener('click', () => {
                 const x = list.find(y => y.id === b.dataset.id);
                 shell(e(x.title), '<div class="bnd-one"><img src="' + e(x.image) + '" alt=""></div>' + counter());
-                wrap.querySelector('[data-bnd-ok]').addEventListener('click', () => add({type, id: x.id, count: Math.max(1, Math.min(50, Math.floor(Number(wrap.querySelector('[data-bnd-n]').value) || 1)))}));
+                wrap.querySelector('[data-bnd-ok]').addEventListener('click', () => add({type: type === 'CAPSULE' ? 'CHEST' : type, id: x.id, count: Math.max(1, Math.min(50, Math.floor(Number(wrap.querySelector('[data-bnd-n]').value) || 1)))}));
             }));
         };
         const amount = type => {
             shell(type === 'GRAM' ? 'Сколько GRAM?' : 'Сколько шаров?', '<div class="bnd-one"><img src="' + (type === 'GRAM' ? '/static/assets/gram.svg' : '/static/assets/new-year-ornament.svg') + '" alt=""></div><div class="bnd-count"><label>Сумма</label><input inputmode="decimal" data-bnd-a placeholder="' + (type === 'GRAM' ? '0.5' : '100') + '"><button type="button" class="primary" data-bnd-ok>Добавить</button></div>');
             wrap.querySelector('[data-bnd-ok]').addEventListener('click', () => { const v = wrap.querySelector('[data-bnd-a]').value.trim().replace(',', '.'); if (!(Number(v) > 0)) { toast('Введите сумму'); return; } add({type, amount: type === 'BALL' ? String(Math.floor(Number(v))) : v}); });
         };
-        shell('Что добавить в бандл?', '<div class="bnd-types">' + [['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png'], ['DROP', 'Дроп', '/static/assets/drops/snowman.png'], ['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg']].map(([t, n, img]) => '<button type="button" class="bnd-type" data-type="' + t + '"><img src="' + img + '" alt=""><span>' + n + '</span></button>').join('') + '</div>');
-        wrap.querySelectorAll('.bnd-type').forEach(b => b.addEventListener('click', () => (b.dataset.type === 'PACK' || b.dataset.type === 'CHEST' || b.dataset.type === 'DROP') ? pickOne(b.dataset.type) : b.dataset.type === 'PASS' ? add({type: 'PASS', count: 1}) : amount(b.dataset.type)));
+        shell('Что добавить в бандл?', '<div class="bnd-types">' + [['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png'], ['CAPSULE', 'Капсула', '/static/assets/chests/vicecapsule.png'], ['DROP', 'Дроп', '/static/assets/drops/snowman.png'], ['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg']].map(([t, n, img]) => '<button type="button" class="bnd-type" data-type="' + t + '"><img src="' + img + '" alt=""><span>' + n + '</span></button>').join('') + '</div>');
+        wrap.querySelectorAll('.bnd-type').forEach(b => b.addEventListener('click', () => (b.dataset.type === 'PACK' || b.dataset.type === 'CHEST' || b.dataset.type === 'CAPSULE' || b.dataset.type === 'DROP') ? pickOne(b.dataset.type) : b.dataset.type === 'PASS' ? add({type: 'PASS', count: 1}) : amount(b.dataset.type)));
         wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
         document.body.appendChild(wrap);
     };
@@ -307,7 +309,7 @@ async function admin(content) {
         const close = () => wrap.remove();
         const group = (title, list) => list.length ? '<h5 class="bnd-h">' + title + '</h5><div class="bnd-grid">' + list.map(x => '<button type="button" class="bnd-opt' + ((f.mix[x.key] || 0) > 0 ? ' is-on' : '') + '" data-id="' + e(x.key) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') + '</div>' : '';
         wrap.innerHTML = '<div class="bnd-box"><div class="bnd-top"><b>Что добавить в акцию?</b><button type="button" data-x aria-label="Закрыть">×</button></div>' +
-            group('Паки', packs.map(p => ({key: p.id, title: p.title, image: p.image}))) + group('Ящики', CHESTS.map(c => ({key: 'chest:' + c.id, title: c.title, image: c.image}))) + group('Дропы', DROPS.map(c => ({key: 'drop:' + c.id, title: c.title, image: c.image}))) + group('Pass Plus', [{key: 'pass:plus', title: 'Pass Plus', image: '/static/assets/pass/ticket-plus.svg'}]) + '</div>';
+            group('Паки', packs.map(p => ({key: p.id, title: p.title, image: p.image}))) + group('Ящики', CHESTS.filter(c => !c.image_release).map(c => ({key: 'chest:' + c.id, title: c.title, image: c.image}))) + group('Капсулы', CHESTS.filter(c => c.image_release).map(c => ({key: 'chest:' + c.id, title: c.title, image: c.image}))) + group('Дропы', DROPS.map(c => ({key: 'drop:' + c.id, title: c.title, image: c.image}))) + group('Pass Plus', [{key: 'pass:plus', title: 'Pass Plus', image: '/static/assets/pass/ticket-plus.svg'}]) + '</div>';
         wrap.querySelector('[data-x]').addEventListener('click', close);
         wrap.querySelectorAll('.bnd-opt').forEach(b => b.addEventListener('click', () => { f.mix[b.dataset.id] = (f.mix[b.dataset.id] || 0) + 1; close(); draw(); }));
         wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
@@ -630,7 +632,7 @@ async function admin(content) {
         });
     };
     const draw = () => {
-        const kinds = KIND_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length) && !(k[0] === 'CHEST' && !CHESTS.length) && !(k[0] === 'DROP' && !DROPS.length));
+        const kinds = KIND_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length) && !(k[0] === 'CHEST' && !CHESTS.some(c => !c.image_release)) && !(k[0] === 'CAPSULE' && !CHESTS.some(c => c.image_release)) && !(k[0] === 'DROP' && !DROPS.length));
         const step2 = f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + PROMO_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length)).map(k => tile(f.promo === k[0], 'data-promo="' + k[0] + '"', k[2], k[1])).join('') + '</div></div>' : '';
         const mixTotal = Object.values(f.mix).reduce((x, n) => x + n, 0);
         const what = f.kind === 'BUNDLE'
@@ -642,13 +644,13 @@ async function admin(content) {
             : eff() === 'PASS'
             ? '<div class="adm-step"><h4>Pass Plus</h4><p class="sub">Игрок получит Pass Plus сезона, который идёт сейчас (его настраивают в разделе «Пасс»). Если сезона нет или Pass Plus уже куплен, покупка не пройдёт, шары не спишутся. Цена в шарах задаётся ниже, отдельно от цены внутри самого пасса.</p></div>'
             : eff() === 'CHEST'
-            ? '<div class="adm-step"><h4>Какой ящик</h4><div class="adm-field"><select data-f="amount">' + CHESTS.map(c => '<option value="' + e(c.id) + '"' + (f.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select><small class="sub">Ящики создаются во вкладке «Ящики». Ящик открывается сразу, в инвентаре его нет.</small></div></div>'
+            ? '<div class="adm-step"><h4>' + (capOn() ? 'Какая капсула' : 'Какой ящик') + '</h4><div class="adm-field"><select data-f="amount">' + CHESTS.filter(c => !!c.image_release === capOn()).map(c => '<option value="' + e(c.id) + '"' + (f.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select><small class="sub">Ящики создаются во вкладке «Ящики». Ящик открывается сразу, в инвентаре его нет.</small></div></div>'
             : eff() === 'STAR'
             ? '<div class="adm-step"><h4>Какой подарок</h4><div class="adm-field"><select data-f="amount">' + window.crafterStarGifts.options(STARS, f.amount) + '</select></div></div>'
             : '<div class="adm-step"><h4>' + (eff() === 'BALL' ? 'Сколько шаров' : 'Сколько GRAM') + '</h4><div class="adm-field"><input data-f="amount" inputmode="decimal" value="' + e(f.amount) + '">' +
               '<div class="adm-chips">' + (eff() === 'BALL' ? ['50', '100', '500', '1000'] : ['0.5', '1', '2', '5', '10']).map(v => '<button type="button" data-chip="amount" data-v="' + v + '">' + v + '</button>').join('') + '</div></div></div>';
         sec.innerHTML = boardSection() + '<div id="hb-box">' + hubBgHTML() + '</div>' + sectionsHTML() + '<h3 style="margin-top:26px" id="si-form">' + (editing ? 'Изменить товар' : 'Новый товар') + '</h3>' + (editing ? '<div class="si-editing">Вы меняете: <b>' + e(f.title || autoTitle()) + '</b><button type="button" data-si-cancel>Отмена, создать новый</button></div>' : '<p class="sub">Товар за новогодние шары. Появится в особом маркете.</p>') +
-            '<div class="adm-step"><h4>Что продаём</h4><div class="adm-tiles">' + kinds.map(k => tile(f.kind === k[0], 'data-kind="' + k[0] + '"', k[3], k[1], k[2])).join('') + '</div></div>' +
+            '<div class="adm-step"><h4>Что продаём</h4><div class="adm-tiles">' + kinds.map(k => tile(k[0] === 'CAPSULE' ? (f.kind === 'CHEST' && capOn()) : k[0] === 'CHEST' ? (f.kind === 'CHEST' && !capOn()) : f.kind === k[0], 'data-kind="' + k[0] + '"', k[3], k[1], k[2])).join('') + '</div></div>' +
             step2 + what +
             '<div class="adm-step"><h4>Условия</h4><div class="adm-row3">' +
             '<div class="adm-field"><label>Цена в шарах</label><input data-f="price" type="number" min="0" step="1" value="' + e(f.price) + '"><div class="adm-chips"><button type="button" data-chip="price" data-v="0">Бесплатно</button><button type="button" data-chip="price" data-v="50">50</button><button type="button" data-chip="price" data-v="100">100</button></div></div>' +
@@ -694,7 +696,7 @@ async function admin(content) {
         sec.querySelector('[data-f="endsMsk"]')?.addEventListener('change', () => { f.endsH = ''; });
         bindSections();
         sec.querySelectorAll('[data-rar]').forEach(b => b.addEventListener('click', () => { pull(); f.rarity = b.dataset.rar; draw(); }));
-        sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.kind = b.dataset.kind; f.amount = eff() === 'PASS' ? 'plus' : eff() === 'DROP' ? (DROPS[0]?.id || '') : eff() === 'CHEST' ? (CHESTS[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
+        sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.cap = b.dataset.kind === 'CAPSULE'; f.kind = b.dataset.kind === 'CAPSULE' ? 'CHEST' : b.dataset.kind; f.amount = eff() === 'PASS' ? 'plus' : eff() === 'DROP' ? (DROPS[0]?.id || '') : eff() === 'CHEST' ? ((CHESTS.find(c => !!c.image_release === f.cap) || CHESTS[0])?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'CHEST' ? (CHESTS[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelector('[data-bnd-add]')?.addEventListener('click', () => { pull(); openAdder(); });
         sec.querySelector('[data-gr-go]')?.addEventListener('click', async () => { pull(); try { const res = await api('admin/drops/grant', {user_id: sec.querySelector('[data-gr-user]').value.trim(), drop_id: f.amount, qty: sec.querySelector('[data-gr-qty]').value.trim() || 1}); toast('Выдано. У игрока теперь: ' + res.qty); } catch (err) { toast(err.message); } });
