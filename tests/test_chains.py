@@ -54,3 +54,19 @@ def test_a_step_holds_several_prizes(client):
     assert len(d['pack_ids']) == 2 and len(d['chest_opens']) == 2 and d['nft']['nft_id'] and len(d['result']['rewards']) == 5
     assert client.post('/api/admin/new-year/chains', headers=admin, json={'title': 'x', 'steps': [{'rewards': []}]}).status_code == 400
     assert client.post('/api/admin/new-year/chains', headers=admin, json={'title': 'x', 'steps': [{'rewards': [{'kind': 'CHEST', 'amount': 'nope'}]}]}).status_code == 400
+
+
+def test_a_chain_step_can_give_a_drop(client):
+    admin, player = signed(42), signed(61)
+    client.get('/api/me', headers=player)
+    made = client.post('/api/admin/new-year/chains', headers=admin, json={'title': 'С дропом', 'enabled': True, 'steps': [
+        {'label': 'Шаг 1', 'price_balls': 0, 'rewards': [{'kind': 'DROP', 'amount': 'snowman_drop', 'count': 2}, {'kind': 'BALL', 'amount': '10'}]}]})
+    assert made.status_code == 200, made.get_data(as_text=True)
+    step = client.get('/api/chains', headers=player).json['chains'][0]['steps'][0]
+    got = client.post('/api/chains/claim', headers=player, json={'step_id': step['id']})
+    assert got.status_code == 200, got.get_data(as_text=True)
+    assert got.json['drop_granted']['qty'] == 2 and got.json['drop_granted']['drop']['id'] == 'snowman_drop'
+    mine = client.get('/api/drops', headers=player).json['drops'][0]
+    assert mine['qty'] == 2 and mine['session_id']
+    bad = client.post('/api/admin/new-year/chains', headers=admin, json={'title': 'x', 'steps': [{'kind': 'DROP', 'amount': 'nope'}]})
+    assert bad.status_code == 400

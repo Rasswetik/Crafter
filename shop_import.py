@@ -127,6 +127,19 @@ def whole(v):
     return int(round(f))
 
 
+def parse_resource(text):
+    """'1 GRAM' / '0.5 грам' -> ('GRAM', '0.5'); '500 шаров' -> ('BALL', '500'); else None."""
+    t = norm(text)
+    m = re.fullmatch(r'(\d+(?: \d{3})*|\d*\s?\d+(?: \d+)?)\s*(gram|грам\w*)', t)
+    m2 = re.fullmatch(r'(\d+(?:[.,]\d+)?)\s*(gram|грам\w*)', str(text or '').lower().replace('ё', 'е').strip())
+    if m2:
+        return 'GRAM', m2.group(1).replace(',', '.')
+    m3 = re.fullmatch(r'(\d[\d ]*)\s*(шар\w*)', t)
+    if m3:
+        return 'BALL', m3.group(1).replace(' ', '')
+    return None
+
+
 def install_shop_import(app, db, auth, audit):
     def catalogue():
         chests = {norm(r['title']): r['id'] for r in db().execute("SELECT id,title FROM chests").fetchall()}
@@ -153,18 +166,46 @@ def install_shop_import(app, db, auth, audit):
             target = get(row, 'target') or get(row, 'title')
             key = norm(target)
             kind = amount = None
+            contents = None
             for k, table in (('DROP', drops), ('CHEST', chests), ('PACK', packs)):
                 if key in table:
                     kind, amount = k, table[key]
                     break
+            if not kind and parse_resource(target):                   # '1 GRAM', '500 шаров'
+                kind, amount = parse_resource(target)
+            if not kind and '+' in target:                             # a bundle: 'Santa Box ×3 + Snowman ×2 + 500 шаров + 1 GRAM'
+                spec = {'packs': {}, 'chests': {}, 'drops': {}, 'gram': '', 'balls': 0}
+                bad = None
+                for part in [x.strip() for x in target.split('+') if x.strip()]:
+                    res = parse_resource(part)
+                    if res and res[0] == 'GRAM':
+                        spec['gram'] = res[1]
+                        continue
+                    if res and res[0] == 'BALL':
+                        spec['balls'] += int(res[1])
+                        continue
+                    mm = re.match(r'^(.*?)\s*[×x*]\s*(\d+)$', part)
+                    nm, cnt = (mm.group(1), int(mm.group(2))) if mm else (part, 1)
+                    hit = next(((bucket, table[norm(nm)]) for bucket, table in (('drops', drops), ('chests', chests), ('packs', packs)) if norm(nm) in table), None)
+                    if not hit:
+                        bad = nm
+                        break
+                    spec[hit[0]][hit[1]] = spec[hit[0]].get(hit[1], 0) + cnt
+                if bad:
+                    problems.append('В наборе не нашёл «%s»' % bad)
+                else:
+                    kind = 'BUNDLE'
+                    contents = {'packs': [{'pack_id': k, 'count': v} for k, v in spec['packs'].items()], 'chests': [{'chest_id': k, 'count': v} for k, v in spec['chests'].items()],
+                                'drops': [{'drop_id': k, 'count': v} for k, v in spec['drops'].items()], 'gram': spec['gram'], 'balls': spec['balls'] or ''}
+                    amount = ''
             if not kind:                                       # «Snowman Drop ×3» in the title: the name without the count
                 key2 = norm(re.sub(r'[×x*]\s*\d+\s*$', '', target))
                 for k, table in (('DROP', drops), ('CHEST', chests), ('PACK', packs)):
                     if key2 in table:
                         kind, amount = k, table[key2]
                         break
-            if not kind:
-                problems.append('Не нашёл «%s» среди ящиков, дропов и паков' % target)
+            if not kind and not problems:
+                problems.append('Не нашёл «%s» среди ящиков, дропов, паков, ресурсов и наборов' % target)
             count = whole(get(row, 'count')) if get(row, 'count') else 1
             if count == 'bad' or count is None or not 1 <= count <= 20:
                 problems.append('Штук: число от 1 до 20')
@@ -211,11 +252,15 @@ def install_shop_import(app, db, auth, audit):
             per = '' if per in (None, 'bad') or per < 1 else per
             stock = '' if stock in (None, 'bad') or stock < 1 else stock
             title = get(row, 'title') or ''
+            if kind in ('GRAM', 'BALL', 'BUNDLE'):
+                count = 1
             payload = {'kind': kind, 'amount': amount, 'bundle': count, 'price_balls': price, 'old_price_balls': old or '', 'size': size, 'rarity': rarity, 'badge': get(row, 'badge')[:14],
                        'section_id': section_id, 'card_bg': bg, 'per_user': per, 'stock': stock, 'title': title[:80]}
+            if contents is not None:
+                payload['contents'] = contents
             if hours:
                 payload['ends_in_hours'] = hours
-            dup = bool(kind and (kind, amount, count) in existing)
+            dup = bool(kind and kind != 'BUNDLE' and (kind, amount, count) in existing)
             if dup:
                 warns.append('Такая акция уже есть в магазине')
             out.append({'row': ri + 1, 'title': title or target, 'target': target, 'kind': kind or '', 'count': count, 'price': price, 'old': old, 'size': size, 'section': get(row, 'section'),

@@ -1,7 +1,7 @@
 /* Chains of offers */
 .chn-ball{width:20px;height:20px;vertical-align:-4px}
 /* the tile */
-.fm-chaincard .chn-tile{position:absolute;inset:0;overflow:hidden;background:linear-gradient(135deg,#7b4dff 0,#c24fd8 55%,#ff7aa8 100%);background-size:cover;background-position:center}
+.fm-chaincard .chn-tile{position:absolute;inset:34px 0 0;overflow:hidden;background:linear-gradient(135deg,#7b4dff 0,#c24fd8 55%,#ff7aa8 100%);background-size:cover;background-position:center}
 .fm-chaincard .chn-tile.has-bg::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(20,10,60,.55),transparent 70%)}
 .chn-t-title{position:absolute;left:5%;top:7%;right:46%;margin:0;z-index:3;font:900 clamp(20px,3.2vw,34px)/1.02 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-style:italic;text-transform:uppercase;color:#fff;-webkit-text-stroke:0;text-shadow:3px 3px 0 #1a1140,-1px -1px 0 #1a1140,1px -1px 0 #1a1140,-1px 1px 0 #1a1140}
 .chn-t-sub{position:absolute;left:5%;top:calc(7% + 3.6em);z-index:3;color:#fff;font-weight:800;font-size:clamp(12px,1.5vw,16px);text-shadow:0 2px 0 rgba(26,17,64,.7)}

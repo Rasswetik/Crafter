@@ -3,15 +3,16 @@
 'use strict';
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c])));
 const toMsk = epoch => new Date((epoch + 3 * 3600) * 1000).toISOString().slice(0, 16);
-const KINDS = [['GRAM', 'GRAM'], ['BALL', 'Шары'], ['PACK', 'Пак'], ['STAR', 'Подарок Telegram'], ['CHEST', 'Ящик'], ['NFT', 'Прямой NFT']];
+const KINDS = [['GRAM', 'GRAM'], ['BALL', 'Шары'], ['PACK', 'Пак'], ['STAR', 'Подарок Telegram'], ['CHEST', 'Ящик'], ['DROP', 'Дроп'], ['NFT', 'Прямой NFT']];
 
 async function admin(content) {
-    let r, packs = [], STARS = [], CHESTS = [], COLS = [], LIB = [], SECTIONS = [];
+    let r, packs = [], STARS = [], CHESTS = [], DROPS = [], COLS = [], LIB = [], SECTIONS = [];
     const MODELS = {};
     try { r = await api('admin/new-year/chains'); } catch (_) { return; }
     try { packs = (await api('admin/new-year/packs')).packs || []; } catch (_) {}
     try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) {}
     try { CHESTS = (await api('admin/new-year/chests')).chests.map(c => c.chest); } catch (_) {}
+    try { DROPS = (await api('admin/drops')).drops; } catch (_) {}
     try { COLS = (await api('admin/new-year/catalog')).collections; } catch (_) {}
     try { LIB = (await api('admin/new-year/shop-bg-library')).library; } catch (_) {}
     try { SECTIONS = ((await api('admin/new-year/shop')).sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts'); } catch (_) {}
@@ -43,6 +44,7 @@ async function admin(content) {
     /* a prize in a step is a cell: a picture, the amount and the name */
     const rewardInfo = r => r.kind === 'PACK' ? {img: packs.find(p => p.id === r.amount)?.image || '', name: packs.find(p => p.id === r.amount)?.title || 'Пак', n: '×' + r.count}
         : r.kind === 'CHEST' ? {img: CHESTS.find(c => c.id === r.amount)?.image || '', name: CHESTS.find(c => c.id === r.amount)?.title || 'Ящик', n: '×' + r.count}
+        : r.kind === 'DROP' ? {img: DROPS.find(c => c.id === r.amount)?.image || '/static/assets/drops/snowman.png', name: DROPS.find(c => c.id === r.amount)?.title || 'Дроп', n: '×' + r.count}
         : r.kind === 'GRAM' ? {img: '/static/assets/gram.svg', name: 'GRAM', n: String(r.amount)} : r.kind === 'BALL' ? {img: '/static/assets/new-year-ornament.svg', name: 'Шары', n: Number(r.amount).toLocaleString('ru-RU')}
         : r.kind === 'STAR' ? {img: STARS.find(x => x.key === r.amount)?.image || '', name: STARS.find(x => x.key === r.amount)?.name || 'Подарок', n: '×' + r.count}
         : {img: '', name: String(r.amount).split(':').slice(1).join(':') || 'NFT', n: (COLS.find(c => c.id === String(r.amount).split(':')[0]) || {}).name || 'NFT'};
@@ -93,7 +95,7 @@ async function admin(content) {
         sec.querySelectorAll('[data-st-down]').forEach(b => b.addEventListener('click', () => move(+b.dataset.stDown, 1)));
         sec.querySelectorAll('[data-rw-add]').forEach(b => b.addEventListener('click', () => {
             pull(); const i = +b.dataset.rwAdd;
-            window.crafterRewardPicker.open({packs, chests: CHESTS, stars: STARS, cols: COLS, models: async cid => { await loadModels(cid); return MODELS[cid] || []; }}, x => { form.steps[i].rewards.push(x); draw(); });
+            window.crafterRewardPicker.open({packs, chests: CHESTS, drops: DROPS, stars: STARS, cols: COLS, models: async cid => { await loadModels(cid); return MODELS[cid] || []; }}, x => { form.steps[i].rewards.push(x); draw(); });
         }));
         sec.querySelectorAll('[data-rw-del]').forEach(b => b.addEventListener('click', () => { pull(); const [i, j] = b.dataset.rwDel.split('.').map(Number); form.steps[i].rewards.splice(j, 1); draw(); }));
         sec.querySelectorAll('[data-st-img]').forEach(i => i.addEventListener('change', async () => { const f = i.files[0]; if (!f) return; pull(); try { form.steps[+i.dataset.stImg].image = await uploadMedia(f); draw(); } catch (err) { toast(err.message); } }));

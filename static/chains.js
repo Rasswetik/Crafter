@@ -83,9 +83,9 @@ function stage(ch, ctx) {
         o.addEventListener('click', ev => { if (ev.target === o || ev.target.tagName === 'BUTTON') { o.classList.remove('is-in'); setTimeout(() => o.remove(), 200); } });
     };
     // the same window as after a purchase in the market: a pack (or the prize) flies up with sparks and rays
-    const reveal = (s, res, rest) => {
+    const reveal = (s, res, rest, after) => {
         const f = window.crafterFestive;
-        if (!f || !f.reveal) { popup(s, res); return; }
+        if (!f || !f.reveal) { popup(s, res); after && after(); return; }
         const list = rest && rest.length ? rest : (res.result.rewards || []);
         const isPack = Boolean(res.pack_ids && res.pack_ids.length);
         const firstPack = list.find(r => r.kind === 'PACK');
@@ -98,7 +98,7 @@ function stage(ch, ctx) {
         if (res.gift_ids && res.gift_ids.length) extra.push('Подарки Telegram — в разделе «Мои подарки»');
         if (list.some(r => r.kind === 'GRAM' || r.kind === 'BALL')) extra.push('GRAM и шары уже на балансе');
         const result = isPack ? {packIds: res.pack_ids, count: res.pack_ids.length, head: 'Получено', title: 'Вы получили: <b>' + e(title) + '</b>'} : {head: 'Получено', title: 'Вы получили: ' + e(title), text: extra.join('. ') || 'Награда получена.'};
-        f.reveal({it}, result, {refresh() {}}, () => {});
+        f.reveal({it}, result, {refresh() {}}, () => { after && after(); });
     };
     let busy = false;
     const claim = async s => {
@@ -113,8 +113,9 @@ function stage(ch, ctx) {
             const nx = ch.steps.find(x => x.state === 'locked'); if (nx) nx.state = 'ready';
             draw();
             if (res.chest_opens && window.crafterChests) await window.crafterChests.playMany(res.chest_opens, {bg: 'cozy', toast, refresh() {}});
-            const rest = (res.result.rewards || []).filter(r => r.kind !== 'CHEST');
-            if (rest.length || !res.chest_opens) reveal(s, res, rest);
+            const rest = (res.result.rewards || []).filter(r => r.kind !== 'CHEST' && r.kind !== 'DROP');
+            if (rest.length || (!res.chest_opens && !res.drop_granted)) await new Promise(done => reveal(s, res, rest, done));
+            if (res.drop_granted && window.crafterDrops) window.crafterDrops.afterPurchase(res.drop_granted, {refresh() {}});
         } catch (error) { err.textContent = error.message; toast(error.message); }
         busy = false;
     };

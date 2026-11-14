@@ -12,7 +12,7 @@ from decimal import Decimal
 
 from flask import abort, g, request
 
-KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'CHEST', 'NFT')
+KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'CHEST', 'DROP', 'NFT')
 LIMIT = 10 ** 9
 IMAGE = re.compile(r'/media/shop/[0-9a-f]{32}|/static/assets/[A-Za-z0-9_./-]+')
 BG_IMAGE = re.compile(r'image:(/media/shop/[0-9a-f]{32}|/static/assets/[A-Za-z0-9_./-]+)')
@@ -78,6 +78,9 @@ def install_chains(app, db, auth, audit, record):
         if kind == 'CHEST':
             chest = app.extensions['crafter_chest_short'](amount) or {}
             return chest.get('title') or 'Ящик', chest.get('image') or ''
+        if kind == 'DROP':
+            drop = app.extensions['crafter_drop_short'](amount) or {}
+            return (drop.get('title') or 'Дроп') + (' ×' + str(count) if count > 1 else ''), drop.get('image') or ''
         cid, _, model = str(amount).partition(':')
         info = app.extensions['crafter_nft_short'](cid, model) or {}
         return (info.get('model') or 'NFT') + (' · ' + info['collection'] if info.get('collection') else ''), info.get('image') or ''
@@ -176,6 +179,7 @@ def install_chains(app, db, auth, audit, record):
                 db().execute("INSERT INTO new_year_wallets(user_id) VALUES(?) ON CONFLICT DO NOTHING", (uid,))
                 db().execute("UPDATE new_year_wallets SET balls=? WHERE user_id=?", (new, uid))
             pack_ids, gift_ids, opens, nfts = [], [], [], []
+            drops_given, drop_id = 0, ''
             for x in rewards:
                 kind, amount, count = x['kind'], x['amount'], int(x.get('count') or 1)
                 if kind == 'PACK':
@@ -184,6 +188,10 @@ def install_chains(app, db, auth, audit, record):
                     gift_ids += [app.extensions['crafter_grant_star_gift'](uid, amount, src) for _ in range(count)]
                 elif kind == 'CHEST':
                     opens += [app.extensions['crafter_open_chest'](uid, amount, src) for _ in range(count)]
+                elif kind == 'DROP':                                  # a drop opens at once, like a chest
+                    app.extensions['crafter_start_drops'](uid, amount, count, src)
+                    drops_given += count
+                    drop_id = amount
                 elif kind == 'NFT':
                     cid, _, model = amount.partition(':')
                     nfts.append(app.extensions['crafter_grant_nft'](uid, cid, model, src))
@@ -191,6 +199,8 @@ def install_chains(app, db, auth, audit, record):
                 out.update(pack_id=pack_ids[0], pack_ids=pack_ids)
             if gift_ids:
                 out['gift_ids'] = gift_ids
+            if drops_given:
+                out['drop_granted'] = {'drop': app.extensions['crafter_drop_short'](drop_id), 'qty': drops_given}
             if opens:
                 out.update(chest_open=opens[0], chest_opens=opens)
             if nfts:
@@ -239,6 +249,15 @@ def install_chains(app, db, auth, audit, record):
             if not 1 <= n <= LIMIT:
                 abort(400, description='Шары: от 1 до %d' % LIMIT)
             amount = str(n)
+        elif kind == 'DROP':
+            if not app.extensions['crafter_drop_exists'](amount):
+                abort(400, description='Выберите существующий дроп')
+            try:
+                count = int(str(body.get('count') or 1))
+            except ValueError:
+                abort(400, description='Сколько дропов: целое число')
+            if not 1 <= count <= 20:
+                abort(400, description='Дропов в шаге: от 1 до 20')
         elif kind == 'CHEST':
             if not app.extensions['crafter_chest_exists'](amount):
                 abort(400, description='Выберите существующий ящик')

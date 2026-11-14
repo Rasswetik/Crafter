@@ -4,7 +4,7 @@
 (function () {
 'use strict';
 const e = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
-const TYPES = [['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png'], ['GRAM', 'GRAM', '/static/assets/gram.svg'],
+const TYPES = [['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png'], ['DROP', 'Дроп', '/static/assets/drops/snowman.png'], ['GRAM', 'GRAM', '/static/assets/gram.svg'],
     ['BALL', 'Шары', '/static/assets/new-year-ornament.svg'], ['NFT', 'Подарок (NFT)', '/static/assets/stargifts/bear.png'], ['STAR', 'Подарок Telegram', '/static/assets/stargifts/bear.png']];
 
 function open(cfg, onAdd) {
@@ -16,8 +16,8 @@ function open(cfg, onAdd) {
     const counter = () => '<div class="bnd-count"><label>Сколько штук</label><input type="number" min="1" max="20" value="1" data-bnd-n><button type="button" class="primary" data-bnd-ok>Добавить</button></div>';
     const n = () => Math.max(1, Math.min(20, Math.floor(Number(wrap.querySelector('[data-bnd-n]').value) || 1)));
     const pickOne = kind => {
-        const list = kind === 'PACK' ? (cfg.packs || []).map(p => ({id: p.id, title: p.title, image: p.image})) : (cfg.chests || []);
-        shell(kind === 'PACK' ? 'Какой пак?' : 'Какой ящик?', '<div class="bnd-grid">' + (list.length ? list.map(x => '<button type="button" class="bnd-opt" data-id="' + e(x.id) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') : '<p class="sub">Пока нечего выбрать.</p>') + '</div>');
+        const list = kind === 'PACK' ? (cfg.packs || []).map(p => ({id: p.id, title: p.title, image: p.image})) : kind === 'DROP' ? (cfg.drops || []) : (cfg.chests || []);
+        shell(kind === 'PACK' ? 'Какой пак?' : kind === 'DROP' ? 'Какой дроп?' : 'Какой ящик?', '<div class="bnd-grid">' + (list.length ? list.map(x => '<button type="button" class="bnd-opt" data-id="' + e(x.id) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') : '<p class="sub">Пока нечего выбрать.</p>') + '</div>');
         wrap.querySelectorAll('.bnd-opt').forEach(b => b.addEventListener('click', () => {
             const x = list.find(y => y.id === b.dataset.id);
             shell(e(x.title), '<div class="bnd-one"><img src="' + e(x.image) + '" alt=""></div>' + counter());
@@ -45,7 +45,7 @@ function open(cfg, onAdd) {
         wrap.querySelector('[data-bnd-ok]').addEventListener('click', () => { const v = wrap.querySelector('[data-star]').value; if (v) done({kind: 'STAR', amount: v, count: n()}); });
     };
     shell('Что добавить в приз?', '<div class="bnd-types">' + TYPES.filter(t => t[0] !== 'STAR' || (cfg.stars || []).length).map(([k, t, img]) => '<button type="button" class="bnd-type" data-type="' + k + '"><img src="' + img + '" alt=""><span>' + t + '</span></button>').join('') + '</div>');
-    wrap.querySelectorAll('.bnd-type').forEach(b => b.addEventListener('click', () => { const k = b.dataset.type; if (k === 'PACK' || k === 'CHEST') pickOne(k); else if (k === 'GRAM' || k === 'BALL') amount(k); else if (k === 'NFT') nft(); else star(); }));
+    wrap.querySelectorAll('.bnd-type').forEach(b => b.addEventListener('click', () => { const k = b.dataset.type; if (k === 'PACK' || k === 'CHEST' || k === 'DROP') pickOne(k); else if (k === 'GRAM' || k === 'BALL') amount(k); else if (k === 'NFT') nft(); else star(); }));
     wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
     document.body.appendChild(wrap);
 }

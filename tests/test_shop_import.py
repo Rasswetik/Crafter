@@ -55,3 +55,22 @@ def test_import_from_pasted_rows_and_csv(client):
     res = client.post('/api/admin/new-year/shop-import/parse', headers=admin, data={'file': (io.BytesIO(csv_data), 'x.csv')}, content_type='multipart/form-data')
     assert res.json['sheets'][0]['rows'][0]['payload']['amount'] == 'honey'
     assert client.post('/api/admin/new-year/shop-import/parse', headers=signed(53), json={'text': text}).status_code in (401, 403)
+
+
+def test_import_packs_resources_and_bundles(client):
+    admin = signed(42)
+    client.get('/api/me', headers=admin)
+    text = '\t'.join(['Название акции', 'Ящик или дроп', 'Штук', 'Цена, шаров']) + '\n' + '\n'.join([
+        'New Year ×3\tNew Year\t3\t90', '1 GRAM\t1 GRAM\t1\t115', '500 шаров\t500 шаров\t1\t10',
+        'Набор\tSanta Box ×3 + Snowman Drop ×2 + New Year ×1 + 500 шаров + 0.5 GRAM\t1\t900', 'Плохой набор\tSanta Box + Что-то\t1\t10'])
+    res = client.post('/api/admin/new-year/shop-import/parse', headers=admin, json={'text': text})
+    rows = res.json['sheets'][0]['rows']
+    assert [r['ok'] for r in rows] == [True, True, True, True, False], [r['problems'] for r in rows]
+    assert rows[0]['payload']['kind'] == 'PACK' and rows[0]['payload']['bundle'] == 3
+    assert (rows[1]['payload']['kind'], rows[1]['payload']['amount']) == ('GRAM', '1')
+    assert (rows[2]['payload']['kind'], rows[2]['payload']['amount']) == ('BALL', '500')
+    spec = rows[3]['payload']['contents']
+    assert rows[3]['payload']['kind'] == 'BUNDLE' and spec['chests'][0]['count'] == 3 and spec['drops'][0]['count'] == 2 and spec['balls'] == 500 and spec['gram'] == '0.5'
+    for r in rows[:4]:
+        made = client.post('/api/admin/new-year/shop', headers=admin, json=r['payload'])
+        assert made.status_code == 200, (r['title'], made.get_data(as_text=True))
