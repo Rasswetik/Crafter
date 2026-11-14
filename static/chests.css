@@ -267,3 +267,8 @@ body.cx-open .crafter-snowfall{display:none!important}
   .cx-count{font-size:clamp(34px,10vw,56px)}
   .cx-tap{position:fixed;left:0;right:0;bottom:max(26px,env(safe-area-inset-bottom));text-align:center}
 }
+
+/* a gift that dropped: its own background and number */
+.cx-art.is-gift,.dr-rw-art.is-gift{border-radius:28px;box-shadow:0 18px 40px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.28);overflow:hidden}
+.cx-art.is-gift .cx-aura,.dr-rw-art.is-gift .dr-rw-aura,.dr-rw-art.is-gift .dr-rw-rays{display:none}
+.cx-num,.dr-num{position:absolute;z-index:2;right:12px;bottom:10px;padding:2px 9px;border-radius:999px;background:rgba(0,0,0,.38);color:#fff;font:800 15px/1.4 system-ui,sans-serif;letter-spacing:.02em}

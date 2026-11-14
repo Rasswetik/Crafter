@@ -32,7 +32,7 @@ def test_freebies_open_in_time_and_leave_a_receipt(client):
     assert client.post('/api/freebies/claim', headers=player, json={'gift_id': first}).json['again'] is True   # no second reward
     assert len(client.get('/api/packs', headers=player).json['mine']) == 2
     ball = client.post('/api/freebies/claim', headers=player, json={'gift_id': balls}).json
-    assert ball['balance']['balls'] == 500 and ball['result']['title'] == '500 шаров'
+    assert ball['balance']['balls'] == 500 and ball['result']['title'] in ('500 шаров', '500 поинтов')
     money = client.post('/api/freebies/claim', headers=player, json={'gift_id': gram}).json
     assert money['result']['title'] == '0.5 GRAM'
     after = {x['label']: x for x in client.get('/api/freebies', headers=player).json['events'][0]['gifts']}

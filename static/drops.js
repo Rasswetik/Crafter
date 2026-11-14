@@ -122,12 +122,14 @@ async function open(dropId, opts) {
         solidEl.classList.remove('is-flipping');
     };
     const pulse = cls => { el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); };
+const hex = n => '#' + ('000000' + Number(n).toString(16)).slice(-6);
+const giftBg = it => { const b = it && it.background; return b && b.center_color != null ? 'style="background:radial-gradient(circle at 50% 38%,' + (typeof b.center_color === 'number' ? hex(b.center_color) : b.center_color) + ',' + (typeof b.edge_color === 'number' ? hex(b.edge_color) : b.edge_color) + ')"' : ''; };   // the gift with its own background and number
     const showReward = async (rw, color) => {
         const r = $('.dr-reward');
-        const label = rw.kind === 'GRAM' ? num(rw.amount) + ' GRAM' : rw.kind === 'BALL' ? num(rw.amount) + ' шаров' : rw.title;
+        const label = rw.kind === 'GRAM' ? num(rw.amount) + ' GRAM' : rw.kind === 'BALL' ? num(rw.amount) + (document.documentElement.classList.contains('ny-off') ? ' поинтов' : ' шаров') : rw.title;
         const conf = Array.from({length: 34}, (_, i) => '<i style="left:' + ((i * 29) % 100) + '%;--d:' + (2.4 + (i * 7) % 20 / 10).toFixed(1) + 's;--w:' + ((i * 23) % 80 - 40) + 'px;--c:' + [color, '#ffffff', '#ffd36b', '#7cc8ff', '#ff7a9a'][i % 5] + ';animation-delay:' + ((i * 13) % 12 / 10).toFixed(1) + 's"></i>').join('');
-        r.innerHTML = '<div class="dr-conf">' + conf + '</div><span class="dr-rw-chip">' + e(EN[RAR[s.rarity]]) + '</span><div class="dr-rw-art"><i class="dr-rw-rays"></i><i class="dr-rw-aura"></i><img src="' + e(thumb(rw.image, 480)) + '" alt=""></div><div class="dr-rw-plate"><h2>' + e(label) + '</h2></div>' +
-            (rw.kind === 'NFT' ? '<small class="dr-rw-note">NFT · уже в вашем инвентаре</small>' : rw.kind === 'PACK' ? '<small class="dr-rw-note">Закрытый пак · в инвентаре</small>' : '') +
+        r.innerHTML = '<div class="dr-conf">' + conf + '</div><span class="dr-rw-chip">' + e(EN[RAR[s.rarity]]) + '</span><div class="dr-rw-art' + (rw.background ? ' is-gift' : '') + '" ' + giftBg(rw) + '><i class="dr-rw-rays"></i><i class="dr-rw-aura"></i><img src="' + e(thumb(rw.image, 480)) + '" alt="">' + (rw.number ? '<b class="dr-num">#' + e(rw.number) + '</b>' : '') + '</div><div class="dr-rw-plate"><h2>' + e(label) + '</h2></div>' +
+            (rw.kind === 'NFT' ? '<small class="dr-rw-note">NFT · ' + (rw.credited ? 'недоступен на маркете, зачислено ' + e(rw.credited) + ' GRAM' : 'уже в вашем инвентаре') + '</small>' : rw.kind === 'PACK' ? '<small class="dr-rw-note">Закрытый пак · в инвентаре</small>' : '') +
             '<div class="dr-rw-btns">' + (s.qty > 0 ? '<button type="button" class="dr-btn is-main" data-more>Следующий дроп (' + s.qty + ')</button>' : '') + '<button type="button" class="dr-btn" data-done>Готово</button></div>';
         r.hidden = false; void r.offsetWidth; r.classList.add('is-pop');
         burst(34, 1.5, color);

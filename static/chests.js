@@ -224,7 +224,9 @@ function viewer(host, chest, opts = {}) {
 }
 
 /* ---------- screens of the opening ---------- */
-const KIND_TITLE = {BALL: 'ШАРЫ', GRAM: 'GRAM'};
+const hex = n => '#' + ('000000' + Number(n).toString(16)).slice(-6);
+const giftBg = it => { const b = it && it.background; return b && b.center_color != null ? 'style="background:radial-gradient(circle at 50% 38%,' + (typeof b.center_color === 'number' ? hex(b.center_color) : b.center_color) + ',' + (typeof b.edge_color === 'number' ? hex(b.edge_color) : b.edge_color) + ')"' : ''; };   // the gift with its own background and number
+const KIND_TITLE = {get BALL() { return document.documentElement.classList.contains('ny-off') ? 'ПОИНТЫ' : 'ШАРЫ'; }, GRAM: 'GRAM'};
 function pieces(items) {                                            // one screen for each item that came out
     return items.map(it => {
         const nft = it.kind === 'NFT';                                // a direct gift: the collection on top, the model under its picture
@@ -263,7 +265,7 @@ function play(res, opts = {}) {
         const p = items[at];
         left.hidden = false; left.querySelector('b').textContent = String(items.length - at - 1);
         reward.hidden = false; reward.className = 'cx-reward is-' + p.kind.toLowerCase() + (p.big ? ' is-big' : '');
-        reward.innerHTML = '<h2>' + e(p.title) + '</h2><div class="cx-art"><i class="cx-aura"></i><img src="' + e(p.image) + '" alt="" draggable="false"></div><div class="cx-count' + (p.kind === 'NFT' ? ' is-nft' : '') + '">' + e(p.count) + '</div>' + (p.kind === 'NFT' ? '<small class="cx-nftnote">NFT · уже в вашем инвентаре</small>' : '') + '<small class="cx-tap">Нажмите, чтобы продолжить</small>';
+        reward.innerHTML = '<h2>' + e(p.title) + '</h2><div class="cx-art' + (p.item.background ? ' is-gift' : '') + '" ' + giftBg(p.item) + '><i class="cx-aura"></i><img src="' + e(p.image) + '" alt="" draggable="false">' + (p.item.number ? '<b class="cx-num">#' + e(p.item.number) + '</b>' : '') + '</div><div class="cx-count' + (p.kind === 'NFT' ? ' is-nft' : '') + '">' + e(p.count) + '</div>' + (p.kind === 'NFT' ? '<small class="cx-nftnote">NFT · ' + (p.item.credited ? 'недоступен на маркете, зачислено ' + e(p.item.credited) + ' GRAM' : 'уже в вашем инвентаре') + '</small>' : '') + '<small class="cx-tap">Нажмите, чтобы продолжить</small>';
         void reward.offsetWidth; reward.classList.add('is-pop');
     };
     const summary = () => {
@@ -276,7 +278,7 @@ function play(res, opts = {}) {
             if (hit) hit.amount += amount; else tot.push({key, p, amount});
         });
         const cells = tot.map(t => ({...t.p, count: t.p.kind === 'NFT' ? t.p.item.title : 'x' + num(Math.round(t.amount * 100) / 100)}));
-        sum.innerHTML = '<h2>Вы получили</h2><div class="cx-grid">' + cells.map((p, i) => '<div class="cx-cell' + (p.big ? ' is-big' : '') + '" style="--i:' + i + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.count) + '</b><small>' + e(p.kind === 'BALL' ? 'Шары' : p.kind === 'GRAM' ? 'GRAM' : p.kind === 'NFT' ? p.item.collection : p.item.title) + '</small></div>').join('') + '</div>' +
+        sum.innerHTML = '<h2>Вы получили</h2><div class="cx-grid">' + cells.map((p, i) => '<div class="cx-cell' + (p.big ? ' is-big' : '') + '" style="--i:' + i + '"><img src="' + e(p.image) + '" alt=""><b>' + e(p.count) + '</b><small>' + e(p.kind === 'BALL' ? (document.documentElement.classList.contains('ny-off') ? 'Поинты' : 'Шары') : p.kind === 'GRAM' ? 'GRAM' : p.kind === 'NFT' ? p.item.collection : p.item.title) + '</small></div>').join('') + '</div>' +
             '<p>' + (packIds.length ? (packIds.length > 1 ? 'Паки уже в инвентаре. Открыть их сейчас?' : 'Пак уже в инвентаре. Открыть его сейчас?') : 'Всё уже на вашем балансе.') + '</p>' +
             '<div class="cx-btns">' + (packIds.length ? '<button type="button" class="cx-btn green" data-cx-open>' + (packIds.length > 1 ? 'Открыть все (' + packIds.length + ')' : 'Открыть сейчас') + '</button><button type="button" class="cx-btn blue" data-cx-keep>Оставить в инвентаре</button>' : '<button type="button" class="cx-btn green" data-cx-keep>Отлично</button>') + '</div>';
         sum.querySelector('[data-cx-keep]').addEventListener('click', ev => { ev.stopPropagation(); done(); });

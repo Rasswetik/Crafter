@@ -161,3 +161,16 @@ def test_section_hide_and_show_in_one_tap(client):
     assert client.post('/api/admin/new-year/shop-sections/%s/visibility' % sid, headers=admin, json={'enabled': True}).json['enabled'] is True
     assert client.post('/api/admin/new-year/shop-sections/nope/visibility', headers=admin, json={'enabled': True}).status_code == 404
     assert client.post('/api/admin/new-year/shop-sections/%s/visibility' % sid, headers=signed(72), json={'enabled': False}).status_code in (401, 403)
+
+
+def test_gifts_not_on_the_market_have_zero_chance_in_drops():
+    from drops import DROPS, available_cfg, final_chances
+    cfg = DROPS['vicecity_drop']
+    gone = {cfg['rewards']['NFT'][0][1], cfg['rewards']['NFT'][3][1]}
+    live = available_cfg(cfg, lambda cid, model: (cid + ':' + model) not in gone)
+    _, rew = final_chances(live)
+    assert abs(sum(rew.values()) - 1) < 1e-9
+    assert ('NFT', 0) not in rew and ('NFT', 3) not in rew and ('NFT', 1) in rew
+    assert available_cfg(cfg, None) is cfg
+    assert available_cfg(cfg, lambda *a: True) is cfg
+    assert len(cfg['rewards']['NFT']) == 15 and sum(1 for x in cfg['rewards']['NFT'] if x[1].startswith('diamondring')) == 1   # a ring is one gift of fifteen

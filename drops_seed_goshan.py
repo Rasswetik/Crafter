@@ -329,8 +329,9 @@ BOXES = {'goshan': {'title': 'Goshan Box',
 # ---- Vice City: the same rules as the other drops and boxes, the neon pool of the catalogue (the chances are the same as in the Goshan and Nikolay sets: change them in the admin panel if needed)
 import copy as _copy
 
-VICE_NFT = ['chillflame:Tiki Torch', 'eternalcandle:Sunrise', 'candycane:Pink Mango', 'candycane:Neon Wave', 'candycane:Tropico', 'bdaycandle:Tropicana', 'bdaycandle:Neon Lights',
-            'cookieheart:Neon Candy', 'bunnymuffin:Sea Cruise', 'bunnymuffin:Neon Sign', 'deskcalendar:Tropical', 'deskcalendar:Miami Beach', 'diamondring:Flamingo', 'diamondring:Hot Pink', 'diamondring:Vice City']
+VICE_NFT = ['chillflame:Tiki Torch', 'berrybox:Purple Ribbon', 'berrybox:Magenta', 'eternalcandle:Sunrise', 'candycane:Pink Mango', 'candycane:Neon Wave', 'candycane:Tropico',
+            'bdaycandle:Tropicana', 'bdaycandle:Neon Lights', 'bunnymuffin:Neon Sign', 'jesterhat:Neon Night', 'starnotepad:Neon Grid', 'hangingstar:Tropicana', 'deskcalendar:Miami Beach',
+            'diamondring:Vice City']                      # 11 .. 55 TON: the same ladder of values as in the Goshan and Nikolay sets (the expensive gifts stand at the end, where the chances are the smallest)
 _drop = _copy.deepcopy(DROPS['nikolay_drop'])
 _drop['version'] = 'vicecity-drop-v1'
 _drop['title'] = 'Vice City Drop'

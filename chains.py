@@ -68,7 +68,7 @@ def install_chains(app, db, auth, audit, record):
         if kind == 'GRAM':
             return plain(Decimal(amount)) + ' GRAM', '/static/assets/gram.svg'
         if kind == 'BALL':
-            return format(int(amount), ',').replace(',', ' ') + ' шаров', '/static/assets/new-year-ornament.svg'
+            return format(int(amount), ',').replace(',', ' ') + ' ' + ('шаров' if (app.extensions.get('crafter_ny_currency_mode') or (lambda: 'balls'))() == 'balls' else 'поинтов'), '/static/assets/new-year-ornament.svg'
         if kind == 'PACK':
             pack = app.extensions['crafter_pack_short'](amount) or {}
             return (pack.get('title') or 'Пак') + (' ×' + str(count) if count > 1 else ''), pack.get('image') or ''

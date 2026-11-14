@@ -173,12 +173,16 @@ def install_chests(app, db, auth, audit, record):
             abort(400, description='Диапазон: от меньшего к большему, больше нуля')
         return lo, hi
 
+    def ball_title():
+        mode = app.extensions.get('crafter_ny_currency_mode')
+        return 'Шары' if not mode or mode() == 'balls' else 'Поинты'
+
     def entry_item(row):
         kind, amount = row['kind'], row['amount']
         if kind == 'BALL':
             lo, hi = span(amount)
             n = rng.randint(int(lo), int(hi))
-            return {'kind': 'BALL', 'title': 'Шары', 'image': BALL_ICON, 'amount': str(n), 'count': 1}
+            return {'kind': 'BALL', 'title': ball_title(), 'image': BALL_ICON, 'amount': str(n), 'count': 1}
         if kind == 'GRAM':
             lo, hi = span(amount)
             v = (lo + (hi - lo) * Decimal(str(rng.random()))).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
@@ -210,6 +214,9 @@ def install_chests(app, db, auth, audit, record):
         loot = loot_rows(row['id'])
         if not loot:
             abort(409, description='В ящике пока ничего нет')
+        avail = app.extensions.get('crafter_nft_available')
+        if avail:                                                    # a gift that cannot be bought on the market has no chance to drop
+            loot = [x for x in loot if x['kind'] != 'NFT' or avail(*str(x['amount']).partition(':')[::2])] or loot
         rolls = rolls_of(row)
         n = int(rng.choices(list(rolls), weights=list(rolls.values()))[0])
         st = settings_of(row)
@@ -236,7 +243,9 @@ def install_chests(app, db, auth, audit, record):
             elif it['kind'] == 'NFT':
                 col, _, model = it['amount'].partition(':')
                 got = app.extensions['crafter_grant_nft'](uid, col, model, label)
-                it.update(nft_id=got.get('nft_id'), number=got.get('number'), credited=got.get('credited'))
+                it.update(nft_id=got.get('nft_id'), number=got.get('number'), credited=got.get('credited'), backdrop=got.get('backdrop'), background=got.get('background'))
+                if got.get('image'):
+                    it['image'] = got['image']
             elif it['kind'] == 'PACK':
                 it['pack_ids'] = [app.extensions['crafter_grant_pack'](uid, it['amount'], label) for _ in range(it['count'])]
             else:
@@ -253,7 +262,7 @@ def install_chests(app, db, auth, audit, record):
     def loot_item(kind, amount, count=1):
         """One fixed item for the reveal screen and for grant_loot()."""
         if kind == 'BALL':
-            return {'kind': 'BALL', 'title': 'Шары', 'image': BALL_ICON, 'amount': str(int(amount)), 'count': 1}
+            return {'kind': 'BALL', 'title': ball_title(), 'image': BALL_ICON, 'amount': str(int(amount)), 'count': 1}
         if kind == 'GRAM':
             return {'kind': 'GRAM', 'title': 'GRAM', 'image': GRAM_ICON, 'amount': plain(Decimal(str(amount))), 'count': 1}
         if kind == 'NFT':

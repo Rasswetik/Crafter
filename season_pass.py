@@ -113,7 +113,7 @@ def install_season_pass(app, db, auth, audit, record):
         if kind == 'GRAM':
             return {'kind': kind, 'amount': amount, 'count': 1, 'title': amount + ' GRAM', 'image': '/static/assets/gram.svg'}
         if kind == 'BALL':
-            return {'kind': kind, 'amount': amount, 'count': 1, 'title': amount + ' шаров', 'image': '/static/assets/new-year-ornament.svg'}
+            return {'kind': kind, 'amount': amount, 'count': 1, 'title': amount + ' ' + ('шаров' if (app.extensions.get('crafter_ny_currency_mode') or (lambda: 'balls'))() == 'balls' else 'поинтов'), 'image': '/static/assets/new-year-ornament.svg'}
         if kind == 'PACK':
             p = ext['crafter_pack_short'](amount) or {}
             return {'kind': kind, 'amount': amount, 'count': count, 'title': p.get('title') or 'Пак', 'image': p.get('image') or ''}

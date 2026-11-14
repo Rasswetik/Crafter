@@ -67,6 +67,21 @@ def final_chances(cfg):
     return dist, rewards
 
 
+def available_cfg(cfg, available):
+    """The same rules with the gifts that cannot be bought on the market taken out: their weight is zero, and a rarity without any gift gives no gift at all."""
+    if available is None:
+        return cfg
+    out = dict(cfg)
+    gone = [i for i, spec in enumerate(cfg['rewards']['NFT']) if not available(*str(spec[1]).partition(':')[::2])]
+    if not gone:
+        return cfg
+    weights = [[0 if i in gone else w for i, w in enumerate(row)] for row in cfg['reward_weights']['NFT']]
+    out['reward_weights'] = {**cfg['reward_weights'], 'NFT': weights}
+    ni = cfg['categories'].index('NFT')
+    out['category_weights'] = [[(0 if (c == ni and not any(weights[r])) else w) for c, w in enumerate(row)] for r, row in enumerate(cfg['category_weights'])]
+    return out
+
+
 def install_drops(app, db, auth, audit):
     with app.app_context(), db():
         db().executescript("""
@@ -80,6 +95,9 @@ def install_drops(app, db, auth, audit):
             );
             CREATE INDEX IF NOT EXISTS idx_drop_sessions_user ON drop_sessions(user_id, drop_id, status);
         """)
+
+    def live(cfg):
+        return available_cfg(cfg, app.extensions.get('crafter_nft_available'))
 
     def short(drop_id):
         cfg = DROPS.get(drop_id)
@@ -107,7 +125,7 @@ def install_drops(app, db, auth, audit):
             abort(404, description='Такого дропа нет')
         ids = []
         for _ in range(int(n)):
-            steps, reward = plan(cfg)
+            steps, reward = plan(live(cfg))
             sid = uuid.uuid4().hex
             db().execute("INSERT INTO drop_sessions(id,user_id,drop_id,version,steps,reward,source,created) VALUES(?,?,?,?,?,?,?,?)",
                          (sid, uid, drop_id, cfg['version'], json.dumps(steps), json.dumps(reward), str(source)[:60], int(time.time())))
@@ -156,7 +174,7 @@ def install_drops(app, db, auth, audit):
         cfg = DROPS.get(drop_id)
         if not cfg:
             abort(404, description='Такого дропа нет')
-        dist, rewards = final_chances(cfg)
+        dist, rewards = final_chances(live(cfg))
         loot = []
         for (kind, i), p in sorted(rewards.items(), key=lambda kv: -kv[1]):
             spec = cfg['rewards'][kind][i]
@@ -183,7 +201,7 @@ def install_drops(app, db, auth, audit):
                 if stock_of(uid, drop_id) < 1:
                     abort(409, description='У вас нет такого дропа')
                 db().execute("UPDATE drop_stock SET qty=qty-1 WHERE user_id=? AND drop_id=?", (uid, drop_id))
-                steps, reward = plan(cfg)
+                steps, reward = plan(live(cfg))
                 sid = uuid.uuid4().hex
                 db().execute("INSERT INTO drop_sessions(id,user_id,drop_id,version,steps,reward,created) VALUES(?,?,?,?,?,?,?)",
                              (sid, uid, drop_id, cfg['version'], json.dumps(steps), json.dumps(reward), int(time.time())))

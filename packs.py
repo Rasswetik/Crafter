@@ -807,7 +807,20 @@ def install_packs(app, db, auth, record, audit):
         if not info:
             abort(409, description='Такого подарка нет в каталоге')
         if work_mode():
-            credit(uid, Decimal(info['value']))
+            prize = {'id': 'nft:%s:%s' % (cid, model), 'kind': 'NFT', 'weight': 1, 'name': info['collection'], 'collection_id': str(cid), 'model': info['model'],
+                     'image': info['image'], 'value': info['value'], 'amount': ''}
+            try:
+                lots = availability([prize]).get(prize['id'], [])
+                outcome, note = pack_ctx()['acquire']([lots[0][0]]) if lots else ('failed', '')
+            except Exception:
+                lots, outcome = [], 'failed'
+            if outcome == 'ok':
+                shown, price = lots[0]
+                nft_id = 'thermos-' + uuid.uuid4().hex
+                gift = {**shown, 'id': nft_id, 'source_id': shown['id'], 'origin': 'thermos', 'price': str(price), 'price_unit': 'GRAM', 'relayer_pending': True}
+                db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)", (uid, nft_id, json.dumps(gift, ensure_ascii=False), 'unlisted'))
+                return {**info, 'nft_id': nft_id, 'number': shown.get('number'), 'image': shown.get('image') or info['image'], 'backdrop': shown.get('backdrop', ''), 'background': shown.get('background'), 'real': True}
+            credit(uid, Decimal(info['value']))                                      # the gift could not be bought: its value is credited
             return {**info, 'credited': info['value']}
         bd = _rng.choice(BACKDROPS)
         gift = {'id': 'chest-' + uuid.uuid4().hex, 'name': info['collection'], 'number': _rng.randint(1000, 99999),
@@ -815,9 +828,25 @@ def install_packs(app, db, auth, record, audit):
                 'image': info['image'], 'price': info['value'], 'price_unit': 'GRAM', 'floor_price': info['value'], 'floor_unit': 'GRAM',
                 'collection_id': info['collection_id'], 'origin': 'pack', 'catalog_only': True, 'test_only': True, 'pack_prize': True}
         db().execute("INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)", (uid, gift['id'], json.dumps(gift, ensure_ascii=False), 'unlisted'))
-        return {**info, 'nft_id': gift['id'], 'number': gift['number']}
+        return {**info, 'nft_id': gift['id'], 'number': gift['number'], 'backdrop': bd[0], 'background': {'center_color': bd[1], 'edge_color': bd[2]}}
 
     app.extensions['crafter_nft_short'] = nft_short
+
+    def nft_available(cid, model):
+        """Can this gift be bought on the connected market right now? Without the real market (demo) every gift of the catalogue is available."""
+        if not work_mode():
+            return True
+        info = nft_short(cid, model)
+        if not info:
+            return False
+        prize = {'id': 'nft:%s:%s' % (cid, model), 'kind': 'NFT', 'weight': 1, 'name': info['collection'], 'collection_id': str(cid), 'model': info['model'],
+                 'image': info['image'], 'value': info['value'], 'amount': ''}
+        try:
+            return bool(availability([prize]).get(prize['id']))
+        except Exception:
+            return False
+
+    app.extensions['crafter_nft_available'] = nft_available
     app.extensions['crafter_grant_nft'] = grant_nft
 
     def pick(weights):

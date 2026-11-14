@@ -8,6 +8,7 @@ const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? '').replace(/[&
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
 // a phone decodes every picture into memory: our big pictures come as small copies (/thumb), otherwise a dozen cards can kill the page
 const thumb = (u, w) => /^\/(static\/assets\/(chests|packs)\/[\w.-]+\.(png|webp|jpe?g)|media\/shop\/[0-9a-f]{32})$/.test(u || '') ? '/thumb?u=' + encodeURIComponent(u) + '&w=' + w : u;
+const POINTS = () => document.documentElement.classList.contains('ny-off');                 // without the New Year the balls are points
 const ORN = '<img class="fm-ball" src="/static/assets/new-year-ornament.svg" alt="">';
 const SI = () => window.crafterShopItems || {};
 const NAMES = {common: 'Акция', rare: 'Редкая акция', special: 'Особая акция', epic: 'Эпическая акция', mythic: 'Мифическая акция', legend: 'Легендарная акция', res: 'Ресурсы'};
@@ -34,6 +35,7 @@ const ICONS = {
     crown: S('<path d="m3 8 4.500 4L12 5l4.500 7L21 8l-2 11H5z"/>'),
     fire: S('<path d="M12 2c1 3.500 5 5.500 5 10a5 5 0 0 1-10 0c0-2 1-3.500 2-4.500 0 2 1 3 2 3 0-3-1-5 1-8.500z"/>'),
     heart: S('<path d="M12 21s-8-4.700-9.500-10A5 5 0 0 1 12 7a5 5 0 0 1 9.500 4C20 16.300 12 21 12 21z"/>'),
+    vice: S('<path d="M3 17a9 9 0 0 1 18 0zM5.600 15h12.800a7 7 0 0 0-12.800 0z"/><path d="M12 22v-8h1.200v8zM12.600 13.500c-1-2-3-3-5.300-2.800 1.800.3 3.500 1.300 4.500 3zm.4 0c.8-2 2.700-3.400 5.200-3.300-1.800.5-3.500 1.700-4.700 3.500zM12.600 13c-.2-2-1.200-3.600-3-4.500 1.400 1.100 2.200 2.600 2.500 4.500zm.6 0c.2-2 1.200-3.700 3-4.500-1.300 1.200-2.100 2.600-2.400 4.500z"/><path d="M2 20.500h20V22H2z"/>'),
     bag: S('<path d="M6 7V6a6 6 0 0 1 12 0v1h2l1 15H3L4 7zm2 0h8V6a4 4 0 0 0-8 0z"/>'),
 };
 ICONS.featured = ICONS.star; ICONS.packs = ICONS.pack; ICONS.bundles = ICONS.bundle; ICONS.res = ICONS.gem; ICONS.rewards = ICONS.cup; ICONS.gifts = ICONS.gift;
@@ -161,7 +163,7 @@ function includes(o) {
     (it.drops_in || []).forEach(c => out.push({full: c.drop.image, img: thumb(c.drop.image, 200), label: c.drop.title, count: '×' + c.count}));
     if (it.pass_in) out.push({img: it.pass_in.image, label: 'Pass Plus', count: '×1'});
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
-    if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: 'Новогодние шары', count: num(it.balls)});
+    if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: POINTS() ? 'Поинты' : 'Новогодние шары', count: num(it.balls)});
     if (!out.length) {
         const pic = it.pack?.image || it.star?.image || it.image_url || (it.kind === 'GRAM' ? '/static/assets/gram.svg' : '/static/assets/new-year-ornament.svg');
         const count = it.kind === 'GRAM' ? num(it.amount) + ' GRAM' : it.kind === 'BALL' ? num(it.amount) : it.bundle > 1 ? '×' + it.bundle : '1';
@@ -463,7 +465,7 @@ async function perform(o, ctx, choice) {
     if (res.gram_balance !== undefined && state?.me) { state.me.balance = res.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
     if (res.chest_opens && res.chest_opens.length) {                  // several chests: they open one after another, then the rest of the purchase is shown
         const ids = res.pack_id ? (res.pack_ids || [res.pack_id]) : null;
-        const rest = ids ? {packIds: ids, count: ids.length} : (res.gram || res.balls_gain) ? {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : 'Зачислено шаров: ' + num(res.balls_gain), text: 'Баланс уже обновлён.'} : null;
+        const rest = ids ? {packIds: ids, count: ids.length} : (res.gram || res.balls_gain) ? {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : (POINTS() ? 'Зачислено поинтов: ' : 'Зачислено шаров: ') + num(res.balls_gain), text: 'Баланс уже обновлён.'} : null;
         return {chests: res.chest_opens, rest};
     }
     if (res.pack_id) { const ids = res.pack_ids || [res.pack_id]; return {packIds: ids, count: ids.length, picked: res.picked}; }
@@ -472,7 +474,7 @@ async function perform(o, ctx, choice) {
     if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};
     if (res.pass_plus) return {head: 'Покупка совершена', title: 'Pass Plus открыт!', text: 'Верхняя дорога наград и особые квесты сезона' + (res.pass_season ? ' «' + res.pass_season.title + '»' : '') + ' ждут в разделе «События» → «Сезон».'};
     if (res.code) { const cc = window.crafterCommunity; return {title: 'Ваш промокод', text: 'Он привязан к вашему аккаунту и работает один раз.', html: cc.codeBlock(res.code), bind: root => cc.bindCode(root, res.code)}; }
-    return {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : 'Зачислено шаров: ' + num(res.balls_gain), text: 'Баланс уже обновлён.'};
+    return {title: res.gram ? 'Зачислено: ' + num(res.gram) + ' GRAM' : (POINTS() ? 'Зачислено поинтов: ' : 'Зачислено шаров: ') + num(res.balls_gain), text: 'Баланс уже обновлён.'};
 }
 
 /* ---------- the market ---------- */
