@@ -203,6 +203,7 @@ def install_drops(app, db, auth, audit):
         request_id = str(body.get('request_id') or '')
         if not REQUEST_ID.fullmatch(request_id):
             abort(400, description='Нужен уникальный номер запроса')
+        note = None
         with db():
             db().execute('BEGIN IMMEDIATE')
             row = db().execute("SELECT * FROM drop_sessions WHERE id=? AND user_id=?", (sid, uid)).fetchone()
@@ -229,8 +230,10 @@ def install_drops(app, db, auth, audit):
             responses[request_id] = answer
             db().execute("UPDATE drop_sessions SET responses=? WHERE id=?", (json.dumps(responses, ensure_ascii=False), sid))
             if status == 'done':
-                audit('Drop opened %s: %s' % (row['drop_id'], reward['item'].get('title')))
-            return answer
+                note = 'Drop opened %s: %s' % (row['drop_id'], reward['item'].get('title'))
+        if note:                                                      # audit() commits: it must run after the transaction (PostgreSQL)
+            audit(note)
+        return answer
 
     @app.get('/api/admin/drops')
     @auth(admin=True)
