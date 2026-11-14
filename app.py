@@ -280,7 +280,7 @@ def create_app(config=None):
 
     @app.get('/')
     def index():
-        return render_template('index.html', site_maintenance=is_maintenance_enabled())
+        return render_template('index.html', site_maintenance=is_maintenance_enabled(), ny_on=new_year_enabled())
 
     # every section of the app has its own address: a refresh (or a shared link) opens that very section
     for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/auctions', '/author'):
@@ -319,7 +319,7 @@ def create_app(config=None):
         return app.send_static_file('favicon.ico')
     @app.get('/collections/<slug>')
     def collection_page(slug):
-        return render_template('index.html')
+        return render_template('index.html', ny_on=new_year_enabled())
 
     from fragment_media import serve_fragment_gift
     from collection_media import serve_collection_thumbnail, serve_trait_png

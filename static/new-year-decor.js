@@ -45,6 +45,7 @@ function draw(width) {
 }
 
 function build() {
+    if (document.documentElement.classList.contains('ny-off')) { document.getElementById('winter-garland')?.remove(); return; }
     const app = document.querySelector('#app');
     if (!app) return;
     const width = Math.round(app.clientWidth);

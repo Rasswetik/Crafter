@@ -1,0 +1,9 @@
+/* New Year is switched off by the administrator (section «Новый год»): garlands, snow, the ornament balance and the festive loading screen are gone, the usual look is back. */
+html.ny-off #winter-garland,
+html.ny-off .crafter-snowfall,
+html.ny-off .site-winter-garland,
+html.ny-off .winter-currency-balance,
+html.ny-off #app > header > .winter-currency-balance,
+html.ny-off #app > header::before,
+html.ny-off #app.arena-view .arena-board-frame::after,
+html.ny-off #app.craft-view .craft-page::after { display: none !important; content: none !important; background: none !important; }

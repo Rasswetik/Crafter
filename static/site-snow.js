@@ -22,7 +22,7 @@
     }
     function renderSnow(data){
         current=normalize(data);
-        if(!current.enabled||reduced()){removeSnow();return;}
+        if(!current.enabled||reduced()||document.documentElement.classList.contains('ny-off')){removeSnow();return;}
         const narrow=window.matchMedia('(max-width: 600px)').matches;
         const count=({light:15,normal:31,heavy:51})[current.density];
         const flakes=narrow?Math.min(count,14):count;

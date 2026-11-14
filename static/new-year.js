@@ -418,7 +418,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     const result=await api('admin/new-year');
     if(!content?.isConnected)return;
     content.innerHTML='<section class="ny-admin-section"><h3>Новый год</h3>'+
-      '<label class="ny-admin-switch"><span><b>Показывать Новый год всем игрокам</b><small class="sub" style="display:block;margin-top:6px">Кнопка появится в мобильной панели и под Маркетом на ПК.</small></span>'+
+      '<label class="ny-admin-switch"><span><b>Показывать Новый год всем игрокам</b><small class="sub" style="display:block;margin-top:6px">Включает весь Новый год на сайте: раздел и кнопка для игроков, гирлянды, снег и праздничная загрузка. При выключении всё это пропадает и возвращается обычный вид.</small></span>'+
       '<input type="checkbox" id="ny-admin-enabled" '+(result.enabled?'checked':'')+'></label></section>'+
       '<section class="ny-admin-section"><h3>Создать NFT-лот</h3>'+
       '<p class="sub">Модель, фон, узор и изображение — по ссылке Telegram; флор коллекции — из Portals.</p>'+
@@ -448,6 +448,8 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
         try{
             await api('admin/new-year/settings',{enabled:checked});
             state.me.new_year_enabled=checked;
+            document.documentElement.classList.toggle('ny-off',!checked);            // the whole site: garlands, snow and the festive look follow the switch at once
+            if(checked){window.dispatchEvent(new Event('resize'));fetch('/api/site/snow',{cache:'no-store'}).then(r=>r.json()).then(d=>window.crafterSnowApply&&window.crafterSnowApply(d)).catch(()=>{});}
             toast(checked?'Новый год включён для игроков':'Раздел Новый год выключен');
         }catch(error){toggle.checked=!checked;toast(error.message);}
         finally{toggle.disabled=false;}

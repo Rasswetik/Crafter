@@ -11,15 +11,19 @@ function left(s) {
     const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
     return d ? d + 'д ' + h + 'ч' : h ? h + 'ч ' + m + 'м' : m + 'м ' + (s % 60) + 'с';
 }
+function endText(s) {                                         // the same format as the end of any offer of the market
+    const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+    return d ? d + 'д. ' + h + 'ч.' : h ? h + 'ч. ' + m + 'м.' : m + 'м. ' + (s % 60) + 'с.';
+}
 const LOCK = '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M17 9V7a5 5 0 0 0-10 0v2H5v12h14V9h-2ZM9 7a3 3 0 0 1 6 0v2H9V7Z"/></svg>';
 
 /* ---------- the tile among the offers of the market ---------- */
 function card(ev) {
     if (ev.now) offset = ev.now - Math.floor(Date.now() / 1000);
-    const next = ev.next_unlock ? ev.next_unlock - nowSec() : 0;
-    const tab = ev.ready ? 'Забрать!' : next > 0 ? left(next) : (ev.total && ev.claimed >= ev.total ? 'Собрано' : '');
+    const end = ev.ends_at ? ev.ends_at - nowSec() : 0;          // like every offer of the market: the time to the end of the event is always on top
+    const tab = end > 0 ? '<span class="fm-tab" data-fm-end="' + ev.ends_at + '">' + endText(end) + '</span>' : '';
     return '<div class="fm-card fm-fbcard fm-s-wide' + (ev.ready ? ' has-ready' : '') + '" data-fm="fb:' + e(ev.id) + '" style="--u:2" tabindex="0" role="button" aria-label="' + e(ev.title) + '">' +
-        (tab ? '<span class="fm-tab fb-tab' + (ev.ready ? ' is-ready' : '') + '" data-fb-next="' + (ev.next_unlock || 0) + '" data-fb-ready="' + (ev.ready ? 1 : 0) + '">' + e(tab) + '</span>' : '') +
+        tab +
         '<div class="fm-body"><i class="fbt-bg" style="background-image:url(' + e(ev.preview_bg) + ')"></i><i class="fbt-shade"></i>' +
         '<img class="fbt-gift" src="' + e(ev.preview_gift) + '" alt="" draggable="false"><h3 class="fbt-title">' + e(ev.title) + '</h3>' + (ev.ready ? '<i class="fbt-dot"></i>' : '') + '</div></div>';
 }
