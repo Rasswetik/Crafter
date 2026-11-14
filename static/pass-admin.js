@@ -90,6 +90,12 @@ async function renderAdminPass(content = document.querySelector('#admin-content'
             '<div class="pa-iconrow"><span class="pa-iconprev">' + (x.icon ? '<img src="' + e(x.icon) + '" alt="">' : '<em>по умолчанию</em>') + '</span><div><b>Картинка квеста</b><div class="pa-iconbtns"><label class="pa-file">Загрузить картинку<input type="file" accept="image/*" data-qiconfile="' + i + '" hidden></label>' + (x.icon ? '<button type="button" class="pa-link" data-qiconclear="' + i + '">Убрать</button>' : '') + '</div>' + (LIB.length ? '<div class="pa-lib">' + LIB.slice(0, 14).map(l => '<button type="button" class="' + (x.icon === l.url ? 'is-on' : '') + '" data-qiconpick="' + i + '" data-url="' + e(l.url) + '" title="' + e(l.name) + '"><img src="' + e(l.url) + '" alt=""></button>').join('') + '</div>' : '') + '</div></div>' +
             '<div class="adm-row3">' + field('Дополнительная награда', cells(x.reward, 'q.' + i)) + (['special', 'season', 'mega'].includes(x.kind) ? field('Откроется (по Москве)', '<input type="datetime-local" data-qf="' + i + '.starts_at_msk" value="' + e(x.starts_at_msk) + '">') + field('Закончится (по Москве)', '<input type="datetime-local" data-qf="' + i + '.ends_at_msk" value="' + e(x.ends_at_msk) + '">') : '<small class="sub">Квест дня обновляется каждый день в 00:00 по Москве, квест недели — в понедельник.</small>') + '</div></div>';
         return '<div class="adm-step"><h4>Квесты</h4><p class="sub">Порядок как на экране игрока. Квесты считают события из истории игры: апгрейды, крафты, покупки, пополнения и т. д. Мегаквесты открываются по цепочке: следующий — после предыдущего.</p>' + (q.map(card).join('') || '<p class="sub">Квестов пока нет.</p>') +
+            '<details class="pa-qgen"><summary>Автогенерация квестов по расписанию</summary><p class="sub">Создаст несколько квестов сразу: цели и награды растут, а открываются они по очереди в заданное время. После генерации любой квест можно поправить.</p>' +
+            '<div class="adm-row3">' + field('Тип', '<select id="qg-kind">' + ['special', 'season', 'mega'].map(k => '<option value="' + k + '">' + KIND_TITLES[k] + '</option>').join('') + '</select>') +
+            field('Сколько квестов', '<input id="qg-n" type="number" min="1" max="60" value="7">') + field('Что считать', '<select id="qg-metric"><option value="*">По кругу: разное</option>' + R.metrics.map(m => '<option value="' + m.key + '">' + e(m.title) + '</option>').join('') + '</select>') + '</div>' +
+            '<div class="adm-row3">' + field('Цель первого квеста', '<input id="qg-t0" type="number" min="1" value="3">') + field('Прибавка цели на каждый следующий', '<input id="qg-ts" type="number" min="0" value="2">') + field('XP первого квеста', '<input id="qg-x0" type="number" min="0" value="200">') + '</div>' +
+            '<div class="adm-row3">' + field('Прибавка XP', '<input id="qg-xs" type="number" min="0" value="50">') + field('Первый откроется (по Москве)', '<input id="qg-at" type="datetime-local">') + field('Следующий через (часов)', '<input id="qg-every" type="number" min="0" value="24">') + '</div>' +
+            '<div class="adm-row3">' + field('Живёт каждый (часов, 0 = до конца сезона)', '<input id="qg-len" type="number" min="0" value="0">') + field('Только для Pass Plus', '<label class="adm-check"><input id="qg-plus" type="checkbox"> Да</label>') + '<div class="adm-field"><button type="button" class="primary" data-qgen>Сгенерировать</button></div></div></details>' +
             '<div class="pa-addq">' + R.kinds.map(k => '<button type="button" data-addq="' + k + '">+ ' + KIND_TITLES[k] + '</button>').join('') + '</div></div>';
     };
 
@@ -141,6 +147,20 @@ async function renderAdminPass(content = document.querySelector('#admin-content'
         sec.querySelectorAll('[data-lvcopy]').forEach(b => b.addEventListener('click', () => { pull(); const i = +b.dataset.lvcopy; form.levels.splice(i + 1, 0, JSON.parse(JSON.stringify(form.levels[i]))); draw(); }));
         sec.querySelectorAll('[data-lvdel]').forEach(b => b.addEventListener('click', () => { pull(); form.levels.splice(+b.dataset.lvdel, 1); draw(); }));
         // quests
+        sec.querySelector('[data-qgen]')?.addEventListener('click', () => {
+            pull();
+            const v = id => sec.querySelector('#' + id), num = id => Math.max(0, Number(v(id).value) || 0);
+            const n = Math.min(60, Math.max(1, num('qg-n'))), kind = v('qg-kind').value, metric = v('qg-metric').value, t0 = Math.max(1, num('qg-t0')), ts = num('qg-ts'), x0 = num('qg-x0'), xs = num('qg-xs'), every = num('qg-every'), len = num('qg-len');
+            if (!v('qg-at').value) { toast('Укажите, когда откроется первый квест'); return; }
+            const base = Date.parse(v('qg-at').value + ':00Z'), fmt = ms => new Date(ms).toISOString().slice(0, 16);
+            const keys = R.metrics.map(m => m.key);
+            for (let i = 0; i < n; i++) {
+                const m = metric === '*' ? keys[i % keys.length] : metric, target = t0 + ts * Math.floor(metric === '*' ? i / keys.length : i);
+                const start = base + i * every * 3600000;
+                form.quests.push({id: '', kind, title: metricTitle(m) + ': ' + target, icon: '', metric: m, target, xp: x0 + xs * i, reward: [], plus_only: v('qg-plus').checked, enabled: true, starts_at_msk: fmt(start), ends_at_msk: len ? fmt(start + len * 3600000) : ''});
+            }
+            draw(); toast('Создано квестов: ' + n + '. Проверьте и нажмите «Сохранить»');
+        });
         sec.querySelectorAll('[data-addq]').forEach(b => b.addEventListener('click', () => { pull(); const k = b.dataset.addq; form.quests.push({id: '', kind: k, title: 'Новый квест', icon: '', metric: 'upgrade', target: 5, xp: k === 'mega' ? 1500 : 200, reward: [], plus_only: false, enabled: true, starts_at_msk: '', ends_at_msk: ''}); draw(); }));
         sec.querySelectorAll('[data-qup]').forEach(b => b.addEventListener('click', () => { pull(); move(form.quests, +b.dataset.qup, -1); draw(); }));
         sec.querySelectorAll('[data-qdown]').forEach(b => b.addEventListener('click', () => { pull(); move(form.quests, +b.dataset.qdown, 1); draw(); }));

@@ -32,6 +32,7 @@ function bgStyle(season) {
     return '--sp-c1:' + (t.c1 || '#5b2cff') + ';--sp-c2:' + (t.c2 || '#c24fd8') + ';--sp-c3:' + (t.c3 || '#2a1170') + ';background:' + layers.join(',') + ';';
 }
 
+const prizeArt = (r, w) => r.kind === 'BALL' ? '/static/assets/crafter-winter-ornament.png' : thumb(r.image, w);   // balls are the coloured ornament, not a grey silhouette
 const CHECK = '<i class="sp-check"><svg viewBox="0 0 24 24"><path d="M4 12.5l5 5L20 6" fill="none" stroke="#0d3a1c" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 12.5l5 5L20 6" fill="none" stroke="#5dff86" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg></i>';
 
 const rewardCell = (lv, track) => {
@@ -44,7 +45,7 @@ const rewardCell = (lv, track) => {
     const label = rs.length === 1 ? (main.kind === 'GRAM' ? num(main.amount) + ' GRAM' : main.kind === 'BALL' ? num(main.amount) : (main.count > 1 ? '×' + main.count + ' ' : '') + main.title) : rs.map(r => r.kind === 'BALL' || r.kind === 'GRAM' ? num(r.amount) : '×' + r.count).join(' + ');
     const fresh = justClaimed.has(lv.level + '.' + track);
     return '<button type="button" class="sp-rw ' + track + ' ' + state + (fresh ? ' is-fresh' : '') + '" data-lv="' + lv.level + '" data-track="' + track + '" title="' + e(rs.map(r => r.title + (r.count > 1 ? ' ×' + r.count : '')).join(', ')) + '">' +
-        '<img class="sp-rw-img" src="' + e(thumb(main.image, 240)) + '" alt="" loading="lazy">' + more.map((r, k) => '<img class="sp-rw-more m' + k + '" src="' + e(thumb(r.image, 120)) + '" alt="">').join('') +
+        '<img class="sp-rw-img" src="' + e(prizeArt(main, 240)) + '" alt="" loading="lazy">' + more.map((r, k) => '<img class="sp-rw-more m' + k + '" src="' + e(prizeArt(r, 120)) + '" alt="">').join('') +
         '<b>' + e(label.trim()) + '</b>' + (side.claimed ? CHECK : state === 'is-locked' || state === 'is-nplus' ? '<i class="sp-lock">' + LOCK + '</i>' : '') + '</button>';
 };
 

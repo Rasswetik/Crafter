@@ -388,3 +388,42 @@ body.sp-open{overflow:hidden}
 
 .qc-ic .sp-ic{background:none!important;border:0!important;box-shadow:none!important}
 .sp-mega-foot{font-size:14px}
+
+/* ---- v8: a calm, readable page: one clean font, no smudgy outlines, a soft banner, smaller level marks, glass cards ---- */
+.sp-root{--sp-font:Inter,"Segoe UI",system-ui,-apple-system,sans-serif;font-family:var(--sp-font)}
+.sp-root h1,.sp-root h2,.sp-root h3,.sp-root h4,.sp-root b,.sp-root button,.sp-root span,.sp-root small{font-family:var(--sp-font);font-variant-numeric:tabular-nums}
+/* banner: a rounded picture with the name on a soft shade, not a cut-out block */
+.sp-banner{clip-path:none!important;min-height:0!important;align-self:center!important;margin:8px 0;padding:12px 26px 12px 20px!important;border-radius:16px;overflow:hidden;background-size:cover!important;background-position:center!important;box-shadow:inset 0 0 0 1px rgba(255,255,255,.22),0 10px 26px rgba(0,0,0,.35)}
+.sp-banner::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(8,12,44,.78),rgba(8,12,44,.25) 70%,rgba(8,12,44,0))}
+.sp-banner small,.sp-banner h1{position:relative;z-index:1}
+.sp-banner small{display:inline-block;text-align:left!important;padding:3px 10px;border-radius:99px;background:rgba(255,214,90,.95);color:#3a2300!important;font:800 11px/1 var(--sp-font)!important;font-style:normal!important;letter-spacing:.1em;text-shadow:none!important;-webkit-text-stroke:0!important}
+.sp-banner h1{margin:8px 0 0!important;font:800 clamp(20px,2.3vw,30px)/1.05 var(--sp-font)!important;font-style:normal!important;letter-spacing:.01em;text-transform:none!important;color:#fff!important;-webkit-text-stroke:0!important;text-shadow:0 2px 14px rgba(0,0,0,.65)!important}
+/* the road */
+.sp-col::before{height:6px!important;top:calc(var(--ch) + var(--lh) / 2 - 3px)!important;background:linear-gradient(90deg,rgba(255,214,90,.9),rgba(255,160,40,.9))!important;border:0!important;border-radius:3px}
+.sp-lvl{min-width:0!important;width:40px;height:40px!important;padding:0!important;border-radius:50%!important;background:#16204f!important;border:2px solid rgba(255,255,255,.4)!important;box-shadow:0 3px 10px rgba(0,0,0,.4)!important}
+.sp-lvl b{font:800 17px/1 var(--sp-font)!important;color:#fff!important;-webkit-text-stroke:0!important;text-shadow:none!important}
+.sp-lvl.is-reached{background:linear-gradient(180deg,#ffd64a,#ff9a1f)!important;border-color:#fff3c4!important}
+.sp-lvl.is-reached b{color:#3a2300!important}
+.sp-col.is-cur .sp-lvl{transform:scale(1.15)!important;box-shadow:0 0 0 3px #fff,0 0 18px #ffd64a!important}
+/* reward cards */
+.sp-rw{border-radius:16px!important;border:0!important;box-shadow:0 8px 18px rgba(0,0,0,.35)!important}
+.sp-rw::after{display:none!important}
+.sp-rw.plus{background:linear-gradient(180deg,#4a3590,#2a1f62)!important;box-shadow:inset 0 0 0 2px rgba(255,214,90,.7),0 8px 18px rgba(0,0,0,.35)!important}
+.sp-rw.free{background:linear-gradient(180deg,#2f4f94,#1b2f66)!important;box-shadow:inset 0 0 0 2px rgba(130,190,255,.6),0 8px 18px rgba(0,0,0,.35)!important}
+.sp-rw .sp-rw-img{width:70%!important;height:70%!important;margin-bottom:14px}
+.sp-rw b{font:800 clamp(14px,calc(var(--ch) * .085),18px)/1.1 var(--sp-font)!important;color:#fff!important;-webkit-text-stroke:0!important;text-shadow:0 1px 4px rgba(0,0,0,.7)!important;letter-spacing:.01em}
+.sp-rw.is-locked,.sp-rw.is-nplus{filter:none!important;opacity:.82}
+.sp-rw.is-empty{background:rgba(255,255,255,.05)!important;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.14)!important;opacity:1!important}
+.sp-rw.is-done{filter:none!important;opacity:.7}
+/* quests: the same clean type */
+.qc-title,.qc-bar b,.qc-xp b,.qc-take,.qc-prize em,.qc-chip b,.qc-tag,.sp-qsec h3,.sp-mega h3,.sp-qsec>header small,.sp-mega>header small{font-family:var(--sp-font,system-ui)!important;font-style:normal!important;-webkit-text-stroke:0!important}
+.qc-title{font-weight:800!important;font-size:15px!important;letter-spacing:.02em;text-shadow:0 2px 0 rgba(8,20,80,.55)!important}
+.sp-q.qc.is-big .qc-title{font-size:20px!important}
+.qc-bar b{font-size:14px!important;font-weight:800!important;text-shadow:0 1px 3px rgba(0,0,0,.8)!important}
+.qc-xp b{font-size:20px!important;font-weight:900!important;text-shadow:0 2px 0 rgba(8,20,80,.6)!important}
+.qc-take{font-size:16px!important;text-shadow:0 1px 2px rgba(0,0,0,.5)!important}
+.qc-tag{font-size:12px!important;font-weight:800!important}
+.sp-qsec h3,.sp-mega h3{font-size:17px!important;font-weight:800!important;text-shadow:0 2px 0 rgba(8,20,80,.5)!important}
+.sp-qsec>header small,.sp-mega>header small{font-weight:700!important}
+
+.sp-banner small{width:max-content;justify-self:start}

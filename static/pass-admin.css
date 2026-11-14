@@ -47,3 +47,5 @@
 .pa-q .adm-row3{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
 .pa-q{padding:12px}.pa-q .adm-field{margin:0 0 6px}
 .pa-table td{padding:5px 6px}.pa-cell{width:56px}
+
+.pa-qgen{margin:14px 0;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04)}.pa-qgen summary{cursor:pointer;font-weight:800}

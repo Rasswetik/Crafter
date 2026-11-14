@@ -513,7 +513,7 @@ function render(main, ctx) {
     const root = document.createElement('div');
     root.className = 'fm-root';
     root.innerHTML = '<div class="fm-bg"></div><div class="fm-rail-col">' + (ctx.back ? '<div class="fm-head"><button type="button" class="fm-backbtn" data-fm-back aria-label="К событиям" title="К событиям"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg><span>События</span></button><span class="fm-balpill" title="Баланс шаров">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span></div>' : '') + '<div class="fm-rail" role="navigation" aria-label="Разделы маркета"><i class="fm-ind"></i>' +
-        SEC.map(x => '<div class="fm-sec-wrap" data-wrap="' + e(x.s.id) + '">' + railButton(x.s) + (x.s.rule !== 'featured' && x.list.length ? '<em>' + x.list.length + '</em>' : '') + '</div>').join('') + '</div>' +
+        SEC.map(x => '<div class="fm-sec-wrap" data-wrap="' + e(x.s.id) + '">' + railButton(x.s)  + '</div>').join('') + '</div>' +
         '</div>' +
         '<div class="fm-main"></div>';
     const rail = root.querySelector('.fm-rail'), ind = root.querySelector('.fm-ind'), host = root.querySelector('.fm-main');
