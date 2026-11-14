@@ -162,6 +162,8 @@ def install_shop_items(app, db, auth, record, audit):
     def shop_items():
         now = int(time.time())
         rows = ordered(db().execute("SELECT * FROM shop_items WHERE status='active' AND (ends_at IS NULL OR ends_at>?) AND (starts_at IS NULL OR starts_at<=?)", (now, now)).fetchall())
+        hidden = app.extensions['crafter_hidden_sections']()
+        rows = [r for r in rows if (r['section_id'] or '') not in hidden]
         return {'items': [view(r, g.user['id']) for r in rows], 'now': now, 'sections': app.extensions['crafter_shop_sections'](False), **app.extensions['crafter_exchange_public'](g.user['id'])}
 
     @app.post('/api/shop-items/buy')
@@ -180,7 +182,7 @@ def install_shop_items(app, db, auth, record, audit):
                     abort(409, description='Номер покупки уже использован')
                 return json.loads(done['result'])
             row = db().execute("SELECT * FROM shop_items WHERE id=? AND status='active'", (iid,)).fetchone()
-            if not row:
+            if not row or (row['section_id'] or '') in app.extensions['crafter_hidden_sections']():
                 abort(409, description='Товар недоступен')
             if row['ends_at'] and int(row['ends_at']) <= int(time.time()):
                 abort(409, description='Акция уже закончилась')

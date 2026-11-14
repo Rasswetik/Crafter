@@ -5,7 +5,7 @@ from test_app import client, signed
 HEAD = ['№', 'Название акции', 'Ящик или дроп', 'Штук', 'Цена, шаров', 'Зачёркнутая цена', 'Скидка %', 'Размер плитки', 'Редкость', 'Плашка', 'Раздел', 'Фон акции (файл ящика)', 'Срок', 'Лимит на игрока', 'Всего штук']
 
 
-def workbook():
+def workbook(extra=0):
     from openpyxl import Workbook
     wb = Workbook()
     ws = wb.active
@@ -17,6 +17,8 @@ def workbook():
     ws.append([4, 'Неизвестный ящик', 'Ящик которого нет', 1, 100, '', 0, 'Обычная', 'Авто', '', '', '', '', '', ''])
     other = wb.create_sheet('Читать сначала')
     other.append(['Это просто текст'])
+    for i in range(extra):
+        other.append(['Строка %d' % i, 'x' * 200])
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue()
@@ -74,3 +76,12 @@ def test_import_packs_resources_and_bundles(client):
     for r in rows[:4]:
         made = client.post('/api/admin/new-year/shop', headers=admin, json=r['payload'])
         assert made.status_code == 200, (r['title'], made.get_data(as_text=True))
+
+
+def test_import_accepts_a_file_bigger_than_the_default_request_limit(client):
+    admin = signed(42)
+    client.get('/api/me', headers=admin)
+    big = workbook(extra=1500)
+    assert len(big) > 20000                                          # the app limits ordinary requests to 16 KB
+    res = client.post('/api/admin/new-year/shop-import/parse', headers=admin, data={'file': (io.BytesIO(big), 'plan.xlsx')}, content_type='multipart/form-data')
+    assert res.status_code == 200, res.get_data(as_text=True)

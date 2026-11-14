@@ -80,6 +80,8 @@ def install_shop_sections(app, db, auth, audit):
         return [view(r) for r in rows if all_sections or r['enabled']]
 
     app.extensions['crafter_shop_sections'] = sections
+    # a hidden section hides everything that stands in it: its offers and chains must not fall into the automatic sections
+    app.extensions['crafter_hidden_sections'] = lambda: {r['id'] for r in db().execute("SELECT id FROM shop_sections WHERE enabled=0").fetchall()}
     app.extensions['crafter_shop_section_exists'] = lambda sid: bool(db().execute("SELECT 1 FROM shop_sections WHERE id=? AND kind IN ('custom','smart') AND id<>'gifts'", (sid,)).fetchone())
 
     def clean_title(value):

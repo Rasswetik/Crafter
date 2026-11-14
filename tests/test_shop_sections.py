@@ -70,3 +70,23 @@ def test_uploads_are_checked(client):
     for bad in ({'title': '', 'bg': 'night'}, {'title': 'x', 'bg': 'rainbow'}, {'title': 'x', 'icon': 'javascript:alert(1)'}, {'title': 'x', 'preview': 'builtin:star'}):
         assert client.post('/api/admin/new-year/shop-sections', headers=admin, json=bad).status_code == 400
     assert client.get('/media/shop/' + 'a' * 32).status_code == 404
+
+
+def test_hidden_section_hides_its_offers_and_chains(client):
+    admin, player = signed(42), signed(77)
+    client.get('/api/me', headers=player)
+    sec = client.post('/api/admin/new-year/shop-sections', headers=admin, json={'title': 'Скрытый', 'icon': 'builtin:gift', 'enabled': True})
+    assert sec.status_code == 200, sec.get_data(as_text=True)
+    sid = next(s['id'] for s in client.get('/api/shop-items', headers=player).json['sections'] if s['title'] == 'Скрытый')
+    item = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BALL', 'amount': '5', 'price_balls': 0, 'size': 'small', 'section_id': sid})
+    chain = client.post('/api/admin/new-year/chains', headers=admin, json={'title': 'Цепочка в скрытом', 'enabled': True, 'section_id': sid, 'steps': [{'label': 'Шаг', 'kind': 'BALL', 'amount': '5', 'price_balls': 0}]})
+    assert item.status_code == 200 and chain.status_code == 200, chain.get_data(as_text=True)
+    assert any(x['id'] == item.json['id'] for x in client.get('/api/shop-items', headers=player).json['items'])
+    assert len(client.get('/api/chains', headers=player).json['chains']) == 1
+    hide = client.post('/api/admin/new-year/shop-sections', headers=admin, json={'id': sid, 'title': 'Скрытый', 'icon': 'builtin:gift', 'enabled': False})
+    assert hide.status_code == 200
+    assert not any(x['id'] == item.json['id'] for x in client.get('/api/shop-items', headers=player).json['items'])     # not shown in the automatic sections either
+    assert client.get('/api/chains', headers=player).json['chains'] == []
+    assert client.post('/api/shop-items/buy', headers=player, json={'item_id': item.json['id'], 'request_id': 'hidden-buy-0001'}).status_code == 409
+    step = client.get('/api/admin/new-year/chains', headers=admin).json['chains'][0]['steps'][0]['id']
+    assert client.post('/api/chains/claim', headers=player, json={'step_id': step}).status_code == 404

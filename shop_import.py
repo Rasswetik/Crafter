@@ -270,6 +270,7 @@ def install_shop_import(app, db, auth, audit):
     @app.post('/api/admin/new-year/shop-import/parse')
     @auth(admin=True)
     def admin_shop_import_parse():
+        request.max_content_length = MAX_BYTES + 65536                 # the app limits a request to 16 KB, a table is bigger
         sheets = {}
         if request.files.get('file'):
             f = request.files['file']

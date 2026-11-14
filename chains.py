@@ -129,6 +129,8 @@ def install_chains(app, db, auth, audit, record):
     def chains_list():
         now = int(time.time())
         rows = db().execute("SELECT * FROM offer_chains WHERE enabled=1 AND (starts_at IS NULL OR starts_at<=?) AND (ends_at IS NULL OR ends_at>?) ORDER BY position,created", (now, now)).fetchall()
+        hidden = app.extensions['crafter_hidden_sections']()
+        rows = [r for r in rows if (r['section_id'] or '') not in hidden]
         return {'now': now, 'chains': [c for c in (chain_view(r, g.user['id']) for r in rows) if c['steps']]}
 
     @app.post('/api/chains/claim')
@@ -145,7 +147,7 @@ def install_chains(app, db, auth, audit, record):
                 return {'ok': True, 'result': json.loads(done['result']), 'again': True}
             step = db().execute("SELECT * FROM offer_chain_steps WHERE id=?", (step_id,)).fetchone()
             chain = db().execute("SELECT * FROM offer_chains WHERE id=?", (step['chain_id'],)).fetchone() if step else None
-            if not step or not chain or not chain['enabled']:
+            if not step or not chain or not chain['enabled'] or (chain['section_id'] or '') in app.extensions['crafter_hidden_sections']():
                 abort(404, description='Шаг не найден')
             if (chain['starts_at'] and int(chain['starts_at']) > now) or (chain['ends_at'] and int(chain['ends_at']) <= now):
                 abort(409, description='Акция сейчас закрыта')
