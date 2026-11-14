@@ -263,6 +263,10 @@ def install_season_pass(app, db, auth, audit, record):
         row = db().execute("SELECT balls,donate FROM new_year_wallets WHERE user_id=?", (uid,)).fetchone()
         return {'balls': int(row['balls']) if row else 0, 'donate': int(row['donate']) if row else 0}
 
+    def gram_text(uid):
+        row = db().execute("SELECT balance FROM demo_accounts WHERE user_id=?", (uid,)).fetchone()
+        return str(row['balance']) if row else '0'
+
     def pay(uid, currency, amount):
         if amount <= 0:
             return
@@ -358,7 +362,7 @@ def install_season_pass(app, db, auth, audit, record):
         nxt = next((lv for lv in levels if int(lv['level']) == reached + 1), None)
         base = cum.get(reached, 0)
         me = {'xp': xp, 'level': reached, 'plus': plus, 'max_level': len(levels), 'xp_in_level': xp - base if nxt else (int(levels[-1]['xp']) if levels else 0),
-              'xp_for_next': int(nxt['xp']) if nxt else 0, 'balance': wallet(uid)}
+              'xp_for_next': int(nxt['xp']) if nxt else 0, 'balance': wallet(uid), 'gram': gram_text(uid)}
         return {'season': season_view(season, now), 'levels': view_levels, 'me': me, 'quests': quests_state(uid, season, plus, now),
                 'refresh': {'daily_in': day_start(now) + 86400 - now, 'weekly_in': week_start(now) + 7 * 86400 - now}, 'now': now}
 

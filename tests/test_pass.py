@@ -80,3 +80,10 @@ def test_pass_admin_checks_and_hidden_season(client):
     ended = make_season(client, admin, title='Старый', number=1, ends_at_msk='2020-01-01T00:00', starts_at_msk='2019-01-01T00:00')
     assert client.get('/api/pass', headers=player).json['season'] is None
     assert client.post('/api/admin/pass/season/%s/delete' % ended, headers=admin).status_code == 200
+
+
+def test_season_has_its_own_page(client):
+    page = client.get('/season')
+    assert page.status_code == 200
+    html = page.get_data(as_text=True)
+    assert 'id="sp-app"' in html and 'season-page.js' in html and 'season-core.js' in html

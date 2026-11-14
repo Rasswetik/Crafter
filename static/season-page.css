@@ -1,0 +1,9 @@
+/* the standalone page of the season */
+html,body{margin:0;height:100%;background:#1a0f4a;color:#fff;overscroll-behavior:none}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit}
+.sp-boot{position:fixed;inset:0;display:grid;place-items:center;font:800 18px system-ui;color:#fff;background:linear-gradient(160deg,#5b2cff,#2a1170)}
+#sp-toasts{position:fixed;left:0;right:0;bottom:calc(24px + env(safe-area-inset-bottom));z-index:10200;display:grid;justify-items:center;gap:8px;pointer-events:none}
+.sp-toast{padding:12px 20px;border-radius:14px;background:rgba(8,12,44,.92);border:2px solid rgba(255,255,255,.25);font:700 15px system-ui;max-width:min(92vw,520px);text-align:center;animation:sp-pop .25s both;transition:opacity .3s}
+.sp-toast.is-out{opacity:0}
+.sp-page{z-index:1}

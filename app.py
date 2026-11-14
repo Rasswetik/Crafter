@@ -289,6 +289,11 @@ def create_app(config=None):
     for _rule, _name in (('/new-year/market', 'section_new_year_market'), ('/new-year/market/<path:lot>', 'section_new_year_lot')):
         app.add_url_rule(_rule, _name, lambda lot=None: index())
 
+    @app.get('/season')
+    def season_page():
+        # the season pass is a separate page with its own template
+        return render_template('season.html')
+
     @app.get('/shop/preview')
     def shop_preview_page():
         # a drawing board for the market: the administrator sends offers to it with postMessage; it holds no data
@@ -328,7 +333,7 @@ def create_app(config=None):
         return build_preview()
     @app.after_request
     def cache_control(response):
-        if request.path.startswith('/auctions') or request.path.startswith('/shop/') or request.path.startswith('/new-year/') or request.path in {'/', '/admin', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/author'} or request.path.startswith('/static/'):
+        if request.path.startswith('/auctions') or request.path.startswith('/shop/') or request.path.startswith('/new-year/') or request.path in {'/', '/admin', '/season', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/author'} or request.path.startswith('/static/'):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')

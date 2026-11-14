@@ -37,3 +37,13 @@
 .pa-iconprev{display:grid;place-items:center;flex:none;width:84px;height:84px;border-radius:14px;border:2px dashed rgba(255,255,255,.3);background:rgba(255,255,255,.06)}.pa-iconprev img{width:100%;height:100%;object-fit:contain;border-radius:12px}.pa-iconprev em{font-size:11px;opacity:.6;text-align:center}
 .pa-iconbtns{display:flex;gap:10px;align-items:center;margin:6px 0}
 .pa-lib{display:flex;flex-wrap:wrap;gap:6px}.pa-lib button{width:46px;height:46px;padding:3px;border-radius:10px;border:2px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);cursor:pointer}.pa-lib button.is-on{border-color:#5aa2ff}.pa-lib img{width:100%;height:100%;object-fit:contain}
+/* more convenient settings */
+.pa-auto{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin:10px 0;padding:12px;border-radius:12px;background:rgba(90,162,255,.1);border:1px solid rgba(90,162,255,.3);font-size:13px}
+.pa-auto>b{flex-basis:100%;font-size:14px}.pa-auto label{display:grid;gap:4px}
+.pa-auto input,.pa-auto select{width:130px;padding:8px;border-radius:9px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);color:#fff}
+.pa-auto .adm-check{display:flex;align-items:center;gap:6px;padding-bottom:8px}.pa-auto .adm-check input{width:auto}
+.pa-auto button{padding:9px 18px;border-radius:10px;border:0;background:#2f7bff;color:#fff;font-weight:800;cursor:pointer}
+.pa-look{padding:10px 18px;border-radius:12px;border:1px solid rgba(255,255,255,.25);color:#fff;text-decoration:none;font-weight:700;background:rgba(255,255,255,.07)}
+.pa-q .adm-row3{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.pa-q{padding:12px}.pa-q .adm-field{margin:0 0 6px}
+.pa-table td{padding:5px 6px}.pa-cell{width:56px}

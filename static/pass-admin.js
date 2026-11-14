@@ -76,6 +76,7 @@ async function renderAdminPass(content = document.querySelector('#admin-content'
         const rows = form.levels.map((lv, i) => { total += Number(lv.xp) || 0; return '<tr><td class="pa-n">' + (i + 1) + '</td><td><input class="pa-xp" type="number" min="1" data-lvxp="' + i + '" value="' + e(lv.xp) + '"></td><td class="pa-sum">' + num(total) + '</td><td>' + cells(lv.free, 'lv.' + i + '.free') + '</td><td>' + cells(lv.plus, 'lv.' + i + '.plus') + '</td>' +
             '<td class="pa-act"><button type="button" data-lvup="' + i + '" title="Выше">↑</button><button type="button" data-lvdown="' + i + '" title="Ниже">↓</button><button type="button" data-lvcopy="' + i + '" title="Копия">⧉</button><button type="button" data-lvdel="' + i + '" title="Удалить">×</button></td></tr>'; }).join('');
         return '<div class="adm-step"><h4>Уровни</h4><p class="sub">Уровень растёт, когда накоплено столько XP, сколько стоят все уровни до него вместе. Награды Free лежат на нижней дороге, Plus — на верхней.</p>' +
+            '<div class="pa-auto"><b>Быстро заполнить награды</b><label>Дорога<select id="pa-af-track"><option value="free">Free</option><option value="plus">Plus</option><option value="both">Обе</option></select></label><label>Награда<select id="pa-af-kind"><option value="BALL">Шары</option><option value="GRAM">GRAM</option></select></label><label>На первом уровне<input id="pa-af-start" type="number" step="any" value="10"></label><label>Прибавка за уровень<input id="pa-af-step" type="number" step="any" value="10"></label><label>Каждый N-й уровень<input id="pa-af-every" type="number" min="1" value="1"></label><label class="adm-check"><input id="pa-af-clear" type="checkbox"> очистить остальные</label><button type="button" data-autofill>Заполнить</button></div>' +
             '<div class="pa-gen"><label>Сколько уровней<input type="number" min="1" max="200" id="pa-gen-n" value="' + form.levels.length + '"></label><label>XP первого<input type="number" min="1" id="pa-gen-xp" value="' + (form.levels[0]?.xp || 100) + '"></label><label>Прибавка за уровень<input type="number" min="0" id="pa-gen-step" value="20"></label><button type="button" data-gen>Пересоздать XP</button></div>' +
             '<div class="pa-scroll"><table class="pa-table"><thead><tr><th>№</th><th>XP на уровень</th><th>Всего XP</th><th>Free (нижняя дорога)</th><th>Plus (верхняя дорога)</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div><button type="button" class="pa-addlvl" data-addlvl>+ Добавить уровень</button></div>';
     };
@@ -99,7 +100,7 @@ async function renderAdminPass(content = document.querySelector('#admin-content'
         const tabs = [['season', 'Сезон'], ['levels', 'Уровни'], ['quests', 'Квесты'], ['players', 'Игроки']].map(t => '<button type="button" class="' + (tab === t[0] ? 'is-on' : '') + '" data-ptab="' + t[0] + '"' + (t[0] === 'players' && !form.id ? ' disabled' : '') + '>' + t[1] + '</button>').join('');
         sec.innerHTML = '<h3>Сезонный пасс</h3><p class="sub">Сезон, дороги Free и Pass Plus, уровни, XP и квесты. Игроки видят пасс в разделе «Сезон».</p><div class="pa-seasons">' + list + '</div><div class="sb-tabs pa-tabs">' + tabs + '</div>' +
             (tab === 'season' ? seasonPane() : tab === 'levels' ? levelsPane() : tab === 'quests' ? questsPane() : playersPane()) +
-            '<div class="pa-save"><button type="button" class="primary" data-save>' + (form.id ? 'Сохранить сезон и уровни' : 'Создать сезон') + '</button>' + (tab === 'quests' && form.id ? '<button type="button" class="primary" data-saveq>Сохранить квесты</button>' : '') + (form.id ? '<button type="button" class="pa-danger" data-delseason>Удалить сезон</button>' : '') + '</div>';
+            '<div class="pa-save"><a class="pa-look" href="/season" target="_blank" rel="noopener">Посмотреть страницу сезона</a><button type="button" class="primary" data-save>' + (form.id ? 'Сохранить сезон и уровни' : 'Создать сезон') + '</button>' + (tab === 'quests' && form.id ? '<button type="button" class="primary" data-saveq>Сохранить квесты</button>' : '') + (form.id ? '<button type="button" class="pa-danger" data-delseason>Удалить сезон</button>' : '') + '</div>';
         bind();
     };
 
@@ -119,6 +120,21 @@ async function renderAdminPass(content = document.querySelector('#admin-content'
         sec.querySelectorAll('[data-rwdel]').forEach(b => b.addEventListener('click', () => { pull(); const parts = b.dataset.rwdel.split('.'); const i = Number(parts.pop()); target(parts.join('.')).splice(i, 1); draw(); }));
         // levels
         sec.querySelector('[data-gen]')?.addEventListener('click', () => { pull(); const n = Math.max(1, Math.min(200, Number(sec.querySelector('#pa-gen-n').value) || 1)), x0 = Math.max(1, Number(sec.querySelector('#pa-gen-xp').value) || 100), st = Math.max(0, Number(sec.querySelector('#pa-gen-step').value) || 0); while (form.levels.length < n) form.levels.push({xp: 100, free: [], plus: []}); form.levels.length = n; form.levels.forEach((l, i) => { l.xp = x0 + i * st; }); draw(); });
+        sec.querySelector('[data-autofill]')?.addEventListener('click', () => {
+            pull();
+            const tr = sec.querySelector('#pa-af-track').value, kind = sec.querySelector('#pa-af-kind').value, start = Number(sec.querySelector('#pa-af-start').value) || 0, step = Number(sec.querySelector('#pa-af-step').value) || 0, every = Math.max(1, Number(sec.querySelector('#pa-af-every').value) || 1), clear = sec.querySelector('#pa-af-clear').checked;
+            if (start <= 0 && step <= 0) { toast('Впишите, сколько давать'); return; }
+            let k = 0;
+            form.levels.forEach((lv, i) => {
+                const on = (i + 1) % every === 0;
+                (tr === 'both' ? ['free', 'plus'] : [tr]).forEach(t => {
+                    if (!on) { if (clear) lv[t] = []; return; }
+                    const v = start + step * k; lv[t] = [{kind, amount: kind === 'BALL' ? String(Math.max(1, Math.round(v))) : String(Math.round(v * 1000) / 1000 || 0.1), count: 1}];
+                });
+                if (on) k++;
+            });
+            draw(); toast('Награды заполнены');
+        });
         sec.querySelector('[data-addlvl]')?.addEventListener('click', () => { pull(); const last = form.levels[form.levels.length - 1]; form.levels.push({xp: last ? last.xp : 100, free: [], plus: []}); draw(); });
         sec.querySelectorAll('[data-lvup]').forEach(b => b.addEventListener('click', () => { pull(); move(form.levels, +b.dataset.lvup, -1); draw(); }));
         sec.querySelectorAll('[data-lvdown]').forEach(b => b.addEventListener('click', () => { pull(); move(form.levels, +b.dataset.lvdown, 1); draw(); }));
