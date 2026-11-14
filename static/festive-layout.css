@@ -72,3 +72,6 @@
 
 /* a hidden dialog must not block the clicks (display:grid beats the hidden attribute) */
 .fm-confirm[hidden]{display:none!important}
+
+/* the balance stands in the top right corner of the whole market, not of the column of sections */
+.fm-root:not(.fm-phone) .fm-rail-col{position:static}

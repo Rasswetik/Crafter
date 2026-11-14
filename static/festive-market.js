@@ -37,7 +37,8 @@ const ICONS = {
     bag: S('<path d="M6 7V6a6 6 0 0 1 12 0v1h2l1 15H3L4 7zm2 0h8V6a4 4 0 0 0-8 0z"/>'),
 };
 ICONS.featured = ICONS.star; ICONS.packs = ICONS.pack; ICONS.bundles = ICONS.bundle; ICONS.res = ICONS.gem; ICONS.rewards = ICONS.cup; ICONS.gifts = ICONS.gift;
-const LIVE_KEYS = [['live-sunset', 'Закат'], ['live-ice', 'Ледяной'], ['live-aurora', 'Сияние'], ['live-village', 'Деревня'], ['live-candy', 'Леденцы'], ['live-ornaments', 'Шары и звёзды'], ['live-gifts', 'Подарки'], ['live-lights', 'Гирлянды'], ['live-berry', 'Ягодный'], ['live-gold', 'Золото'], ['live-emerald', 'Хвоя'], ['live-violet', 'Ночь']];
+const LIVE_KEYS = [['live-sunset', 'Закат'], ['live-ice', 'Ледяной'], ['live-aurora', 'Сияние'], ['live-village', 'Деревня'], ['live-candy', 'Леденцы'], ['live-ornaments', 'Шары и звёзды'], ['live-gifts', 'Подарки'], ['live-lights', 'Гирлянды'], ['live-berry', 'Ягодный'], ['live-gold', 'Золото'], ['live-emerald', 'Хвоя'], ['live-violet', 'Ночь'],
+    ['live-red', 'Алый'], ['live-green', 'Ёлочный'], ['live-blue', 'Синий'], ['live-purple', 'Фиолетовый'], ['live-teal', 'Бирюза'], ['live-orange', 'Мандарин'], ['live-pink', 'Розовый'], ['live-navy', 'Полночь'], ['live-white', 'Иней'], ['live-gray', 'Графит'], ['live-lime', 'Лайм'], ['live-brown', 'Какао']];
 const BG_KEYS = LIVE_KEYS;                                            // backgrounds of sections: live, they move all the time
 const CARD_BG_KEYS = [['', 'По редкости'], ['blend', 'Сливается с фоном']].concat(LIVE_KEYS);
 const DEFAULT_SECTIONS = [

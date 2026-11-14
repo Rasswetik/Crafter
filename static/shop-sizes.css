@@ -202,3 +202,7 @@
 
 /* the controls of the board never cover the title of a wide, large or banner lot */
 .sb-cell.sb-wide .ny-lot-name,.sb-cell.sb-large .ny-lot-name,.sb-cell.sb-banner .ny-lot-name{padding-right:96px}
+
+.sb-arrows{position:absolute;top:8px;right:48px;z-index:6;display:flex;gap:6px}.sb-extra .sb-handle{right:8px}.sb-extra .sb-arrows{right:48px}
+.sb-arrows button{width:34px;height:34px;border-radius:11px;border:1px solid rgba(255,255,255,.3);background:#10131ab8;color:#fff;font-size:18px;font-weight:900;cursor:pointer}
+.sb-cell{touch-action:manipulation}

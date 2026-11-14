@@ -7,6 +7,9 @@
 
 /* palettes: [c1, c2, c3, accent, light]  (light = the text on it needs a darker outline) */
 const PAL = {
+    red: ['#d92b3f', '#8a1428', '#ff7a8a', '#ffd0d6'], green: ['#139a62', '#0a4a3a', '#7af0b8', '#d8ffe8'], navy: ['#173a8a', '#0a1a50', '#5a8aff', '#d0e0ff'],
+    purple: ['#7b3ee6', '#34128a', '#d070ff', '#f0d0ff'], teal: ['#12aeb0', '#0a5a6a', '#8ff0f0', '#e0ffff'], orange: ['#f5901e', '#b4440a', '#ffd070', '#fff0c8', 1],
+    pink: ['#ee5aa0', '#a8205e', '#ffb0d8', '#fff0f8', 1], white: ['#e6f3ff', '#a8d4f4', '#ffffff', '#ffffff', 1], gray: ['#56627a', '#222a3c', '#aab8d0', '#ffffff'], lime: ['#7cc424', '#2a7a1a', '#d8ff80', '#f4ffd8', 1], brown: ['#92603c', '#4a2812', '#f0c898', '#fff0dc'],
     sunset: ['#32c8ff', '#c24df0', '#ff8ad0', '#ffe9a8'], ice: ['#1f8bff', '#2fd0ff', '#b8f2ff', '#ffffff', 1], aurora: ['#06122e', '#0f3a6b', '#2fe0b0', '#a06bff'],
     village: ['#0a1240', '#27408f', '#6fa8ff', '#fff2c0'], candy: ['#e8203a', '#ffffff', '#ff6a82', '#ffd0d8'], ornaments: ['#1b3fa8', '#6a3de0', '#2fb8ff', '#ffd25e'],
     gifts: ['#7a1ed8', '#e0307a', '#ff9a3d', '#ffe08a'], lights: ['#0a2a52', '#12467f', '#2a7fc8', '#ffd25e'], berry: ['#e0305a', '#7a1054', '#ff8aa8', '#ffd0dc'],
@@ -22,9 +25,12 @@ const PAL = {
 
 /* scenes of the new picker */
 const LIVE = {
-    'live-sunset': ['sunset', 'sunset'], 'live-ice': ['wave', 'ice'], 'live-aurora': ['aurora', 'aurora'], 'live-village': ['night', 'village'], 'live-candy': ['stripes', 'candy'],
-    'live-ornaments': ['pattern', 'ornaments'], 'live-gifts': ['pattern', 'gifts'], 'live-lights': ['lights', 'lights'], 'live-berry': ['wave', 'berry'], 'live-gold': ['wave', 'gold'],
-    'live-emerald': ['wave', 'emerald'], 'live-violet': ['wave', 'violet'],
+    'live-sunset': ['sunset', 'sunset', 'mix'], 'live-ice': ['wave', 'ice', 'flakes'], 'live-aurora': ['aurora', 'aurora', 'stars'], 'live-village': ['night', 'village', 'trees'], 'live-candy': ['stripes', 'candy', 'candy'],
+    'live-ornaments': ['pattern', 'ornaments', 'mix'], 'live-gifts': ['pattern', 'gifts', 'mix'], 'live-lights': ['lights', 'lights', 'stars'], 'live-berry': ['wave', 'berry', 'mix'], 'live-gold': ['wave', 'gold', 'stars'],
+    'live-emerald': ['wave', 'emerald', 'trees'], 'live-violet': ['wave', 'violet', 'stars'],
+    'live-red': ['wave', 'red', 'mix'], 'live-green': ['wave', 'green', 'trees'], 'live-blue': ['wave', 'blue', 'flakes'], 'live-purple': ['wave', 'purple', 'stars'], 'live-teal': ['wave', 'teal', 'flakes'],
+    'live-orange': ['wave', 'orange', 'candy'], 'live-pink': ['wave', 'pink', 'candy'], 'live-navy': ['wave', 'navy', 'stars'], 'live-white': ['wave', 'white', 'flakes'], 'live-gray': ['wave', 'gray', 'flakes'],
+    'live-lime': ['wave', 'lime', 'trees'], 'live-brown': ['wave', 'brown', 'mix'],
 };
 /* keys of the first versions: they live on, drawn by the new scenes */
 const OLD = {};
@@ -39,7 +45,7 @@ put('pattern', ['gifts', 'mitten:ornaments', 'berry', 'cocoa', 'nikolay', 'gosha
 put('sunset', ['sunrise:ember', 'desert:ember', 'cherry:rose', 'sunset']);
 const MAP = {'ny-snow': 'snow', 'ny-candy': 'candy', 'ny-lights': 'garland', 'ny-frost': 'frost', 'ny-ginger': 'cozy', 'ny-bells': 'bells', 'ny-fire': 'lava', 'ny-aurora': 'aurora', 'c-pink': 'rose', 'ny-gold': 'gold', 'lights': 'garland', 'bells': 'gold', 'fire': 'lava', 'ginger': 'cozy'};
 const norm = key => { key = String(key || 'night'); if (LIVE[key]) return key; if (MAP[key]) return MAP[key]; return key.replace(/^(ny|c)-/, ''); };
-const resolve = key => { const k = norm(key); return LIVE[k] || OLD[k] || ['night', 'night']; };
+const resolve = key => { const k = norm(key); return LIVE[k] || OLD[k] || ['night', 'night', 'trees']; };
 
 /* ---------- pictures for patterns (drawn once, used as tiles) ---------- */
 const uri = svg => "url('data:image/svg+xml;utf8," + encodeURIComponent(svg) + "')";
@@ -50,6 +56,12 @@ const TILE = uri('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="18
     '<g transform="translate(30 140) rotate(-10)"><rect x="-13" y="-9" width="26" height="20" rx="2"/><path d="M0-9V11M-13 0H13M0-9q-8-9-12-4t12 4q8-9 12-4t-12 4"/></g>' +
     '<g transform="translate(142 132) rotate(8)"><path d="M0-14 12 10H-12Z"/><path d="M-6 3H6"/></g>' +
     '<circle cx="62" cy="14" r="2.5" fill="#fff" stroke="none"/><circle cx="160" cy="84" r="2.5" fill="#fff" stroke="none"/><circle cx="10" cy="90" r="2.5" fill="#fff" stroke="none"/></svg>');
+const FAM = {
+    flakes: uri('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round"><g transform="translate(40 40)"><path d="M0-18V18M-16-9 16 9M-16 9 16-9"/><path d="M-5-15 0-10 5-15M-5 15 0 10 5 15"/></g><g transform="translate(130 70) scale(.7)"><path d="M0-18V18M-16-9 16 9M-16 9 16-9"/></g><g transform="translate(70 135) scale(.9)"><path d="M0-18V18M-16-9 16 9M-16 9 16-9"/><circle r="4"/></g><g transform="translate(150 150) scale(.5)"><path d="M0-18V18M-16-9 16 9M-16 9 16-9"/></g><circle cx="100" cy="20" r="3" fill="#fff" stroke="none"/><circle cx="14" cy="110" r="2.5" fill="#fff" stroke="none"/></svg>'),
+    trees: uri('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"><g transform="translate(44 50)"><path d="M0-22 14 0H6l12 16H-18L-6 0h-8Z"/><path d="M0 16v8"/></g><g transform="translate(136 120) scale(.8)"><path d="M0-22 14 0H6l12 16H-18L-6 0h-8Z"/><path d="M0 16v8"/></g><g transform="translate(130 36) rotate(12)"><path d="M0-12 3.500-4 12-3.500 5.500 2 7 11 0 6.500-7 11-5.500 2-12-3.500-3.500-4Z"/></g><g transform="translate(40 142)"><circle r="11"/><path d="M-5-11v-4h10v4"/></g></svg>'),
+    stars: uri('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"><g transform="translate(46 44)"><path d="M0-18 5-6 18-5 8 4 11 17 0 10-11 17-8 4-18-5-5-6Z"/></g><g transform="translate(138 60) scale(.6)"><path d="M0-18 5-6 18-5 8 4 11 17 0 10-11 17-8 4-18-5-5-6Z"/></g><g transform="translate(92 132) scale(.85)"><path d="M0-18 5-6 18-5 8 4 11 17 0 10-11 17-8 4-18-5-5-6Z"/></g><g transform="translate(150 150)"><path d="M0-9V9M-9 0H9"/></g><g transform="translate(20 100)"><path d="M0-7V7M-7 0H7"/></g><g transform="translate(110 22)"><path d="M0-6V6M-6 0H6"/></g></svg>'),
+    candy: uri('<svg xmlns="http://www.w3.org/2000/svg" width="180" height="180" viewBox="0 0 180 180" fill="none" stroke="#fff" stroke-width="3.6" stroke-linecap="round"><g transform="translate(46 50) rotate(-18)"><path d="M0 24V-8a12 12 0 0 1 24 0"/><path d="M0 14 8 10M0 4l8-4M0-6l8-4"/></g><g transform="translate(130 110) rotate(16) scale(.8)"><path d="M0 24V-8a12 12 0 0 1 24 0"/><path d="M0 14 8 10M0 4l8-4M0-6l8-4"/></g><g transform="translate(120 34)"><path d="M0 8C-14-4-8-16 0-8 8-16 14-4 0 8Z"/></g><g transform="translate(38 142)"><circle r="12"/><path d="M-12 0H12M0-12V12"/></g></svg>'),
+};
 const FIRS = uri('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="120" viewBox="0 0 240 120"><g fill="#0a1d3f"><path d="M20 120 38 50 56 120Z"/><path d="M28 80 38 36 48 80Z"/><path d="M80 120 104 30 128 120Z"/><path d="M90 70 104 20 118 70Z"/><path d="M160 120 178 60 196 120Z"/><path d="M168 86 178 44 188 86Z"/><path d="M206 120 220 76 234 120Z"/></g><g fill="#fff" opacity=".9"><path d="M38 36 44 52H32Z"/><path d="M104 20 112 42H96Z"/><path d="M178 44 184 60H172Z"/></g></svg>');
 const SWAG = uri('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="64" viewBox="0 0 200 64"><path d="M0 4Q50 52 100 4T200 4" fill="none" stroke="#0d2a1e" stroke-width="5"/><path d="M0 4Q50 52 100 4T200 4" fill="none" stroke="#2f7a4f" stroke-width="3"/></svg>');
 const BULBS = c => uri('<svg xmlns="http://www.w3.org/2000/svg" width="200" height="64" viewBox="0 0 200 64"><g fill="' + c + '"><circle cx="25" cy="28" r="5"/><circle cx="75" cy="38" r="5"/><circle cx="125" cy="38" r="5"/><circle cx="175" cy="28" r="5"/></g><g fill="' + c + '" opacity=".35"><circle cx="25" cy="28" r="11"/><circle cx="75" cy="38" r="11"/><circle cx="125" cy="38" r="11"/><circle cx="175" cy="28" r="11"/></g></svg>');
@@ -77,11 +89,11 @@ function render(key, opts = {}) {
     const k = norm(key), r = resolve(k), pal = r[1], scene = opts.section ? 'section' : r[0], p = PAL[pal] || PAL.night;
     let html = cache.get(scene);
     if (!html) { html = SC[scene](); cache.set(scene, html); }
-    return '<div class="ls ls-' + scene + (opts.still ? ' is-still' : '') + '" style="--c1:' + p[0] + ';--c2:' + p[1] + ';--c3:' + p[2] + ';--c4:' + p[3] + '" aria-hidden="true">' + html + '</div>';
+    return '<div class="ls ls-' + scene + ' t-' + (r[2] || 'mix') + (opts.still ? ' is-still' : '') + '" style="--c1:' + p[0] + ';--c2:' + p[1] + ';--c3:' + p[2] + ';--c4:' + p[3] + '" aria-hidden="true">' + html + '</div>';
 }
 /* the pictures the scenes share are put into the page once */
 const sheet = document.createElement('style');
-sheet.textContent = '.ls{--tile:' + TILE + ';--firs:' + FIRS + ';--swag:' + SWAG + ';--sn1:' + SNOWS[0] + ';--sn2:' + SNOWS[1] + ';--sn3:' + SNOWS[2] + ';--stars:' + STARS + ';--b0:' + BULBS('#ff5a5a') + ';--b1:' + BULBS('#ffd25e') + ';--b2:' + BULBS('#5ccfff') + '}';
+sheet.textContent = '.ls.t-flakes{--tile:' + FAM.flakes + '}.ls.t-trees{--tile:' + FAM.trees + '}.ls.t-stars{--tile:' + FAM.stars + '}.ls.t-candy{--tile:' + FAM.candy + '}.ls{--tile:' + TILE + ';--firs:' + FIRS + ';--swag:' + SWAG + ';--sn1:' + SNOWS[0] + ';--sn2:' + SNOWS[1] + ';--sn3:' + SNOWS[2] + ';--stars:' + STARS + ';--b0:' + BULBS('#ff5a5a') + ';--b1:' + BULBS('#ffd25e') + ';--b2:' + BULBS('#5ccfff') + '}';
 document.head.appendChild(sheet);
 window.crafterScenes = {render, norm, has: key => Boolean(LIVE[norm(key)] || OLD[norm(key)]), light: key => Boolean((PAL[resolve(key)[1]] || [])[4]), keys: Object.keys(LIVE)};
 })();

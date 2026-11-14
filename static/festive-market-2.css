@@ -97,3 +97,8 @@
 .fm-art .fm-trio{inset:0}
 .fm-trio img{max-width:36%;max-height:100%;height:auto}
 .fm-trio img:nth-child(even){transform:rotate(4deg) scale(1.18)}
+
+/* the timer over an offer: a plain tab on the corner of the card with a small clock */
+.fm-tab{position:absolute!important;height:32px!important;padding:0 14px 0 36px!important;border-radius:11px 11px 0 0!important;clip-path:none!important;background:#0f1850!important;border:1.5px solid rgba(255,255,255,.2)!important;border-bottom:0!important;box-shadow:none!important;font-size:14px!important;font-style:normal!important;font-weight:800!important;letter-spacing:.02em!important;color:#fff!important;text-shadow:none!important}
+.fm-tab::before{content:""!important;position:absolute!important;left:11px!important;top:50%!important;width:17px!important;height:17px!important;margin-top:-8.5px!important;border:0!important;border-radius:0!important;background:#ffd25e!important;-webkit-mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='9.5' fill='none' stroke='black' stroke-width='3'/><path d='M12 6.500V12l4 2.500' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat!important;mask:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><circle cx='12' cy='12' r='9.5' fill='none' stroke='black' stroke-width='3'/><path d='M12 6.500V12l4 2.500' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/></svg>") center/contain no-repeat!important}
+.fm-tab::after{display:none!important;animation:none!important}

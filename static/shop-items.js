@@ -157,21 +157,21 @@ async function admin(content) {
         try { r.bg_library = (await api('admin/new-year/shop-bg-library', {url, name: file.name.replace(/\.[^.]+$/, '')})).library; } catch (_) {}
         return url;
     };
-    const swPic = (key, cur, attr, title) => '<button type="button" class="fm-sw' + (cur === key ? ' is-on' : '') + '" ' + attr + '="' + e(key) + '"><span class="fm-swp"><span class="fm-swc' + (key && window.crafterScenes ? '' : ' cb-' + e(key || 'none')) + '">' + (key && window.crafterScenes ? window.crafterScenes.render(key, {still: true}) : '') + '</span></span><em>' + e(title) + '</em></button>';
+    const swPic = (key, cur, attr, title, sect) => '<button type="button" class="fm-sw' + (cur === key ? ' is-on' : '') + '" ' + attr + '="' + e(key) + '"><span class="fm-swp"><span class="fm-swc' + (key && window.crafterScenes ? '' : ' cb-' + e(key || 'none')) + '">' + (key && window.crafterScenes ? window.crafterScenes.render(key, {still: true, section: Boolean(sect)}) : '') + '</span></span><em>' + e(title) + '</em></button>';
     const swImg = (url, cur, attr, title, del) => '<span class="fm-sw fm-swlib' + (cur === 'image:' + url ? ' is-on' : '') + '"><button type="button" class="fm-swlibpick" ' + attr + '="image:' + e(url) + '"><span class="fm-swp" style="background-image:url(' + e(url) + ')"></span><em>' + e(title) + '</em></button>' +
         (del ? '<button type="button" class="fm-swdel" data-bg-lib-del="' + e(url) + '" title="Убрать из сохранённых" aria-label="Убрать из сохранённых">×</button>' : '') + '</span>';
     const upLabel = (cur, fileAttr, text) => '<label class="fm-sw fm-swup' + (cur && cur.indexOf('image:') === 0 ? ' is-on' : '') + '"><span class="fm-swp"' + (cur && cur.indexOf('image:') === 0 ? ' style="background-image:url(' + e(cur.slice(6)) + ')"' : '') + '><b>+</b></span><em>' + text + '</em><input type="file" accept="image/png,image/jpeg,image/webp,image/gif" hidden ' + fileAttr + '></label>';
     const galGroup = (title, inner) => inner ? '<div class="fm-gal-h">' + title + '</div><div class="fm-gal">' + inner + '</div>' : '';
-    const bgGallery = (cur, attr, fileAttr, keys, isNew, uploadText) => {
+    const bgGallery = (cur, attr, fileAttr, keys, isNew, uploadText, sect) => {
         const lib = (r.bg_library || []).map(x => swImg(x.url, cur, attr, x.name, true)).join('') + upLabel(cur, fileAttr, uploadText);
         const chestBg = CHESTS.filter(c => c.bg_collection).map(c => swImg(c.bg_collection, cur, attr, c.title, false)).join('');
         const fresh = keys.filter(k => k[0] === '' || isNew(k[0])), old = keys.filter(k => k[0] !== '' && !isNew(k[0]));
         const oldOpen = old.some(k => k[0] === cur);
-        return galGroup('Мои фоны (загруженные запоминаются)', lib) + galGroup('Фоны ящиков', chestBg) + galGroup('Спокойные', fresh.map(k => swPic(k[0], cur, attr, k[1])).join('')) +
-            (old.length ? '<details class="fm-gal-old"' + (oldOpen ? ' open' : '') + '><summary>Старые фоны (' + old.length + ')</summary><div class="fm-gal">' + old.map(k => swPic(k[0], cur, attr, k[1])).join('') + '</div></details>' : '');
+        return galGroup('Мои фоны (загруженные запоминаются)', lib) + galGroup('Фоны ящиков', chestBg) + galGroup('Живые фоны', fresh.map(k => swPic(k[0], cur, attr, k[1], sect)).join('')) +
+            (old.length ? '<details class="fm-gal-old"' + (oldOpen ? ' open' : '') + '><summary>Старые фоны (' + old.length + ')</summary><div class="fm-gal">' + old.map(k => swPic(k[0], cur, attr, k[1], sect)).join('') + '</div></details>' : '');
     };
-    const cardBgGallery = (cur, attr, fileAttr) => bgGallery(cur, attr, fileAttr, window.crafterFestive?.cardBgKeys || [], k => /^c-soft/.test(k), 'Свой PNG');
-    const secBgGallery = cur => bgGallery(cur, 'data-sf-bg', 'data-sf-bgfile', window.crafterFestive?.bgKeys || [], k => /^soft/.test(k), 'Свой PNG-фон');
+    const cardBgGallery = (cur, attr, fileAttr) => bgGallery(cur, attr, fileAttr, window.crafterFestive?.cardBgKeys || [], k => /^(live-|blend)/.test(k), 'Свой PNG');
+    const secBgGallery = cur => bgGallery(cur, 'data-sf-bg', 'data-sf-bgfile', window.crafterFestive?.bgKeys || [], k => /^live-/.test(k), 'Свой PNG-фон', true);
     const secTitle = id => ((r.sections || []).find(x => x.id === id) || {}).title || '';
     const sectionChips = (cur, attr) => [['', 'Авто (по правилам)']].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title])).map(c => '<button type="button" class="' + (cur === c[0] ? 'is-on' : '') + '" ' + attr + '="' + e(c[0]) + '">' + e(c[1]) + '</button>').join('');
     const eff = () => f.kind === 'PROMO' ? f.promo : f.kind;
@@ -398,7 +398,7 @@ async function admin(content) {
     };
     const visible = () => boardTab === '*' ? boardAll() : boardAll().filter(it => (it.section_id || '') === boardTab);
     const extraCell = x => '<div class="sb-cell sb-wide sb-extra" data-sb="' + e(x.id) + '">' + window.crafterFestive.card(x.src === 'fb' ? {key: x.id, src: 'fb', ev: x.ev} : {key: x.id, src: 'ch', ch: x.ch}, {board: true}) +
-        '<button type="button" class="sb-handle" data-sb-drag aria-label="Перетащить" title="Перетащите, чтобы переставить">' + GRIP + '</button><span class="sb-badge">' + (x.src === 'fb' ? 'календарь подарков' : 'цепочка акций') + '</span></div>';
+        '<button type="button" class="sb-handle" data-sb-drag aria-label="Перетащить" title="Перетащите, чтобы переставить">' + GRIP + '</button><span class="sb-arrows"><button type="button" data-sb-step="-1" aria-label="Раньше">←</button><button type="button" data-sb-step="1" aria-label="Позже">→</button></span><span class="sb-badge">' + (x.src === 'fb' ? 'календарь подарков' : 'цепочка акций') + '</span></div>';
     const tabsHTML = () => '<div class="sb-tabs">' + [['*', 'Все', r.items.length], ['', 'Авто', r.items.filter(i => !i.section_id).length]].concat((r.sections || []).filter(x => x.kind !== 'exchange' && x.id !== 'gifts').map(x => [x.id, x.title, r.items.filter(i => i.section_id === x.id).length])).map(t => '<button type="button" class="sb-tab' + (boardTab === t[0] ? ' is-on' : '') + '" data-sb-tab="' + e(t[0]) + '">' + e(t[1]) + '<i>' + t[2] + '</i></button>').join('') + (boardTab !== '*' && visible().length ? '<button type="button" class="sb-clear" data-sb-clear>Очистить раздел: удалить все акции (' + visible().length + ')</button>' : '') + '</div>';
     const boardHTML = () => visible().map(it => it.src ? extraCell(it) : '<div class="sb-cell sb-' + sizeOf(it) + (it.status === 'hidden' ? ' is-hidden' : '') + (selected === it.id ? ' is-sel' : '') + '" data-sb="' + e(it.id) + '">' +
         (window.crafterFestive ? window.crafterFestive.card({key: it.id, src: 'shop', it}, {board: true}) : (tiles([it], true)[0] || '')) +
@@ -439,6 +439,21 @@ async function admin(content) {
         bindBoard();
     };
     const open = id => { selected = id; redrawBoard(); sec.querySelector('#sb-drawer')?.scrollIntoView({behavior: 'smooth', block: 'nearest'}); };
+    const saveOrder = async ids => {                          // ids: every tile of the board in the new order (offers, gift calendars, chains)
+        const byId = new Map(r.items.map(i => [i.id, i]));
+        r.items = ids.filter(id => byId.has(id)).map(id => byId.get(id));
+        r.extra_order = {}; ids.forEach((id, n) => { if (!byId.has(id)) r.extra_order[id] = n + 1; else byId.get(id).position = n + 1; });
+        r.order = 'manual';
+        try { await api('admin/new-year/shop-arrange', {ids}); toast('Порядок сохранён'); } catch (err) { toast(err.message); }
+        redrawBoard();
+    };
+    const stepOf = async (id, dir) => {                       // one place earlier (-1) or later (+1) among the tiles that are shown
+        const all = boardAll().map(i => i.id), shown = visible().map(i => i.id), at = shown.indexOf(id), to = shown[at + dir];
+        if (at < 0 || to === undefined) return;
+        const ids = all.filter(x => x !== id), b = ids.indexOf(to);
+        ids.splice(dir > 0 ? b + 1 : b, 0, id);
+        await saveOrder(ids);
+    };
     const startDrag = (ev, cell) => {
         const board = sec.querySelector('#sb-board');
         if (!board || ev.button > 0) return;
@@ -481,12 +496,8 @@ async function admin(content) {
             if (shown.join() === cur.join()) return;
             const whole = boardAll().map(i => i.id);
             let k = 0; const ids = whole.map(id => cur.includes(id) ? shown[k++] : id);   // the tiles of other sections keep their places
-            const byId = new Map(r.items.map(i => [i.id, i]));
-            r.items = ids.filter(id => byId.has(id)).map(id => byId.get(id));
-            r.extra_order = {}; ids.forEach((id, n) => { if (!byId.has(id)) r.extra_order[id] = n + 1; else byId.get(id).position = n + 1; });
-            r.order = 'manual';
-            try { await api('admin/new-year/shop-arrange', {ids}); toast('Порядок сохранён'); } catch (err) { toast(err.message); }
-            redrawBoard();
+            await saveOrder(ids);
+            return;
         };
         window.addEventListener('pointermove', move); window.addEventListener('pointerup', end); window.addEventListener('pointercancel', end);
     };
@@ -495,6 +506,7 @@ async function admin(content) {
             cell.addEventListener('dblclick', () => open(cell.dataset.sb));
             cell.querySelector('[data-sb-gear]')?.addEventListener('click', () => open(cell.dataset.sb));
             cell.querySelector('[data-sb-drag]')?.addEventListener('pointerdown', ev => startDrag(ev, cell));
+            cell.querySelectorAll('[data-sb-step]').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); stepOf(cell.dataset.sb, Number(b.dataset.sbStep)); }));
         });
         const it = r.items.find(x => x.id === selected), drawer = sec.querySelector('#sb-drawer');
         drawer?.querySelector('[data-sb-close]')?.addEventListener('click', () => { selected = null; redrawBoard(); });
@@ -529,10 +541,7 @@ async function admin(content) {
                 }
                 if (act === 'status') { const next = it.status === 'active' ? 'hidden' : 'active'; await api('admin/new-year/shop/' + it.id + '/status', {status: next}); it.status = next; redrawBoard(); return; }
                 if (act === 'delete') { if (!confirm('Удалить лот «' + it.title + '»?')) return; await api('admin/new-year/shop/' + it.id + '/delete', {}); r.items = r.items.filter(x => x.id !== it.id); selected = null; redrawBoard(); toast('Лот удалён'); return; }
-                const at = r.items.indexOf(it), to = act === 'earlier' ? at - 1 : at + 1;
-                if (to < 0 || to >= r.items.length) return;
-                await api('admin/new-year/shop/' + it.id + '/move', {direction: act === 'earlier' ? 'up' : 'down'});
-                r.items.splice(to, 0, r.items.splice(at, 1)[0]); r.order = 'manual'; redrawBoard();
+                await stepOf(it.id, act === 'earlier' ? -1 : 1);
             } catch (err) { toast(err.message); }
         }));
     };
