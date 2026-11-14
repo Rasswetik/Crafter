@@ -232,6 +232,40 @@ for ch in chests:
         sh.append([KIND.get(x['kind'], x['kind']), name, x['inside'], x['chance'], round(val, 3)])
     style(sh, [12, 44, 18, 22, 16])
 
+
+from drops import DROPS, final_chances  # noqa: E402
+cfg = DROPS['snowman_drop']
+dist, rew = final_chances(cfg)
+
+
+def spec_value(spec):
+    k, a_ = spec
+    if k == 'GRAM':
+        return float(a_)
+    if k == 'BALL':
+        return float(a_) / RATE
+    if k == 'PACK':
+        return PACK_EV.get(a_, 0)
+    return nft_price(a_)
+
+
+drop_ev = sum(p * spec_value(cfg['rewards'][k][i]) for (k, i), p in rew.items())
+ds = wb.create_sheet('Дроп Snowman', 1)
+ds.append(['Что', 'Значение'])
+ds.append(['Ценность одного дропа, GRAM', round(drop_ev, 3)])
+ds.append(['Ценность одного дропа, шаров (курс 1 GRAM = %d)' % RATE, round(drop_ev * RATE)])
+ds.append(['Цена 1 дропа в магазине (+%d%%), шаров' % MARKUP, r10(drop_ev * RATE * (1 + MARKUP / 100))])
+ds.append(['Цена ×3 (скидка 3%)', r10(drop_ev * RATE * (1 + MARKUP / 100) * 3 * 0.97)])
+ds.append(['Цена ×5 (скидка 7%)', r10(drop_ev * RATE * (1 + MARKUP / 100) * 5 * 0.93)])
+ds.append(['Цена ×10 (скидка 15%)', r10(drop_ev * RATE * (1 + MARKUP / 100) * 10 * 0.85)])
+ds.append([])
+ds.append(['Редкость после 4 попыток', 'Шанс %'])
+for i, pr in enumerate(dist):
+    ds.append([cfg['rarities'][i], round(pr * 100, 3)])
+ds.append([])
+ds.append(['Как создать', 'Магазин → Новый товар → «Дроп» → Snowman Drop; штук за покупку 1/3/5/10; цена из этого листа; размер «Большая», раздел «Ящики» или «Дропы».'])
+ds.append(['Выдать вручную', 'В форме лота «Дроп» снизу: Telegram ID игрока и количество.'])
+style(ds, [52, 16])
 wb.save('exports/chests-shop-plan.xlsx')
 print('saved')
 for r in rows:
