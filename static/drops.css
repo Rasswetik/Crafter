@@ -184,3 +184,12 @@ body.dr-open{overflow:hidden}
 @keyframes dr-flash2{0%{opacity:0}18%{opacity:1}100%{opacity:0}}
 .dr-reward.is-pop{transition:none;animation:dr-rwjump .75s cubic-bezier(.2,1.6,.4,1) both}
 @keyframes dr-rwjump{0%{opacity:0;transform:scale(.15)}55%{opacity:1;transform:scale(1.14)}100%{opacity:1;transform:scale(1)}}
+/* ---- v4: the attempts are small and tight, as in the example (a title and a short row of orbs) ---- */
+.dr-bottom{gap:8px;padding-bottom:calc(26px + env(safe-area-inset-bottom))}
+.dr-title{font-size:clamp(16px,4.4vw,24px);-webkit-text-stroke:clamp(5px,1.1vw,7px) #14213f}
+.dr-orbs{gap:clamp(6px,1.8vw,10px);min-height:0}
+.dr-orb{width:clamp(30px,8vw,40px);border-width:3px;box-shadow:0 3px 0 rgba(8,12,34,.5),inset 0 -4px 7px rgba(0,0,0,.2)}
+.dr-orb.is-next{width:clamp(38px,10vw,50px)}
+.dr-orb b{font-size:clamp(14px,3.6vw,18px);-webkit-text-stroke:2.5px #1b1340}.dr-orb.is-next b{font-size:clamp(22px,5.6vw,30px);-webkit-text-stroke:3.5px #1b1340}
+.dr-hint{margin-top:6px;font-size:11px}
+@media(max-height:720px){.dr-title{font-size:clamp(14px,3.6vh,20px)}.dr-orb{width:clamp(26px,5.6vh,36px)}.dr-orb.is-next{width:clamp(34px,7.6vh,46px)}.dr-orb.is-next b{font-size:clamp(18px,4vh,26px)}}
