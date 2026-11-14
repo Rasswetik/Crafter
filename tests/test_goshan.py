@@ -223,3 +223,42 @@ def test_currency_management_choose_recalculate_and_tell_everybody(client):
     assert ok.status_code == 200 and ok.json['current']['kind'] == 'custom' and ok.json['current']['gen'] == 'звёзд'
     drop = client.get('/api/chests/goshan', headers=player)
     assert drop.status_code == 200
+
+
+def test_vice_capsule_is_a_box_with_three_frames_sold_everywhere_boxes_are(client):
+    from pathlib import Path
+    admin, player = signed(42), signed(92)
+    client.get('/api/me', headers=player)
+    chest = client.get('/api/chests/vicecapsule', headers=player).json['chest']
+    assert chest['title'] == 'Vice Capsule' and chest['image'].endswith('vicecapsule.png') and chest['image_release'].endswith('vicecapsule-release.png') and chest['image_open'].endswith('vicecapsule-open.png')
+    assert chest['bg_reward'].endswith('vicecapsule-bg-opening.webp')
+    root = Path(__file__).resolve().parent.parent / 'static' / 'assets' / 'chests'
+    for name in ('vicecapsule.png', 'vicecapsule-release.png', 'vicecapsule-open.png', 'vicecapsule-bg-idle.webp', 'vicecapsule-bg-collection.webp', 'vicecapsule-bg-neon_palms.webp',
+                 'vicecapsule-bg-midnight_boulevard.webp', 'vicecapsule-bg-ocean_sunset.webp', 'vicecapsule-bg-moonlit_marina.webp'):
+        assert (root / name).exists(), name
+    counts = set()
+    for _ in range(40):
+        r = client.post('/api/admin/new-year/chests/vicecapsule/preview', headers=admin)
+        assert r.status_code == 200
+        counts.add(len(r.json['items']))
+    assert counts <= {1, 2, 3, 4} and 1 in counts                                       # a short opening: from one to four rewards
+    client.post('/api/admin/new-year/wallet', headers=admin, json={'user_id': '92', 'balls': 5000})
+    single = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'CHEST', 'amount': 'vicecapsule', 'price_balls': 100, 'size': 'small'})
+    assert single.status_code == 200, single.get_data(as_text=True)
+    bought = client.post('/api/shop-items/buy', headers=player, json={'item_id': single.json['id'], 'request_id': 'capsule-buy-0001'})
+    assert bought.status_code == 200 and bought.json['chest_open']['chest']['id'] == 'vicecapsule' and bought.json['chest_open']['chest']['image_release']     # it opens at once
+    bundle = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'BUNDLE', 'price_balls': 100, 'size': 'small', 'contents': {'gram': '0', 'packs': [], 'chests': [{'chest_id': 'vicecapsule', 'count': 2}]}})
+    assert bundle.status_code == 200, bundle.get_data(as_text=True)
+    got = client.post('/api/shop-items/buy', headers=player, json={'item_id': bundle.json['id'], 'request_id': 'capsule-buy-0002'})
+    assert got.status_code == 200 and len(got.json['chest_opens']) == 2
+    choice = client.post('/api/admin/new-year/shop', headers=admin, json={'kind': 'PACK', 'mode': 'choice', 'price_balls': 100, 'size': 'small', 'contents': [{'pack_id': 'chest:vicecapsule', 'count': 1}, {'pack_id': 'chest:vice', 'count': 1}]})
+    assert choice.status_code == 200, choice.get_data(as_text=True)
+    pick = client.post('/api/shop-items/buy', headers=player, json={'item_id': choice.json['id'], 'request_id': 'capsule-buy-0003', 'choice': 'chest:vicecapsule'})
+    assert pick.status_code == 200 and pick.json['chest_open']['chest']['id'] == 'vicecapsule'
+    listing = client.get('/api/admin/new-year/chests', headers=admin).json
+    saved = next(c for c in (listing.get('chests') or listing.get('items') or []) if (c.get('chest') or c).get('id') == 'vicecapsule')
+    saved = saved.get('chest') or saved
+    body = {'id': 'vicecapsule', 'title': saved['title'], 'image': saved['image'], 'enabled': True, 'rolls': {'1': 45, '2': 35}, 'settings': {'guaranteed': [], 'bonus': {'GRAM': 1}},
+            'loot': [{'kind': 'GRAM', 'amount': '0.1', 'weight': 1}]}
+    assert client.post('/api/admin/new-year/chests', headers=admin, json=body).status_code == 200
+    assert client.get('/api/chests/vicecapsule', headers=player).json['chest']['image_release'].endswith('vicecapsule-release.png')      # the editor does not drop the third frame

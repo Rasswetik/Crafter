@@ -272,3 +272,14 @@ body.cx-open .crafter-snowfall{display:none!important}
 .cx-art.is-gift,.dr-rw-art.is-gift{border-radius:28px;box-shadow:0 18px 40px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.28);overflow:hidden}
 .cx-art.is-gift .cx-aura,.dr-rw-art.is-gift .dr-rw-aura,.dr-rw-art.is-gift .dr-rw-rays{display:none}
 .cx-num,.dr-num{position:absolute;z-index:2;right:12px;bottom:10px;padding:2px 9px;border-radius:999px;background:rgba(0,0,0,.38);color:#fff;font:800 15px/1.4 system-ui,sans-serif;letter-spacing:.02em}
+
+/* Vice Capsule: three frames in one fixed square, a soft local flash */
+.cx-sprite.is-cap{transition:transform .09s ease-out;transform-origin:50% 55%;aspect-ratio:1;max-height:100%;margin:0 auto}
+.cx-sprite.is-cap img{max-width:100%;max-height:100%;width:100%;height:100%;filter:drop-shadow(0 14px 18px rgba(20,0,40,.4))}
+.cx-sprite.is-cap .cx-sp-rel,.cx-sprite.is-cap .cx-sp-open{opacity:0;transform:none}
+.cx-sprite.is-cap.is-lift .cx-sp-closed{opacity:0}.cx-sprite.is-cap.is-lift .cx-sp-rel{opacity:1}
+.cx-sprite.is-cap.is-open .cx-sp-closed,.cx-sprite.is-cap.is-open .cx-sp-rel{opacity:0}.cx-sprite.is-cap.is-open .cx-sp-open{opacity:1;animation:none}
+.cx-sprite.is-cap.is-idle,.cx-sprite.is-cap.is-hop{animation:cxs-idle 3.2s ease-in-out infinite}
+.cx-cap-flash{position:absolute;left:50%;top:44%;width:80%;aspect-ratio:1;margin:-40% 0 0 -40%;border-radius:50%;background:radial-gradient(circle,rgba(215,255,250,.9),rgba(215,255,250,.35) 45%,transparent 70%);pointer-events:none;animation:cxcap-flash .34s ease-out both}
+@keyframes cxcap-flash{0%{opacity:0;transform:scale(.4)}35%{opacity:.85}100%{opacity:0;transform:scale(1.5)}}
+@media(prefers-reduced-motion:reduce){.cx-cap-flash{display:none}}

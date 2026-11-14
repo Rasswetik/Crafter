@@ -377,3 +377,11 @@ for _kind, _amount, _w in _box['loot']:
     _loot.append((_kind, _amount, _w))
 _box['loot'] = _loot
 BOXES['ocean'] = _box
+
+
+# ---- Vice Capsule: a short box (one tap, about 0.6 s): the neon pool of the Vice box, fewer rewards at a time (1-4), the fixed background Neon Palms
+_cap = _copy.deepcopy(BOXES['vice'])
+_cap['title'] = 'Vice Capsule'
+_cap['rolls'] = {'1': 45.0, '2': 35.0, '3': 15.0, '4': 5.0}
+_cap['release'] = True
+BOXES['vicecapsule'] = _cap

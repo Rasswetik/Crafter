@@ -122,7 +122,24 @@ function flat(host, chest) {                                        // no WebGL:
     return {ready: Promise.resolve(), dispose() {}, async open() { img.classList.add('is-shake'); await sleep(520); return 0; }};
 }
 /* two pictures: a closed chest hops and breathes, then charges (squash and shake) and the open one pops in */
+function capsule(host, chest) {                                      // one tap: a squeeze, the dome lifts, a local flash, the empty base (about 0.6 s); all frames on one square canvas
+    host.innerHTML = '<div class="cx-sprite is-cap"><img class="cx-sp-closed" src="' + e(chest.image) + '" alt="" draggable="false"><img class="cx-sp-rel" src="' + e(chest.image_release) + '" alt="" draggable="false"><img class="cx-sp-open" src="' + e(chest.image_open) + '" alt="" draggable="false"></div>';
+    const box = host.firstChild;
+    return {
+        ready: Promise.all([chest.image, chest.image_release, chest.image_open].map(u => new Promise(r => { const i = new Image(); i.onload = i.onerror = r; i.src = u; }))),
+        dispose() {},
+        async open() {
+            if (reduced()) { box.classList.add('is-open'); await sleep(60); return 0; }
+            box.style.transform = 'scale(.97)'; await sleep(90);
+            box.classList.add('is-lift'); box.style.transform = 'scale(1.03)'; await sleep(90);
+            const flash = document.createElement('i'); flash.className = 'cx-cap-flash'; box.appendChild(flash); setTimeout(() => flash.remove(), 400);
+            await sleep(40); box.classList.remove('is-lift'); box.classList.add('is-open'); box.style.transform = 'scale(1)'; await sleep(140);
+            return 0;
+        }
+    };
+}
 function sprite(host, chest) {
+    if (chest.image_release && chest.image_open) return capsule(host, chest);
     host.innerHTML = '<div class="cx-sprite"><img class="cx-sp-closed" src="' + e(chest.image) + '" alt="" draggable="false"><img class="cx-sp-open" src="' + e(chest.image_open) + '" alt="" draggable="false"></div>';
     const box = host.firstChild;
     box.classList.add('is-hop');
