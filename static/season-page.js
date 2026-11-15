@@ -111,9 +111,9 @@ function megaDeck() {
     const behind = Math.min(4, list.length - idx - 1);
     const ends = S.season.ends_at ? S.season.ends_at - S.now : 0;
     const layers = Array.from({length: behind}, (_, k) => '<i class="sp-deck-l" style="--k:' + (k + 1) + '"></i>').join('');
-    return '<section class="sq-col sq-mega sp-mega"><header><h3><svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" fill="#fff" stroke="#14213f" stroke-width="2"/><path d="M8 12.5l3 3 5-6" fill="none" stroke="#e8203a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Мегаквесты</h3>' + (ends > 0 ? '<small>Окончание через<b>' + left(ends) + '</b></small>' : '') + '</header>' +
-        '<div class="sp-deck">' + layers + questCard(cur, true, 0) + '</div>' +
-        '<div class="sp-mega-foot"><span>Квест ' + Math.min(idx + 1, list.length) + ' из ' + list.length + '</span>' + (list.length > 1 ? '<button type="button" class="sp-megaall" data-megaall>Все мегаквесты</button>' : '') + '</div></section>';
+    /* no icon, no extra buttons: the deck of cards is the button, a tap opens all the mega quests */
+    return '<section class="sq-col sq-mega sp-mega"><header><h3>Мегаквесты</h3>' + (ends > 0 ? '<small>Окончание через<b>' + left(ends) + '</b></small>' : '') + '</header>' +
+        '<div class="sp-deck" data-megaall role="button" tabindex="0" aria-label="Все мегаквесты">' + layers + questCard(cur, true, 0) + (list.length > 1 ? '<span class="sp-deck-count">' + Math.min(idx + 1, list.length) + ' / ' + list.length + '</span>' : '') + '</div></section>';
 }
 
 function megaAll() {
@@ -372,7 +372,7 @@ function bind() {
         if (ev.target.closest('[data-buylvl]')) { buyLevel(); return; }
         if (ev.target.closest('[data-claimall]')) { claim({track: 'all'}); return; }
         const sc = ev.target.closest('[data-scroll]');
-        if (ev.target.closest('[data-megaall]')) { megaAll(); return; }
+        if (!ev.target.closest('[data-take]') && ev.target.closest('[data-megaall]')) { megaAll(); return; }
         if (sc) { const tr = root.querySelector('[data-track]'); glide(tr, tr.scrollLeft + Number(sc.dataset.scroll) * Math.max(300, tr.clientWidth * .75)); return; }
         if (ev.target.closest('[data-tocur]')) { const tr = root.querySelector('[data-track]'), c = tr.querySelector('.sp-col.is-cur'); if (c) glide(tr, Math.max(0, c.offsetLeft - 40)); return; }
         const rw = ev.target.closest('.sp-rw[data-lv]');
