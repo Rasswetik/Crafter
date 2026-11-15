@@ -1,8 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><defs><linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe45c"/><stop offset="1" stop-color="#ff9d1c"/></linearGradient></defs>
-<g stroke="#14101f" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
-<polygon points="134.0,22.0 159.3,87.2 229.1,91.1 174.9,135.3 192.8,202.9 134.0,165.0 75.2,202.9 93.1,135.3 38.9,91.1 108.7,87.2" fill="#14101f"/>
-<polygon points="128.0,14.0 153.3,79.2 223.1,83.1 168.9,127.3 186.8,194.9 128.0,157.0 69.2,194.9 87.1,127.3 32.9,83.1 102.7,79.2" fill="url(#gd)"/>
-<polygon points="128.0,44.0 145.6,89.7 194.6,92.4 156.5,123.3 169.1,170.6 128.0,144.0 86.9,170.6 99.5,123.3 61.4,92.4 110.4,89.7" fill="#fff0a8" stroke="none" opacity=".5"/>
-<path d="M128 24 L146 78 L206 82" fill="none" stroke="#fff" stroke-width="5" opacity=".7"/>
-<g fill="#ffd23f" stroke-width="7"><polygon points="50.0,206.0 55.3,218.7 69.0,219.8 58.6,228.8 61.8,242.2 50.0,235.0 38.2,242.2 41.4,228.8 31.0,219.8 44.7,218.7"/><polygon points="128.0,210.0 133.3,222.7 147.0,223.8 136.6,232.8 139.8,246.2 128.0,239.0 116.2,246.2 119.4,232.8 109.0,223.8 122.7,222.7"/><polygon points="206.0,206.0 211.3,218.7 225.0,219.8 214.6,228.8 217.8,242.2 206.0,235.0 194.2,242.2 197.4,228.8 187.0,219.8 200.7,218.7"/></g>
-</g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><style>
+.o{transform-box:fill-box;transform-origin:center}
+.float{animation:fl 3.4s ease-in-out infinite}
+@keyframes fl{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+.rays{transform-origin:128px 128px;animation:rt 40s linear infinite}
+@keyframes rt{to{transform:rotate(360deg)}}
+.sheen{animation:sn 4s ease-in-out infinite}
+@keyframes sn{0%,50%{transform:translateX(-260px)}100%{transform:translateX(260px)}}
+.halo{animation:ha 3s ease-in-out infinite}
+@keyframes ha{0%,100%{opacity:.5}50%{opacity:.95}}
+.tw{animation:tw 2s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:0;transform:scale(.3) rotate(0)}50%{opacity:1;transform:scale(1) rotate(45deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+
+.pulse{animation:pu 1.6s ease-in-out infinite}
+@keyframes pu{0%,100%{transform:scale(1)}50%{transform:scale(1.07)}}
+.sL{animation:sl 1.2s steps(1) infinite}.sR{animation:sr 1.2s steps(1) infinite}
+@keyframes sl{0%{opacity:.85}50%{opacity:.1}}
+@keyframes sr{0%{opacity:.1}50%{opacity:.85}}
+.gl{animation:gl 2.8s ease-in-out infinite}
+@keyframes gl{0%,45%{transform:translateX(-170px)}100%{transform:translateX(170px)}}
+</style><defs>
+<filter id="blur" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="8"/></filter>
+<filter id="drop" x="-30%" y="-30%" width="160%" height="170%"><feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#14052e" flood-opacity=".55"/></filter>
+<clipPath id="disc"><circle cx="128" cy="128" r="104"/></clipPath>
+<linearGradient id="rim" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9f7"/><stop offset=".35" stop-color="#ff7ac0"/><stop offset=".7" stop-color="#9a45ff"/><stop offset="1" stop-color="#3fd7ff"/></linearGradient>
+<radialGradient id="bg" cx=".5" cy=".3" r=".85"><stop offset="0" stop-color="#9a58ff"/><stop offset=".55" stop-color="#4b1f9c"/><stop offset="1" stop-color="#220c47"/></radialGradient>
+<linearGradient id="shn" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".5" stop-color="#fff" stop-opacity=".5"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2a0"/><stop offset=".5" stop-color="#ffc83a"/><stop offset="1" stop-color="#f08a14"/></linearGradient>
+<clipPath id="sc"><polygon points="128.00,44.00 147.40,91.30 198.38,95.13 159.38,128.20 171.50,177.87 128.00,151.00 84.50,177.87 96.62,128.20 57.62,95.13 108.60,91.30"/></clipPath></defs><circle class="halo" cx="128" cy="128" r="112" fill="#ff3d6a" filter="url(#blur)"/><circle cx="128" cy="128" r="118" fill="url(#rim)"/><circle cx="128" cy="128" r="109" fill="#1a0838"/><circle cx="128" cy="128" r="104" fill="url(#bg)"/><g clip-path="url(#disc)"><g class="rays"><polygon points="128,128 348.0,128.0 344.7,166.2" fill="#fff" opacity=".07"/><polygon points="128,128 318.5,238.0 296.5,269.4" fill="#fff" opacity=".07"/><polygon points="128,128 238.0,318.5 203.2,334.7" fill="#fff" opacity=".07"/><polygon points="128,128 128.0,348.0 89.8,344.7" fill="#fff" opacity=".07"/><polygon points="128,128 18.0,318.5 -13.4,296.5" fill="#fff" opacity=".07"/><polygon points="128,128 -62.5,238.0 -78.7,203.2" fill="#fff" opacity=".07"/><polygon points="128,128 -92.0,128.0 -88.7,89.8" fill="#fff" opacity=".07"/><polygon points="128,128 -62.5,18.0 -40.5,-13.4" fill="#fff" opacity=".07"/><polygon points="128,128 18.0,-62.5 52.8,-78.7" fill="#fff" opacity=".07"/><polygon points="128,128 128.0,-92.0 166.2,-88.7" fill="#fff" opacity=".07"/><polygon points="128,128 238.0,-62.5 269.4,-40.5" fill="#fff" opacity=".07"/><polygon points="128,128 318.5,18.0 334.7,52.8" fill="#fff" opacity=".07"/></g></g><g class="float"><circle class="sL" cx="54" cy="120" r="34" fill="#ff2f55" filter="url(#blur)"/><circle class="sR" cx="202" cy="120" r="34" fill="#2f8bff" filter="url(#blur)"/><g filter="url(#drop)"><g class="o pulse"><polygon points="128.00,44.00 147.40,91.30 198.38,95.13 159.38,128.20 171.50,177.87 128.00,151.00 84.50,177.87 96.62,128.20 57.62,95.13 108.60,91.30" fill="#b8620a" stroke="#b8620a" stroke-width="14" stroke-linejoin="round" transform="translate(0 5)"/><polygon points="128.00,44.00 147.40,91.30 198.38,95.13 159.38,128.20 171.50,177.87 128.00,151.00 84.50,177.87 96.62,128.20 57.62,95.13 108.60,91.30" fill="url(#gold)" stroke="url(#gold)" stroke-width="14" stroke-linejoin="round"/><g clip-path="url(#sc)"><polygon points="128.00,73.00 140.93,105.20 175.55,107.55 148.92,129.80 157.39,163.45 128.00,145.00 98.61,163.45 107.08,129.80 80.45,107.55 115.07,105.20" fill="#fff6b8" opacity=".5" stroke="#fff6b8" stroke-width="6" stroke-linejoin="round"/><g class="gl"><polygon points="86,30 112,30 90,200 64,200" fill="#fff" opacity=".7"/></g></g><path d="M112 52 Q104 64 106 78" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".85"/></g><g fill="url(#gold)" stroke="#b8620a" stroke-width="2" stroke-linejoin="round"><polygon points="86.00,194.00 89.82,202.74 99.31,203.67 92.18,210.01 94.23,219.33 86.00,214.50 77.77,219.33 79.82,210.01 72.69,203.67 82.18,202.74"/><polygon points="128.00,198.00 131.82,206.74 141.31,207.67 134.18,214.01 136.23,223.33 128.00,218.50 119.77,223.33 121.82,214.01 114.69,207.67 124.18,206.74"/><polygon points="170.00,194.00 173.82,202.74 183.31,203.67 176.18,210.01 178.23,219.33 170.00,214.50 161.77,219.33 163.82,210.01 156.69,203.67 166.18,202.74"/></g></g></g><g clip-path="url(#disc)"><ellipse cx="128" cy="52" rx="86" ry="46" fill="#fff" opacity=".13"/><g class="sheen"><polygon points="70,10 120,10 60,246 10,246" fill="url(#shn)"/></g></g><circle cx="128" cy="128" r="104" fill="none" stroke="#fff" stroke-opacity=".18" stroke-width="2"/><polygon class="o tw" style="animation-delay:0.2s" points="34.0,61.0 36.0,68.0 43.0,70.0 36.0,72.0 34.0,79.0 32.0,72.0 25.0,70.0 32.0,68.0" fill="#fff"/><polygon class="o tw" style="animation-delay:1.1s" points="222.0,51.0 223.5,56.5 229.0,58.0 223.5,59.5 222.0,65.0 220.5,59.5 215.0,58.0 220.5,56.5" fill="#fff"/><polygon class="o tw" style="animation-delay:1.6s" points="226.0,170.0 227.3,174.7 232.0,176.0 227.3,177.3 226.0,182.0 224.7,177.3 220.0,176.0 224.7,174.7" fill="#fff"/></svg>

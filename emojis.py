@@ -80,16 +80,36 @@ def install_emojis(app, db, auth, audit):
         if not db().execute("SELECT 1 FROM settings WHERE key='emoji_seed_wisecraft_v1'").fetchone():
             now = int(time.time())
             base = '/static/assets/emoji/wisecraft-'
-            db().execute("INSERT INTO emoji_collections(id,title,photo,position,created) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING", ('wisecraft', 'Wisecraft', base + 'owl.svg', 3, now))
+            db().execute("INSERT INTO emoji_collections(id,title,photo,position,created) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING", ('wisecraft', 'Crafter Vice', base + 'owl.svg', 3, now))
             for i, (eid, title, desc, art) in enumerate((
-                    ('wisecraft-owl', 'Wisecraft', 'Мудрая сова в тёмных очках: знак коллекции Wisecraft.', 'owl'),
+                    ('wisecraft-owl', 'Crafter Vice', 'Сова в неоновых очках: знак коллекции Crafter Vice.', 'owl'),
                     ('wisecraft-wanted', 'Розыск', 'Звезда розыска: за вами уже гонится весь город.', 'wanted'),
                     ('wisecraft-cash', 'Налик', 'Пачки и золотая монета: деньги решают всё.', 'cash'),
-                    ('wisecraft-car', 'Тачка', 'Розовая тачка с неоновой подсветкой.', 'car'),
+                    ('wisecraft-shades', 'Очки', 'Неоновые очки: закат отражается прямо в стёклах.', 'shades'),
+                    ('wisecraft-diamond', 'Бриллиант', 'Огранённый бриллиант, который переливается на свету.', 'diamond'),
                     ('wisecraft-sunset', 'Закат', 'Пальма на фоне неонового заката.', 'sunset'))):
                 db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created,poster,collection_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
                              (eid, title, desc, base + art + '.svg', 1, 10 + i, now, '', 'wisecraft'))
             db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_wisecraft_v1','1') ON CONFLICT DO NOTHING")
+
+    with app.app_context(), db():                                       # the collection Wisecraft is renamed to Crafter Vice
+        if not db().execute("SELECT 1 FROM settings WHERE key='emoji_rename_crafter_vice_v1'").fetchone():
+            db().execute("UPDATE emoji_collections SET title='Crafter Vice' WHERE id='wisecraft' AND title='Wisecraft'")
+            db().execute("UPDATE emoji_defs SET title='Crafter Vice', description='Сова в неоновых очках: знак коллекции Crafter Vice.' WHERE id='wisecraft-owl' AND title='Wisecraft'")
+            db().execute("INSERT INTO settings(key,payload) VALUES('emoji_rename_crafter_vice_v1','1') ON CONFLICT DO NOTHING")
+
+    with app.app_context(), db():                                       # the Crafter Vice badges are redrawn: the car goes away, the shades and the diamond come
+        if not db().execute("SELECT 1 FROM settings WHERE key='emoji_wisecraft_redraw_v1'").fetchone():
+            now = int(time.time())
+            base = '/static/assets/emoji/wisecraft-'
+            if db().execute("SELECT 1 FROM emoji_collections WHERE id='wisecraft'").fetchone():
+                for table, col in (('emoji_defs', 'id'), ('user_emojis', 'emoji_id'), ('user_emoji_status', 'emoji_id')):
+                    db().execute("DELETE FROM %s WHERE %s='wisecraft-car'" % (table, col))
+                for eid, title, desc, art, pos in (('wisecraft-shades', 'Очки', 'Неоновые очки: закат отражается прямо в стёклах.', 'shades', 13),
+                                                   ('wisecraft-diamond', 'Бриллиант', 'Огранённый бриллиант, который переливается на свету.', 'diamond', 14)):
+                    db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created,poster,collection_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                                 (eid, title, desc, base + art + '.svg', 1, pos, now, '', 'wisecraft'))
+            db().execute("INSERT INTO settings(key,payload) VALUES('emoji_wisecraft_redraw_v1','1') ON CONFLICT DO NOTHING")
 
     def media_kind(url):
         m = re.fullmatch(r'/media/shop/([0-9a-f]{32})', url or '')
