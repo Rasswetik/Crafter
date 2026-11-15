@@ -43,6 +43,12 @@ def install_emojis(app, db, auth, audit):
                          ('goshanvice', 'Goshan Vice', 'Особый значок.', '/static/assets/emoji/goshan-vice.webm', 1, 1, int(time.time())))
             db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_goshanvice_v1','1') ON CONFLICT DO NOTHING")
 
+    with app.app_context(), db():                                       # the second badge: Goshan Vice waves (the preview, cut out of its background)
+        if not db().execute("SELECT 1 FROM settings WHERE key='emoji_seed_goshanvice_hi_v1'").fetchone():
+            db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                         ('goshanvice-hi', 'Goshan Vice: привет', 'Особый значок.', '/static/assets/emoji/goshan-vice-hi.webm', 1, 2, int(time.time())))
+            db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_goshanvice_hi_v1','1') ON CONFLICT DO NOTHING")
+
     def media_kind(url):
         m = re.fullmatch(r'/media/shop/([0-9a-f]{32})', url or '')
         if m:
