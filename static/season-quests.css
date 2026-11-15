@@ -73,3 +73,12 @@
 .sq-mega .sp-q.is-big .qc-ic .sp-ic{width:130px!important;height:130px!important}
 .sp-megarow .qc-ic{width:auto;height:auto}
 .sp-megarow .qc-ic .sp-ic{width:118px!important;height:118px!important}
+
+/* v6: the card is always taller than its picture, so a tall pack can never leave the frame */
+.sq-grid .sp-q.qc{min-height:104px;align-content:center}
+.qc-ic{width:92px;height:76px}
+.sp-q.qc .qc-ic .sp-ic{width:76px!important;height:76px!important}
+.sp-q.qc .qc-ic .sp-ic img{max-height:76px!important;max-width:76px!important}
+.sq-mega .sp-q.is-big .qc-ic,.sp-megarow .qc-ic{width:auto;height:auto}
+.sq-mega .sp-q.is-big .qc-ic .sp-ic{width:130px!important;height:130px!important}.sq-mega .sp-q.is-big .qc-ic .sp-ic img{max-width:130px!important;max-height:130px!important}
+.sp-megarow .qc-ic .sp-ic{width:118px!important;height:118px!important}.sp-megarow .qc-ic .sp-ic img{max-width:118px!important;max-height:118px!important}
