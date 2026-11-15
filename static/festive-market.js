@@ -438,7 +438,7 @@ function stage(o, ctx, opts2 = {}) {
         el.querySelectorAll('[data-fm-show]').forEach(b => b.addEventListener('click', () => show(Number(b.dataset.fmShow))));
     }
     if (choice) {
-        setPick(0);
+        setPick(Math.max(0, choice.findIndex(c => !(c.pack.type === 'EMOJI' && c.pack.owned))));          // the first option is the first one the player can still take
         el.querySelectorAll('[data-fm-opt]').forEach(b => b.addEventListener('click', () => setPick(Number(b.dataset.fmOpt))));
         el.querySelectorAll('[data-fm-h]').forEach(b => b.addEventListener('click', () => setPick(pick + Number(b.dataset.fmH))));
         el.addEventListener('keydown', ev => { if (ev.key === 'ArrowLeft') setPick(pick - 1); if (ev.key === 'ArrowRight') setPick(pick + 1); });
@@ -446,10 +446,12 @@ function stage(o, ctx, opts2 = {}) {
     const btn = el.querySelector('[data-fm-buy]'), err = el.querySelector('.fm-err'), bubble = el.querySelector('.fm-confirm');
     /* a badge is got once: when the player has it, the button says so (the server does not sell it again) */
     function syncOwned() {
+        const b = el.querySelector('[data-fm-buy]');                       // looked up here: setPick may run before the button constants below
+        if (!b) return;
         const have = (it.emoji && it.emoji.owned) || (choice && choice[pick] && choice[pick].pack.type === 'EMOJI' && choice[pick].pack.owned);
-        btn.disabled = Boolean(have);
-        btn.classList.toggle('is-owned', Boolean(have));
-        if (have) btn.innerHTML = '<span><b>Уже есть</b></span>';
+        b.disabled = Boolean(have);
+        b.classList.toggle('is-owned', Boolean(have));
+        if (have) b.innerHTML = '<span><b>Уже есть</b></span>';
     }
     syncOwned();
     const hide = () => { bubble.classList.remove('is-in'); setTimeout(() => { bubble.hidden = true; }, 200); };
