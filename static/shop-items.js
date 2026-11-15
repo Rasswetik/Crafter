@@ -4,8 +4,9 @@
 const e = v => (typeof esc === 'function' ? esc(v) : String(v ?? ''));
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n.toLocaleString('ru-RU', {maximumFractionDigits: 6}) : '0'; };
 const ORN = '<img src="/static/assets/new-year-ornament.svg" alt="" aria-hidden="true">';
-const LABEL = {GRAM: 'Баланс GRAM', BALL: 'Новогодние шары', PACK: 'Карточный пак', BUNDLE: 'Бандл', STAR: 'Подарок Telegram', PROMO: 'Промокод', CHEST: 'Ящик', DROP: 'Дроп', PASS: 'Pass Plus'};
-let STARS = [], CHESTS = [], DROPS = [];
+const LABEL = {EMOJI: 'Значок', GRAM: 'Баланс GRAM', BALL: 'Новогодние шары', PACK: 'Карточный пак', BUNDLE: 'Бандл', STAR: 'Подарок Telegram', PROMO: 'Промокод', CHEST: 'Ящик', DROP: 'Дроп', PASS: 'Pass Plus'};
+let STARS = [], CHESTS = [], DROPS = [], EMOJIS = [];
+const EMIMG = x => (x && x.image) || '/static/assets/emoji/badge.svg';
 const MIXPRICE = {};                                          // choice offer: the price of every option (empty = the price of the lot)
 const SIZES = [['small', 'Обычная', '1×1', 'Маленькая плитка в сетке'], ['wide', 'Широкая', '2×1', 'Вытянута на две колонки'],
     ['tall', 'Длинная', '1×2', 'Высокая, на две строки'], ['large', 'Большая', '2×2', 'Крупная витрина'], ['banner', 'Баннер', 'на всю ширину', 'Акция на всю строку']];
@@ -111,6 +112,7 @@ const KIND_TILES = [
     ['CHEST', 'Ящик', 'Открывается сразу: награды по шансам', '/static/assets/chests/gingerbread.png'],
     ['CAPSULE', 'Капсула', 'Открывается сразу: короткая анимация, награды по шансам', '/static/assets/chests/vicecapsule.png'],
     ['DROP', 'Дроп', 'Открывается сразу: 4 нажатия, одна награда', '/static/assets/drops/snowman.png'],
+    ['EMOJI', 'Значок', 'Анимированный эмодзи: идёт в инвентарь, ставится у ника', '/static/assets/emoji/badge.svg'],
     ['PASS', 'Pass Plus', 'Открывает Pass Plus текущего сезона', '/static/assets/pass/ticket-plus.svg'],
     ['PROMO', 'Промокод', 'Уникальный код для покупателя', '/static/assets/community-reward.svg'],
 ];
@@ -122,6 +124,7 @@ async function admin(content) {
     try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) { STARS = []; }
     try { CHESTS = (await api('admin/new-year/chests')).chests.map(c => c.chest); } catch (_) { CHESTS = []; }
     try { DROPS = (await api('admin/drops')).drops; } catch (_) { DROPS = []; }
+    try { EMOJIS = (await api('admin/emojis')).emojis.filter(x => x.enabled); } catch (_) { EMOJIS = []; }
     let HUBBG = {};
     try { HUBBG = (await api('new-year/locks')).hub_bg || {}; } catch (_) {}
     let FBX = [], CHX = [];                                  // the gift calendars and the chains stand on the same board and in the same order as the offers
@@ -202,12 +205,13 @@ async function admin(content) {
     const itemInfo = x => x.type === 'PACK' ? {img: packs.find(p => p.id === x.id)?.image || '', name: packs.find(p => p.id === x.id)?.title || 'Пак', n: '×' + x.count}
         : x.type === 'CHEST' ? {img: CHESTS.find(c => c.id === x.id)?.image || '', name: CHESTS.find(c => c.id === x.id)?.title || 'Ящик', n: '×' + x.count}
         : x.type === 'DROP' ? {img: DROPS.find(c => c.id === x.id)?.image || '/static/assets/drops/snowman.png', name: DROPS.find(c => c.id === x.id)?.title || 'Дроп', n: '×' + x.count}
+        : x.type === 'EMOJI' ? {img: EMIMG(EMOJIS.find(c => c.id === x.id)), name: 'Значок «' + (EMOJIS.find(c => c.id === x.id)?.title || '') + '»', n: '×1'}
         : x.type === 'PASS' ? {img: '/static/assets/pass/ticket-plus.svg', name: 'Pass Plus', n: '×1'}
         : x.type === 'GRAM' ? {img: '/static/assets/gram.svg', name: 'GRAM', n: num(x.amount)} : {img: '/static/assets/new-year-ornament.svg', name: 'Шары', n: num(x.amount)};
     const bundleSpec = () => {
-        const packsM = {}, chestsM = {}, dropsM = {}; let gram = '', balls = '', hasPass = false;
-        f.items.forEach(x => { if (x.type === 'PACK') packsM[x.id] = (packsM[x.id] || 0) + x.count; else if (x.type === 'CHEST') chestsM[x.id] = (chestsM[x.id] || 0) + x.count; else if (x.type === 'DROP') dropsM[x.id] = (dropsM[x.id] || 0) + x.count; else if (x.type === 'GRAM') gram = x.amount; else if (x.type === 'BALL') balls = x.amount; else if (x.type === 'PASS') hasPass = true; });
-        return {pass: hasPass, packs: Object.entries(packsM).map(([pack_id, count]) => ({pack_id, count})), chests: Object.entries(chestsM).map(([chest_id, count]) => ({chest_id, count})), drops: Object.entries(dropsM).map(([drop_id, count]) => ({drop_id, count})), gram, balls};
+        const packsM = {}, chestsM = {}, dropsM = {}, emojisM = {}; let gram = '', balls = '', hasPass = false;
+        f.items.forEach(x => { if (x.type === 'PACK') packsM[x.id] = (packsM[x.id] || 0) + x.count; else if (x.type === 'CHEST') chestsM[x.id] = (chestsM[x.id] || 0) + x.count; else if (x.type === 'DROP') dropsM[x.id] = (dropsM[x.id] || 0) + x.count; else if (x.type === 'EMOJI') emojisM[x.id] = 1; else if (x.type === 'GRAM') gram = x.amount; else if (x.type === 'BALL') balls = x.amount; else if (x.type === 'PASS') hasPass = true; });
+        return {pass: hasPass, packs: Object.entries(packsM).map(([pack_id, count]) => ({pack_id, count})), chests: Object.entries(chestsM).map(([chest_id, count]) => ({chest_id, count})), drops: Object.entries(dropsM).map(([drop_id, count]) => ({drop_id, count})), emojis: Object.keys(emojisM).map(emoji_id => ({emoji_id})), gram, balls};
     };
     const cellsHTML = () => '<div class="bnd-cells">' + f.items.map((x, i) => { const v = itemInfo(x); return '<div class="bnd-cell"><button type="button" class="bnd-x" data-bnd-del="' + i + '" aria-label="Убрать">×</button><img src="' + e(v.img) + '" alt=""><b>' + e(v.n) + '</b><span>' + e(v.name) + '</span></div>'; }).join('') +
         '<button type="button" class="bnd-cell bnd-plus" data-bnd-add aria-label="Добавить в бандл"><i>+</i><span>Добавить</span></button></div>';
@@ -216,12 +220,12 @@ async function admin(content) {
         const wrap = document.createElement('div');
         wrap.className = 'bnd-modal';
         const close = () => wrap.remove();
-        const add = x => { if (x.type === 'PACK' || x.type === 'CHEST' || x.type === 'DROP') { const hit = f.items.find(y => y.type === x.type && y.id === x.id); if (hit) hit.count += x.count; else f.items.push(x); } else { f.items = f.items.filter(y => y.type !== x.type); f.items.push(x); } close(); draw(); };
+        const add = x => { if (x.type === 'EMOJI') { if (!f.items.some(y => y.type === 'EMOJI' && y.id === x.id)) f.items.push({type: 'EMOJI', id: x.id, count: 1}); } else if (x.type === 'PACK' || x.type === 'CHEST' || x.type === 'DROP') { const hit = f.items.find(y => y.type === x.type && y.id === x.id); if (hit) hit.count += x.count; else f.items.push(x); } else { f.items = f.items.filter(y => y.type !== x.type); f.items.push(x); } close(); draw(); };
         const shell = (title, body) => { wrap.innerHTML = '<div class="bnd-box"><div class="bnd-top"><b>' + title + '</b><button type="button" data-x aria-label="Закрыть">×</button></div>' + body + '</div>'; wrap.querySelector('[data-x]').addEventListener('click', close); };
         const counter = (id, type) => '<div class="bnd-count"><label>Сколько штук</label><input type="number" min="1" max="50" value="1" data-bnd-n><button type="button" class="primary" data-bnd-ok>Добавить</button></div>';
         const pickOne = type => {
-            const list = type === 'PACK' ? packs.map(p => ({id: p.id, title: p.title, image: p.image})) : type === 'DROP' ? DROPS : type === 'CAPSULE' ? CHESTS.filter(c => c.image_release) : CHESTS.filter(c => !c.image_release);
-            shell(type === 'PACK' ? 'Какой пак?' : type === 'DROP' ? 'Какой дроп?' : type === 'CAPSULE' ? 'Какая капсула?' : 'Какой ящик?', '<div class="bnd-grid">' + (list.length ? list.map(x => '<button type="button" class="bnd-opt" data-id="' + e(x.id) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') : '<p class="sub">Пока нечего выбрать.</p>') + '</div>');
+            const list = type === 'PACK' ? packs.map(p => ({id: p.id, title: p.title, image: p.image})) : type === 'DROP' ? DROPS : type === 'EMOJI' ? EMOJIS.map(c => ({id: c.id, title: c.title, image: EMIMG(c)})) : type === 'CAPSULE' ? CHESTS.filter(c => c.image_release) : CHESTS.filter(c => !c.image_release);
+            shell(type === 'PACK' ? 'Какой пак?' : type === 'DROP' ? 'Какой дроп?' : type === 'EMOJI' ? 'Какой значок?' : type === 'CAPSULE' ? 'Какая капсула?' : 'Какой ящик?', '<div class="bnd-grid">' + (list.length ? list.map(x => '<button type="button" class="bnd-opt" data-id="' + e(x.id) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') : '<p class="sub">Пока нечего выбрать.</p>') + '</div>');
             wrap.querySelectorAll('.bnd-opt').forEach(b => b.addEventListener('click', () => {
                 const x = list.find(y => y.id === b.dataset.id);
                 shell(e(x.title), '<div class="bnd-one"><img src="' + e(x.image) + '" alt=""></div>' + counter());
@@ -232,8 +236,8 @@ async function admin(content) {
             shell(type === 'GRAM' ? 'Сколько GRAM?' : 'Сколько шаров?', '<div class="bnd-one"><img src="' + (type === 'GRAM' ? '/static/assets/gram.svg' : '/static/assets/new-year-ornament.svg') + '" alt=""></div><div class="bnd-count"><label>Сумма</label><input inputmode="decimal" data-bnd-a placeholder="' + (type === 'GRAM' ? '0.5' : '100') + '"><button type="button" class="primary" data-bnd-ok>Добавить</button></div>');
             wrap.querySelector('[data-bnd-ok]').addEventListener('click', () => { const v = wrap.querySelector('[data-bnd-a]').value.trim().replace(',', '.'); if (!(Number(v) > 0)) { toast('Введите сумму'); return; } add({type, amount: type === 'BALL' ? String(Math.floor(Number(v))) : v}); });
         };
-        shell('Что добавить в бандл?', '<div class="bnd-types">' + [['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png'], ['CAPSULE', 'Капсула', '/static/assets/chests/vicecapsule.png'], ['DROP', 'Дроп', '/static/assets/drops/snowman.png'], ['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg']].map(([t, n, img]) => '<button type="button" class="bnd-type" data-type="' + t + '"><img src="' + img + '" alt=""><span>' + n + '</span></button>').join('') + '</div>');
-        wrap.querySelectorAll('.bnd-type').forEach(b => b.addEventListener('click', () => (b.dataset.type === 'PACK' || b.dataset.type === 'CHEST' || b.dataset.type === 'CAPSULE' || b.dataset.type === 'DROP') ? pickOne(b.dataset.type) : b.dataset.type === 'PASS' ? add({type: 'PASS', count: 1}) : amount(b.dataset.type)));
+        shell('Что добавить в бандл?', '<div class="bnd-types">' + [['PACK', 'Пак', '/static/assets/packs/new-year-pack.webp'], ['CHEST', 'Ящик', '/static/assets/chests/gingerbread.png'], ['CAPSULE', 'Капсула', '/static/assets/chests/vicecapsule.png'], ['EMOJI', 'Значок', '/static/assets/emoji/badge.svg'], ['DROP', 'Дроп', '/static/assets/drops/snowman.png'], ['GRAM', 'GRAM', '/static/assets/gram.svg'], ['BALL', 'Шары', '/static/assets/new-year-ornament.svg']].map(([t, n, img]) => '<button type="button" class="bnd-type" data-type="' + t + '"><img src="' + img + '" alt=""><span>' + n + '</span></button>').join('') + '</div>');
+        wrap.querySelectorAll('.bnd-type').forEach(b => b.addEventListener('click', () => (b.dataset.type === 'PACK' || b.dataset.type === 'CHEST' || b.dataset.type === 'CAPSULE' || b.dataset.type === 'DROP' || b.dataset.type === 'EMOJI') ? pickOne(b.dataset.type) : b.dataset.type === 'PASS' ? add({type: 'PASS', count: 1}) : amount(b.dataset.type)));
         wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
         document.body.appendChild(wrap);
     };
@@ -297,6 +301,7 @@ async function admin(content) {
     // random pack / choice: the same cells with a «+» as in a bundle (packs of the offer, the number of each is changed right on the cell)
     const optInfo = key => key.startsWith('chest:') ? (CHESTS.find(c => 'chest:' + c.id === key) ? {image: CHESTS.find(c => 'chest:' + c.id === key).image, title: CHESTS.find(c => 'chest:' + c.id === key).title} : null)
         : key === 'pass:plus' ? {image: '/static/assets/pass/ticket-plus.svg', title: 'Pass Plus'}
+        : key.startsWith('emoji:') ? (EMOJIS.find(c => 'emoji:' + c.id === key) ? {image: EMIMG(EMOJIS.find(c => 'emoji:' + c.id === key)), title: EMOJIS.find(c => 'emoji:' + c.id === key).title} : null)
         : key.startsWith('drop:') ? (DROPS.find(c => 'drop:' + c.id === key) ? {image: DROPS.find(c => 'drop:' + c.id === key).image, title: DROPS.find(c => 'drop:' + c.id === key).title} : null)
         : (packs.find(x => x.id === key) ? {image: packs.find(x => x.id === key).image, title: packs.find(x => x.id === key).title} : null);
     const mixCellsHTML = () => '<div class="bnd-cells">' + Object.entries(f.mix).filter(([, n]) => n > 0).map(([id, n]) => { const pk = optInfo(id); if (!pk) return '';
@@ -309,7 +314,7 @@ async function admin(content) {
         const close = () => wrap.remove();
         const group = (title, list) => list.length ? '<h5 class="bnd-h">' + title + '</h5><div class="bnd-grid">' + list.map(x => '<button type="button" class="bnd-opt' + ((f.mix[x.key] || 0) > 0 ? ' is-on' : '') + '" data-id="' + e(x.key) + '"><img src="' + e(x.image) + '" alt=""><span>' + e(x.title) + '</span></button>').join('') + '</div>' : '';
         wrap.innerHTML = '<div class="bnd-box"><div class="bnd-top"><b>Что добавить в акцию?</b><button type="button" data-x aria-label="Закрыть">×</button></div>' +
-            group('Паки', packs.map(p => ({key: p.id, title: p.title, image: p.image}))) + group('Ящики', CHESTS.filter(c => !c.image_release).map(c => ({key: 'chest:' + c.id, title: c.title, image: c.image}))) + group('Капсулы', CHESTS.filter(c => c.image_release).map(c => ({key: 'chest:' + c.id, title: c.title, image: c.image}))) + group('Дропы', DROPS.map(c => ({key: 'drop:' + c.id, title: c.title, image: c.image}))) + group('Pass Plus', [{key: 'pass:plus', title: 'Pass Plus', image: '/static/assets/pass/ticket-plus.svg'}]) + '</div>';
+            group('Паки', packs.map(p => ({key: p.id, title: p.title, image: p.image}))) + group('Ящики', CHESTS.filter(c => !c.image_release).map(c => ({key: 'chest:' + c.id, title: c.title, image: c.image}))) + group('Значки', EMOJIS.map(c => ({key: 'emoji:' + c.id, title: c.title, image: EMIMG(c)}))) + group('Капсулы', CHESTS.filter(c => c.image_release).map(c => ({key: 'chest:' + c.id, title: c.title, image: c.image}))) + group('Дропы', DROPS.map(c => ({key: 'drop:' + c.id, title: c.title, image: c.image}))) + group('Pass Plus', [{key: 'pass:plus', title: 'Pass Plus', image: '/static/assets/pass/ticket-plus.svg'}]) + '</div>';
         wrap.querySelector('[data-x]').addEventListener('click', close);
         wrap.querySelectorAll('.bnd-opt').forEach(b => b.addEventListener('click', () => { f.mix[b.dataset.id] = (f.mix[b.dataset.id] || 0) + 1; close(); draw(); }));
         wrap.addEventListener('click', ev => { if (ev.target === wrap) close(); });
@@ -632,13 +637,15 @@ async function admin(content) {
         });
     };
     const draw = () => {
-        const kinds = KIND_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length) && !(k[0] === 'CHEST' && !CHESTS.some(c => !c.image_release)) && !(k[0] === 'CAPSULE' && !CHESTS.some(c => c.image_release)) && !(k[0] === 'DROP' && !DROPS.length));
+        const kinds = KIND_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length) && !(k[0] === 'CHEST' && !CHESTS.some(c => !c.image_release)) && !(k[0] === 'CAPSULE' && !CHESTS.some(c => c.image_release)) && !(k[0] === 'DROP' && !DROPS.length) && !(k[0] === 'EMOJI' && !EMOJIS.length));
         const step2 = f.kind === 'PROMO' ? '<div class="adm-step"><h4>Что даёт промокод</h4><div class="adm-tiles small">' + PROMO_TILES.filter(k => !(k[0] === 'PACK' && !packs.length) && !(k[0] === 'STAR' && !STARS.length)).map(k => tile(f.promo === k[0], 'data-promo="' + k[0] + '"', k[2], k[1])).join('') + '</div></div>' : '';
         const mixTotal = Object.values(f.mix).reduce((x, n) => x + n, 0);
         const what = f.kind === 'BUNDLE'
             ? '<div class="adm-step"><h4>Состав: бандл, акция с выбором или случайный пак</h4><div class="adm-chips" style="margin-bottom:10px">' + [['', 'Всё сразу (бандл)'], ['choice', 'Игрок выбирает один вариант'], ['random', 'Случайная награда']].map(m => '<button type="button" data-mode="' + m[0] + '"' + (f.mode === m[0] ? ' class="is-on"' : '') + '>' + m[1] + '</button>').join('') + '</div><p class="sub">' + (f.mode === 'choice' ? 'Игрок смотрит варианты и покупает любой один: добавьте через «+» от 2 разных вариантов: паков, ящиков или дропов (число на карточке — сколько штук такого пака он получит). Цена: одна для всех вариантов (поле «Цена» ниже) или своя у каждого — впишите её под вариантом; пусто значит общая цена.' : f.mode === 'random' ? 'Игрок покупает чёрный пак со знаком вопроса и получает случайный из добавленных (от 2 разных).' : 'Игрок получит всё сразу за одну покупку.') + (f.mode ? ' Вариантов сейчас: <b>' + mixTotal + '</b>.' : '') + '</p>' + (f.mode ? mixCellsHTML() + (f.mode ? '' : '<div class="adm-row3" style="margin-top:12px"><div class="adm-field"><label>GRAM на баланс</label><input data-f="bgram" inputmode="decimal" value="' + e(f.bgram) + '" placeholder="Без GRAM"></div><div class="adm-field"><label>Новогодние шары</label><input data-f="bballs" inputmode="numeric" value="' + e(f.bballs) + '" placeholder="Без шаров"></div></div>') : cellsHTML() + '<p class="sub">Нажмите «+», чтобы добавить в бандл пак, ящик, GRAM или шары. Игрок получит всё сразу за одну покупку.</p>') + '</div>'
             : eff() === 'PACK'
             ? '<div class="adm-step"><h4>Какой пак</h4>' + window.crafterPacks.packTiles(packs, f.pack) + '</div>'
+            : eff() === 'EMOJI'
+            ? '<div class="adm-step"><h4>Какой значок</h4><div class="adm-field"><select data-f="amount">' + EMOJIS.map(c => '<option value="' + e(c.id) + '"' + (f.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select><small class="sub">Значки создаются на вкладке «Значки». Игрок получает его в инвентарь (один значок одного вида).</small></div></div>'
             : eff() === 'DROP'
             ? '<div class="adm-step"><h4>Какой дроп</h4><div class="adm-field"><select data-f="amount">' + DROPS.map(c => '<option value="' + e(c.id) + '"' + (f.amount === c.id ? ' selected' : '') + '>' + e(c.title) + '</option>').join('') + '</select><small class="sub">Дроп открывается сразу после покупки, как ящик (4 нажатия поднимают редкость, в конце одна награда).</small></div></div>'
             : eff() === 'PASS'
@@ -696,7 +703,7 @@ async function admin(content) {
         sec.querySelector('[data-f="endsMsk"]')?.addEventListener('change', () => { f.endsH = ''; });
         bindSections();
         sec.querySelectorAll('[data-rar]').forEach(b => b.addEventListener('click', () => { pull(); f.rarity = b.dataset.rar; draw(); }));
-        sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.cap = b.dataset.kind === 'CAPSULE'; f.kind = b.dataset.kind === 'CAPSULE' ? 'CHEST' : b.dataset.kind; f.amount = eff() === 'PASS' ? 'plus' : eff() === 'DROP' ? (DROPS[0]?.id || '') : eff() === 'CHEST' ? ((CHESTS.find(c => !!c.image_release === f.cap) || CHESTS[0])?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
+        sec.querySelectorAll('[data-kind]').forEach(b => b.addEventListener('click', () => { pull(); f.cap = b.dataset.kind === 'CAPSULE'; f.kind = b.dataset.kind === 'CAPSULE' ? 'CHEST' : b.dataset.kind; f.amount = eff() === 'PASS' ? 'plus' : eff() === 'EMOJI' ? (EMOJIS[0]?.id || '') : eff() === 'DROP' ? (DROPS[0]?.id || '') : eff() === 'CHEST' ? ((CHESTS.find(c => !!c.image_release === f.cap) || CHESTS[0])?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelectorAll('[data-promo]').forEach(b => b.addEventListener('click', () => { pull(); f.promo = b.dataset.promo; f.amount = eff() === 'CHEST' ? (CHESTS[0]?.id || '') : eff() === 'STAR' ? (STARS[0]?.key || 'bear') : eff() === 'BALL' ? '100' : '1'; draw(); }));
         sec.querySelector('[data-bnd-add]')?.addEventListener('click', () => { pull(); openAdder(); });
         sec.querySelector('[data-gr-go]')?.addEventListener('click', async () => { pull(); try { const res = await api('admin/drops/grant', {user_id: sec.querySelector('[data-gr-user]').value.trim(), drop_id: f.amount, qty: sec.querySelector('[data-gr-qty]').value.trim() || 1}); toast('Выдано. У игрока теперь: ' + res.qty); } catch (err) { toast(err.message); } });
@@ -727,7 +734,7 @@ async function admin(content) {
         }));
         sec.querySelector('#si-add').addEventListener('click', () => {
             pull();
-            run(() => api(editing ? 'admin/new-year/shop/' + editing + '/edit' : 'admin/new-year/shop', {contents: f.kind === 'BUNDLE' && f.mode ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([key, count]) => { const o = key.startsWith('chest:') ? {chest_id: key.slice(6), count} : key.startsWith('drop:') ? {drop_id: key.slice(5), count} : key === 'pass:plus' ? {pass: true, count: 1} : {pack_id: key, count}; if (f.mode === 'choice' && MIXPRICE[key]) o.price = MIXPRICE[key]; return o; }) : f.kind === 'BUNDLE' ? bundleSpec() : undefined, kind: f.kind === 'BUNDLE' && f.mode ? 'PACK' : f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' || eff() === 'CHEST' || eff() === 'DROP' ? f.bundle : 1, image_url: f.image, title: f.title, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg, mode: f.kind === 'BUNDLE' ? f.mode : '', starts_at_msk: f.startsMsk, ends_at_msk: f.endsH ? '' : f.endsMsk, ends_in_hours: f.endsH || ''}), editing ? 'Изменения сохранены' : 'Товар добавлен');
+            run(() => api(editing ? 'admin/new-year/shop/' + editing + '/edit' : 'admin/new-year/shop', {contents: f.kind === 'BUNDLE' && f.mode ? Object.entries(f.mix).filter(([, n]) => n > 0).map(([key, count]) => { const o = key.startsWith('chest:') ? {chest_id: key.slice(6), count} : key.startsWith('drop:') ? {drop_id: key.slice(5), count} : key.startsWith('emoji:') ? {emoji_id: key.slice(6), count: 1} : key === 'pass:plus' ? {pass: true, count: 1} : {pack_id: key, count}; if (f.mode === 'choice' && MIXPRICE[key]) o.price = MIXPRICE[key]; return o; }) : f.kind === 'BUNDLE' ? bundleSpec() : undefined, kind: f.kind === 'BUNDLE' && f.mode ? 'PACK' : f.kind, promo_kind: f.promo, amount: eff() === 'PACK' ? f.pack : f.amount, price_balls: f.price || 0, old_price_balls: f.old || '', stock: f.stock, per_user: f.per === '0' ? '' : f.per, bundle: eff() === 'PACK' || eff() === 'STAR' || eff() === 'CHEST' || eff() === 'DROP' ? f.bundle : 1, image_url: f.image, title: f.title, size: f.size, description: f.description, rarity: f.rarity, badge: f.badge, section_id: f.section_id, heading: f.heading, card_bg: f.card_bg, mode: f.kind === 'BUNDLE' ? f.mode : '', starts_at_msk: f.startsMsk, ends_at_msk: f.endsH ? '' : f.endsMsk, ends_in_hours: f.endsH || ''}), editing ? 'Изменения сохранены' : 'Товар добавлен');
         });
         sec.querySelectorAll('[data-si-up],[data-si-down]').forEach(b => b.addEventListener('click', () => run(() => api('admin/new-year/shop/' + (b.dataset.siUp || b.dataset.siDown) + '/move', {direction: b.dataset.siUp ? 'up' : 'down'}), 'Порядок изменён')));
         sec.querySelector('#si-order')?.addEventListener('click', () => run(() => api('admin/new-year/shop-order', {mode: 'price'}), 'Порядок: по возрастанию цены'));

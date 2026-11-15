@@ -83,7 +83,7 @@ function crafterEventLeader(player,rank,prize) {
     return '<article class="crafter-event-leader'+(rank<=3?' crafter-event-podium':'')+'">'+
         '<span class="crafter-event-rank">'+rank+'</span>'+
         '<span class="crafter-event-avatar">'+avatar+'</span>'+
-        '<div class="crafter-event-leader-info"><strong>'+esc(name)+'</strong>'+
+        '<div class="crafter-event-leader-info"><strong>'+esc(name)+(player&&player.emoji&&window.crafterBadge?window.crafterBadge(player.emoji,'is-name'):'')+'</strong>'+
         '<span class="crafter-event-score">'+score+'</span>'+breakdown+'</div>'+
         (prize?crafterEventPrizeVisual(prize):'')+'</article>';
 }

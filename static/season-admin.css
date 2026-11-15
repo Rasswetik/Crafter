@@ -39,3 +39,29 @@
 .nys-go{width:100%;padding:16px;font-size:17px;font-weight:900;border-radius:14px}
 .nys-go:disabled{opacity:.45;cursor:not-allowed}
 @media(max-width:640px){.nys-grid{grid-template-columns:1fr 1fr}.nys-card{grid-template-columns:1fr;text-align:center;justify-items:center}.nys-ic{grid-row:auto}.nys-bar h2{font-size:17px}}
+
+/* badges */
+.ea-list{display:grid;gap:10px;margin:12px 0}
+.ea-card{display:grid;grid-template-columns:64px 1fr auto;gap:14px;align-items:center;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1)}
+.ea-card.is-off{opacity:.55}
+.ea-card b{display:block;font-size:15px}.ea-card small{display:block;margin-top:2px;color:#a9b6cf;font-size:12px;line-height:1.35}
+.ea-pic{display:grid;place-items:center;width:64px;height:64px;border-radius:14px;background:rgba(255,255,255,.07)}
+.ea-pic video,.ea-pic img{width:100%;height:100%;object-fit:contain}.ea-pic.big{width:112px;height:112px}
+.ea-btns{display:flex;gap:8px;flex-wrap:wrap}.ea-btns button{padding:8px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-weight:700;cursor:pointer}
+.ea-btns .is-danger{border-color:rgba(255,100,100,.5);color:#ffb4b4}
+.ea-form{display:grid;gap:12px}.ea-form label{display:grid;gap:6px;font-size:13px;color:#b9c5dc}
+.ea-form input[type=text],.ea-form input:not([type]){padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(8,14,40,.6);color:#fff;font-size:15px}
+.ea-up{display:flex;align-items:center;gap:14px}.ea-file{display:inline-block!important;padding:11px 16px;border-radius:12px;background:rgba(74,168,255,.2);border:1px solid rgba(74,168,255,.55);color:#fff!important;font-weight:700;cursor:pointer}.ea-file input{display:none}
+.ea-check{display:flex!important;align-items:center;gap:8px}.ea-actions{display:flex;gap:10px}.ea-actions button{padding:12px 20px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-weight:700;cursor:pointer}.ea-actions .primary{background:#1e88ff;border-color:#1e88ff}
+.ea-give{display:flex;gap:10px;flex-wrap:wrap}.ea-give input,.ea-give select{padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(8,14,40,.6);color:#fff}
+@media(max-width:640px){.ea-card{grid-template-columns:56px 1fr}.ea-btns{grid-column:1/-1}}
+
+/* the button «События» */
+.et-preview{max-width:620px;margin:12px 0 18px;pointer-events:none}
+.et-form{display:grid;gap:12px;max-width:620px}.et-form label,.et-check{display:grid;gap:6px;font-size:13px;color:#b9c5dc}
+.et-form input[type=text],.et-form input:not([type]){padding:11px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.18);background:rgba(8,14,40,.6);color:#fff;font-size:15px}
+.et-wrap h4{margin:18px 0 8px}.et-row,.et-bgs{display:flex;flex-wrap:wrap;gap:8px}
+.et-opt,.et-bg,.et-file{padding:9px 14px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);color:#fff;font-weight:700;font-size:13px;cursor:pointer}
+.et-opt.is-on,.et-bg.is-on,.et-file.is-on{border-color:#4aa8ff;background:rgba(74,168,255,.22)}.et-file input{display:none}
+.et-check{display:flex!important;align-items:center;gap:8px;margin-top:14px}.et-actions{display:flex;gap:10px;margin-top:18px}
+.et-actions button{padding:12px 20px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-weight:700;cursor:pointer}.et-actions .primary{background:#1e88ff;border-color:#1e88ff}

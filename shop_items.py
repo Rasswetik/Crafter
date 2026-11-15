@@ -10,7 +10,7 @@ from decimal import Decimal
 
 from flask import abort, g, request
 
-KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO', 'BUNDLE', 'CHEST', 'DROP', 'PASS')
+KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'PROMO', 'BUNDLE', 'CHEST', 'DROP', 'PASS', 'EMOJI')
 PROMO_KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'CHEST')
 RARITIES = ('auto', 'common', 'rare', 'special', 'epic', 'mythic', 'legend')   # the colour and the name of an offer; auto = by price
 CARD_BGS = ('blend', 'ocean-beach', 'ocean-marina', 'ocean-common', 'ocean-rare', 'ocean-epic', 'ocean-mythic', 'ocean-legendary', 'ocean-secret', 'vice-pastel', 'vice-neon', 'vice-beach', 'vice-marina', 'vice-rooftop', 'vice-highway', 'vice-common', 'vice-rare', 'vice-epic', 'vice-mythic', 'vice-legendary', 'vice-secret', 'live-red', 'live-green', 'live-blue', 'live-purple', 'live-teal', 'live-orange', 'live-pink', 'live-navy', 'live-white', 'live-gray', 'live-lime', 'live-brown', 'live-sunset', 'live-ice', 'live-aurora', 'live-village', 'live-candy', 'live-ornaments', 'live-gifts', 'live-lights', 'live-berry', 'live-gold', 'live-emerald', 'live-violet', 'ny-snow', 'ny-candy', 'ny-lights', 'ny-frost', 'ny-ginger', 'ny-bells', 'ny-fire', 'ny-aurora',
@@ -105,6 +105,9 @@ def install_shop_items(app, db, auth, record, audit):
         if key.startswith('drop:'):
             d = app.extensions['crafter_drop_short'](key[5:])
             return {'id': key, 'title': d['title'], 'image': d['image'], 'type': 'DROP'} if d else None
+        if key.startswith('emoji:'):
+            em = app.extensions['crafter_emoji_short'](key[6:])
+            return {'id': key, 'title': em['title'], 'image': em['image'] or em['media'], 'media': em['media'], 'kind': em['kind'], 'type': 'EMOJI'} if em else None
         if key == 'pass:plus':
             ps = app.extensions['crafter_pass_short']() if app.extensions.get('crafter_pass_short') else None
             return {'id': key, 'title': 'Pass Plus' + (' «' + ps['season']['title'] + '»' if ps and ps['season'] else ''), 'image': (ps or {}).get('image') or '/static/assets/pass/ticket-plus.svg', 'type': 'PASS'}
@@ -126,6 +129,7 @@ def install_shop_items(app, db, auth, record, audit):
                     parts = {'gram': raw.get('gram') or None, 'balls': int(raw.get('balls') or 0) or None,
                              'chests': [x for x in ({'chest': app.extensions['crafter_chest_short'](c['chest_id']), 'count': int(c['count'])} for c in (raw.get('chests') or [])) if x['chest']] or None,
                              'drops': [x for x in ({'drop': app.extensions['crafter_drop_short'](c['drop_id']), 'count': int(c['count'])} for c in (raw.get('drops') or [])) if x['drop']] or None,
+                             'emojis': [x for x in ({'emoji': app.extensions['crafter_emoji_short'](c['emoji_id']), 'count': 1} for c in (raw.get('emojis') or [])) if x['emoji']] or None,
                              'pass_in': (app.extensions['crafter_pass_short'](uid) if raw.get('pass') and app.extensions.get('crafter_pass_short') else None)}
                     raw = raw.get('packs') or []
                 mix = [{'pack': option_pack(c['pack_id']), 'count': int(c['count']), 'price': (int(c['price']) if c.get('price') is not None else None)} for c in raw]
@@ -137,10 +141,11 @@ def install_shop_items(app, db, auth, record, audit):
             star = app.extensions['crafter_star_gift_short'](row['amount'])
         chest = app.extensions['crafter_chest_short'](row['amount']) if row['kind'] == 'CHEST' or (row['kind'] == 'PROMO' and row['promo_kind'] == 'CHEST') else None
         drop = app.extensions['crafter_drop_short'](row['amount']) if row['kind'] == 'DROP' else None
+        emoji = app.extensions['crafter_emoji_short'](row['amount']) if row['kind'] == 'EMOJI' else None
         pass_info = app.extensions['crafter_pass_short'](uid) if row['kind'] == 'PASS' and app.extensions.get('crafter_pass_short') else None
         left = None if row['stock'] is None else max(0, int(row['stock']) - int(row['sold']))
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
-                'title': row['title'], 'position': row['position'], 'pass': pass_info, 'image_url': row['image_url'] or (pass_info['image'] if pass_info else '') or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else '') or (drop['image'] if drop else ''), 'chest': chest, 'drop': drop, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'), 'pass_in': parts.get('pass_in'), 'drops_in': parts.get('drops'),
+                'title': row['title'], 'position': row['position'], 'pass': pass_info, 'image_url': row['image_url'] or (pass_info['image'] if pass_info else '') or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else '') or (drop['image'] if drop else '') or ((emoji['image'] or emoji['media']) if emoji else ''), 'chest': chest, 'drop': drop, 'emoji': emoji, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'), 'pass_in': parts.get('pass_in'), 'drops_in': parts.get('drops'), 'emojis_in': parts.get('emojis'),
                 'price_balls': int(row['price_balls']), 'old_price_balls': (int(row['old_price_balls']) if row['old_price_balls'] else None),
                 'discount_percent': (round((1 - int(row['price_balls']) / int(row['old_price_balls'])) * 100) if row['old_price_balls'] and int(row['old_price_balls']) > int(row['price_balls']) else None),
                 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
@@ -258,6 +263,8 @@ def install_shop_items(app, db, auth, record, audit):
                 for c in spec.get('drops', []):
                     app.extensions['crafter_start_drops'](uid, c['drop_id'], int(c['count']), 'shop:' + iid)
                     result.update(drop_granted={'drop': app.extensions['crafter_drop_short'](c['drop_id']), 'qty': int(c['count'])})
+                for c in spec.get('emojis', []):                      # a badge goes to the inventory (a second one of a kind is not given)
+                    result.setdefault('emojis_given', []).append({'emoji': app.extensions['crafter_emoji_short'](c['emoji_id']), 'new': app.extensions['crafter_grant_emoji'](uid, c['emoji_id'], 'shop:' + iid)})
                 if spec.get('pass'):                                  # Pass Plus inside the bundle (no season or already open: the whole purchase is cancelled)
                     result.update(pass_plus=True, pass_season=app.extensions['crafter_pass_grant_plus'](uid, 'shop:' + iid))
                 if opens:
@@ -279,6 +286,9 @@ def install_shop_items(app, db, auth, record, audit):
                     opens = [app.extensions['crafter_open_chest'](uid, picked['pack_id'][6:], 'shop:' + iid) for _ in range(int(picked['count']))]
                     result.update(chest_open=opens[0], chest_opens=opens, balance=opens[-1]['balance'], gram_balance=opens[-1]['gram_balance'], picked=picked['pack_id'])
                     balls = opens[-1]['balance']['balls']
+                    ids = []
+                elif picked and str(picked['pack_id']).startswith('emoji:'):     # the option is a badge
+                    result.update(emojis_given=[{'emoji': app.extensions['crafter_emoji_short'](picked['pack_id'][6:]), 'new': app.extensions['crafter_grant_emoji'](uid, picked['pack_id'][6:], 'shop:' + iid)}], picked=picked['pack_id'])
                     ids = []
                 elif picked and str(picked['pack_id']) == 'pass:plus':            # the option is Pass Plus
                     result.update(pass_plus=True, pass_season=app.extensions['crafter_pass_grant_plus'](uid, 'shop:' + iid), picked=picked['pack_id'])
@@ -305,6 +315,8 @@ def install_shop_items(app, db, auth, record, audit):
                 n = int(row['bundle'] or 1)
                 app.extensions['crafter_start_drops'](uid, row['amount'], n, 'shop:' + iid)
                 result.update(drop_granted={'drop': app.extensions['crafter_drop_short'](row['amount']), 'qty': n})
+            elif row['kind'] == 'EMOJI':                             # a badge goes to the inventory; the player puts it next to his name in the profile
+                result.update(emojis_given=[{'emoji': app.extensions['crafter_emoji_short'](row['amount']), 'new': app.extensions['crafter_grant_emoji'](uid, row['amount'], 'shop:' + iid)}])
             elif row['kind'] == 'PASS':                              # Pass Plus of the running season is opened (the price is already paid; no season or already open: the whole purchase is cancelled)
                 season = app.extensions['crafter_pass_grant_plus'](uid, 'shop:' + iid)
                 result.update(pass_plus=True, pass_season=season)
@@ -394,6 +406,15 @@ def install_shop_items(app, db, auth, record, audit):
             if sum(drops_in.values()) > 50:
                 abort(400, description='В бандле не больше 50 дропов')
             bundle_spec['drops'] = [{'drop_id': k, 'count': v} for k, v in drops_in.items()]
+            emojis_in = []
+            for entry in (spec_in.get('emojis') if isinstance(spec_in.get('emojis'), list) else []):
+                eid = str((entry or {}).get('emoji_id') or '')
+                if eid in emojis_in:
+                    continue
+                if not app.extensions['crafter_emoji_exists'](eid):
+                    abort(400, description='В бандле есть несуществующий значок')
+                emojis_in.append(eid)
+            bundle_spec['emojis'] = [{'emoji_id': k, 'count': 1} for k in emojis_in]
         mode = str(body.get('mode') or '')
         if mode not in ('', 'choice', 'random'):
             abort(400, description='Тип акции: обычная, с выбором или случайный пак')
@@ -407,6 +428,8 @@ def install_shop_items(app, db, auth, record, audit):
                     pid = 'chest:' + str(entry['chest_id'])
                 if mode and not pid and (entry or {}).get('drop_id'):
                     pid = 'drop:' + str(entry['drop_id'])
+                if mode and not pid and (entry or {}).get('emoji_id'):
+                    pid = 'emoji:' + str(entry['emoji_id'])
                 if mode and not pid and (entry or {}).get('pass'):
                     pid = 'pass:plus'
                 raw_price = (entry or {}).get('price')
@@ -424,6 +447,10 @@ def install_shop_items(app, db, auth, record, audit):
                 elif mode and pid.startswith('drop:'):
                     if not app.extensions['crafter_drop_exists'](pid[5:]):
                         abort(400, description='Среди вариантов есть несуществующий дроп')
+                elif mode and pid.startswith('emoji:'):
+                    if not app.extensions['crafter_emoji_exists'](pid[6:]):
+                        abort(400, description='Среди вариантов есть несуществующий значок')
+                    n = 1
                 elif mode and pid == 'pass:plus':
                     pass
                 elif not app.extensions['crafter_pack_exists'](pid):
@@ -446,7 +473,7 @@ def install_shop_items(app, db, auth, record, audit):
         elif mode:
             abort(400, description='Добавьте паки, из которых выбирать')
         if eff == 'BUNDLE':
-            if not (bundle_spec.get('packs') or bundle_spec['gram'] or bundle_spec['balls'] or bundle_spec['chests'] or bundle_spec['drops'] or bundle_spec['pass']):
+            if not (bundle_spec.get('packs') or bundle_spec['gram'] or bundle_spec['balls'] or bundle_spec['chests'] or bundle_spec['drops'] or bundle_spec.get('emojis') or bundle_spec['pass']):
                 abort(400, description='Добавьте в бандл хотя бы один пак, ящик, дроп, Pass Plus, GRAM или шары')
             bundle_spec.setdefault('packs', [])
             mix = json.dumps(bundle_spec)
@@ -460,6 +487,8 @@ def install_shop_items(app, db, auth, record, audit):
                 parts_t.append('Pass Plus')
             for c in bundle_spec['drops']:
                 parts_t.append(((app.extensions['crafter_drop_short'](c['drop_id']) or {}).get('title') or 'Дроп') + (' ×' + str(c['count']) if c['count'] > 1 else ''))
+            for c in bundle_spec.get('emojis', []):
+                parts_t.append('Значок «' + ((app.extensions['crafter_emoji_short'](c['emoji_id']) or {}).get('title') or '') + '»')
             for c in bundle_spec['chests']:
                 parts_t.append(((app.extensions['crafter_chest_short'](c['chest_id']) or {}).get('title') or 'Ящик') + (' ×' + str(c['count']) if c['count'] > 1 else ''))
             mix_title = 'Бандл: ' + ' + '.join(parts_t)
@@ -479,6 +508,10 @@ def install_shop_items(app, db, auth, record, audit):
             amount = str(body.get('amount') or '')
             if not app.extensions['crafter_drop_exists'](amount):
                 abort(400, description='Выберите существующий дроп')
+        elif eff == 'EMOJI':
+            amount = str(body.get('amount') or '')
+            if not app.extensions['crafter_emoji_exists'](amount):
+                abort(400, description='Выберите существующий значок')
         elif eff == 'PASS':                                      # Pass Plus of the season that is running now
             amount = 'plus'
         elif eff == 'BALL':
@@ -514,6 +547,8 @@ def install_shop_items(app, db, auth, record, audit):
                 title = (app.extensions['crafter_chest_short'](amount) or {}).get('title', 'Ящик') + (' ×' + str(bundle) if bundle > 1 else '')
             elif eff == 'DROP':
                 title = (app.extensions['crafter_drop_short'](amount) or {}).get('title', 'Дроп') + (' ×' + str(bundle) if bundle > 1 else '')
+            elif eff == 'EMOJI':
+                title = 'Значок «' + ((app.extensions['crafter_emoji_short'](amount) or {}).get('title') or '') + '»'
             elif eff == 'PASS':
                 title = 'Pass Plus'
             elif eff == 'BALL':

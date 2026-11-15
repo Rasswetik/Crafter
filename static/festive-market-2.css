@@ -114,3 +114,20 @@
 .fm-rot-dots u.is-on{background:#ffd45a;transform:scale(1.3)}
 .fm-root:not(.fm-phone) .fm-s-wide .fm-art,.fm-root:not(.fm-phone) .fm-s-large .fm-art,.fm-root:not(.fm-phone) .fm-s-banner .fm-art{top:7%;bottom:15%;width:50%}
 @media(prefers-reduced-motion:reduce){.fm-rot.is-wide img.is-on{animation:none}}
+
+/* the time to the end of the offer: next to the back button of the lot */
+.fm-timer{position:absolute;left:104px;top:10px;z-index:5;display:inline-flex;align-items:center;gap:8px;padding:6px 16px 6px 8px;border-radius:999px;background:rgba(8,12,40,.72);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16),0 4px 14px rgba(0,0,0,.35)}
+.fm-timer svg{flex:none}
+.fm-timer b{font:800 clamp(14px,1.8vw,18px)/1 var(--sp-font,Inter,system-ui,sans-serif);color:#fff;text-shadow:0 2px 0 rgba(0,0,0,.45);white-space:nowrap}
+.fm-timer.is-over b{color:#ff9a9a}
+@media(max-width:760px){.fm-timer{left:92px;top:8px;padding:5px 12px 5px 6px}}
+/* the badges (animated emoji): a loop in a calm glow */
+.fm-emoji{object-fit:contain;pointer-events:none;background:none}
+.fm-emojiart{position:relative;display:grid;place-items:center;width:100%;height:100%}
+.fm-emojiart .fm-emoji{position:relative;z-index:1;width:min(100%,90%);height:100%;max-height:100%;filter:drop-shadow(0 12px 14px rgba(0,0,0,.38))}
+.fm-emoji-glow{position:absolute;left:50%;top:50%;width:70%;aspect-ratio:1;margin:-35% 0 0 -35%;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.4),rgba(255,120,200,.14) 55%,transparent 72%);filter:blur(8px)}
+.fm-ic-em{width:100%;height:60%;object-fit:contain}
+.fm-rot .fm-rotem{position:absolute;inset:0;margin:auto;max-width:92%;max-height:96%;width:auto;height:auto;object-fit:contain;opacity:0;transform:scale(.78) rotate(-5deg);transition:opacity .55s ease,transform .7s cubic-bezier(.2,1.25,.4,1)}
+.fm-rot .fm-rotem.is-on{opacity:1;transform:none}
+.fm-rot.is-wide .fm-rotem{height:86%}
+.em-reveal{display:flex;justify-content:center;gap:12px;margin:10px 0}.em-reveal-pic{width:min(46vw,220px);height:min(46vw,220px);object-fit:contain;filter:drop-shadow(0 12px 16px rgba(0,0,0,.4))}

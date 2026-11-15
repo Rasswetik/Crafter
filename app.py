@@ -435,7 +435,7 @@ def create_app(config=None):
                 volume += price
         balance = db().execute('SELECT balance FROM demo_accounts WHERE user_id=?', (g.user['id'],)).fetchone()[0]
         referral_data=referral_snapshot(g.user['id'])
-        return dict(user=g.user, is_admin=g.is_admin, admin_hidden=bool(g.is_admin and app.extensions.get('crafter_admin_hidden', lambda: False)()), is_primary_admin=g.is_primary_admin,
+        return dict(user=g.user, status_emoji=app.extensions['crafter_emoji_status'](g.user['id']), is_admin=g.is_admin, admin_hidden=bool(g.is_admin and app.extensions.get('crafter_admin_hidden', lambda: False)()), is_primary_admin=g.is_primary_admin,
                     admin_permissions=g.admin_permissions, demo=app.config['DEMO_MODE'],
                     inventory_count=len(inventory), balance=balance, inventory_value_ton=str(valuation['TON']),
                     inventory_value=str(valuation['GRAM']), bought=bought, sold=sold, volume=str(volume),
@@ -1518,6 +1518,8 @@ def create_app(config=None):
     install_chests(app,db,auth,audit,record)
     from drops import install_drops
     install_drops(app,db,auth,audit)
+    from emojis import install_emojis
+    install_emojis(app,db,auth,audit)
     from season_pass import install_season_pass
     install_season_pass(app,db,auth,audit,record)
     from shop_import import install_shop_import

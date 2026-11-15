@@ -55,7 +55,7 @@ const rewardCell = (lv, track) => {
     const label = one(main) + more.map(r => ' + ' + one(r)).join('');
     const fresh = justClaimed.has(lv.level + '.' + track);
     return '<button type="button" class="sp-rw ' + track + ' ' + state + (fresh ? ' is-fresh' : '') + '" data-lv="' + lv.level + '" data-track="' + track + '" title="' + e(rs.map(r => r.title + (r.count > 1 ? ' ×' + r.count : '')).join(', ')) + '">' +
-        '<img class="sp-rw-img" src="' + e(prizeArt(main, 480)) + '" alt="" loading="lazy">' + (tokens ? '<span class="sp-rw-tok"><img src="' + BALL + '" alt=""><b>+' + num(tokens) + '</b></span>' : '') + more.map((r, k) => '<img class="sp-rw-more m' + k + '" src="' + e(prizeArt(r, 240)) + '" alt="">').join('') +
+        (main.kind === 'EMOJI' && main.media_kind === 'video' ? '<video class="sp-rw-img" src="' + e(main.media) + '" autoplay loop muted playsinline preload="auto"></video>' : main.kind === 'EMOJI' ? '<img class="sp-rw-img" src="' + e(main.media || main.image) + '" alt="">' : '<img class="sp-rw-img" src="' + e(prizeArt(main, 480)) + '" alt="" loading="lazy">') + (tokens ? '<span class="sp-rw-tok"><img src="' + BALL + '" alt=""><b>+' + num(tokens) + '</b></span>' : '') + more.map((r, k) => '<img class="sp-rw-more m' + k + '" src="' + e(prizeArt(r, 240)) + '" alt="">').join('') +
         '<b>' + e(label.trim()) + '</b>' + (side.claimed ? CHECK : state === 'is-locked' || state === 'is-nplus' ? '<i class="sp-lock">' + LOCK + '</i>' : '') + '</button>';
 };
 

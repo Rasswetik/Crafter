@@ -66,11 +66,39 @@ function navSeason(){
         if(market)market.after(button);else desktop.prepend(button);
     }
 }
+/* the button «События» of the games page: texts, picture and background are set by the administrator (admin → Управление сезоном → Кнопка «События») */
+let tileCfg=null,tileLoading=false;
+function tileHTML(cfg){
+    const c=cfg||{};
+    const title=c.title||'События';
+    const sub=c.subtitle||(active()?'Новогодний маркет, адвент-календарь и события сообщества':'Маркет акций, календарь подарков и события сообщества');
+    const btn=c.button||'Открыть';
+    const bg=c.bg||'';
+    let bgLayer='';
+    if(bg.startsWith('image:'))bgLayer='<span class="ny-tilebg" style="background-image:'+(c.shade?'linear-gradient(90deg,rgba(8,12,44,.62),rgba(8,12,44,.1)),':'')+'url('+escapeHTML(bg.slice(6))+')"></span>';
+    else if(bg&&window.crafterScenes)bgLayer='<span class="ny-tilebg">'+window.crafterScenes.render(bg,{section:true})+(c.shade?'<i class="ny-tileshade"></i>':'')+'</span>';
+    let art;
+    if(c.art==='none')art='';
+    else if(c.art&&/\.webm$/.test(c.art)||(c.art||'').startsWith('/media/shop/')&&c.art_kind==='video')art='<span class="ny-art is-custom" aria-hidden="true"><video src="'+escapeHTML(c.art)+'" autoplay loop muted playsinline></video></span>';
+    else if(c.art)art='<span class="ny-art is-custom" aria-hidden="true"><img src="'+escapeHTML(c.art)+'" alt=""></span>';
+    else art='<span class="ny-art" aria-hidden="true">'+(active()?SLEIGH_SCENE:EVENT_SCENE)+'</span>';
+    return '<button class="crafter-game-tile ny-game-tile'+(bg?' has-bg':'')+'" type="button" data-go="new-year">'+bgLayer+'<span class="crafter-game-label"><strong>'+escapeHTML(title)+'</strong><span>'+escapeHTML(sub)+'</span><span class="crafter-game-open">'+escapeHTML(btn)+'</span></span>'+art+'</button>';
+}
 function addSeasonTile(){
     const wrap=document.querySelector('#main .crafter-games');
-    if(!wrap||wrap.querySelector('.ny-game-tile'))return;
-    wrap.insertAdjacentHTML('afterbegin','<button class="crafter-game-tile ny-game-tile" type="button" onclick="go(\'new-year\')"><span class="crafter-game-label"><strong>События</strong><span>'+(active()?'Новогодний маркет, адвент-календарь и события сообщества':'Маркет акций, календарь подарков и события сообщества')+'</span><span class="crafter-game-open">Открыть</span></span><span class="ny-art" aria-hidden="true">'+(active()?SLEIGH_SCENE:EVENT_SCENE)+'</span></button>');
+    if(!wrap)return;
+    if(!wrap.querySelector('.ny-game-tile'))wrap.insertAdjacentHTML('afterbegin',tileHTML(tileCfg));
+    if(!tileCfg&&!tileLoading){
+        tileLoading=true;
+        api('events-tile').then(r=>{
+            tileCfg=r.tile||{};
+            const old=document.querySelector('#main .crafter-games .ny-game-tile');
+            if(old&&(tileCfg.title||tileCfg.subtitle||tileCfg.button||tileCfg.bg||tileCfg.art))old.outerHTML=tileHTML(tileCfg);
+        }).catch(()=>{tileCfg={};}).finally(()=>{tileLoading=false;});
+    }
 }
+window.crafterEventsTileReload=()=>{tileCfg=null;};
+document.addEventListener('click',ev=>{const t=ev.target.closest&&ev.target.closest('.ny-game-tile[data-go]');if(t)go(t.dataset.go);});
 if(typeof renderGamesHub==='function'){
     const hubBefore=renderGamesHub;
     renderGamesHub=function(){hubBefore.apply(this,arguments);addSeasonTile();};
@@ -534,7 +562,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     const GROUPS=[
         ['Сезон и события',[['main','Основное','Включение Нового года и разделы страницы «Событие»','settings'],['events','События сообщества','Конкурсы, лидеры, награды','grid'],['advent','Адвент','Календарь подарков по дням','gift'],['freebies','Подарки по дням','Бесплатные награды по расписанию','gift'],['chains','Цепочки акций','Покупки по шагам с наградами','rotate-ccw']]],
         ['Магазин и награды',[['shop','Магазин','Акции, наборы, разделы и фоны','market'],['packs','Паки','Карточные паки и шансы','gift'],['chests','Ящики','Награды ящиков и фоны','gift'],['exchange','Обмен и коды','Обмен валюты и промокоды','rotate-ccw']]],
-        ['Валюта и игроки',[['currency','Управление валютой','Шары, поинты, коины или своя валюта и перерасчёт','wallet'],['balances','Балансы игроков','Начислить или списать вручную','wallet'],['lots','NFT-лоты','Создать лот и скрыть/вернуть существующие','gift']]]
+        ['Валюта и игроки',[['currency','Управление валютой','Шары, поинты, коины или своя валюта и перерасчёт','wallet'],['emojis','Значки','Анимированные эмодзи: создать, изменить, выдать','star'],['eventstile','Кнопка «События»','Текст, рисунок и фон кнопки на странице «Игры»','market'],['balances','Балансы игроков','Начислить или списать вручную','wallet'],['lots','NFT-лоты','Создать лот и скрыть/вернуть существующие','gift']]]
     ];
     const TITLES={};GROUPS.forEach(g=>g[1].forEach(x=>{TITLES[x[0]]=x[1];}));
     const hub=document.createElement('div');hub.className='nys-hub';
@@ -563,6 +591,8 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     window.crafterAdvent?.admin?.(content);
     window.crafterNyLocks?.admin?.(content);
     window.crafterCurrencyAdmin?.admin?.(content);
+    window.crafterEmojiAdmin?.admin?.(content);
+    window.crafterEventsTileAdmin?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{
         button.addEventListener('click',async()=>{
             const lot=result.lots.find(l=>l.id===button.dataset.nyAdminLot);

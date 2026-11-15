@@ -18,7 +18,7 @@ from decimal import Decimal
 from flask import abort, g, request
 
 MSK = timezone(timedelta(hours=3))
-KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'CHEST', 'DROP', 'NFT')
+KINDS = ('GRAM', 'BALL', 'PACK', 'STAR', 'CHEST', 'DROP', 'NFT', 'EMOJI')
 QUEST_KINDS = ('mega', 'daily', 'weekly', 'special', 'season')
 CURRENCIES = {'BALL': ('balls', 'Шары'), 'DONATE': ('donate', 'Донат')}
 LIMIT = 10 ** 9
@@ -131,6 +131,9 @@ def install_season_pass(app, db, auth, audit, record):
         if kind == 'DROP':
             d = ext['crafter_drop_short'](amount) or {}
             return {'kind': kind, 'amount': amount, 'count': count, 'title': d.get('title') or 'Дроп', 'image': d.get('image') or ''}
+        if kind == 'EMOJI':
+            em = ext['crafter_emoji_short'](amount) or {}
+            return {'kind': kind, 'amount': amount, 'count': 1, 'title': 'Значок «' + (em.get('title') or '') + '»', 'image': em.get('image') or '/static/assets/emoji/badge.svg', 'media': em.get('media') or '', 'media_kind': em.get('kind') or 'image'}
         cid, _, model = amount.partition(':')
         n = ext['crafter_nft_short'](cid, model) or {}
         return {'kind': 'NFT', 'amount': amount, 'count': 1, 'title': n.get('model') or 'NFT', 'image': n.get('image') or '', 'collection': n.get('collection') or ''}
@@ -172,6 +175,10 @@ def install_season_pass(app, db, auth, audit, record):
                 abort(400, description='Выберите существующий ящик')
             elif kind == 'DROP' and not ext['crafter_drop_exists'](amount):
                 abort(400, description='Выберите существующий дроп')
+            elif kind == 'EMOJI':
+                if not ext['crafter_emoji_exists'](amount):
+                    abort(400, description='Выберите существующий значок')
+                count = 1
             elif kind == 'NFT':
                 cid, _, model = amount.partition(':')
                 if not ext['crafter_nft_short'](cid, model):
@@ -190,7 +197,7 @@ def install_season_pass(app, db, auth, audit, record):
     def give(uid, rewards, src):
         """Give the prizes. Chests and drops open at once on the screen of the player: the answer carries them."""
         ext = app.extensions
-        items, opens, drops = [], [], 0
+        items, opens, drops, items_extra = [], [], 0, []
         drop_id = ''
         for r in rewards:
             kind, amount, count = r['kind'], str(r['amount']), int(r.get('count') or 1)
@@ -209,9 +216,13 @@ def install_season_pass(app, db, auth, audit, record):
                 ext['crafter_start_drops'](uid, amount, count, src)
                 drops += count
                 drop_id = amount
+            elif kind == 'EMOJI':
+                em = ext['crafter_emoji_short'](amount) or {}
+                ext['crafter_grant_emoji'](uid, amount, src)
+                items_extra.append({'kind': 'EMOJI', 'title': 'Значок «' + (em.get('title') or '') + '»', 'image': em.get('image') or '/static/assets/emoji/badge.svg', 'count': 1, 'amount': amount, 'pack_ids': []})
         if items:
             ext['crafter_grant_loot'](uid, items, src)
-        out = {'items': [{'kind': i['kind'], 'title': i['title'], 'image': i['image'], 'count': i.get('count', 1), 'amount': i.get('amount'), 'pack_ids': i.get('pack_ids') or []} for i in items]}
+        out = {'items': [{'kind': i['kind'], 'title': i['title'], 'image': i['image'], 'count': i.get('count', 1), 'amount': i.get('amount'), 'pack_ids': i.get('pack_ids') or []} for i in items] + items_extra}
         if opens:
             out['chest_opens'] = opens
         if drops:

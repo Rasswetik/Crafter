@@ -19,8 +19,8 @@ from shop_import import norm, read_text, read_xlsx
 
 MAX_BYTES = 4_000_000
 TYPE_WORDS = {'BALL': ('шары', 'шар', 'ball', 'balls', 'поинты', 'коины', 'валюта'), 'GRAM': ('gram', 'грам'), 'PACK': ('пак', 'pack', 'паки'),
-              'CHEST': ('ящик', 'капсула', 'chest', 'box', 'capsule'), 'DROP': ('дроп', 'drop'), 'STAR': ('подарок', 'star', 'telegram'), 'NFT': ('nft',)}
-TYPE_LABEL = {'BALL': 'Шары', 'GRAM': 'GRAM', 'PACK': 'Пак', 'CHEST': 'Ящик', 'DROP': 'Дроп', 'STAR': 'Подарок', 'NFT': 'NFT'}
+              'CHEST': ('ящик', 'капсула', 'chest', 'box', 'capsule'), 'DROP': ('дроп', 'drop'), 'STAR': ('подарок', 'star', 'telegram'), 'NFT': ('nft',), 'EMOJI': ('значок', 'эмодзи', 'emoji', 'badge')}
+TYPE_LABEL = {'BALL': 'Шары', 'GRAM': 'GRAM', 'PACK': 'Пак', 'CHEST': 'Ящик', 'DROP': 'Дроп', 'STAR': 'Подарок', 'NFT': 'NFT', 'EMOJI': 'Значок'}
 KIND_WORDS = {'mega': ('мега', 'мегаквест', 'mega'), 'daily': ('дня', 'день', 'ежедневный', 'daily'), 'weekly': ('недели', 'неделя', 'еженедельный', 'weekly'),
               'special': ('особый', 'special'), 'season': ('сезона', 'сезон', 'season')}
 KIND_LABEL = {'mega': 'Мега', 'daily': 'Дня', 'weekly': 'Недели', 'special': 'Особый', 'season': 'Сезона'}
@@ -183,6 +183,11 @@ def install_pass_tables(app, db, auth, audit, h):
         from drops import DROPS
         for did in DROPS:
             rows.append(['Дроп', did, (app.extensions['crafter_drop_short'](did) or {}).get('title', did)])
+        try:
+            for r in db().execute("SELECT id,title FROM emoji_defs ORDER BY position").fetchall():
+                rows.append(['Значок', r['id'], r['title']])
+        except Exception:
+            pass
         rows.append(['', '', ''])
         rows.append(['Что считает квест (колонка «Что считает»)', 'Название', ''])
         for k, v in METRICS.items():

@@ -97,6 +97,7 @@ def install_auctions(app, db, auth, record, notify_sale=None, notify_purchase=No
             'min_bid': str(min_next_bid(row['start_price'], current)),
             'own': row['seller_id'] == uid, 'leading': row['bidder_id'] == uid and current is not None,
             'leader': person(row['bidder_id']) if row['bidder_id'] else None,
+            'leader_emoji': app.extensions['crafter_emoji_status'](row['bidder_id']) if row['bidder_id'] else None,
             'can_cancel': row['seller_id'] == uid and row['status'] == 'active' and row['bid_count'] == 0,
             'favorite': bool(db().execute('SELECT 1 FROM crafter_auction_favorites WHERE user_id=? AND auction_id=?',
                                           (uid, row['id'])).fetchone()),

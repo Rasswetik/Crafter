@@ -166,9 +166,11 @@ def install_events(app, db, auth, audit, record=None, canonical_name=None,
             }
         leaders = sorted(totals.items(), key=lambda row: (-row[1], row[0]))[:limit]
         result = []
+        from flask import current_app
+        badges = current_app.extensions['crafter_emoji_statuses']([u for u, _ in leaders])
         for index, (uid, value) in enumerate(leaders, 1):
             score = value.quantize(Decimal('0.01')) if metric in MONEY_METRICS else value
-            result.append({'rank': index, 'score': format(score, 'f'), **players[uid]})
+            result.append({'rank': index, 'score': format(score, 'f'), 'emoji': badges.get(uid), **players[uid]})
         return result
 
     from seasons import install_seasons

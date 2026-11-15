@@ -13,7 +13,7 @@ const POINTS = () => CUR().kind !== 'balls';
 const ORN = '<img class="fm-ball" src="/static/assets/new-year-ornament.svg" alt="">';
 const SI = () => window.crafterShopItems || {};
 const NAMES = {common: 'Акция', rare: 'Редкая акция', special: 'Особая акция', epic: 'Эпическая акция', mythic: 'Мифическая акция', legend: 'Легендарная акция', res: 'Ресурсы'};
-const TYPES = {PASS: 'Pass Plus', DROP: 'Дроп', GRAM: 'Баланс GRAM', BALL: 'Шары', PACK: 'Пак', BUNDLE: 'Набор', STAR: 'Подарок Telegram', CHEST: 'Ящик', PROMO: 'Промокод', REWARD: 'Награда сообщества'};
+const TYPES = {EMOJI: 'Значок', PASS: 'Pass Plus', DROP: 'Дроп', GRAM: 'Баланс GRAM', BALL: 'Шары', PACK: 'Пак', BUNDLE: 'Набор', STAR: 'Подарок Telegram', CHEST: 'Ящик', PROMO: 'Промокод', REWARD: 'Награда сообщества'};
 const WIDTH = {small: 1, tall: 1, wide: 1.6, large: 2, banner: 2.6};
 let offset = 0;                                                    // server time minus the time of this device
 const nowSec = () => Math.floor(Date.now() / 1000) + offset;
@@ -97,7 +97,7 @@ const mixOf = it => {                                            // what a bundl
 setInterval(() => {                                               // the pictures of a small bundle tile follow one another
     if (document.hidden) return;
     document.querySelectorAll('.fm-rot').forEach(r => {
-        const k = [...r.querySelectorAll(':scope > img')], i = k.findIndex(x => x.classList.contains('is-on'));
+        const k = [...r.querySelectorAll(':scope > img, :scope > video')], i = k.findIndex(x => x.classList.contains('is-on'));
         if (k.length < 2) return;
         const j = (i + 1) % k.length;
         k[i]?.classList.remove('is-on'); k[j].classList.add('is-on');
@@ -105,13 +105,15 @@ setInterval(() => {                                               // the picture
         r.querySelectorAll('.fm-rot-dots u').forEach((u, n) => u.classList.toggle('is-on', n === j));
     });
 }, 2300);
+const EM = (em, cls) => !em ? '' : em.kind === 'video' ? '<video class="' + (cls || 'si-solo') + ' fm-emoji" src="' + e(em.media) + '" autoplay loop muted playsinline preload="auto" draggable="false"></video>' : '<img class="' + (cls || 'si-solo') + ' fm-emoji" src="' + e(em.media || em.image) + '" alt="" draggable="false">';
 function artOf(it) {
+    if (it.emoji) return '<div class="fm-emojiart"><i class="fm-emoji-glow"></i>' + EM(it.emoji) + '</div>';
     const mix = mixOf(it);
     if (mix) {
         const sz = sizeOf(it);
         const wide = !(sz === 'small' || sz === 'tall');
         /* the same on every size: the pictures of a bundle follow one another; in a wide card they are bigger, with the name of the item and dots */
-        return '<div class="fm-rot' + (wide ? ' is-wide' : '') + '">' + mix.map((x, i) => '<img class="' + (i ? '' : 'is-on') + '" data-lbl="' + e((x.label || '') + (x.count ? ' ' + x.count : '')) + '" src="' + e(thumb(x.full || x.img, wide ? 720 : 480)) + '" alt="" draggable="false">').join('') +
+        return '<div class="fm-rot' + (wide ? ' is-wide' : '') + '">' + mix.map((x, i) => x.emoji ? EM(x.emoji, (i ? '' : 'is-on') + ' fm-rotem').replace('<video class="', '<video data-lbl="' + e((x.label || '') + (x.count ? ' ' + x.count : '')) + '" class="').replace('<img class="', '<img data-lbl="' + e((x.label || '') + (x.count ? ' ' + x.count : '')) + '" class="') : '<img class="' + (i ? '' : 'is-on') + '" data-lbl="' + e((x.label || '') + (x.count ? ' ' + x.count : '')) + '" src="' + e(thumb(x.full || x.img, wide ? 720 : 480)) + '" alt="" draggable="false">').join('') +
             (wide ? '<b class="fm-rot-cap">' + e((mix[0].label || '') + (mix[0].count ? ' ' + mix[0].count : '')) + '</b><span class="fm-rot-dots">' + mix.map((x, i) => '<u class="' + (i ? '' : 'is-on') + '"></u>').join('') + '</span>' : '') + '</div>';
     }
     if (it.drop) return '<div class="fm-dropart"><i class="fm-drop-rays"></i><i class="fm-drop-halo"></i><span class="fm-drop-spin"><span class="ps3d fm-solid">' + dropLayers(it.drop.art) + '</span></span><i class="fm-drop-sp s1"></i><i class="fm-drop-sp s2"></i><i class="fm-drop-sp s3"></i><i class="fm-drop-sh"></i></div>';
@@ -129,12 +131,13 @@ function descOf(it) {
     const d = SI().describe;
     if (!it.description && it.mode === 'choice') return 'Выберите один из ' + (it.contents || []).length + ' паков и получите его сразу.';
     if (!it.description && it.mode === 'random') return 'Случайный пак из ' + (it.contents || []).length + ': какой выпадет, узнаете после покупки.';
+    if (it.emoji) return it.emoji.description || 'Особый значок.';                     // a badge has a description of its own, not the one of the offer
     return it.description || (d ? d(it) : '');
 }
 const optionPrices = it => (it.mode === 'choice' && it.contents ? it.contents.map(c => (c.price !== null && c.price !== undefined ? c.price : it.price_balls)) : []);
 let lastDrop = null;                                        // the drops that the last purchase gave: they open after everything else
 const priceOf = it => { const ps = optionPrices(it); const lo = ps.length ? Math.min(...ps) : it.price_balls; const from = ps.length && Math.max(...ps) !== lo ? '<small class="fm-from">от</small>' : ''; return lo ? from + ORN + '<b>' + num(lo) + '</b>' : '<b>Бесплатно</b>'; };
-const headingOf = it => it.heading || (it.mode === 'choice' ? 'Акция с выбором' : it.mode === 'random' ? 'Случайный пак' : NAMES[rarityOf(it)]);
+const headingOf = it => it.heading || (it.emoji ? 'Уникальный значок' : '') || (it.mode === 'choice' ? 'Акция с выбором' : it.mode === 'random' ? 'Случайный пак' : NAMES[rarityOf(it)]);
 
 /* ---------- one offer card ---------- */
 function card(o, opts = {}) {
@@ -164,13 +167,15 @@ function card(o, opts = {}) {
 /* ---------- what an offer includes ---------- */
 function includes(o) {
     const it = o.it, out = [];
-    (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.type ? undefined : c.pack.id}));
+    (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.type ? undefined : c.pack.id, emoji: c.pack.type === 'EMOJI' ? c.pack : undefined}));
     if (it.drop) out.push({img: thumb(it.drop.image, 200), label: it.drop.title, count: '×' + (it.bundle || 1)});
     (it.chests_in || []).forEach(c => out.push({full: c.chest.image, img: thumb(c.chest.image, 200), label: c.chest.title, count: '×' + c.count}));
     (it.drops_in || []).forEach(c => out.push({full: c.drop.image, img: thumb(c.drop.image, 200), label: c.drop.title, count: '×' + c.count}));
+    (it.emojis_in || []).forEach(c => out.push({emoji: c.emoji, img: c.emoji.image || '', label: 'Значок «' + c.emoji.title + '»', count: '×1'}));
     if (it.pass_in) out.push({img: it.pass_in.image, label: 'Pass Plus', count: '×1'});
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
     if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: POINTS() ? CUR().name : 'Новогодние шары', count: num(it.balls)});
+    if (it.emoji && !out.length) out.push({emoji: it.emoji, img: it.emoji.image || '', label: 'Значок «' + it.emoji.title + '»', count: '×1'});
     if (!out.length) {
         const pic = it.pack?.image || it.star?.image || it.image_url || (it.kind === 'GRAM' ? '/static/assets/gram.svg' : '/static/assets/new-year-ornament.svg');
         const count = it.kind === 'GRAM' ? num(it.amount) + ' GRAM' : it.kind === 'BALL' ? num(it.amount) : it.bundle > 1 ? '×' + it.bundle : '1';
@@ -350,26 +355,38 @@ function stage(o, ctx, opts2 = {}) {
     let pick = 0;
     const lines = descOf(it).split(/(?<=[.!?])\s+/).filter(Boolean).slice(0, 5);
     const packsIn = inc.filter(x => x.pack).map(x => ({id: x.pack, title: x.label, image: x.img}));
-    const optArt = i => '<img class="si-solo fm-pickart" src="' + e(choice[i].pack.image) + '" alt="">' + (choice[i].count > 1 ? '<b class="fm-pickcount">×' + choice[i].count + '</b>' : '');
+    const optArt = i => (choice[i].pack.type === 'EMOJI' ? EM(choice[i].pack, 'si-solo fm-pickart') : '<img class="si-solo fm-pickart" src="' + e(choice[i].pack.image) + '" alt="">') + (choice[i].count > 1 ? '<b class="fm-pickcount">×' + choice[i].count + '</b>' : '');
     const mixIn = !choice ? mixOf(it) : null;                      // a bundle: a tap on a part shows it in the middle
-    const mixArt = i => '<img class="si-solo fm-pickart" src="' + e(thumb(mixIn[i].full || mixIn[i].img, 640)) + '" alt="">' + (/^×(\d+)$/.test(mixIn[i].count) && Number(mixIn[i].count.slice(1)) > 1 ? '<b class="fm-pickcount">' + e(mixIn[i].count) + '</b>' : '');
+    const mixArt = i => (mixIn[i].emoji ? EM(mixIn[i].emoji, 'si-solo fm-pickart') : '<img class="si-solo fm-pickart" src="' + e(thumb(mixIn[i].full || mixIn[i].img, 640)) + '" alt="">') + (/^×(\d+)$/.test(mixIn[i].count) && Number(mixIn[i].count.slice(1)) > 1 ? '<b class="fm-pickcount">' + e(mixIn[i].count) + '</b>' : '');
     const heroInner = choice ? optArt(0) : mixIn ? mixArt(0) : artOf(it);
     const incHead = it.mode === 'random' ? 'Может выпасть' : choice ? 'Выберите один' : 'Включает';
     el.innerHTML = stageScene + '<i class="fm-rays big"></i><i class="fm-dots"></i>' +
         '<button type="button" class="fm-back" data-fm-close aria-label="Назад"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 5-7 7 7 7"/></svg></button>' +
-        '<span class="fm-bal">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span>' +
+        (it.ends_at ? '<span class="fm-timer" data-fm-timer title="До конца акции"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#ffc933" stroke="#8a5a00" stroke-width="2"/><path d="M12 6.500V12l3.600 2.200" fill="none" stroke="#5a3a00" stroke-width="2.200" stroke-linecap="round" stroke-linejoin="round"/></svg><b></b></span>' : '') + '<span class="fm-bal">' + ORN + '<b data-fm-bal>' + num(ctx.balance ? ctx.balance() : 0) + '</b></span>' +
         '<div class="fm-info"><div class="fm-plate"><small>' + e(headingOf(it)) + '</small><h2>' + e(it.title) + '</h2></div>' +
         (choice ? '<p class="fm-pickname" data-fm-pickname></p>' : '') +
         (lines.length ? '<ul class="fm-lines">' + lines.map(l => '<li>' + e(l) + '</li>').join('') + '</ul>' : '') + '</div>' +
         '<div class="fm-hero">' + (choice ? '<button type="button" class="fm-harrow l" data-fm-h="-1" aria-label="Предыдущий">' + CHEV('m15 5-7 7 7 7') + '</button><button type="button" class="fm-harrow r" data-fm-h="1" aria-label="Следующий">' + CHEV('m9 5 7 7-7 7') + '</button>' : '') +
         '<div class="fm-floor"></div><div class="fm-heroart' + (it.chest ? ' is-chest' : '') + '" data-fm-heroart>' + heroInner + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
         '<div class="fm-inc"><div class="fm-inc-head"><b>' + incHead + '</b>' + (packsIn.length || it.chest || it.drop ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
-        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + ((choice || mixIn) && !i ? ' is-pick' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : mixIn ? ' data-fm-show="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '><img src="' + e(x.img) + '" alt=""><b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
+        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + ((choice || mixIn) && !i ? ' is-pick' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : mixIn ? ' data-fm-show="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '>' + (x.emoji ? EM(x.emoji, 'fm-ic-em') : '<img src="' + e(x.img) + '" alt="">') + '<b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
         '<div class="fm-buy"><button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
         '<p class="fm-err" role="alert"></p></div>' +
         '<div class="fm-confirm" hidden><div class="fm-cbox"><b>Подтвердить?</b><span class="fm-cwhat" data-fm-cwhat></span><button type="button" class="fm-yes" data-fm-yes>ДА</button><button type="button" class="fm-no" data-fm-no>Отмена</button></div></div>';
     if (it.card_bg && it.card_bg.startsWith('image:')) el.style.backgroundImage = 'linear-gradient(rgba(8,12,40,.3),rgba(8,12,40,.55)),url(' + thumb(it.card_bg.slice(6), 1000) + ')', el.style.backgroundSize = 'cover';
     document.body.appendChild(el);
+    const timer = el.querySelector('[data-fm-timer] b');
+    if (timer) {                                                          // the time to the end of the offer, next to the back button
+        const base = Number(ctx.shopState?.now) || Math.floor(Date.now() / 1000), t0 = Date.now();
+        const tick = () => {
+            if (!el.isConnected) { clearInterval(tm); return; }
+            const s = Math.floor(it.ends_at - base - (Date.now() - t0) / 1000);
+            if (s <= 0) { timer.textContent = 'Акция закончилась'; el.querySelector('[data-fm-timer]').classList.add('is-over'); clearInterval(tm); return; }
+            const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60), sec = s % 60;
+            timer.textContent = d ? d + 'д. ' + h + 'ч.' : h ? h + 'ч. ' + m + 'м.' : m + 'м. ' + sec + 'с.';
+        };
+        const tm = setInterval(tick, 1000); tick();
+    }
     requestAnimationFrame(() => el.classList.add('is-in'));
     // every lot has its own address: a link opens the lot, Back closes it
     let pushed = false, closed = false;
@@ -478,6 +495,12 @@ async function perform(o, ctx, choice) {
     if (res.pack_id) { const ids = res.pack_ids || [res.pack_id]; return {packIds: ids, count: ids.length, picked: res.picked}; }
     if (res.drop_granted) return {drop: res.drop_granted};
     if (res.chest_open) return {chest: res.chest_open};
+    if (res.emojis_given && res.emojis_given.length) {               // a badge: shown with its animation, the player sets it in the profile
+        const got = res.emojis_given, names = got.map(x => '«' + x.emoji.title + '»').join(', ');
+        if (!res.gift_ids && !res.pass_plus) return {head: 'Покупка совершена', title: got.length > 1 ? 'Значки получены' : 'Значок получен', text: got.some(x => !x.new) ? 'Такой значок у вас уже был: повторно он не выдаётся.' : names + ' уже в вашем инвентаре. Поставьте его в профиле рядом с ником.',
+            html: '<div class="em-reveal">' + got.map(x => EM(x.emoji, 'em-reveal-pic')).join('') + '</div>'};
+        try { (window.toast || (() => {}))('Значок ' + names + ' в вашем инвентаре: выберите его в профиле'); } catch (_) {}
+    }
     if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};
     if (res.pass_plus) return {head: 'Покупка совершена', title: 'Pass Plus открыт!', text: 'Верхняя дорога наград и особые квесты сезона' + (res.pass_season ? ' «' + res.pass_season.title + '»' : '') + ' ждут в разделе «События» → «Сезон».'};
     if (res.code) { const cc = window.crafterCommunity; return {title: 'Ваш промокод', text: 'Он привязан к вашему аккаунту и работает один раз.', html: cc.codeBlock(res.code), bind: root => cc.bindCode(root, res.code)}; }

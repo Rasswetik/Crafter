@@ -10,10 +10,11 @@ const PATTERNS = [['snow', 'Снежинки'], ['stars', 'Звёзды'], ['dot
 async function renderAdminPass(content = document.querySelector('#admin-content')) {
     if (!content) return;
     content.innerHTML = '<section class="ny-admin-section pa-wrap"><p class="sub">Загрузка…</p></section>';
-    let R, packs = [], STARS = [], CHESTS = [], DROPS = [], COLS = [];
+    let R, packs = [], STARS = [], CHESTS = [], DROPS = [], COLS = [], EMOJIS = [];
     const MODELS = {};
     try { R = await api('admin/pass'); } catch (err) { content.innerHTML = '<p class="sub">' + e(err.message) + '</p>'; return; }
     try { packs = (await api('admin/new-year/packs')).packs || []; } catch (_) {}
+    try { EMOJIS = (await api('admin/emojis')).emojis.filter(x => x.enabled).map(x => ({...x, image: x.image || '/static/assets/emoji/badge.svg'})); } catch (_) {}
     try { STARS = window.crafterStarGifts ? await window.crafterStarGifts.catalog() : []; } catch (_) {}
     try { CHESTS = (await api('admin/new-year/chests')).chests.map(c => c.chest); } catch (_) {}
     try { DROPS = (await api('admin/drops')).drops; } catch (_) {}
@@ -39,6 +40,7 @@ async function renderAdminPass(content = document.querySelector('#admin-content'
     const rwInfo = r => r.kind === 'PACK' ? {img: packs.find(p => p.id === r.amount)?.image || '', name: packs.find(p => p.id === r.amount)?.title || 'Пак', n: '×' + r.count}
         : r.kind === 'CHEST' ? {img: CHESTS.find(c => c.id === r.amount)?.image || '', name: CHESTS.find(c => c.id === r.amount)?.title || 'Ящик', n: '×' + r.count}
         : r.kind === 'DROP' ? {img: DROPS.find(c => c.id === r.amount)?.image || '/static/assets/drops/snowman.png', name: DROPS.find(c => c.id === r.amount)?.title || 'Дроп', n: '×' + r.count}
+        : r.kind === 'EMOJI' ? {img: EMOJIS.find(c => c.id === r.amount)?.image || '/static/assets/emoji/badge.svg', name: 'Значок «' + (EMOJIS.find(c => c.id === r.amount)?.title || '') + '»', n: '1'}
         : r.kind === 'GRAM' ? {img: '/static/assets/gram.svg', name: 'GRAM', n: String(r.amount)} : r.kind === 'BALL' ? {img: '/static/assets/new-year-ornament.svg', name: 'Шары', n: num(r.amount)}
         : r.kind === 'STAR' ? {img: STARS.find(x => x.key === r.amount)?.image || '', name: STARS.find(x => x.key === r.amount)?.name || 'Подарок', n: '×' + r.count}
         : {img: '', name: String(r.amount).split(':').slice(1).join(':') || 'NFT', n: 'NFT'};
@@ -168,7 +170,7 @@ async function renderAdminPass(content = document.querySelector('#admin-content'
         sec.querySelectorAll('[data-pup]').forEach(i => i.addEventListener('change', async () => { const f = i.files[0]; if (!f) return; pull(); try { const url = await uploadMedia(f); const k = i.dataset.pup; if (k.indexOf('theme.') === 0) form.theme[k.slice(6)] = url; else form[k] = url; draw(); } catch (err) { toast(err.message); } }));
         sec.querySelectorAll('[data-pclear]').forEach(b => b.addEventListener('click', () => { pull(); const k = b.dataset.pclear; if (k.indexOf('theme.') === 0) form.theme[k.slice(6)] = ''; else form[k] = ''; draw(); }));
         // prizes (levels and quests)
-        sec.querySelectorAll('[data-rwadd]').forEach(b => b.addEventListener('click', () => { pull(); const path = b.dataset.rwadd; window.crafterRewardPicker.open({packs, chests: CHESTS, drops: DROPS, stars: STARS, cols: COLS, models: async cid => { await loadModels(cid); return MODELS[cid] || []; }}, x => { target(path).push(x); draw(); }); }));
+        sec.querySelectorAll('[data-rwadd]').forEach(b => b.addEventListener('click', () => { pull(); const path = b.dataset.rwadd; window.crafterRewardPicker.open({emojis: EMOJIS, packs, chests: CHESTS, drops: DROPS, stars: STARS, cols: COLS, models: async cid => { await loadModels(cid); return MODELS[cid] || []; }}, x => { target(path).push(x); draw(); }); }));
         sec.querySelectorAll('[data-rwdel]').forEach(b => b.addEventListener('click', () => { pull(); const parts = b.dataset.rwdel.split('.'); const i = Number(parts.pop()); target(parts.join('.')).splice(i, 1); draw(); }));
         // levels
         sec.querySelector('[data-gen]')?.addEventListener('click', () => { pull(); const n = Math.max(1, Math.min(200, Number(sec.querySelector('#pa-gen-n').value) || 1)), x0 = Math.max(1, Number(sec.querySelector('#pa-gen-xp').value) || 100), st = Math.max(0, Number(sec.querySelector('#pa-gen-step').value) || 0); while (form.levels.length < n) form.levels.push({xp: 100, free: [], plus: []}); form.levels.length = n; form.levels.forEach((l, i) => { l.xp = x0 + i * st; }); draw(); });

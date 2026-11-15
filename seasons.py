@@ -55,7 +55,10 @@ def season_ranking(db, event, limit=100):
             }
     order = sorted(results, key=lambda uid: (
         -(results[uid]['arena_score'] + results[uid]['craft_score']), uid))
+    from flask import current_app
+    badges = current_app.extensions['crafter_emoji_statuses'](order[:limit])
     return [{
+        'emoji': badges.get(uid),
         'rank': idx, 'score': str(results[uid]['arena_score'] + results[uid]['craft_score']),
         'arena_score': str(results[uid]['arena_score']),
         'craft_score': str(results[uid]['craft_score']),

@@ -93,6 +93,51 @@ def install_ny_extras(app, db, auth, audit):
         audit('Events button background: ' + card)
         return {'ok': True, 'hub_bg': hub_bg()}
 
+    # ---- the button «События» of the games page: the administrator changes its texts, picture and background
+    TILE_KEY = 'events_tile_v1'
+    TILE_ART = re.compile(r'/media/shop/[0-9a-f]{32}|/static/assets/[A-Za-z0-9_./-]{1,120}\.(?:svg|png|webp|gif|webm)')
+
+    def tile_cfg():
+        raw = read(TILE_KEY, {})
+        raw = raw if isinstance(raw, dict) else {}
+        art = str(raw.get('art') or '')
+        kind = ''
+        m = re.fullmatch(r'/media/shop/([0-9a-f]{32})', art)
+        if m:
+            row = db().execute("SELECT mime FROM shop_media WHERE id=?", (m.group(1),)).fetchone()
+            kind = 'video' if row and row['mime'] == 'video/webm' else 'image'
+        return {'title': str(raw.get('title') or '')[:40], 'subtitle': str(raw.get('subtitle') or '')[:140], 'button': str(raw.get('button') or '')[:24],
+                'bg': str(raw.get('bg') or ''), 'art': art, 'art_kind': kind, 'shade': 0 if raw.get('shade') is False else 1}
+
+    @app.get('/api/events-tile')
+    @auth()
+    def events_tile():
+        return {'tile': tile_cfg()}
+
+    @app.post('/api/admin/events-tile')
+    @auth(admin=True)
+    def admin_events_tile():
+        body = request.get_json(silent=True) or {}
+        if body.get('reset'):
+            with db():
+                db().execute("DELETE FROM settings WHERE key=?", (TILE_KEY,))
+            audit('Events tile reset')
+            return {'ok': True, 'tile': tile_cfg()}
+        title = ' '.join(str(body.get('title') or '').split())[:40]
+        subtitle = ' '.join(str(body.get('subtitle') or '').split())[:140]
+        button = ' '.join(str(body.get('button') or '').split())[:24]
+        bg, art = str(body.get('bg') or '').strip(), str(body.get('art') or '').strip()
+        if bg:
+            from shop_sections import BACKGROUNDS
+            if not (bg in BACKGROUNDS or (bg.startswith('image:') and TILE_ART.fullmatch(bg[6:]))):
+                abort(400, description='Фон: выберите готовый или загрузите свою картинку')
+        if art and art != 'none' and not TILE_ART.fullmatch(art):
+            abort(400, description='Рисунок: загрузите SVG, PNG, WebP, GIF или WebM, или выберите «без рисунка»')
+        with db():
+            write(TILE_KEY, {'title': title, 'subtitle': subtitle, 'button': button, 'bg': bg, 'art': art, 'shade': 0 if body.get('shade') is False else 1})
+        audit('Events tile saved')
+        return {'ok': True, 'tile': tile_cfg()}
+
     @app.get('/api/admin/new-year/locks')
     @auth(admin=True)
     def admin_ny_locks():
