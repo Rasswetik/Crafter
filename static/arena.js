@@ -341,6 +341,9 @@ function arenaAnimateBoard(now, data) {
     if (done) arena.boardMotion = null;
 }
 
+function arenaStatusBadge(player) {
+    return player && player.emoji && window.crafterBadge ? window.crafterBadge(player.emoji, 'is-name') : '';
+}
 function arenaBotBadge(player) {
     return player.is_bot ? ' <span class="arena-bot-badge">Бот</span>' : '';
 }
@@ -364,7 +367,7 @@ function arenaRenderHighlights(data) {
             continue;
         }
         const value = arenaFormat(result.value);
-        row.innerHTML = `${arenaAvatar(player)}<span class="arena-highlight-name">${esc(player.name)}${arenaBotBadge(player)}</span>
+        row.innerHTML = `${arenaAvatar(player)}<span class="arena-highlight-name">${esc(player.name)}${arenaStatusBadge(player)}${arenaBotBadge(player)}</span>
             <strong class="arena-highlight-win">+${value} <img src="/static/assets/gram.svg" alt="GRAM"></strong>`;
     }
 }
@@ -377,7 +380,7 @@ function arenaRenderPlayers(data) {
         const [dark, light] = arenaPalette[i % arenaPalette.length];
         return `<button class="arena-player" type="button" onclick="arenaPlayer(${i})"
             style="--arena-team:${light};--arena-avatar:linear-gradient(150deg,${light},${dark})">
-            ${arenaAvatar(player)}<span class="arena-player-info"><b>${esc(player.name)}${arenaBotBadge(player)}</b>
+            ${arenaAvatar(player)}<span class="arena-player-info"><b>${esc(player.name)}${arenaStatusBadge(player)}${arenaBotBadge(player)}</b>
             <small>${arenaFormat(player.chance)}% шанс</small></span><strong>${arenaFormat(player.value)} GRAM</strong>
             ${player.gifts.length || Number(player.gram) ? `<span class="arena-player-items">
                 ${Number(player.gram) ? `<span class="arena-mini-gram">${arenaGramIcon}<b>${arenaFormat(player.gram)}</b></span>` : ''}

@@ -1,0 +1,25 @@
+/* Arena on a computer: the board on the left, the controls and the players on the right */
+.arena-player-info b .ce-badge,.arena-highlight-name .ce-badge{vertical-align:-.28em;margin-left:5px}
+@media (min-width:1100px){
+  #app.arena-view .arena-page:not(.arena-private-lobby){
+    display:grid!important;
+    grid-template-columns:minmax(380px,1fr) minmax(360px,.85fr);
+    grid-auto-rows:min-content;
+    column-gap:28px;align-items:start;
+    max-width:min(1120px,100%)!important;
+  }
+  #app.arena-view .arena-page:not(.arena-private-lobby)>#arena-event-banner,
+  #app.arena-view .arena-page:not(.arena-private-lobby)>.arena-highlights{grid-column:1/-1}
+  #app.arena-view .arena-page:not(.arena-private-lobby)>.arena-table{
+    grid-column:1;grid-row:3 / span 3;width:100%!important;max-width:none!important;margin:0!important;position:sticky;top:12px;
+  }
+  #app.arena-view .arena-page:not(.arena-private-lobby)>.arena-dock{
+    grid-column:2;grid-row:3;width:100%!important;max-width:none!important;margin:0 0 16px!important;
+  }
+  #app.arena-view .arena-page:not(.arena-private-lobby)>.arena-roster-heading{
+    grid-column:2;grid-row:4;max-width:none!important;width:100%;margin:0 0 8px!important;
+  }
+  #app.arena-view .arena-page:not(.arena-private-lobby)>.arena-players{
+    grid-column:2;grid-row:5;max-width:none!important;width:100%;margin:0!important;
+  }
+}

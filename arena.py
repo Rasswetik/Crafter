@@ -128,9 +128,10 @@ def install_arena(app, db, auth, record, catalog, canonical_name, demo_prices):
         """, list(players))}
         profiles[BOT_UID] = {'name': 'Crafter', 'photo_url': '/static/assets/arena-crafter-bot.jpg'}
         total = sum(player['value'] for player in players.values())
+        badges = (app.extensions.get('crafter_emoji_statuses') or (lambda _u: {}))([u for u in players if u != BOT_UID])
         return [
             {'id': str(uid), 'name': profiles[uid]['name'] or 'Игрок',
-             'photo': avatar_fallback(uid, profiles[uid]['photo_url']), 'is_bot': uid == BOT_UID, 'gram': gram(player['gram']),
+             'photo': avatar_fallback(uid, profiles[uid]['photo_url']), 'is_bot': uid == BOT_UID, 'emoji': badges.get(uid), 'gram': gram(player['gram']),
              'value': gram(player['value']), 'chance': round(100 * player['value'] / total, 4),
              'gifts': player['gifts']}
             for uid, player in players.items()

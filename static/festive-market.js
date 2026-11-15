@@ -135,6 +135,7 @@ function descOf(it) {
     return it.description || (d ? d(it) : '');
 }
 const optionPrices = it => (it.mode === 'choice' && it.contents ? it.contents.map(c => (c.price !== null && c.price !== undefined ? c.price : it.price_balls)) : []);
+let lastEmoji = null;                                       // the badges of a purchase that gave other things too: their screen comes after the others
 let lastDrop = null;                                        // the drops that the last purchase gave: they open after everything else
 const priceOf = it => { const ps = optionPrices(it); const lo = ps.length ? Math.min(...ps) : it.price_balls; const from = ps.length && Math.max(...ps) !== lo ? '<small class="fm-from">от</small>' : ''; return lo ? from + ORN + '<b>' + num(lo) + '</b>' : '<b>Бесплатно</b>'; };
 const headingOf = it => it.heading || (it.emoji ? 'Уникальный значок' : '') || (it.mode === 'choice' ? 'Акция с выбором' : it.mode === 'random' ? 'Случайный пак' : NAMES[rarityOf(it)]);
@@ -475,11 +476,13 @@ function stage(o, ctx, opts2 = {}) {
             const res = await perform(o, ctx, choice ? choice[pick].pack.id : undefined);
             hide();
             const dg = lastDrop; lastDrop = null;
-            const after = () => { if (dg) window.crafterDrops.afterPurchase(dg, {refresh: ctx.refresh, onDone: () => close()}); else close(); };    // the drops of the purchase open last, one after another
+            const eg = lastEmoji; lastEmoji = null;
+            const last = () => { if (eg && eg.length) window.crafterEmojiReveal(eg, () => { ctx.refresh?.(); close(); }); else close(); };           // the new badges: their own screen after all the rest
+            const after = () => { if (dg) window.crafterDrops.afterPurchase(dg, {refresh: ctx.refresh, onDone: last}); else last(); };    // the drops of the purchase open last, one after another
             if (res.chests) {
                 await window.crafterChests.playMany(res.chests, {bg: it.card_bg || res.chests[0].chest.bg, refresh: ctx.refresh, toast});
                 if (res.rest) reveal(o, res.rest, ctx, after); else after();
-            } else if (res.drop) window.crafterDrops.afterPurchase(res.drop, {refresh: ctx.refresh, onDone: () => close()});
+            } else if (res.drop) window.crafterDrops.afterPurchase(res.drop, {refresh: ctx.refresh, onDone: last});
             else if (res.chest) window.crafterChests.play(res.chest, {bg: it.card_bg || res.chest.chest.bg, refresh: ctx.refresh, toast, onDone: after});
             else reveal(o, res, ctx, after);
         } catch (error) { hide(); err.textContent = error.message; }
@@ -501,6 +504,7 @@ async function perform(o, ctx, choice) {
     }
     const res = await api('shop-items/buy', {item_id: it.id, request_id: rid, choice});
     lastDrop = res.drop_granted || null;
+    lastEmoji = (res.emojis_given && res.emojis_given.length && (res.pack_id || res.chest_open || res.chest_opens || res.drop_granted || res.gram || res.balls_gain || res.gift_ids || res.pass_plus)) ? res.emojis_given : null;     // badges together with other things: their screen comes after the others
     if (typeof window.crafterNewYearUpdateBalance === 'function') window.crafterNewYearUpdateBalance(res.balance);
     if (res.gram_balance !== undefined && state?.me) { state.me.balance = res.gram_balance; if (typeof updateBalance === 'function') updateBalance(); }
     if (res.chest_opens && res.chest_opens.length) {                  // several chests: they open one after another, then the rest of the purchase is shown
@@ -516,7 +520,6 @@ async function perform(o, ctx, choice) {
         if (!res.gift_ids && !res.pass_plus && !res.pack_id && !res.chest_open && !res.drop_granted && !res.gram && !res.balls_gain) return {emojiReveal: got};
         if (false) return {head: 'Покупка совершена', title: got.length > 1 ? 'Значки получены' : 'Значок получен', text: got.some(x => !x.new) ? 'Такой значок у вас уже был: повторно он не выдаётся.' : names + ' уже в вашем инвентаре. Поставьте его в профиле рядом с ником.',
             html: '<div class="em-reveal">' + got.map(x => EM(x.emoji, 'em-reveal-pic')).join('') + '</div>'};
-        try { (window.toast || (() => {}))('Значок ' + names + ' в вашем инвентаре: выберите его в профиле'); } catch (_) {}
     }
     if (res.gift_ids) return {title: 'Подарок получен', text: 'Он уже в разделе «Мои подарки».'};
     if (res.pass_plus) return {head: 'Покупка совершена', title: 'Pass Plus открыт!', text: 'Верхняя дорога наград и особые квесты сезона' + (res.pass_season ? ' «' + res.pass_season.title + '»' : '') + ' ждут в разделе «События» → «Сезон».'};
