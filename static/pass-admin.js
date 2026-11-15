@@ -101,13 +101,59 @@ async function renderAdminPass(content = document.querySelector('#admin-content'
 
     const playersPane = () => '<div class="adm-step"><h4>Игроки</h4><p class="sub">В сезоне: <b>' + form.players + '</b> игроков, Pass Plus у <b>' + form.plus_players + '</b>.</p><div class="adm-row3">' + field('Номер игрока (Telegram ID)', '<input id="pa-gx-id" inputmode="numeric">') + field('Выдать XP (можно со знаком минус)', '<input id="pa-gx-xp" inputmode="numeric" value="100">') + '<div class="adm-field"><label>&nbsp;</label><button type="button" class="primary" data-gx>Выдать XP</button></div></div></div>';
 
+    /* the pass as a table: download the table of the season, edit it, load it back (all together or by parts) */
+    let tableRes = null, tablePart = 'all';
+    const PARTS = [['all', 'Всё вместе', 'сезон и цены, уровни с наградами и XP, квесты'], ['season', 'Только сезон и цены', 'название, цена Pass Plus, цена уровня, сроки'], ['levels', 'Только уровни', 'XP и награды Free / Plus'], ['quests', 'Только квесты', 'все квесты сезона']];
+    const tablePane = () => '<div class="adm-step"><h4>1. Скачайте таблицу</h4><p class="sub">В ней листы «Сезон» (цены, сроки), «Уровни» (XP и награды Free / Plus на каждом уровне), «Квесты» и «Справочник» (что писать в ячейках). ' + (form.id ? 'Скачается таблица этого сезона.' : 'Сезона ещё нет — скачается пример для заполнения.') + '</p><button type="button" class="primary" data-tdl>Скачать таблицу (xlsx)</button></div>' +
+        '<div class="adm-step"><h4>2. Что загрузить</h4><div class="pa-parts">' + PARTS.map(p => '<label class="pa-part' + (tablePart === p[0] ? ' is-on' : '') + '"><input type="radio" name="pa-part" value="' + p[0] + '"' + (tablePart === p[0] ? ' checked' : '') + '><b>' + p[1] + '</b><small>' + p[2] + '</small></label>').join('') + '</div></div>' +
+        '<div class="adm-step"><h4>3. Загрузите файл</h4><p class="sub">' + (form.id ? 'Данные запишутся в выбранный сезон «' + e(form.title) + '».' : 'Если загружается лист «Сезон», создастся новый сезон.') + ' Сначала таблица проверяется, и только потом вы нажимаете «Загрузить».</p><label class="pa-file">Выбрать файл xlsx или csv<input type="file" data-tfile accept=".xlsx,.csv,.tsv,.txt"></label><span class="sub" data-tname></span></div>' +
+        '<div id="pa-tres">' + (tableRes ? tableResHTML(tableRes) : '') + '</div>';
+    const tableResHTML = r => {
+        const bits = [];
+        if (r.season && r.season.title) bits.push('<li><b>Сезон:</b> «' + e(r.season.title) + '», номер ' + r.season.number + ', Pass Plus ' + num(r.season.plus_price) + ', уровень ' + num(r.season.level_price) + '</li>');
+        if (r.levels && r.levels.count !== undefined) bits.push('<li><b>Уровни:</b> ' + r.levels.count + ', всего ' + num(r.levels.xp_total) + ' XP; наград Free ' + r.levels.free + ', Plus ' + r.levels.plus + '</li>');
+        if (r.quests && r.quests.count !== undefined) bits.push('<li><b>Квесты:</b> ' + r.quests.count + ' (' + Object.entries(r.quests.by_kind).map(([k, n]) => k + ' ' + n).join(', ') + '), ' + num(r.quests.xp_total) + ' XP</li>');
+        const errs = (r.errors || []).length;
+        return '<div class="pa-tres' + (errs ? ' has-err' : '') + '"><h4>' + (r.applied ? 'Загружено' : errs ? 'В таблице есть ошибки' : 'Таблица проверена') + '</h4>' + (bits.length ? '<ul>' + bits.join('') + '</ul>' : '') +
+            (errs ? '<ul class="pa-errs">' + r.errors.map(x => '<li>' + e(x) + '</li>').join('') + '</ul><p class="sub">Исправьте их в таблице и выберите файл ещё раз. Пока есть ошибки, загрузить нельзя.</p>' : '') +
+            (!errs && !r.applied ? '<button type="button" class="primary" data-tapply>Загрузить в сезон</button>' : '') + '</div>';
+    };
+    let tableFile = null;
+    const sendTable = async apply => {
+        const body = new FormData(); body.append('file', tableFile); body.append('part', tablePart); body.append('apply', apply ? '1' : '0'); if (form.id) body.append('season_id', form.id);
+        return api('admin/pass/import', body);
+    };
+    const bindTable = () => {
+        sec.querySelector('[data-tdl]')?.addEventListener('click', async () => {
+            try {
+                const headers = {'X-Telegram-Init-Data': telegramInitData()};
+                if (!headers['X-Telegram-Init-Data'] && typeof crafterWebSession === 'function' && crafterWebSession()) headers['X-Crafter-Web-Session'] = crafterWebSession();
+                const resp = await fetch('/api/admin/pass/export' + (form.id ? '?season_id=' + encodeURIComponent(form.id) : ''), {headers});
+                if (!resp.ok) throw new Error('Не удалось скачать таблицу');
+                const a = document.createElement('a'); a.href = URL.createObjectURL(await resp.blob()); a.download = 'pass-season' + (form.number ? '-' + form.number : '') + '.xlsx'; document.body.appendChild(a); a.click(); a.remove();
+            } catch (err) { toast(err.message); }
+        });
+        sec.querySelectorAll('input[name="pa-part"]').forEach(i => i.addEventListener('change', () => { tablePart = i.value; tableRes = null; draw(); }));
+        sec.querySelector('[data-tfile]')?.addEventListener('change', async ev => {
+            tableFile = ev.target.files[0]; if (!tableFile) return;
+            sec.querySelector('[data-tname]').textContent = ' ' + tableFile.name;
+            try { tableRes = await sendTable(false); } catch (err) { tableRes = {errors: [err.message]}; }
+            sec.querySelector('#pa-tres').innerHTML = tableResHTML(tableRes); bindTableApply();
+        });
+        bindTableApply();
+    };
+    const bindTableApply = () => sec.querySelector('[data-tapply]')?.addEventListener('click', async ev => {
+        ev.currentTarget.disabled = true;
+        try { const r = await sendTable(true); toast('Таблица загружена'); tableRes = null; tableFile = null; await reload(r.season_id || form.id); } catch (err) { toast(err.message); ev.currentTarget.disabled = false; }
+    });
+
     const draw = () => {
         const list = R.seasons.map(s => '<button type="button" class="pa-s' + (s.id === sel ? ' is-on' : '') + '" data-sel="' + s.id + '"><b>Сезон ' + s.number + '</b><small>' + e(s.title) + (s.enabled ? '' : ' · скрыт') + '</small></button>').join('') + '<button type="button" class="pa-s pa-new' + (!sel ? ' is-on' : '') + '" data-new>+ Новый сезон</button>';
-        const tabs = [['season', 'Сезон'], ['levels', 'Уровни'], ['quests', 'Квесты'], ['players', 'Игроки']].map(t => '<button type="button" class="' + (tab === t[0] ? 'is-on' : '') + '" data-ptab="' + t[0] + '"' + (t[0] === 'players' && !form.id ? ' disabled' : '') + '>' + t[1] + '</button>').join('');
+        const tabs = [['season', 'Сезон'], ['levels', 'Уровни'], ['quests', 'Квесты'], ['table', 'Таблица'], ['players', 'Игроки']].map(t => '<button type="button" class="' + (tab === t[0] ? 'is-on' : '') + '" data-ptab="' + t[0] + '"' + (t[0] === 'players' && !form.id ? ' disabled' : '') + '>' + t[1] + '</button>').join('');
         sec.innerHTML = '<h3>Сезонный пасс</h3><p class="sub">Сезон, дороги Free и Pass Plus, уровни, XP и квесты. Игроки видят пасс в разделе «Сезон».</p><div class="pa-seasons">' + list + '</div><div class="sb-tabs pa-tabs">' + tabs + '</div>' +
-            (tab === 'season' ? seasonPane() : tab === 'levels' ? levelsPane() : tab === 'quests' ? questsPane() : playersPane()) +
-            '<div class="pa-save"><a class="pa-look" href="/season" target="_blank" rel="noopener">Посмотреть страницу сезона</a><button type="button" class="primary" data-save>' + (form.id ? 'Сохранить сезон и уровни' : 'Создать сезон') + '</button>' + (tab === 'quests' && form.id ? '<button type="button" class="primary" data-saveq>Сохранить квесты</button>' : '') + (form.id ? '<button type="button" class="pa-danger" data-delseason>Удалить сезон</button>' : '') + '</div>';
-        bind();
+            (tab === 'season' ? seasonPane() : tab === 'levels' ? levelsPane() : tab === 'quests' ? questsPane() : tab === 'table' ? tablePane() : playersPane()) +
+            (tab === 'table' ? '' : '<div class="pa-save"><a class="pa-look" href="/season/pass" target="_blank" rel="noopener">Посмотреть страницу сезона</a><button type="button" class="primary" data-save>' + (form.id ? 'Сохранить сезон и уровни' : 'Создать сезон') + '</button>' + (tab === 'quests' && form.id ? '<button type="button" class="primary" data-saveq>Сохранить квесты</button>' : '') + (form.id ? '<button type="button" class="pa-danger" data-delseason>Удалить сезон</button>' : '') + '</div>');
+        bind(); bindTable();
     };
 
     const reload = async keepId => { R = await api('admin/pass'); sel = keepId ?? sel; form = cur() ? toForm(cur()) : fresh(); draw(); };

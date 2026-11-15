@@ -678,3 +678,7 @@ def install_season_pass(app, db, auth, audit, record):
             db().execute("UPDATE pass_users SET xp=CASE WHEN xp+?<0 THEN 0 ELSE xp+? END WHERE user_id=? AND season_id=?", (amount, amount, uid, season['id']))
         audit('Pass xp %s to %s' % (amount, uid))
         return {'ok': True}
+
+    from pass_tables import install_pass_tables                      # the pass as a table: download, edit, load back (all together or by parts)
+    install_pass_tables(app, db, auth, audit, {'METRICS': METRICS, 'ICONS': ICONS, 'LIMIT': LIMIT, 'season_row': season_row, 'admin_season_view': admin_season_view,
+                                               'clean_rewards': clean_rewards, 'parse_msk': parse_msk})

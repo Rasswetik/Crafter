@@ -83,7 +83,17 @@ def test_pass_admin_checks_and_hidden_season(client):
 
 
 def test_season_has_its_own_page(client):
-    page = client.get('/season')
+    page = client.get('/season/pass')
     assert page.status_code == 200
     html = page.get_data(as_text=True)
     assert 'id="sp-app"' in html and 'season-page.js' in html and 'season-core.js' in html
+
+
+def test_season_addresses_and_old_new_year_addresses_lead_to_them(client):
+    for path in ('/season', '/season/market', '/season/market/some-lot'):
+        page = client.get(path)
+        assert page.status_code == 200 and 'id="app"' in page.get_data(as_text=True), path
+    assert client.get('/season/pass').status_code == 200
+    old = client.get('/new-year?open=advent')
+    assert old.status_code == 301 and old.headers['Location'].endswith('/season?open=advent')
+    assert client.get('/new-year/market/abc').headers['Location'].endswith('/season/market/abc')

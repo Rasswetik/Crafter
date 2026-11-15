@@ -49,3 +49,15 @@
 .pa-table td{padding:5px 6px}.pa-cell{width:56px}
 
 .pa-qgen{margin:14px 0;padding:12px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04)}.pa-qgen summary{cursor:pointer;font-weight:800}
+.pa-parts{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.pa-part{display:grid;gap:3px;padding:12px 14px;border-radius:14px;border:2px solid rgba(255,255,255,.14);background:rgba(255,255,255,.05);cursor:pointer}
+.pa-part input{position:absolute;opacity:0;pointer-events:none}
+.pa-part b{font-size:14px}.pa-part small{font-size:12px;color:#a9b6cf;line-height:1.3}
+.pa-part.is-on{border-color:#4aa8ff;background:rgba(74,168,255,.18)}
+.pa-file{display:inline-block;padding:11px 16px;border-radius:12px;background:rgba(74,168,255,.2);border:1px solid rgba(74,168,255,.55);color:#fff;font-weight:700;cursor:pointer}
+.pa-file input{display:none}
+.pa-tres{margin-top:12px;padding:14px 16px;border-radius:14px;background:rgba(80,200,120,.12);border:1px solid rgba(80,200,120,.4)}
+.pa-tres.has-err{background:rgba(255,90,90,.1);border-color:rgba(255,110,110,.5)}
+.pa-tres h4{margin:0 0 8px}.pa-tres ul{margin:6px 0;padding-left:20px}.pa-tres li{margin:3px 0;font-size:14px}
+.pa-errs li{color:#ffb4b4}
+.pa-tres .primary{margin-top:10px;width:100%;padding:14px;font-weight:800}

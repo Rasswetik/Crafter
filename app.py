@@ -283,11 +283,19 @@ def create_app(config=None):
         return render_template('index.html', site_maintenance=is_maintenance_enabled(), ny_on=new_year_enabled())
 
     # every section of the app has its own address: a refresh (or a shared link) opens that very section
-    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/auctions', '/author'):
+    for _path in ('/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/season', '/wallet', '/deposit', '/withdraw', '/cart', '/auctions', '/author'):
         app.add_url_rule(_path, 'section_' + _path.strip('/').replace('-', '_'), index)
 
-    for _rule, _name in (('/new-year/market', 'section_new_year_market'), ('/new-year/market/<path:lot>', 'section_new_year_lot')):
+    for _rule, _name in (('/season/market', 'section_season_market'), ('/season/market/<path:lot>', 'section_season_lot')):
         app.add_url_rule(_rule, _name, lambda lot=None: index())
+
+    @app.get('/new-year', defaults={'rest': ''})
+    @app.get('/new-year/<path:rest>')
+    def old_new_year_address(rest):
+        # the old addresses keep working: they lead to the same place of the page «Season»
+        from flask import redirect
+        target = '/season' + (('/' + rest) if rest else '')
+        return redirect(target + (('?' + request.query_string.decode()) if request.query_string else ''), 301)
 
     @app.context_processor
     def _currency_for_templates():
@@ -296,7 +304,7 @@ def create_app(config=None):
         except Exception:
             return {'cur': {'kind': 'balls', 'name': 'Шары', 'gen': 'шаров', 'icon': '/static/assets/new-year-ornament.svg', 'epoch': 0}}
 
-    @app.get('/season')
+    @app.get('/season/pass')
     def season_page():
         # the season pass is a separate page with its own template
         return render_template('season.html', ny_on=new_year_enabled())
@@ -340,7 +348,7 @@ def create_app(config=None):
         return build_preview()
     @app.after_request
     def cache_control(response):
-        if request.path.startswith('/auctions') or request.path.startswith('/shop/') or request.path.startswith('/new-year/') or request.path in {'/', '/admin', '/season', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/author'} or request.path.startswith('/static/'):
+        if request.path.startswith('/auctions') or request.path.startswith('/shop/') or request.path.startswith('/new-year/') or request.path.startswith('/season') or request.path in {'/', '/admin', '/season', '/preview', '/api/banners', '/market', '/gifts', '/hub', '/craft', '/upgrade', '/arena', '/staking', '/profile', '/new-year', '/wallet', '/deposit', '/withdraw', '/cart', '/author'} or request.path.startswith('/static/'):
             response.headers['Cache-Control']='no-cache, must-revalidate'
         return response
     @app.get('/health')

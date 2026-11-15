@@ -257,7 +257,8 @@ def install_new_year(app, db, auth, record, audit):
             prev=json.loads(row['payload']) if str(row['payload']).startswith('{') else {'kind':row['payload'],**PRESETS[row['payload']],'epoch':0}
         except Exception:
             prev={'kind':'balls',**PRESETS['balls'],'epoch':0}
-        if all(prev.get(k)==now[k] for k in ('kind','name','icon','epoch')):          # only the old way of writing the same currency: nothing to tell
+        same=all(prev.get(k)==now[k] for k in ('kind','name','icon'))
+        if same and (prev.get('epoch')==now['epoch'] or (not prev.get('epoch') and not now['epoch'])):          # only another way of writing the same currency: nothing to tell
             return None
         rate='1'
         try:
@@ -267,6 +268,8 @@ def install_new_year(app, db, auth, record, audit):
                 rate=str(last.get('rate') or '1')
         except Exception:
             pass
+        if same and rate=='1':                                                         # recalculated to the same currency one to one: the player sees no change
+            return None
         pick=lambda c:{k:c.get(k) for k in ('kind','name','gen','icon')}
         return {'from':pick(prev),'to':pick(now),'amount':wallet(uid)['balls'],'rate':rate}
 

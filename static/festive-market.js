@@ -297,7 +297,7 @@ function reveal(o, result, ctx, closeStage) {
 }
 
 /* ---------- the window of a lot ---------- */
-const BASE = '/new-year/market';
+const BASE = '/season/market';
 const CHEV = d => '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg>';
 /* the window of the freebies: a row of gift boxes on a background that is mirrored again and again */
 function fbStage(o, ctx, opts2 = {}) {

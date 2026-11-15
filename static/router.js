@@ -1,13 +1,13 @@
-/* One address per section: /market, /gifts, /hub, /craft, /upgrade, /arena, /staking, /profile, /new-year, /wallet ...
+/* One address per section: /market, /gifts, /hub, /craft, /upgrade, /arena, /staking, /profile, /season, /wallet ...
    Moving between sections updates the address, a refresh or a shared link opens the same section, Back and Forward work. */
 (function () {
 'use strict';
 const MAP = {market: '/market', gifts: '/gifts', games: '/hub', craft: '/craft', upgrade: '/upgrade', arena: '/arena', staking: '/staking',
-             profile: '/profile', 'new-year': '/new-year', wallet: '/wallet', deposit: '/deposit', withdraw: '/withdraw', cart: '/cart', auctions: '/auctions', author: '/author'};
+             profile: '/profile', 'new-year': '/season', wallet: '/wallet', deposit: '/deposit', withdraw: '/withdraw', cart: '/cart', auctions: '/auctions', author: '/author'};
 const REV = Object.fromEntries(Object.entries(MAP).map(([page, path]) => [path, page]));
 const deep = () => /^\/(collections|auctions)\//.test(location.pathname);
 const clean = () => location.pathname.replace(/\/+$/, '') || '/';
-window.crafterRouteView = () => REV[clean()] || (clean().indexOf('/new-year/') === 0 ? 'new-year' : null);
+window.crafterRouteView = () => REV[clean()] || (clean().indexOf('/season/') === 0 && clean() !== '/season/pass' ? 'new-year' : null);
 window.crafterPagePath = () => MAP[state.page] || '/';
 let silent = false;
 const before = go;
@@ -15,8 +15,8 @@ go = async function (page, ...rest) {
     const result = await before.call(this, page, ...rest);
     try {
         const path = MAP[state.page];
-        if (!silent && path && !deep() && clean() !== path && !(path === '/new-year' && clean().indexOf('/new-year/') === 0)) {
-            const keep = path === '/new-year' ? location.search : '';
+        if (!silent && path && !deep() && clean() !== path && !(path === '/season' && clean().indexOf('/season/') === 0)) {
+            const keep = path === '/season' ? location.search : '';
             history[location.pathname === '/' ? 'replaceState' : 'pushState']({crafterPage: state.page}, '', path + keep);
         }
     } catch (_) { /* the address is a convenience: never break the app because of it */ }
@@ -27,7 +27,7 @@ const settle = setInterval(() => {
     if (document.querySelector('#splash')) return;
     clearInterval(settle);
     const path = MAP[state.page];
-    if (path && clean() !== path && !deep() && !(path === '/new-year' && clean().indexOf('/new-year/') === 0)) {
+    if (path && clean() !== path && !deep() && !(path === '/season' && clean().indexOf('/season/') === 0)) {
         try { history.replaceState({crafterPage: state.page}, '', path); } catch (_) {}
     }
 }, 300);

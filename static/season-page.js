@@ -347,7 +347,7 @@ async function takeQuest(id, btn) {
 
 function bind() {
     root.addEventListener('click', ev => {
-        if (ev.target.closest('[data-back]')) { location.assign('/new-year'); return; }
+        if (ev.target.closest('[data-back]')) { location.assign('/season'); return; }
         const t = ev.target.closest('[data-tab]');
         if (t) { if (tab !== t.dataset.tab) { tab = t.dataset.tab; enter = true; draw(); } return; }
         if (ev.target.closest('[data-getplus]')) { buyPlus(); return; }

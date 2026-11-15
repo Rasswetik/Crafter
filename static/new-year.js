@@ -115,9 +115,10 @@ async function showNewYear(next){
     document.querySelector('#app')?.classList.toggle('fm-full',view==='market');
     nyBlur(false);
     try{
-        const want=view==='market'?'/new-year/market':'/new-year',now=location.pathname.replace(/\/+$/,'');
-        if(now.indexOf('/new-year')===0&&now!==want&&!(view==='market'&&now.indexOf('/new-year/market/')===0))history.pushState({crafterPage:'new-year'},'',want);
+        const want=view==='market'?'/season/market':'/season',now=location.pathname.replace(/\/+$/,'');
+        if(now.indexOf('/season')===0&&now!==want&&now!=='/season/pass'&&!(view==='market'&&now.indexOf('/season/market/')===0))history.pushState({crafterPage:'new-year'},'',want);
     }catch(_){}
+    try{document.title=view==='market'?'Market · Season':'Season · Crafter';}catch(_){}
     main.innerHTML=typeof crafterLoading==='function'?crafterLoading(view==='market'?'ny-market':view==='community'?'ny-goal':'ny-hub'):'';
     try{
         const [data,shared,packState,shopState,advState,lockReply,fbState,chainState]=await Promise.all([api('new-year'),api('community').catch(()=>null),api('packs').catch(()=>null),api('shop-items').catch(()=>null),api('advent').catch(()=>null),api('new-year/locks').catch(()=>null),api('freebies').catch(()=>null),api('chains').catch(()=>null)]);
@@ -167,9 +168,10 @@ function applyHubBackgrounds(main){
 }
 function drawHub(main,data,shared,advState){
     const art=community()?.marketArt?.()||'';
-    main.innerHTML='<div class="new-year-page ny-hubpage">'+
+    try{document.title='Season · Crafter';}catch(_){}
+    main.innerHTML='<div class="new-year-page ny-hubpage"><header class="sh-head"><h1>Season</h1><p>Маркет, сезонный пасс и события в одном месте</p></header>'+
         (isHiddenSection('market')?'':'<button type="button" class="nyh-card nyh-market" data-nyh="market" aria-label="'+(active()?'Особый маркет':'Маркет')+'">'+art+
-        '<span class="nyh-copy"><strong>'+(active()?'Особый маркет':'Маркет')+'</strong></span><i class="nyh-go" aria-hidden="true">›</i></button>')+
+        '<span class="nyh-copy"><small>Магазин</small><strong>'+(active()?'Особый маркет':'Маркет')+'</strong><em>Паки, наборы, ящики и подарки</em></span><span class="sh-open">Открыть <b>›</b></span></button>')+
         (community()&&shared?.event&&!isHiddenSection('community')?community().card(shared):'')+
         (window.crafterAdvent&&advState?.enabled&&!isHiddenSection('advent')?window.crafterAdvent.card(advState):'')+
         '</div>';
@@ -396,7 +398,7 @@ go=async function(page,...args){
     if(state.crafting)return;
     if(state.page==='arena'&&typeof leaveArena==='function')leaveArena();
     view=window.__nyOpen==='advent'?'advent':'hub';window.__nyOpen=null;
-    {const m=/^\/new-year\/market(?:\/([^/]+))?\/?$/.exec(location.pathname);if(m){view='market';window.__fmLot=m[1]?decodeURIComponent(m[1]):'';}}
+    {const m=/^\/(?:season|new-year)\/market(?:\/([^/]+))?\/?$/.exec(location.pathname);if(m){view='market';window.__fmLot=m[1]?decodeURIComponent(m[1]):'';}}
     state.page='new-year';state.gamesMode=false;
     document.querySelector('#app')?.classList.remove('games-view','arena-view','staking-view','craft-view','cart-view');
     document.querySelector('#app')?.classList.add('new-year-view');
@@ -457,8 +459,8 @@ window.crafterShowCurrencyNotice=showCurrencyNotice;
 window.addEventListener('popstate',()=>{                      // Back and Forward between the hub, the market and a lot
     if(state?.page!=='new-year')return;
     const p=location.pathname.replace(/\/+$/,'');
-    if(p==='/new-year'&&view==='market')showNewYear('hub');
-    else if(p.indexOf('/new-year/market')===0&&view!=='market'){const m=/^\/new-year\/market\/([^/]+)$/.exec(p);if(m)window.__fmLot=decodeURIComponent(m[1]);showNewYear('market');}
+    if(p==='/season'&&view==='market')showNewYear('hub');
+    else if(p.indexOf('/season/market')===0&&view!=='market'){const m=/^\/season\/market\/([^/]+)$/.exec(p);if(m)window.__fmLot=decodeURIComponent(m[1]);showNewYear('market');}
 });
 
 function formFields(form){return Object.fromEntries(new FormData(form));}
