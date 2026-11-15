@@ -30,7 +30,7 @@ function boot() {
     reverb = ctx.createConvolver(); reverb.buffer = impulse(2.4, 2.6);
     const wet = ctx.createGain(); wet.gain.value = 0.34; reverb.connect(wet); wet.connect(master);
     musicBus = ctx.createGain(); musicBus.gain.value = 0; musicBus.connect(master); musicBus.connect(reverb);
-    clickBus = ctx.createGain(); clickBus.gain.value = CLICK_GAIN * MUSIC_GAIN * 1.4; clickBus.connect(master); clickBus.connect(reverb);
+    clickBus = ctx.createGain(); clickBus.gain.value = CLICK_GAIN * MUSIC_GAIN; clickBus.connect(master); clickBus.connect(reverb);
     return true;
 }
 
@@ -143,32 +143,32 @@ function stopMusic() {
 /* ---------- the tap: a small bell, a different note each time ---------- */
 const SCALE = ['C6', 'D6', 'E6', 'G6', 'A6', 'C7'];
 let last = 0, pick = 0;
-/* Vice City taps: a short neon synth pluck (two detuned saw/square voices through a closing lowpass) on an A-minor pentatonic scale, now and then an arcade chirp */
-const VSCALE = ['A4', 'C5', 'E5', 'G5', 'A5', 'C6', 'E6'];
-function neon(freq, when, vol, dur) {
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, when);
-    g.gain.exponentialRampToValueAtTime(vol, when + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.0001, when + dur);
-    const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = 5;
-    f.frequency.setValueAtTime(5200, when); f.frequency.exponentialRampToValueAtTime(700, when + dur * 0.8);
-    f.connect(g); g.connect(clickBus);
-    [['sawtooth', 0], ['square', 7]].forEach(([type, cents]) => {
-        const o = ctx.createOscillator(); o.type = type; o.frequency.value = freq; o.detune.value = cents;
-        const og = ctx.createGain(); og.gain.value = type === 'square' ? 0.35 : 0.65;
-        o.connect(og); og.connect(f); o.start(when); o.stop(when + dur + 0.05);
-    });
-    const sub = ctx.createOscillator(), sg = ctx.createGain();           // a soft thump under the pluck
-    sub.type = 'sine'; sub.frequency.setValueAtTime(freq / 2, when); sub.frequency.exponentialRampToValueAtTime(freq / 4, when + 0.09);
-    sg.gain.setValueAtTime(0.0001, when); sg.gain.exponentialRampToValueAtTime(0.5, when + 0.004); sg.gain.exponentialRampToValueAtTime(0.0001, when + 0.1);
-    sub.connect(sg); sg.connect(g); sub.start(when); sub.stop(when + 0.12);
+/* Vice City taps: a soft 80s electric-piano / glass tone (two-operator FM, sine only, so it never sounds harsh) on an A-minor pentatonic scale, a quiet
+   room around it, and now and then a gentle two-note rise. */
+const VSCALE = ['A5', 'C6', 'E6', 'G6', 'A6'];
+function glass(freq, when, vol, dur) {
+    const out = ctx.createGain();
+    out.gain.setValueAtTime(0.0001, when);
+    out.gain.exponentialRampToValueAtTime(vol, when + 0.004);
+    out.gain.exponentialRampToValueAtTime(0.0001, when + dur);
+    out.connect(clickBus);
+    const car = ctx.createOscillator(); car.type = 'sine'; car.frequency.value = freq;
+    const mod = ctx.createOscillator(); mod.type = 'sine'; mod.frequency.value = freq * 2;          // a 2:1 ratio gives a warm bell-like body
+    const idx = ctx.createGain();
+    idx.gain.setValueAtTime(freq * 0.9, when); idx.gain.exponentialRampToValueAtTime(freq * 0.05, when + dur * 0.55);   // bright at the start, pure at the end
+    mod.connect(idx); idx.connect(car.frequency);
+    const tone = ctx.createGain(); tone.gain.value = 1; car.connect(tone); tone.connect(out);
+    const top = ctx.createOscillator(), tg = ctx.createGain(); top.type = 'sine'; top.frequency.value = freq * 4;           // a small shimmer an octave and more above
+    tg.gain.setValueAtTime(0.12, when); tg.gain.exponentialRampToValueAtTime(0.0001, when + dur * 0.35);
+    top.connect(tg); tg.connect(out);
+    [car, mod, top].forEach(o => { o.start(when); o.stop(when + dur + 0.05); });
 }
 let vpick = 0, vcount = 0;
 function viceTap() {
-    vcount++; vpick = (vpick + 1 + Math.floor(Math.random() * 3)) % VSCALE.length;
+    vcount++; vpick = (vpick + 1 + Math.floor(Math.random() * 2)) % VSCALE.length;
     const t = ctx.currentTime;
-    if (vcount % 6 === 0) { neon(hz('E5'), t, 0.34, 0.12); neon(hz('A5'), t + 0.075, 0.34, 0.2); return; }      // the chirp
-    neon(hz(VSCALE[vpick]), t, 0.3, 0.2);
+    if (vcount % 8 === 0) { glass(hz('E6'), t, 0.2, 0.32); glass(hz('A6'), t + 0.07, 0.2, 0.45); return; }
+    glass(hz(VSCALE[vpick]), t, 0.22, 0.38);
 }
 function tap() {
     if (!prefs.clicks || !possible() || !ctx || ctx.state !== 'running') return;
