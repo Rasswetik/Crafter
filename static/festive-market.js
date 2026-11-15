@@ -167,15 +167,15 @@ function card(o, opts = {}) {
 /* ---------- what an offer includes ---------- */
 function includes(o) {
     const it = o.it, out = [];
-    (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.type ? undefined : c.pack.id, emoji: c.pack.type === 'EMOJI' ? c.pack : undefined}));
+    (it.contents || []).forEach(c => out.push({img: c.pack.image, label: c.pack.title, count: '×' + c.count, pack: c.pack.type ? undefined : c.pack.id, emoji: c.pack.type === 'EMOJI' ? c.pack : undefined, owned: c.pack.type === 'EMOJI' ? c.pack.owned : undefined, value: c.pack.value}));
     if (it.drop) out.push({img: thumb(it.drop.image, 200), label: it.drop.title, count: '×' + (it.bundle || 1)});
     (it.chests_in || []).forEach(c => out.push({full: c.chest.image, img: thumb(c.chest.image, 200), label: c.chest.title, count: '×' + c.count}));
     (it.drops_in || []).forEach(c => out.push({full: c.drop.image, img: thumb(c.drop.image, 200), label: c.drop.title, count: '×' + c.count}));
-    (it.emojis_in || []).forEach(c => out.push({emoji: c.emoji, img: c.emoji.image || '', label: 'Значок «' + c.emoji.title + '»', count: '×1'}));
+    (it.emojis_in || []).forEach(c => out.push({emoji: c.emoji, owned: c.owned, value: c.emoji.value, img: c.emoji.image || '', label: 'Значок «' + c.emoji.title + '»', count: '×1'}));
     if (it.pass_in) out.push({img: it.pass_in.image, label: 'Pass Plus', count: '×1'});
     if (it.gram) out.push({img: '/static/assets/gram.svg', label: 'Баланс', count: num(it.gram) + ' GRAM'});
     if (it.balls) out.push({img: '/static/assets/new-year-ornament.svg', label: POINTS() ? CUR().name : 'Новогодние шары', count: num(it.balls)});
-    if (it.emoji && !out.length) out.push({emoji: it.emoji, img: it.emoji.image || '', label: 'Значок «' + it.emoji.title + '»', count: '×1'});
+    if (it.emoji && !out.length) out.push({emoji: it.emoji, owned: it.emoji.owned, value: it.emoji.value, img: it.emoji.image || '', label: 'Значок «' + it.emoji.title + '»', count: '×1'});
     if (!out.length) {
         const pic = it.pack?.image || it.star?.image || it.image_url || (it.kind === 'GRAM' ? '/static/assets/gram.svg' : '/static/assets/new-year-ornament.svg');
         const count = it.kind === 'GRAM' ? num(it.amount) + ' GRAM' : it.kind === 'BALL' ? num(it.amount) : it.bundle > 1 ? '×' + it.bundle : '1';
@@ -369,7 +369,7 @@ function stage(o, ctx, opts2 = {}) {
         '<div class="fm-hero">' + (choice ? '<button type="button" class="fm-harrow l" data-fm-h="-1" aria-label="Предыдущий">' + CHEV('m15 5-7 7 7 7') + '</button><button type="button" class="fm-harrow r" data-fm-h="1" aria-label="Следующий">' + CHEV('m9 5 7 7-7 7') + '</button>' : '') +
         '<div class="fm-floor"></div><div class="fm-heroart' + (it.chest ? ' is-chest' : '') + '" data-fm-heroart>' + heroInner + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
         '<div class="fm-inc"><div class="fm-inc-head"><b>' + incHead + '</b>' + (packsIn.length || it.chest || it.drop ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
-        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + ((choice || mixIn) && !i ? ' is-pick' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : mixIn ? ' data-fm-show="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + '>' + (x.emoji ? EM(x.emoji, 'fm-ic-em') : '<img src="' + e(x.img) + '" alt="">') + '<b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
+        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + ((choice || mixIn) && !i ? ' is-pick' : '') + (x.owned ? ' is-owned-cell' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : mixIn ? ' data-fm-show="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + (x.owned ? ' title="У вас уже есть этот значок' + (x.value ? ': скидка ' + num(x.value) : '') + '"' : '') + '>' + (x.emoji ? EM(x.emoji, 'fm-ic-em') : '<img src="' + e(x.img) + '" alt="">') + (x.owned ? '<em class="fm-owned">Уже есть</em>' : '') + '<b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
         '<div class="fm-buy"><button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
         '<p class="fm-err" role="alert"></p></div>' +
         '<div class="fm-confirm" hidden><div class="fm-cbox"><b>Подтвердить?</b><span class="fm-cwhat" data-fm-cwhat></span><button type="button" class="fm-yes" data-fm-yes>ДА</button><button type="button" class="fm-no" data-fm-no>Отмена</button></div></div>';
@@ -426,6 +426,7 @@ function stage(o, ctx, opts2 = {}) {
         el.querySelectorAll('[data-fm-opt]').forEach(b => b.classList.toggle('is-pick', Number(b.dataset.fmOpt) === pick));
         const pr = optPrice(), buyP = el.querySelector('[data-fm-buy] span'); if (buyP) buyP.innerHTML = pr ? ORN + '<b>' + num(pr) + '</b>' : '<b>Получить</b>';
         nameEl.innerHTML = 'Ваш выбор: <b>' + e(choice[pick].pack.title) + (choice[pick].count > 1 ? ' ×' + choice[pick].count : '') + '</b>';
+        syncOwned();
     };
     if (mixIn) {
         const hero = el.querySelector('[data-fm-heroart]');
@@ -443,6 +444,14 @@ function stage(o, ctx, opts2 = {}) {
         el.addEventListener('keydown', ev => { if (ev.key === 'ArrowLeft') setPick(pick - 1); if (ev.key === 'ArrowRight') setPick(pick + 1); });
     }
     const btn = el.querySelector('[data-fm-buy]'), err = el.querySelector('.fm-err'), bubble = el.querySelector('.fm-confirm');
+    /* a badge is got once: when the player has it, the button says so (the server does not sell it again) */
+    function syncOwned() {
+        const have = (it.emoji && it.emoji.owned) || (choice && choice[pick] && choice[pick].pack.type === 'EMOJI' && choice[pick].pack.owned);
+        btn.disabled = Boolean(have);
+        btn.classList.toggle('is-owned', Boolean(have));
+        if (have) btn.innerHTML = '<span><b>Уже есть</b></span>';
+    }
+    syncOwned();
     const hide = () => { bubble.classList.remove('is-in'); setTimeout(() => { bubble.hidden = true; }, 200); };
     btn.addEventListener('click', ev => {
         ev.stopPropagation(); err.textContent = '';
@@ -509,6 +518,14 @@ async function perform(o, ctx, choice) {
 
 /* ---------- the market ---------- */
 function render(main, ctx) {
+    (ctx.shopState?.items || []).forEach(it => {                              // a badge that the player already has is paid back as a discount: the price he sees is his own
+        if (it.price_you !== undefined && it.price_you < it.price_balls && !it._you) {
+            it._you = true;
+            it.old_price_balls = it.price_balls;
+            it.price_balls = it.price_you;
+            it.discount_percent = it.old_price_balls ? Math.round((1 - it.price_balls / it.old_price_balls) * 100) : null;
+        }
+    });
     if (ctx.shopState?.now) offset = ctx.shopState.now - Math.floor(Date.now() / 1000);
     const usable = it => !(it.kind === 'PASS' && (!it.pass || !it.pass.season || it.pass.owned)) && !(it.left !== null && it.left !== undefined && it.left <= 0) && !(it.per_user && it.mine >= it.per_user) && !(it.ends_at && it.ends_at <= nowSec());
     const items = (ctx.shopState?.items || []).filter(usable).map(it => ({key: it.id, it, src: 'shop'}));

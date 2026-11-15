@@ -129,7 +129,7 @@ def install_shop_items(app, db, auth, record, audit):
                     parts = {'gram': raw.get('gram') or None, 'balls': int(raw.get('balls') or 0) or None,
                              'chests': [x for x in ({'chest': app.extensions['crafter_chest_short'](c['chest_id']), 'count': int(c['count'])} for c in (raw.get('chests') or [])) if x['chest']] or None,
                              'drops': [x for x in ({'drop': app.extensions['crafter_drop_short'](c['drop_id']), 'count': int(c['count'])} for c in (raw.get('drops') or [])) if x['drop']] or None,
-                             'emojis': [x for x in ({'emoji': app.extensions['crafter_emoji_short'](c['emoji_id']), 'count': 1} for c in (raw.get('emojis') or [])) if x['emoji']] or None,
+                             'emojis': [x for x in ({'emoji': app.extensions['crafter_emoji_short'](c['emoji_id']), 'count': 1, 'owned': False} for c in (raw.get('emojis') or [])) if x['emoji']] or None,
                              'pass_in': (app.extensions['crafter_pass_short'](uid) if raw.get('pass') and app.extensions.get('crafter_pass_short') else None)}
                     raw = raw.get('packs') or []
                 mix = [{'pack': option_pack(c['pack_id']), 'count': int(c['count']), 'price': (int(c['price']) if c.get('price') is not None else None)} for c in raw]
@@ -144,8 +144,23 @@ def install_shop_items(app, db, auth, record, audit):
         emoji = app.extensions['crafter_emoji_short'](row['amount']) if row['kind'] == 'EMOJI' else None
         pass_info = app.extensions['crafter_pass_short'](uid) if row['kind'] == 'PASS' and app.extensions.get('crafter_pass_short') else None
         left = None if row['stock'] is None else max(0, int(row['stock']) - int(row['sold']))
+        owns = app.extensions['crafter_emoji_owned']
+        you = int(row['price_balls'])
+        discount = 0
+        if uid:
+            for c in (parts.get('emojis') or []):
+                c['owned'] = owns(uid, c['emoji']['id'])
+                if c['owned']:
+                    discount += int(c['emoji'].get('value') or 0)
+            for c in (mix or []):
+                if c['pack'] and c['pack'].get('type') == 'EMOJI':
+                    c['pack']['owned'] = owns(uid, c['pack']['id'][6:])
+            if emoji:
+                emoji['owned'] = owns(uid, emoji['id'])
+            if discount:
+                you = max(0, you - discount)
         return {'id': row['id'], 'kind': row['kind'], 'promo_kind': row['promo_kind'], 'amount': row['amount'],
-                'title': row['title'], 'position': row['position'], 'pass': pass_info, 'image_url': row['image_url'] or (pass_info['image'] if pass_info else '') or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else '') or (drop['image'] if drop else '') or ((emoji['image'] or emoji['media']) if emoji else ''), 'chest': chest, 'drop': drop, 'emoji': emoji, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'), 'pass_in': parts.get('pass_in'), 'drops_in': parts.get('drops'), 'emojis_in': parts.get('emojis'),
+                'title': row['title'], 'position': row['position'], 'pass': pass_info, 'image_url': row['image_url'] or (pass_info['image'] if pass_info else '') or (pack['image'] if pack else '') or (star['image'] if star else '') or (chest['image'] if chest else '') or (drop['image'] if drop else '') or ((emoji['image'] or emoji['media']) if emoji else ''), 'chest': chest, 'drop': drop, 'emoji': emoji, 'pack': pack, 'star': star, 'contents': mix, 'gram': parts.get('gram'), 'balls': parts.get('balls'), 'chests_in': parts.get('chests'), 'pass_in': parts.get('pass_in'), 'drops_in': parts.get('drops'), 'emojis_in': parts.get('emojis'), 'price_you': you, 'emoji_discount': (int(row['price_balls']) - you) if discount else 0,
                 'price_balls': int(row['price_balls']), 'old_price_balls': (int(row['old_price_balls']) if row['old_price_balls'] else None),
                 'discount_percent': (round((1 - int(row['price_balls']) / int(row['old_price_balls'])) * 100) if row['old_price_balls'] and int(row['old_price_balls']) > int(row['price_balls']) else None),
                 'stock': row['stock'], 'left': left, 'sold': int(row['sold']),
@@ -225,6 +240,17 @@ def install_shop_items(app, db, auth, record, audit):
             price, balls = int(row['price_balls']), wallet_balls(uid)
             if row['mode'] == 'choice' and picked and picked.get('price') is not None:
                 price = int(picked['price'])
+            owns = app.extensions['crafter_emoji_owned']
+            if row['kind'] == 'EMOJI' and owns(uid, row['amount']):
+                abort(409, description='У вас уже есть этот значок')
+            if picked and str(picked['pack_id']).startswith('emoji:') and owns(uid, picked['pack_id'][6:]):
+                abort(409, description='У вас уже есть этот значок: выберите другой вариант')
+            if row['kind'] == 'BUNDLE':                              # a badge is got once: the one the player has already is paid back as a discount
+                try:
+                    spec_e = json.loads(row['contents'] or '{}')
+                except ValueError:
+                    spec_e = {}
+                price = max(0, price - sum(app.extensions['crafter_emoji_value'](c['emoji_id']) for c in (spec_e.get('emojis') or []) if owns(uid, c['emoji_id'])))
             if balls < price:
                 abort(409, description='Недостаточно новогодних шаров')
             if price:
