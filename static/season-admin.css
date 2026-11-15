@@ -65,3 +65,10 @@
 .et-opt.is-on,.et-bg.is-on,.et-file.is-on{border-color:#4aa8ff;background:rgba(74,168,255,.22)}.et-file input{display:none}
 .et-check{display:flex!important;align-items:center;gap:8px;margin-top:14px}.et-actions{display:flex;gap:10px;margin-top:18px}
 .et-actions button{padding:12px 20px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.08);color:#fff;font-weight:700;cursor:pointer}.et-actions .primary{background:#1e88ff;border-color:#1e88ff}
+
+.em-modes{display:grid;gap:10px;max-width:620px;margin:14px 0}
+.em-mode{display:grid;gap:4px;text-align:left;padding:14px 16px;border-radius:14px;border:1px solid #ffffff22;background:#ffffff0d;color:inherit;cursor:pointer}
+.em-mode b{font-size:15px}.em-mode small{opacity:.7;line-height:1.35}
+.em-mode.is-on{border-color:#ff4fa8;background:linear-gradient(135deg,#ff4fa830,#7a3cff30);box-shadow:0 0 0 1px #ff4fa8 inset}
+.em-vol{display:grid;gap:8px;max-width:620px;margin:6px 0 14px}.em-vol input{width:100%}
+.em-actions{display:flex;gap:10px;flex-wrap:wrap}

@@ -638,7 +638,7 @@ function crafterOpenSettings() {
             </label>
         </section>
 ${window.crafterNYSound && window.crafterNYSound.available ? `<section class="crafter-settings-section">
-            <label class="crafter-animation-setting"><span>Новогодняя музыка</span>
+            <label class="crafter-animation-setting"><span>${window.crafterNYSound.label || 'Новогодняя музыка'}</span>
                 <input type="checkbox" role="switch" data-ny-sound="music" ${window.crafterNYSound.music ? 'checked' : ''}>
             </label>
             <label class="crafter-animation-setting"><span>Звуки нажатий</span>

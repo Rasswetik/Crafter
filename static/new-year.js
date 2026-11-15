@@ -562,7 +562,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     const GROUPS=[
         ['Сезон и события',[['main','Основное','Включение Нового года и разделы страницы «Событие»','settings'],['events','События сообщества','Конкурсы, лидеры, награды','grid'],['advent','Адвент','Календарь подарков по дням','gift'],['freebies','Подарки по дням','Бесплатные награды по расписанию','gift'],['chains','Цепочки акций','Покупки по шагам с наградами','rotate-ccw']]],
         ['Магазин и награды',[['shop','Магазин','Акции, наборы, разделы и фоны','market'],['packs','Паки','Карточные паки и шансы','gift'],['chests','Ящики','Награды ящиков и фоны','gift'],['exchange','Обмен и коды','Обмен валюты и промокоды','rotate-ccw']]],
-        ['Валюта и игроки',[['currency','Управление валютой','Шары, поинты, коины или своя валюта и перерасчёт','wallet'],['emojis','Значки','Анимированные эмодзи: создать, изменить, выдать','star'],['eventstile','Кнопка «События»','Текст, рисунок и фон кнопки на странице «Игры»','market'],['balances','Балансы игроков','Начислить или списать вручную','wallet'],['lots','NFT-лоты','Создать лот и скрыть/вернуть существующие','gift']]]
+        ['Валюта и игроки',[['currency','Управление валютой','Шары, поинты, коины или своя валюта и перерасчёт','wallet'],['emojis','Значки','Анимированные эмодзи: создать, изменить, выдать','star'],['eventmusic','Музыка ивента','Новый год, Vice City или без музыки, громкость','star'],['eventstile','Кнопка «События»','Текст, рисунок и фон кнопки на странице «Игры»','market'],['balances','Балансы игроков','Начислить или списать вручную','wallet'],['lots','NFT-лоты','Создать лот и скрыть/вернуть существующие','gift']]]
     ];
     const TITLES={};GROUPS.forEach(g=>g[1].forEach(x=>{TITLES[x[0]]=x[1];}));
     const hub=document.createElement('div');hub.className='nys-hub';
@@ -593,6 +593,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     window.crafterCurrencyAdmin?.admin?.(content);
     window.crafterEmojiAdmin?.admin?.(content);
     window.crafterEventsTileAdmin?.admin?.(content);
+    window.crafterEventMusicAdmin?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{
         button.addEventListener('click',async()=>{
             const lot=result.lots.find(l=>l.id===button.dataset.nyAdminLot);

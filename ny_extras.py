@@ -109,6 +109,44 @@ def install_ny_extras(app, db, auth, audit):
         return {'title': str(raw.get('title') or '')[:40], 'subtitle': str(raw.get('subtitle') or '')[:140], 'button': str(raw.get('button') or '')[:24],
                 'bg': str(raw.get('bg') or ''), 'art': art, 'art_kind': kind, 'shade': 0 if raw.get('shade') is False else 1}
 
+    MUSIC_KEY = 'event_music_v1'
+    TRACKS = [{'id': 'newyear', 'title': 'Новый год: «Jingle Bells» (колокольчики)', 'url': ''},
+              {'id': 'vice', 'title': 'Vice City: «Neon Boulevard» (синтвейв, 2:55)', 'url': '/static/assets/audio/vice-city-event.mp3?v=1'}]
+
+    def music_cfg():
+        raw = read(MUSIC_KEY, {})
+        raw = raw if isinstance(raw, dict) else {}
+        mode = raw.get('mode') if raw.get('mode') in ('newyear', 'vice', 'off') else 'newyear'
+        try:
+            volume = max(5, min(100, int(raw.get('volume', 70))))
+        except (TypeError, ValueError):
+            volume = 70
+        track = next((t for t in TRACKS if t['id'] == mode), None)
+        return {'mode': mode, 'volume': volume, 'url': track['url'] if track else '', 'tracks': TRACKS}
+
+    @app.get('/api/event-music')
+    @auth()
+    def event_music():
+        return {'music': music_cfg()}
+
+    @app.post('/api/admin/event-music')
+    @auth(admin=True)
+    def admin_event_music():
+        body = request.get_json(silent=True) or {}
+        mode = str(body.get('mode') or '')
+        if mode not in ('newyear', 'vice', 'off'):
+            abort(400, description='Выберите музыку: Новый год, Vice City или выключить')
+        try:
+            volume = int(body.get('volume'))
+        except (TypeError, ValueError):
+            abort(400, description='Громкость: число от 5 до 100')
+        if not 5 <= volume <= 100:
+            abort(400, description='Громкость: число от 5 до 100')
+        with db():
+            write(MUSIC_KEY, {'mode': mode, 'volume': volume})
+        audit('Event music: %s, volume %d' % (mode, volume))
+        return {'ok': True, 'music': music_cfg()}
+
     @app.get('/api/events-tile')
     @auth()
     def events_tile():
