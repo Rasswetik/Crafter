@@ -304,10 +304,6 @@ def create_app(config=None):
         except Exception:
             return {'cur': {'kind': 'balls', 'name': 'Шары', 'gen': 'шаров', 'icon': '/static/assets/new-year-ornament.svg', 'epoch': 0}}
 
-    @app.get('/island')
-    def island_page():
-        return render_template('island.html', ny_on=new_year_enabled())
-
     @app.get('/season/wanted')
     def wanted_page():
         return render_template('wanted.html', ny_on=new_year_enabled())
@@ -1532,8 +1528,6 @@ def create_app(config=None):
     install_season_pass(app,db,auth,audit,record)
     from wanted import install_wanted                                # the event «Vice City: Розыск»: missions, stars, countdown, leaders
     install_wanted(app,db,auth,audit)
-    from island import install_island                                  # the mode «Остров сокровищ»: a generated expedition
-    install_island(app,db,auth,audit)
     from shop_import import install_shop_import
     install_shop_import(app,db,auth,audit)
     from chains import install_chains
