@@ -11,7 +11,7 @@ window.crafterBadge = badge;
 window.crafterBadgeMedia = media;
 
 /* ---- the page of a badge (the lot and the screen of a new badge): the animation on the left, on the right the collection, «УНИКАЛЬНЫЙ ЗНАЧОК», the description, «ВХОДИТ В КОЛЛЕКЦИЮ» ---- */
-const BUBBLE = '<svg viewBox="0 0 32 28" width="34" height="30" aria-hidden="true"><path d="M5 2h22a3 3 0 013 3v14a3 3 0 01-3 3H17l-6 5v-5H5a3 3 0 01-3-3V5a3 3 0 013-3z" fill="#fff" stroke="#14213f" stroke-width="2"/><circle cx="16" cy="11.500" r="5.500" fill="#ffc933" stroke="#14213f" stroke-width="1.500"/><circle cx="14" cy="10.500" r=".9" fill="#14213f"/><circle cx="18" cy="10.500" r=".9" fill="#14213f"/><path d="M13.500 13.500c1.500 1.600 3.500 1.600 5 0" fill="none" stroke="#14213f" stroke-width="1.300" stroke-linecap="round"/></svg>';
+const BUBBLE = '<span class="ep-circle is-kind" aria-hidden="true">🙂</span>';
 const circle = (src, cls) => '<span class="ep-circle ' + (cls || '') + '">' + (src ? '<img src="' + e(src) + '" alt="" draggable="false">' : '') + '</span>';
 function panelHTML(em) {
     const c = em.collection;
@@ -19,7 +19,7 @@ function panelHTML(em) {
         (c ? '<div class="ep-coll">' + circle(c.photo, 'is-big') + '<b>' + e(String(c.title).toUpperCase()) + '</b></div>' : '') +
         '<h2 class="ep-kind">' + BUBBLE + '<span>УНИКАЛЬНЫЙ ЗНАЧОК</span></h2>' +
         '<div class="ep-desc"><span>' + e(em.description || 'Особый значок.') + '</span></div>' +
-        (c ? '<div class="ep-in"><small>ВХОДИТ В КОЛЛЕКЦИЮ</small><span class="ep-icons">' + circle(c.photo, 'is-coll') + (c.emojis || []).map(x => circle(x.image, x.id === em.id ? 'is-this' : '')).join('') + '</span></div>' : '') +
+        (c ? '<div class="ep-in"><small>ВХОДИТ В КОЛЛЕКЦИЮ</small><span class="ep-icons">' + circle(c.photo, 'is-plain') + '</span></div>' : '') +
         '</div>';
 }
 window.crafterEmojiPanelHTML = panelHTML;
