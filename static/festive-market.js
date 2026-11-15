@@ -97,17 +97,22 @@ const mixOf = it => {                                            // what a bundl
 setInterval(() => {                                               // the pictures of a small bundle tile follow one another
     if (document.hidden) return;
     document.querySelectorAll('.fm-rot').forEach(r => {
-        const k = [...r.children], i = k.findIndex(x => x.classList.contains('is-on'));
+        const k = [...r.querySelectorAll(':scope > img')], i = k.findIndex(x => x.classList.contains('is-on'));
         if (k.length < 2) return;
-        k[i]?.classList.remove('is-on'); k[(i + 1) % k.length].classList.add('is-on');
+        const j = (i + 1) % k.length;
+        k[i]?.classList.remove('is-on'); k[j].classList.add('is-on');
+        const cap = r.querySelector('.fm-rot-cap'); if (cap) cap.textContent = k[j].dataset.lbl || '';
+        r.querySelectorAll('.fm-rot-dots u').forEach((u, n) => u.classList.toggle('is-on', n === j));
     });
 }, 2300);
 function artOf(it) {
     const mix = mixOf(it);
     if (mix) {
         const sz = sizeOf(it);
-        if (sz === 'small' || sz === 'tall') return '<div class="fm-rot">' + mix.map((x, i) => '<img class="' + (i ? '' : 'is-on') + '" src="' + e(thumb(x.full || x.img, 480)) + '" alt="" draggable="false">').join('') + '</div>';
-        return '<div class="fm-trio n' + Math.min(mix.length, 4) + '">' + mix.slice(0, 4).map(x => '<img src="' + e(thumb(x.full || x.img, 480)) + '" alt="" draggable="false">').join('') + '</div>';
+        const wide = !(sz === 'small' || sz === 'tall');
+        /* the same on every size: the pictures of a bundle follow one another; in a wide card they are bigger, with the name of the item and dots */
+        return '<div class="fm-rot' + (wide ? ' is-wide' : '') + '">' + mix.map((x, i) => '<img class="' + (i ? '' : 'is-on') + '" data-lbl="' + e((x.label || '') + (x.count ? ' ' + x.count : '')) + '" src="' + e(thumb(x.full || x.img, wide ? 720 : 480)) + '" alt="" draggable="false">').join('') +
+            (wide ? '<b class="fm-rot-cap">' + e((mix[0].label || '') + (mix[0].count ? ' ' + mix[0].count : '')) + '</b><span class="fm-rot-dots">' + mix.map((x, i) => '<u class="' + (i ? '' : 'is-on') + '"></u>').join('') + '</span>' : '') + '</div>';
     }
     if (it.drop) return '<div class="fm-dropart"><i class="fm-drop-rays"></i><i class="fm-drop-halo"></i><span class="fm-drop-spin"><span class="ps3d fm-solid">' + dropLayers(it.drop.art) + '</span></span><i class="fm-drop-sp s1"></i><i class="fm-drop-sp s2"></i><i class="fm-drop-sp s3"></i><i class="fm-drop-sh"></i></div>';
     if (it.mode === 'random' && it.contents && it.contents.length) {                 // a black pack with a question mark
@@ -498,7 +503,7 @@ function render(main, ctx) {
     const sections = (ctx.shopState?.sections && ctx.shopState.sections.length ? ctx.shopState.sections : DEFAULT_SECTIONS).filter(s => ctx.showEmpty || s.enabled !== false);
     const customIds = new Set(sections.filter(s => s.kind !== 'exchange' && s.id !== 'gifts').map(s => s.id));
     const mine = o => o.it.section_id && customIds.has(o.it.section_id);
-    const COLLAB = ['gifton', 'goshan', 'nikolay', 'vicecity', 'oceandrive'];                    // packs of collaborations stand in their own section
+    const COLLAB = ['gifton', 'goshan', 'nikolay', 'vicecity', 'oceandrive', 'goshanvice', 'nikolayvice'];                    // packs of collaborations stand in their own section
     const isCollab = o => o.it.kind === 'PACK' && !o.it.mode && COLLAB.includes(String(o.it.amount));
     const isBundle = o => !o.it.mode && (o.it.kind === 'BUNDLE' || (o.it.kind === 'PACK' && ((o.it.bundle > 1) || (o.it.contents && o.it.contents.length > 1))));
     const lots = ctx.data?.lots || [];

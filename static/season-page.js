@@ -18,6 +18,7 @@ const reduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* a padlock drawn as a picture (no emoji) */
 const LOCK = '<svg class="sp-lockico" viewBox="0 0 24 28" aria-hidden="true"><path d="M6 12V8a6 6 0 0 1 12 0v4" fill="none" stroke="#14213f" stroke-width="5" stroke-linecap="round"/><path d="M6 12V8a6 6 0 0 1 12 0v4" fill="none" stroke="#cfd6f0" stroke-width="2.6" stroke-linecap="round"/><rect x="2" y="11" width="20" height="15" rx="4" fill="#ffc83c" stroke="#14213f" stroke-width="2.4"/><circle cx="12" cy="18" r="2.4" fill="#14213f"/></svg>';
 const DEFAULT_ICON = {                                            // the pictures of the quests are of the theme of the season: Vice City, Ocean Drive, the Vice box and the capsule
+    open_goshanvice: '/static/assets/packs/goshanvice-pack.webp', buy_goshanvice: '/static/assets/packs/goshanvice-pack.webp', open_nikolayvice: '/static/assets/packs/nikolayvice-pack.webp', buy_nikolayvice: '/static/assets/packs/nikolayvice-pack.webp',
     pack_open: '/static/assets/packs/vicecity-pack.webp', pack_buy: '/static/assets/packs/oceandrive-pack.webp', market_buy: '/static/assets/packs/oceandrive-pack.webp',
     shop_buy: '/static/assets/chests/vice.png', craft: '/static/assets/chests/ocean.png', upgrade: '/static/assets/chests/vicecapsule.png', promo: '/static/assets/chests/vicecapsule.png',
     chain: '/static/assets/drops/vicecity.png', freebie: '/static/assets/drops/oceandrive.png', arena: '/static/assets/drops/oceandrive.png',

@@ -93,7 +93,7 @@ PACK_BACKDROPS = {
 
 
 # The accent colour of a pack (r g b): the opening screen glows with it instead of one common blue.
-PACK_ACCENTS = {'oceandrive': '40 200 200', 'vicecity': '255 92 190', 'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'gifton': '70 150 255', 'nikolay': '60 170 110', 'goshan': '230 90 90', 'honey': '240 190 60'}
+PACK_ACCENTS = {'goshanvice': '255 120 100', 'nikolayvice': '40 190 170', 'oceandrive': '40 200 200', 'vicecity': '255 92 190', 'newyear': '59 134 238', 'snowman': '63 191 138', 'winter': '150 120 240', 'christmas': '226 84 96', 'silverfrost': '150 192 222', 'gingerbread': '224 150 80', 'gifton': '70 150 255', 'nikolay': '60 170 110', 'goshan': '230 90 90', 'honey': '240 190 60'}
 DEFAULT_ACCENT = '59 134 238'
 
 
@@ -712,6 +712,16 @@ def install_packs(app, db, auth, record, audit):
     def seed_ocean_pack():
         seed_premium_pack('oceandrive', 'Ocean Drive', '/static/assets/packs/oceandrive-pack.webp', OCEAN_GIFTS, NIKOLAY_GRAM, NIKOLAY_CARDS, VICE_NFT_SHARE, 'packs_oceandrive_v1')
 
+    # Goshan Vice and Nikolay Vice: the economy of the Goshan and the Nikolay packs, the gifts of the Vice City and the Ocean Drive packs (mixed one by one)
+    GOSHANVICE_GIFTS = tuple(VICE_GIFTS[i] if i % 2 == 0 else OCEAN_GIFTS[i] for i in range(10))
+    NIKOLAYVICE_GIFTS = tuple(OCEAN_GIFTS[i] if i % 2 == 0 else VICE_GIFTS[i] for i in range(10))
+
+    def seed_goshanvice_pack():
+        seed_premium_pack('goshanvice', 'Goshan Vice', '/static/assets/packs/goshanvice-pack.webp', GOSHANVICE_GIFTS, GOSHAN_GRAM, GOSHAN_CARDS, GOSHAN_NFT_SHARE, 'packs_goshanvice_v1')
+
+    def seed_nikolayvice_pack():
+        seed_premium_pack('nikolayvice', 'Nikolay Vice', '/static/assets/packs/nikolayvice-pack.webp', NIKOLAYVICE_GIFTS, NIKOLAY_GRAM, NIKOLAY_CARDS, NIKOLAY_NFT_SHARE, 'packs_nikolayvice_v1')
+
     def seed_nikolay_pack():
         seed_premium_pack('nikolay', 'Nikolay', '/static/assets/packs/nikolay-pack.webp', NIKOLAY_GIFTS, NIKOLAY_GRAM, NIKOLAY_CARDS, NIKOLAY_NFT_SHARE, 'packs_nikolay_v1')
 
@@ -764,6 +774,8 @@ def install_packs(app, db, auth, record, audit):
         seed_vice_pack()
         seed_ocean_pack()
         seed_nikolay_pack()
+        seed_goshanvice_pack()
+        seed_nikolayvice_pack()
 
     def grant(uid, pack_id, source, request_id=None):
         """Give one unopened pack to a player. Must run inside a transaction."""

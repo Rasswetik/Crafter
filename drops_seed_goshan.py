@@ -385,3 +385,31 @@ _cap['title'] = 'Vice Capsule'
 _cap['rolls'] = {'1': 45.0, '2': 35.0, '3': 15.0, '4': 5.0}
 _cap['release'] = True
 BOXES['vicecapsule'] = _cap
+
+
+# ---- Goshan Vice and Nikolay Vice: the Goshan and the Nikolay rules, the gifts and the packs of Crafter Vice (the same ladder of values as the other drops and boxes)
+VICE_PACKS = ['vicecity', 'oceandrive', 'goshanvice', 'nikolayvice', 'honey', 'gifton', 'goshan']
+for _src, _key, _title, _mix in (('goshan', 'goshanvice', 'Goshan Vice', 0), ('nikolay', 'nikolayvice', 'Nikolay Vice', 1)):
+    # the gifts stand in the order of their value: the two lists of Vice are mixed one by one, so each collection gets its own set
+    _nft = [(VICE_NFT[i] if (i + _mix) % 2 == 0 else OCEAN_NFT[i]) for i in range(15)]
+    _drop = _copy.deepcopy(DROPS[_src + '_drop'])
+    _drop['version'] = _key + '-drop-v1'
+    _drop['title'] = _title + ' Drop'
+    _drop['rewards']['NFT'] = [['NFT', x] for x in _nft]
+    _drop['rewards']['PACK'] = [['PACK', VICE_PACKS[i % len(VICE_PACKS)]] for i, _ in enumerate(_drop['rewards']['PACK'])]
+    DROPS[_key + '_drop'] = _drop
+
+    _box = _copy.deepcopy(BOXES[_src])
+    _box['title'] = _title + ' Box'
+    _box['theme'] = 'candy'
+    _nft_i, _pack_i = iter(_nft), 0
+    _loot = []
+    for _kind, _amount, _w in _box['loot']:
+        if _kind == 'NFT':
+            _amount = next(_nft_i)
+        elif _kind == 'PACK':
+            _amount = VICE_PACKS[_pack_i % len(VICE_PACKS)]
+            _pack_i += 1
+        _loot.append((_kind, _amount, _w))
+    _box['loot'] = _loot
+    BOXES[_key] = _box

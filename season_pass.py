@@ -39,7 +39,12 @@ METRICS = {
     'freebie': ('Бесплатные награды', ('freebie_claim',), None),
     'promo': ('Активации промокодов', ('promo_redeem',), None),
     'stake': ('Операции стейкинга', ('stake_deposit', 'stake_claim'), None),
+    'open_goshanvice': ('Открытия паков Goshan Vice', ('pack_open',), None),
+    'open_nikolayvice': ('Открытия паков Nikolay Vice', ('pack_open',), None),
+    'buy_goshanvice': ('Покупки паков Goshan Vice', ('pack_buy',), None),
+    'buy_nikolayvice': ('Покупки паков Nikolay Vice', ('pack_buy',), None),
 }
+PACK_METRICS = {'open_goshanvice': 'goshanvice', 'open_nikolayvice': 'nikolayvice', 'buy_goshanvice': 'goshanvice', 'buy_nikolayvice': 'nikolayvice'}      # a quest about one kind of pack: the pack of the event is read from the record
 ICONS = ('upgrade', 'craft', 'cart', 'pack', 'wallet', 'swords', 'chain', 'gift', 'trophy', 'heart', 'star', 'bolt')
 
 
@@ -302,6 +307,14 @@ def install_season_pass(app, db, auth, audit, record):
         if not kinds:
             return 0
         marks = ','.join('?' * len(kinds))
+        if q['metric'] in PACK_METRICS:
+            n = 0
+            for r in db().execute("SELECT payload FROM history WHERE user_id=? AND kind IN (%s) AND created>=? AND created<=? LIMIT 5000" % marks, (uid, *kinds, start, now)).fetchall():
+                try:
+                    n += 1 if json.loads(r['payload']).get('pack') == PACK_METRICS[q['metric']] else 0
+                except Exception:
+                    continue
+            return n
         if field is None:
             row = db().execute("SELECT COUNT(*) AS n FROM history WHERE user_id=? AND kind IN (%s) AND created>=? AND created<=?" % marks, (uid, *kinds, start, now)).fetchone()
             return int(row['n'])
