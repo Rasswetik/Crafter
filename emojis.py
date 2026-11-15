@@ -55,11 +55,11 @@ def install_emojis(app, db, auth, audit):
                 database.execute("ALTER TABLE emoji_defs ADD COLUMN value BIGINT NOT NULL DEFAULT 300")
             if 'collection_id' not in cols:
                 database.execute("ALTER TABLE emoji_defs ADD COLUMN collection_id TEXT NOT NULL DEFAULT ''")
-    with app.app_context(), db():                                       # the first badge: the animated emoji of Goshan Vice (an administrator can delete or change it)
-        if not db().execute("SELECT 1 FROM settings WHERE key='emoji_seed_goshanvice_v1'").fetchone():
-            db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
-                         ('goshanvice', 'Goshan Vice', 'Особый значок.', '/static/assets/emoji/goshan-vice.webm', 1, 1, int(time.time())))
-            db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_goshanvice_v1','1') ON CONFLICT DO NOTHING")
+    with app.app_context(), db():                                       # the first badge (the Goshan Vice one with the drop) is retired: only the two greeting badges stay
+        if not db().execute("SELECT 1 FROM settings WHERE key='emoji_remove_goshanvice_v1'").fetchone():
+            for table in ('emoji_defs', 'user_emojis', 'user_emoji_status'):
+                db().execute("DELETE FROM %s WHERE %s='goshanvice'" % (table, 'id' if table == 'emoji_defs' else 'emoji_id'))
+            db().execute("INSERT INTO settings(key,payload) VALUES('emoji_remove_goshanvice_v1','1') ON CONFLICT DO NOTHING")
 
     with app.app_context(), db():                                       # the second badge: Goshan Vice waves (the preview, cut out of its background)
         if not db().execute("SELECT 1 FROM settings WHERE key='emoji_seed_goshanvice_hi_v1'").fetchone():
@@ -74,7 +74,6 @@ def install_emojis(app, db, auth, audit):
                          ('nikolayvice-hi', 'Nikolay Vice: привет', 'Особый значок.', '/static/assets/emoji/nikolay-vice-hi.webm', 1, 3, now, '/static/assets/emoji/nikolay-vice-hi.png', 'nikolay'))
             db().execute("UPDATE emoji_defs SET collection_id='goshan' WHERE id IN ('goshanvice','goshanvice-hi') AND collection_id=''")
             db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_collections_v1','1') ON CONFLICT DO NOTHING")
-        db().execute("UPDATE emoji_defs SET poster='/static/assets/emoji/goshan-vice.png' WHERE id='goshanvice' AND poster=''")
         db().execute("UPDATE emoji_defs SET poster='/static/assets/emoji/goshan-vice-hi.png' WHERE id='goshanvice-hi' AND poster=''")
 
     def media_kind(url):
