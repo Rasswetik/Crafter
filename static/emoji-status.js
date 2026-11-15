@@ -33,7 +33,7 @@ function decorate() {
 function fillSlot(btn) {
     const st = status();
     btn.classList.toggle('is-set', Boolean(st));
-    const html = st ? media(st) : '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.500 14.200c.9 1.100 2 1.700 3.500 1.700s2.600-.6 3.500-1.700"/><circle cx="9" cy="10" r=".8" fill="currentColor"/><circle cx="15" cy="10" r=".8" fill="currentColor"/></svg><i class="ce-plus">+</i>';
+    const html = st ? media(st) : '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.500 14.200c.9 1.100 2 1.700 3.500 1.700s2.600-.6 3.500-1.700"/><circle cx="9" cy="10" r=".8" fill="currentColor"/><circle cx="15" cy="10" r=".8" fill="currentColor"/></svg>';
     if (btn.dataset.fill !== (st ? st.id : '')) { btn.innerHTML = html; btn.dataset.fill = st ? st.id : ''; }
     btn.title = st ? 'Статус: ' + st.title : 'Выбрать значок рядом с ником';
 }

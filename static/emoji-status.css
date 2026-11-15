@@ -3,10 +3,8 @@
 .ce-badge img,.ce-badge video{width:100%;height:100%;object-fit:contain;pointer-events:none}
 .ce-badge.is-name{width:1.35em;height:1.35em}
 .profile-card .identity h2,.portal-profile .profile-name h2{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.ce-slot{position:relative;display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border-radius:12px;border:1.5px dashed rgba(255,255,255,.38);background:rgba(255,255,255,.06);color:#c7d3ec;cursor:pointer;transition:transform .15s,border-color .15s,background .15s}
-.ce-slot:hover{transform:scale(1.06);border-color:#6db0ff;background:rgba(80,150,255,.14);color:#fff}
-.ce-slot:active{transform:scale(.95)}
-.ce-slot .ce-plus{position:absolute;right:-5px;bottom:-5px;display:grid;place-items:center;width:16px;height:16px;border-radius:50%;background:#2b7be0;color:#fff;font:800 12px/1 system-ui;font-style:normal;box-shadow:0 0 0 2px #14181f}
+.ce-slot{position:relative;display:inline-grid;place-items:center;width:38px;height:38px;padding:0;border-radius:12px;border:1.5px dashed rgba(255,255,255,.38);background:rgba(255,255,255,.06);color:#c7d3ec;cursor:pointer;transition:border-color .15s,background .15s;overflow:hidden;box-sizing:border-box}
+.ce-slot:hover{border-color:#6db0ff;background:rgba(80,150,255,.14);color:#fff}
 .ce-slot.is-set{border-style:solid;border-color:rgba(255,255,255,.2);background:rgba(255,255,255,.08)}
 .ce-slot.is-set video,.ce-slot.is-set img{width:30px;height:30px;object-fit:contain}
 .ce-picker{position:fixed;z-index:100060;max-height:min(70vh,520px);display:flex;flex-direction:column;border-radius:18px;background:#1c242f;color:#fff;border:1px solid rgba(255,255,255,.1);box-shadow:0 22px 60px rgba(0,0,0,.55);animation:ce-in .16s ease-out both;overflow:hidden}
