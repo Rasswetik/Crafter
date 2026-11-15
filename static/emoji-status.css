@@ -63,3 +63,7 @@
 .ep-btn.green{background:linear-gradient(#5ff08a,#1fb957)}.ep-btn.blue{background:linear-gradient(#58b6ff,#1d6df0)}
 .ep-btn:active{transform:translateY(3px);box-shadow:0 3px 0 rgba(0,0,0,.35)}.ep-btn:disabled{opacity:.7}
 @media(prefers-reduced-motion:reduce){.ep-rays,.ep-pop,.ep-top small{animation:none}}
+
+/* the bubble next to «УНИКАЛЬНЫЙ ЗНАЧОК»: as big as the two lines of the text, in the middle of them */
+.ep-kind{align-items:center}
+.ep-kind svg{width:clamp(44px,6vw,70px);height:auto;flex:none;align-self:center;filter:drop-shadow(0 3px 0 rgba(10,18,60,.5))}
