@@ -61,3 +61,6 @@
 .sp-megabox .sp-modal-box h2,.sp-megabox h2{font-family:var(--sp-font,system-ui)!important}
 .sp-megabox p{font-family:var(--sp-font,system-ui)!important;font-size:14px;color:#dfe6ff}
 @media(max-width:760px){.sq-rail{padding-left:12px;scroll-padding-left:12px}.sq-mega{width:auto}}
+/* the pass road has no slider: only the two arrows and «К моему уровню» */
+.sp-slider{display:none!important}
+.sp-nav{justify-content:center!important;gap:14px!important}

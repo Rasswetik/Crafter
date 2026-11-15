@@ -101,7 +101,7 @@ function rewardsTab() {
     return '<div class="sp-road"><aside class="sp-tickets"><button type="button" class="sp-ticket plus' + (me.plus ? ' is-own' : '') + '" data-getplus><span class="sp-tk-img"><img src="' + e(thumb(s.plus_ticket, 240)) + '" alt=""></span><b>PASS PLUS</b>' + (me.plus ? '<i>Открыт</i>' : '<i><img src="' + cur[1] + '" alt="">' + num(s.plus_price) + '</i>') + '</button>' +
         '<div class="sp-lvmid"></div><div class="sp-ticket free"><span class="sp-tk-img"><img src="' + e(thumb(s.free_ticket, 240)) + '" alt=""></span><b>FREE</b></div></aside>' +
         '<div class="sp-trackwrap"><div class="sp-track" data-track>' + (cols || '<p class="sp-empty">В этом сезоне пока нет уровней</p>') + '</div></div></div>' +
-        '<div class="sp-nav"><button type="button" class="sp-navbtn" data-scroll="-1" aria-label="Назад">' + chevL + '</button><input type="range" class="sp-slider" data-slider min="0" max="1000" value="0" aria-label="Прокрутка по уровням"><button type="button" class="sp-navbtn" data-scroll="1" aria-label="Вперёд">' + chevR + '</button><button type="button" class="sp-tocur" data-tocur>К моему уровню</button></div>';
+        '<div class="sp-nav"><button type="button" class="sp-navbtn" data-scroll="-1" aria-label="Назад">' + chevL + '</button><button type="button" class="sp-navbtn" data-scroll="1" aria-label="Вперёд">' + chevR + '</button><button type="button" class="sp-tocur" data-tocur>К моему уровню</button></div>';
 }
 
 function megaDeck() {
