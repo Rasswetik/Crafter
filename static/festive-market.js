@@ -240,6 +240,7 @@ function openChances(packs, ctx) {
 
 /* ---------- the reveal after a purchase ---------- */
 function reveal(o, result, ctx, closeStage) {
+    if (result && result.emojiReveal) { window.crafterEmojiReveal(result.emojiReveal, () => { closeStage(); ctx.refresh?.(); }); return; }
     const it = o.it, el = document.createElement('div');
     el.className = 'fm-reveal r-' + rarityOf(it);
     const ids = result.packIds || [], total = result.count || it.bundle || ids.length || 1;
@@ -369,11 +370,15 @@ function stage(o, ctx, opts2 = {}) {
         '<div class="fm-hero">' + (choice ? '<button type="button" class="fm-harrow l" data-fm-h="-1" aria-label="Предыдущий">' + CHEV('m15 5-7 7 7 7') + '</button><button type="button" class="fm-harrow r" data-fm-h="1" aria-label="Следующий">' + CHEV('m9 5 7 7-7 7') + '</button>' : '') +
         '<div class="fm-floor"></div><div class="fm-heroart' + (it.chest ? ' is-chest' : '') + '" data-fm-heroart>' + heroInner + '</div>' + (it.discount_percent > 0 ? '<span class="fm-off big"><small>Скидка</small><b>' + it.discount_percent + '%</b></span>' : '') + '</div>' +
         '<div class="fm-inc"><div class="fm-inc-head"><b>' + incHead + '</b>' + (packsIn.length || it.chest || it.drop ? '<button type="button" class="fm-q" data-fm-chances aria-label="Шансы на награды"><span>?</span><small>Шансы</small></button>' : '') + '</div>' +
-        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + ((choice || mixIn) && !i ? ' is-pick' : '') + (x.owned ? ' is-owned-cell' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : mixIn ? ' data-fm-show="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + (x.owned ? ' title="У вас уже есть этот значок' + (x.value ? ': скидка ' + num(x.value) : '') + '"' : '') + '>' + (x.emoji ? EM(x.emoji, 'fm-ic-em') : '<img src="' + e(x.img) + '" alt="">') + (x.owned ? '<em class="fm-owned">Уже есть</em>' : '') + '<b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
+        '<div class="fm-inc-grid">' + inc.map((x, i) => '<button type="button" class="fm-ic' + ((choice || mixIn) && !i ? ' is-pick' : '') + (x.owned ? ' is-owned-cell' : '') + '" style="--i:' + i + '"' + (choice ? ' data-fm-opt="' + i + '"' : mixIn ? ' data-fm-show="' + i + '"' : x.pack ? ' data-fm-pk="' + e(x.pack) + '"' : '') + (x.owned ? ' title="У вас уже есть этот значок' + (x.value ? ': скидка ' + num(x.value) : '') + '"' : '') + '>' + (x.emoji && !x.img ? EM(x.emoji, 'fm-ic-em') : '<img src="' + e(x.img) + '" alt="">') + (x.owned ? '<em class="fm-owned">Уже есть</em>' : '') + '<b>' + e(x.count) + '</b><span>' + e(x.label) + '</span></button>').join('') + '</div></div>' +
         '<div class="fm-buy"><button type="button" class="fm-buybtn" data-fm-buy>' + (it.old_price_balls > it.price_balls ? '<s>' + num(it.old_price_balls) + '</s>' : '') + '<span>' + (it.price_balls ? ORN + '<b>' + num(it.price_balls) + '</b>' : '<b>Получить</b>') + '</span></button>' +
         '<p class="fm-err" role="alert"></p></div>' +
         '<div class="fm-confirm" hidden><div class="fm-cbox"><b>Подтвердить?</b><span class="fm-cwhat" data-fm-cwhat></span><button type="button" class="fm-yes" data-fm-yes>ДА</button><button type="button" class="fm-no" data-fm-no>Отмена</button></div></div>';
     if (it.card_bg && it.card_bg.startsWith('image:')) el.style.backgroundImage = 'linear-gradient(rgba(8,12,40,.3),rgba(8,12,40,.55)),url(' + thumb(it.card_bg.slice(6), 1000) + ')', el.style.backgroundSize = 'cover';
+    if (it.emoji && window.crafterEmojiPanelHTML) {                       // the page of a badge: the animation on the left, the collection and the description on the right
+        el.classList.add('is-emoji');
+        el.insertAdjacentHTML('beforeend', '<div class="ep-lot"><div class="ep-hero">' + window.crafterBadgeMedia(it.emoji, 'ep-media') + '</div>' + window.crafterEmojiPanelHTML(it.emoji) + '</div>');
+    }
     document.body.appendChild(el);
     const timer = el.querySelector('[data-fm-timer] b');
     if (timer) {                                                          // the time to the end of the offer, next to the back button
@@ -508,7 +513,8 @@ async function perform(o, ctx, choice) {
     if (res.chest_open) return {chest: res.chest_open};
     if (res.emojis_given && res.emojis_given.length) {               // a badge: shown with its animation, the player sets it in the profile
         const got = res.emojis_given, names = got.map(x => '«' + x.emoji.title + '»').join(', ');
-        if (!res.gift_ids && !res.pass_plus) return {head: 'Покупка совершена', title: got.length > 1 ? 'Значки получены' : 'Значок получен', text: got.some(x => !x.new) ? 'Такой значок у вас уже был: повторно он не выдаётся.' : names + ' уже в вашем инвентаре. Поставьте его в профиле рядом с ником.',
+        if (!res.gift_ids && !res.pass_plus && !res.pack_id && !res.chest_open && !res.drop_granted && !res.gram && !res.balls_gain) return {emojiReveal: got};
+        if (false) return {head: 'Покупка совершена', title: got.length > 1 ? 'Значки получены' : 'Значок получен', text: got.some(x => !x.new) ? 'Такой значок у вас уже был: повторно он не выдаётся.' : names + ' уже в вашем инвентаре. Поставьте его в профиле рядом с ником.',
             html: '<div class="em-reveal">' + got.map(x => EM(x.emoji, 'em-reveal-pic')).join('') + '</div>'};
         try { (window.toast || (() => {}))('Значок ' + names + ' в вашем инвентаре: выберите его в профиле'); } catch (_) {}
     }

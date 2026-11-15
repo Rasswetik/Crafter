@@ -27,7 +27,10 @@ def install_emojis(app, db, auth, audit):
             CREATE TABLE IF NOT EXISTS emoji_defs (
                 id TEXT PRIMARY KEY, title TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', media TEXT NOT NULL DEFAULT '',
                 enabled BIGINT NOT NULL DEFAULT 1, position BIGINT NOT NULL DEFAULT 0, created BIGINT NOT NULL,
-                poster TEXT NOT NULL DEFAULT '', value BIGINT NOT NULL DEFAULT 300
+                poster TEXT NOT NULL DEFAULT '', value BIGINT NOT NULL DEFAULT 300, collection_id TEXT NOT NULL DEFAULT ''
+            );
+            CREATE TABLE IF NOT EXISTS emoji_collections (
+                id TEXT PRIMARY KEY, title TEXT NOT NULL, photo TEXT NOT NULL DEFAULT '', position BIGINT NOT NULL DEFAULT 0, created BIGINT NOT NULL
             );
             CREATE TABLE IF NOT EXISTS user_emojis (
                 user_id BIGINT NOT NULL, emoji_id TEXT NOT NULL, source TEXT NOT NULL DEFAULT '', created BIGINT NOT NULL,
@@ -43,12 +46,15 @@ def install_emojis(app, db, auth, audit):
         if hasattr(database, 'connection') and database.connection is not None:
             database.execute("ALTER TABLE emoji_defs ADD COLUMN IF NOT EXISTS poster TEXT NOT NULL DEFAULT ''")
             database.execute("ALTER TABLE emoji_defs ADD COLUMN IF NOT EXISTS value BIGINT NOT NULL DEFAULT 300")
+            database.execute("ALTER TABLE emoji_defs ADD COLUMN IF NOT EXISTS collection_id TEXT NOT NULL DEFAULT ''")
         else:
             cols = {r[1] for r in database.execute("PRAGMA table_info(emoji_defs)").fetchall()}
             if 'poster' not in cols:
                 database.execute("ALTER TABLE emoji_defs ADD COLUMN poster TEXT NOT NULL DEFAULT ''")
             if 'value' not in cols:
                 database.execute("ALTER TABLE emoji_defs ADD COLUMN value BIGINT NOT NULL DEFAULT 300")
+            if 'collection_id' not in cols:
+                database.execute("ALTER TABLE emoji_defs ADD COLUMN collection_id TEXT NOT NULL DEFAULT ''")
     with app.app_context(), db():                                       # the first badge: the animated emoji of Goshan Vice (an administrator can delete or change it)
         if not db().execute("SELECT 1 FROM settings WHERE key='emoji_seed_goshanvice_v1'").fetchone():
             db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
@@ -60,6 +66,14 @@ def install_emojis(app, db, auth, audit):
             db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created) VALUES(?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
                          ('goshanvice-hi', 'Goshan Vice: привет', 'Особый значок.', '/static/assets/emoji/goshan-vice-hi.webm', 1, 2, int(time.time())))
             db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_goshanvice_hi_v1','1') ON CONFLICT DO NOTHING")
+        if not db().execute("SELECT 1 FROM settings WHERE key='emoji_seed_collections_v1'").fetchone():          # the collections Goshan and Nikolay and the badge of Nikolay
+            now = int(time.time())
+            db().execute("INSERT INTO emoji_collections(id,title,photo,position,created) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING", ('goshan', 'Goshan', '/static/assets/emoji/collection-goshan.png', 1, now))
+            db().execute("INSERT INTO emoji_collections(id,title,photo,position,created) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING", ('nikolay', 'Nikolay', '/static/assets/emoji/collection-nikolay.png', 2, now))
+            db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created,poster,collection_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                         ('nikolayvice-hi', 'Nikolay Vice: привет', 'Особый значок.', '/static/assets/emoji/nikolay-vice-hi.webm', 1, 3, now, '/static/assets/emoji/nikolay-vice-hi.png', 'nikolay'))
+            db().execute("UPDATE emoji_defs SET collection_id='goshan' WHERE id IN ('goshanvice','goshanvice-hi') AND collection_id=''")
+            db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_collections_v1','1') ON CONFLICT DO NOTHING")
         db().execute("UPDATE emoji_defs SET poster='/static/assets/emoji/goshan-vice.png' WHERE id='goshanvice' AND poster=''")
         db().execute("UPDATE emoji_defs SET poster='/static/assets/emoji/goshan-vice-hi.png' WHERE id='goshanvice-hi' AND poster=''")
 
@@ -75,7 +89,14 @@ def install_emojis(app, db, auth, audit):
         if not row:
             return None
         kind = media_kind(row['media'])
-        return {'id': row['id'], 'title': row['title'], 'description': row['description'] or 'Особый значок.', 'media': row['media'], 'kind': kind,
+        coll = None
+        if row['collection_id']:
+            c = db().execute("SELECT * FROM emoji_collections WHERE id=?", (row['collection_id'],)).fetchone()
+            if c:
+                others = db().execute("SELECT * FROM emoji_defs WHERE collection_id=? AND enabled=1 ORDER BY position, created", (c['id'],)).fetchall()
+                coll = {'id': c['id'], 'title': c['title'], 'photo': c['photo'],
+                        'emojis': [{'id': o['id'], 'title': o['title'], 'image': (o['media'] if media_kind(o['media']) == 'image' else '') or o['poster'] or ''} for o in others]}
+        return {'collection': coll, 'collection_id': row['collection_id'], 'id': row['id'], 'title': row['title'], 'description': row['description'] or 'Особый значок.', 'media': row['media'], 'kind': kind,
                 'image': (row['media'] if kind == 'image' else '') or row['poster'] or '', 'poster': row['poster'] or '', 'value': int(row['value']), 'type': 'EMOJI', 'enabled': bool(row['enabled'])}
 
     def exists(eid):
@@ -160,7 +181,44 @@ def install_emojis(app, db, auth, audit):
             s = short(r)
             s['owners'] = int(db().execute("SELECT COUNT(*) AS n FROM user_emojis WHERE emoji_id=?", (r['id'],)).fetchone()['n'])
             out.append(s)
-        return {'emojis': out}
+        cols = [{'id': c['id'], 'title': c['title'], 'photo': c['photo']} for c in db().execute("SELECT * FROM emoji_collections ORDER BY position, created").fetchall()]
+        return {'emojis': out, 'collections': cols}
+
+    @app.post('/api/admin/emoji-collections')
+    @auth(admin=True)
+    def admin_emoji_collection_save():
+        body = request.get_json(silent=True) or {}
+        cid = str(body.get('id') or '').strip().lower()
+        title = ' '.join(str(body.get('title') or '').split())[:40]
+        photo = str(body.get('photo') or '').strip()
+        if not title:
+            abort(400, description='Введите название коллекции')
+        if photo and not MEDIA_RE.fullmatch(photo):
+            abort(400, description='Фото коллекции: загрузите картинку')
+        with db():
+            if cid:
+                if not ID_RE.fullmatch(cid):
+                    abort(400, description='Код коллекции: латинские буквы, цифры, - и _')
+                old = db().execute("SELECT 1 FROM emoji_collections WHERE id=?", (cid,)).fetchone()
+            else:
+                cid, old = 'c' + uuid.uuid4().hex[:9], None
+            if old:
+                db().execute("UPDATE emoji_collections SET title=?,photo=? WHERE id=?", (title, photo, cid))
+            else:
+                pos = int(db().execute("SELECT COALESCE(MAX(position),0)+1 AS n FROM emoji_collections").fetchone()['n'])
+                db().execute("INSERT INTO emoji_collections(id,title,photo,position,created) VALUES(?,?,?,?,?)", (cid, title, photo, pos, int(time.time())))
+        audit('Emoji collection saved: %s' % cid)
+        return {'ok': True, 'id': cid}
+
+    @app.post('/api/admin/emoji-collections/<cid>/delete')
+    @auth(admin=True)
+    def admin_emoji_collection_delete(cid):
+        with db():
+            if not db().execute("DELETE FROM emoji_collections WHERE id=?", (cid,)).rowcount:
+                abort(404, description='Коллекция не найдена')
+            db().execute("UPDATE emoji_defs SET collection_id='' WHERE collection_id=?", (cid,))
+        audit('Emoji collection deleted: %s' % cid)
+        return {'ok': True}
 
     @app.post('/api/admin/emojis')
     @auth(admin=True)
@@ -171,6 +229,9 @@ def install_emojis(app, db, auth, audit):
         desc = ' '.join(str(body.get('description') or '').split())[:240]
         media = str(body.get('media') or '').strip()
         poster = str(body.get('poster') or '').strip()
+        coll_id = str(body.get('collection_id') or '').strip()
+        if coll_id and not db().execute("SELECT 1 FROM emoji_collections WHERE id=?", (coll_id,)).fetchone():
+            abort(400, description='Такой коллекции нет')
         try:
             value = int(str(body.get('value') if body.get('value') not in (None, '') else 300).strip())
         except ValueError:
@@ -193,10 +254,10 @@ def install_emojis(app, db, auth, audit):
                 old = None
             enabled = 0 if body.get('enabled') is False else 1
             if old:
-                db().execute("UPDATE emoji_defs SET title=?,description=?,media=?,enabled=?,value=?,poster=? WHERE id=?", (title, desc, media, enabled, value, poster, eid))
+                db().execute("UPDATE emoji_defs SET title=?,description=?,media=?,enabled=?,value=?,poster=?,collection_id=? WHERE id=?", (title, desc, media, enabled, value, poster, coll_id, eid))
             else:
                 pos = int(db().execute("SELECT COALESCE(MAX(position),0)+1 AS n FROM emoji_defs").fetchone()['n'])
-                db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created,value,poster) VALUES(?,?,?,?,?,?,?,?,?)", (eid, title, desc, media, enabled, pos, int(time.time()), value, poster))
+                db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created,value,poster,collection_id) VALUES(?,?,?,?,?,?,?,?,?,?)", (eid, title, desc, media, enabled, pos, int(time.time()), value, poster, coll_id))
         audit('Emoji saved: %s' % eid)
         return {'ok': True, 'id': eid}
 
