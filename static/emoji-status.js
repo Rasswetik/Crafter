@@ -13,12 +13,14 @@ window.crafterBadgeMedia = media;
 /* ---- the page of a badge (the lot and the screen of a new badge): the animation on the left, on the right the collection, «УНИКАЛЬНЫЙ ЗНАЧОК», the description, «ВХОДИТ В КОЛЛЕКЦИЮ» ---- */
 const BUBBLE = '<span class="ep-circle is-kind" aria-hidden="true">🙂</span>';
 const circle = (src, cls) => '<span class="ep-circle ' + (cls || '') + '">' + (src ? '<img src="' + e(src) + '" alt="" draggable="false">' : '') + '</span>';
+const RARITY = {default: 'ОСНОВНОЙ', common: 'ОБЫЧНЫЙ', rare: 'РЕДКИЙ', epic: 'ЭПИЧЕСКИЙ', legendary: 'ЛЕГЕНДАРНЫЙ'};
 function panelHTML(em) {
     const c = em.collection;
     return '<div class="ep-panel">' +
         (c ? '<div class="ep-coll">' + circle(c.photo, 'is-big') + '<b>' + e(String(c.title).toUpperCase()) + '</b></div>' : '') +
         '<h2 class="ep-kind">' + BUBBLE + '<span>УНИКАЛЬНЫЙ ЗНАЧОК</span></h2>' +
         '<div class="ep-desc"><span>' + e(em.description || 'Особый значок.') + '</span></div>' +
+        (RARITY[em.rarity] ? '<div class="ep-rar is-' + e(em.rarity) + '">' + RARITY[em.rarity] + '</div>' : '') +
         (c ? '<div class="ep-in"><small>ВХОДИТ В КОЛЛЕКЦИЮ</small><span class="ep-icons">' + circle(c.photo, 'is-plain') + '</span></div>' : '') +
         '</div>';
 }

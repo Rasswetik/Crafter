@@ -96,3 +96,6 @@
 .ep-circle.is-kind{width:clamp(40px,5vw,58px);height:clamp(40px,5vw,58px);font-size:clamp(22px,3vw,32px);line-height:1;background:linear-gradient(145deg,#8fa6c4,#5f7597);box-shadow:inset 0 0 0 2px rgba(255,255,255,.3),0 3px 8px rgba(0,0,0,.35)}
 .ep-circle.is-plain{background:linear-gradient(145deg,#8fa6c4,#5f7597);box-shadow:inset 0 0 0 2px rgba(255,255,255,.3),0 3px 8px rgba(0,0,0,.35)}
 .ep-circle.is-plain img{width:100%;height:100%;object-fit:cover}
+
+.ep-rar{justify-self:start;padding:6px 14px;border-radius:999px;font:900 13px/1 var(--sp-font,Inter,system-ui,sans-serif);letter-spacing:.08em;color:#fff;box-shadow:inset 0 0 0 2px rgba(255,255,255,.28),0 3px 8px rgba(0,0,0,.3);text-shadow:0 1px 0 rgba(0,0,0,.35)}
+.ep-rar.is-default{background:#5f7597}.ep-rar.is-common{background:linear-gradient(#58c27a,#2e9955)}.ep-rar.is-rare{background:linear-gradient(#58a8ff,#2b6fe0)}.ep-rar.is-epic{background:linear-gradient(#c070ff,#8a3cd8)}.ep-rar.is-legendary{background:linear-gradient(#ffd23f,#f08a14);color:#3a2300;text-shadow:none}
