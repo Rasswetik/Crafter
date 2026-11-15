@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256"><defs><linearGradient id="sn" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe45c"/><stop offset=".5" stop-color="#ff7a3c"/><stop offset="1" stop-color="#ff3d9a"/></linearGradient></defs>
+<mask id="m"><rect width="256" height="256" fill="#fff"/><rect x="0" y="142" width="256" height="5" fill="#000"/><rect x="0" y="158" width="256" height="7" fill="#000"/><rect x="0" y="176" width="256" height="9" fill="#000"/><rect x="0" y="196" width="256" height="11" fill="#000"/></mask>
+<g stroke="#14101f" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+<g mask="url(#m)"><circle cx="128" cy="126" r="92" fill="url(#sn)" stroke="none"/></g>
+<circle cx="128" cy="126" r="92" fill="none"/>
+<path d="M118 238 Q124 168 150 112 L164 116 Q142 172 140 238 Z" fill="#14101f"/>
+<path d="M156 114 Q120 64 66 96 Q104 78 150 108 Z" fill="#2e2a63"/>
+<path d="M158 112 Q150 56 100 38 Q144 52 162 108 Z" fill="#2e2a63"/>
+<path d="M160 112 Q184 60 238 74 Q192 72 164 110 Z" fill="#2e2a63"/>
+<path d="M162 116 Q214 100 238 142 Q200 116 164 120 Z" fill="#2e2a63"/>
+<path d="M150 120 Q116 118 82 150 Q118 130 152 126 Z" fill="#2e2a63"/>
+<circle cx="152" cy="118" r="9" fill="#8a3cff"/>
+<path d="M30 240 H226"/>
+</g></svg>

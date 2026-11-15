@@ -76,6 +76,21 @@ def install_emojis(app, db, auth, audit):
             db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_collections_v1','1') ON CONFLICT DO NOTHING")
         db().execute("UPDATE emoji_defs SET poster='/static/assets/emoji/goshan-vice-hi.png' WHERE id='goshanvice-hi' AND poster=''")
 
+    with app.app_context(), db():                                       # the collection Wisecraft: badges in the style of GTA, drawn as SVG; the owl is also the icon of the collection
+        if not db().execute("SELECT 1 FROM settings WHERE key='emoji_seed_wisecraft_v1'").fetchone():
+            now = int(time.time())
+            base = '/static/assets/emoji/wisecraft-'
+            db().execute("INSERT INTO emoji_collections(id,title,photo,position,created) VALUES(?,?,?,?,?) ON CONFLICT DO NOTHING", ('wisecraft', 'Wisecraft', base + 'owl.svg', 3, now))
+            for i, (eid, title, desc, art) in enumerate((
+                    ('wisecraft-owl', 'Wisecraft', 'Мудрая сова в тёмных очках: знак коллекции Wisecraft.', 'owl'),
+                    ('wisecraft-wanted', 'Розыск', 'Звезда розыска: за вами уже гонится весь город.', 'wanted'),
+                    ('wisecraft-cash', 'Налик', 'Пачки и золотая монета: деньги решают всё.', 'cash'),
+                    ('wisecraft-car', 'Тачка', 'Розовая тачка с неоновой подсветкой.', 'car'),
+                    ('wisecraft-sunset', 'Закат', 'Пальма на фоне неонового заката.', 'sunset'))):
+                db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created,poster,collection_id) VALUES(?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                             (eid, title, desc, base + art + '.svg', 1, 10 + i, now, '', 'wisecraft'))
+            db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_wisecraft_v1','1') ON CONFLICT DO NOTHING")
+
     def media_kind(url):
         m = re.fullmatch(r'/media/shop/([0-9a-f]{32})', url or '')
         if m:
