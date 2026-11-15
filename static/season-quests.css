@@ -64,3 +64,12 @@
 /* the pass road has no slider: only the two arrows and «К моему уровню» */
 .sp-slider{display:none!important}
 .sp-nav{justify-content:center!important;gap:14px!important}
+
+/* v5: the picture of a quest always stays inside its card (a tall pack does not stick out) */
+.qc-ic{display:grid;place-items:center;width:96px;height:84px;overflow:visible}
+.sp-q.qc .qc-ic .sp-ic{width:84px!important;height:84px!important;display:grid;place-items:center}
+.sp-q.qc .qc-ic .sp-ic img{width:auto!important;height:auto!important;max-width:100%!important;max-height:100%!important;object-fit:contain!important}
+.sq-mega .sp-q.is-big .qc-ic{width:auto;height:auto}
+.sq-mega .sp-q.is-big .qc-ic .sp-ic{width:130px!important;height:130px!important}
+.sp-megarow .qc-ic{width:auto;height:auto}
+.sp-megarow .qc-ic .sp-ic{width:118px!important;height:118px!important}
