@@ -641,6 +641,9 @@ ${window.crafterNYSound && window.crafterNYSound.available ? `<section class="cr
             <label class="crafter-animation-setting"><span>${window.crafterNYSound.label || 'Новогодняя музыка'}</span>
                 <input type="checkbox" role="switch" data-ny-sound="music" ${window.crafterNYSound.music ? 'checked' : ''}>
             </label>
+            <label class="crafter-animation-setting crafter-volume-setting"><span>Громкость</span>
+                <input type="range" min="0" max="100" step="5" value="${window.crafterNYSound.volume}" data-ny-vol aria-label="Громкость музыки и звуков">
+            </label>
             <label class="crafter-animation-setting"><span>Звуки нажатий</span>
                 <input type="checkbox" role="switch" data-ny-sound="clicks" ${window.crafterNYSound.clicks ? 'checked' : ''}>
             </label>
@@ -653,6 +656,7 @@ ${window.crafterNYSound && window.crafterNYSound.available ? `<section class="cr
         crafterStorePrefs();
         crafterApplyTheme();
     };
+    root.querySelector('[data-ny-vol]')?.addEventListener('input', event => { window.crafterNYSound?.setVolume(event.target.value); });
     root.querySelectorAll('[data-ny-sound]').forEach(input => { input.onchange = event => { const n = window.crafterNYSound; if (!n) return; if (input.dataset.nySound === 'music') n.setMusic(event.target.checked); else n.setClicks(event.target.checked); }; });
     crafterLocalizeTree(appSheet);
 }

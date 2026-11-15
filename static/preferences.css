@@ -146,3 +146,4 @@ html[data-crafter-theme="light"] .craft-page.craft-finished .forge-result-action
 @media(prefers-reduced-motion:reduce) {
  .crafter-option,.crafter-svg-close,.crafter-open-settings {transition:none}
 }
+.crafter-volume-setting input[type=range]{width:55%;max-width:220px;accent-color:#ff4fa8}

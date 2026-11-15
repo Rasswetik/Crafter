@@ -4,7 +4,7 @@
 (function () {
 'use strict';
 const KEY = 'crafter:ny-sound';
-const read = () => { try { return Object.assign({music: true, clicks: true}, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (_) { return {music: true, clicks: true}; } };
+const read = () => { try { return Object.assign({music: true, clicks: true, volume: 50}, JSON.parse(localStorage.getItem(KEY) || '{}')); } catch (_) { return {music: true, clicks: true, volume: 50}; } };
 let prefs = read();
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(prefs)); } catch (_) {} };
 const root = document.documentElement;
@@ -94,7 +94,9 @@ function pump() {                                                   // keeps the
     if (!ctx || !started) return;
     while (nextAt < ctx.currentTime + 1.2) { scheduleBar(step, nextAt); nextAt += 4 * BEAT; step++; }
 }
-function carolGain() { return MUSIC_GAIN * (cfg.volume / 60); }
+const pv = () => Math.max(0, Math.min(100, Number(prefs.volume))) / 50;                // the volume of the player: 50 is the normal one, 0 is silence, 100 is twice as loud
+function carolGain() { return MUSIC_GAIN * (cfg.volume / 60) * pv(); }
+const fileLevel = () => cfg.volume / 100 * 0.4 * pv();                                    // the track is mastered loud: it is played at 40% of the set volume
 async function startFile() {                                       // the track of the event: one decoded buffer, played in a gapless loop
     const mine = ++loading;
     if (!fileBuf || fileUrl !== cfg.url) {
@@ -104,7 +106,7 @@ async function startFile() {                                       // the track 
     stopFile(0);
     fileGain = ctx.createGain(); fileGain.gain.value = 0.0001; fileGain.connect(master);
     fileSrc = ctx.createBufferSource(); fileSrc.buffer = fileBuf; fileSrc.loop = true; fileSrc.connect(fileGain); fileSrc.start();
-    fileGain.gain.linearRampToValueAtTime(Math.max(0.02, cfg.volume / 100 * 0.9), ctx.currentTime + 2.5);
+    fileGain.gain.linearRampToValueAtTime(Math.max(0.0001, fileLevel()), ctx.currentTime + 2.5);
 }
 function stopFile(fade) {
     const g = fileGain, s = fileSrc; fileGain = fileSrc = null;
@@ -185,7 +187,8 @@ const possible = () => cfg.mode === 'vice' || (cfg.mode === 'newyear' && on());
 function sync() {
     if (prefs.music && possible() && !document.hidden && armed) startMusic(); else stopMusic();
     if (started && kind === 'carol' && musicBus) { musicBus.gain.cancelScheduledValues(ctx.currentTime); musicBus.gain.setValueAtTime(musicBus.gain.value, ctx.currentTime); musicBus.gain.linearRampToValueAtTime(carolGain(), ctx.currentTime + 0.3); }
-    if (started && kind === 'file' && fileGain) { fileGain.gain.cancelScheduledValues(ctx.currentTime); fileGain.gain.setValueAtTime(fileGain.gain.value, ctx.currentTime); fileGain.gain.linearRampToValueAtTime(Math.max(0.02, cfg.volume / 100 * 0.9), ctx.currentTime + 0.3); }
+    if (started && kind === 'file' && fileGain) { fileGain.gain.cancelScheduledValues(ctx.currentTime); fileGain.gain.setValueAtTime(fileGain.gain.value, ctx.currentTime); fileGain.gain.linearRampToValueAtTime(Math.max(0.0001, fileLevel()), ctx.currentTime + 0.3); }
+    if (clickBus) clickBus.gain.value = CLICK_GAIN * MUSIC_GAIN * Math.min(2, pv());
 }
 async function reload() {                                          // the choice of the administrator: asked at the start, when the app comes back and after a save
     try { const r = await api('event-music'); if (r && r.music) cfg = r.music; } catch (_) {}
@@ -207,6 +210,7 @@ new MutationObserver(sync).observe(root, {attributes: true, attributeFilter: ['c
 window.crafterNYSound = {
     get music() { return prefs.music; }, get clicks() { return prefs.clicks; }, get available() { return possible(); }, get mode() { return cfg.mode; }, get label() { return cfg.mode === 'vice' ? 'Музыка ивента Vice City' : 'Новогодняя музыка'; }, reload, get state() { return ctx ? ctx.state : 'none'; }, get playing() { return started; },
     setMusic(v) { prefs.music = Boolean(v); save(); if (v) arm(); sync(); },
+    get volume() { return Number(prefs.volume); }, setVolume(v) { prefs.volume = Math.max(0, Math.min(100, Math.round(Number(v) || 0))); save(); sync(); },
     setClicks(v) { prefs.clicks = Boolean(v); save(); if (v) arm(); },
 };
 })();

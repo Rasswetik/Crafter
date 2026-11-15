@@ -118,9 +118,9 @@ def install_ny_extras(app, db, auth, audit):
         raw = raw if isinstance(raw, dict) else {}
         mode = raw.get('mode') if raw.get('mode') in ('newyear', 'vice', 'off') else 'newyear'
         try:
-            volume = max(5, min(100, int(raw.get('volume', 70))))
+            volume = max(5, min(100, int(raw.get('volume', 50))))
         except (TypeError, ValueError):
-            volume = 70
+            volume = 50
         track = next((t for t in TRACKS if t['id'] == mode), None)
         return {'mode': mode, 'volume': volume, 'url': track['url'] if track else '', 'tracks': TRACKS}
 
