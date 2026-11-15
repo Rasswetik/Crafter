@@ -82,3 +82,40 @@
 .sq-mega .sp-q.is-big .qc-ic,.sp-megarow .qc-ic{width:auto;height:auto}
 .sq-mega .sp-q.is-big .qc-ic .sp-ic{width:130px!important;height:130px!important}.sq-mega .sp-q.is-big .qc-ic .sp-ic img{max-width:130px!important;max-height:130px!important}
 .sp-megarow .qc-ic .sp-ic{width:118px!important;height:118px!important}.sp-megarow .qc-ic .sp-ic img{max-width:118px!important;max-height:118px!important}
+
+/* v7 (computer): the strip fills the whole height: the rows share it, the cards and their pictures grow with the screen, nothing is left empty below */
+@media(min-width:761px){
+  .sq-rail{align-items:stretch;padding-top:clamp(14px,2.4vh,28px);padding-bottom:clamp(18px,3.4vh,40px)}
+  .sq-col{height:100%}
+  .sq-grid{flex:1;min-height:0;grid-template-rows:repeat(3,minmax(0,1fr));grid-auto-columns:clamp(360px,27vw,480px);gap:clamp(18px,3.6vh,44px) 18px;padding-top:clamp(16px,2.4vh,28px)}
+  .sq-grid .sp-q.qc{min-height:0!important;height:100%;align-content:center;grid-template-columns:clamp(88px,12vh,140px) minmax(0,1fr)}
+  .sp-q.qc .qc-ic{width:clamp(88px,12vh,140px);height:clamp(76px,11vh,126px)}
+  .sp-q.qc .qc-ic .sp-ic{width:clamp(76px,11vh,126px)!important;height:clamp(76px,11vh,126px)!important}
+  .sp-q.qc .qc-ic .sp-ic img{max-width:clamp(76px,11vh,126px)!important;max-height:clamp(76px,11vh,126px)!important}
+  .sq-grid .qc-title{font-size:clamp(15px,2.2vh,22px)!important}
+  .sq-grid .qc-bar{height:clamp(30px,4.4vh,46px)}
+  .sq-grid .qc-take{height:clamp(34px,4.8vh,50px)}
+  .sq-grid .qc-xp b{font-size:clamp(22px,3.2vh,32px)}
+  .sq-col>header{padding:clamp(9px,1.6vh,16px) 16px}.sq-col>header h3{font-size:clamp(16px,2.3vh,22px)!important}
+  /* the mega deck stretches over the height as well */
+  .sq-mega{width:clamp(340px,26vw,440px)}
+  .sq-mega .sp-deck{flex:1;min-height:0;display:flex;padding-top:clamp(14px,2.6vh,30px);padding-bottom:clamp(10px,2vh,22px)}
+  .sq-mega .sp-deck-l{top:clamp(22px,3.4vh,40px);bottom:clamp(18px,3vh,32px)}
+  .sq-mega .sp-q.qc.is-big{flex:1;min-height:0;align-content:space-evenly;justify-content:center}
+  .sq-mega .sp-q.is-big .qc-ic .sp-ic{width:clamp(130px,24vh,230px)!important;height:clamp(130px,24vh,230px)!important}
+  .sq-mega .sp-q.is-big .qc-ic .sp-ic img{max-width:clamp(130px,24vh,230px)!important;max-height:clamp(130px,24vh,230px)!important}
+  .sq-mega .sp-q.is-big .qc-title{font-size:clamp(20px,3vh,30px)!important}
+  .sq-mega .sp-q.is-big .qc-bar{height:clamp(34px,5vh,50px)}
+}
+
+/* v8: the cards behind the mega quest peek out to the right and up, exactly the size of the front card */
+@media(min-width:761px){
+  .sq-mega{--pt:clamp(18px,3vh,34px);--pb:clamp(10px,2vh,22px)}
+  .sq-mega .sp-deck{padding-top:var(--pt)!important;padding-bottom:var(--pb)!important}
+  .sq-mega .sp-deck-l{top:calc(var(--pt) - var(--k) * 8px)!important;bottom:var(--pb)!important;left:14px!important;right:calc(30px - var(--k) * 11px)!important;transform:none!important}
+  .sp-deck-count{top:calc(var(--pt) - 20px)!important}
+}
+@media(min-width:761px){
+  .sq-mega .sp-deck{align-items:stretch!important;align-content:stretch!important}
+  .sq-mega .sp-q.qc.is-big{transform:none!important;animation:none!important;height:auto!important;align-self:stretch}
+}
