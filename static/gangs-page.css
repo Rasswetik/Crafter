@@ -102,3 +102,7 @@ img{-webkit-user-drag:none}
 
 .gp-d{position:relative;overflow:hidden}.gp-d>.art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.3;z-index:0;pointer-events:none}.gp-d>*:not(.art){position:relative;z-index:1}
 .gp-hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}.gp-hero-text{z-index:1}
+.gp-hero:has(.gp-hero-img){height:auto;aspect-ratio:2.4/1}
+.gp-hero:has(.gp-hero-img) .gp-hero-text{inset:0 33%;padding:2.5% 0 0;justify-content:flex-start;gap:6px}
+.gp-hero:has(.gp-hero-img) .gp-hero-text h1{font-size:clamp(20px,3.8vw,44px)}.gp-hero:has(.gp-hero-img) .gp-hero-text p{font-size:clamp(11px,1.2vw,15px)}
+@media(max-width:720px){.gp-hero:has(.gp-hero-img){aspect-ratio:1200/1000;max-height:none}.gp-hero:has(.gp-hero-img) .gp-hero-text{inset:0;padding:5% 14px 0}.gp-hero:has(.gp-hero-img) .gp-hero-text h1{font-size:clamp(22px,7.5vw,34px)}.gp-hero:has(.gp-hero-img) .gp-hero-text p{font-size:12px}}
