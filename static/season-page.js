@@ -43,11 +43,15 @@ const rewardCell = (lv, track) => {
     const state = side.claimed ? 'is-done' : reached && plusOK ? 'is-ready' : reached ? 'is-nplus' : 'is-locked';
     const rs = side.rewards;
     if (!rs.length) return '<div class="sp-rw is-empty ' + track + '"><span>—</span></div>';
-    const main = rs[0], more = rs.slice(1, 3);
-    const label = rs.length === 1 ? (main.kind === 'GRAM' ? num(main.amount) + ' GRAM' : main.kind === 'BALL' ? num(main.amount) : (main.count > 1 ? '×' + main.count + ' ' : '') + main.title) : rs.map(r => r.kind === 'BALL' || r.kind === 'GRAM' ? num(r.amount) : '×' + r.count).join(' + ');
+    /* the main prize is shown big (a pack, a drop, a box, GRAM); the tokens (the currency) are an extra in the left top corner */
+    const main = rs.find(r => r.kind !== 'BALL') || rs[0];
+    const tokens = main.kind === 'BALL' ? 0 : rs.filter(r => r.kind === 'BALL').reduce((n, r) => n + Number(r.amount || 0), 0);
+    const more = rs.filter(r => r !== main && r.kind !== 'BALL').slice(0, 2);
+    const one = r => r.kind === 'GRAM' ? num(r.amount) + ' GRAM' : r.kind === 'BALL' ? num(r.amount) : (r.count > 1 ? '×' + r.count + ' ' : '') + r.title;
+    const label = one(main) + more.map(r => ' + ' + one(r)).join('');
     const fresh = justClaimed.has(lv.level + '.' + track);
     return '<button type="button" class="sp-rw ' + track + ' ' + state + (fresh ? ' is-fresh' : '') + '" data-lv="' + lv.level + '" data-track="' + track + '" title="' + e(rs.map(r => r.title + (r.count > 1 ? ' ×' + r.count : '')).join(', ')) + '">' +
-        '<img class="sp-rw-img" src="' + e(prizeArt(main, 240)) + '" alt="" loading="lazy">' + more.map((r, k) => '<img class="sp-rw-more m' + k + '" src="' + e(prizeArt(r, 120)) + '" alt="">').join('') +
+        '<img class="sp-rw-img" src="' + e(prizeArt(main, 240)) + '" alt="" loading="lazy">' + (tokens ? '<span class="sp-rw-tok"><img src="' + BALL + '" alt=""><b>+' + num(tokens) + '</b></span>' : '') + more.map((r, k) => '<img class="sp-rw-more m' + k + '" src="' + e(prizeArt(r, 120)) + '" alt="">').join('') +
         '<b>' + e(label.trim()) + '</b>' + (side.claimed ? CHECK : state === 'is-locked' || state === 'is-nplus' ? '<i class="sp-lock">' + LOCK + '</i>' : '') + '</button>';
 };
 
@@ -107,7 +111,7 @@ function megaDeck() {
     const behind = Math.min(4, list.length - idx - 1);
     const ends = S.season.ends_at ? S.season.ends_at - S.now : 0;
     const layers = Array.from({length: behind}, (_, k) => '<i class="sp-deck-l" style="--k:' + (k + 1) + '"></i>').join('');
-    return '<section class="sp-mega"><header><h3><svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" fill="#fff" stroke="#14213f" stroke-width="2"/><path d="M8 12.5l3 3 5-6" fill="none" stroke="#e8203a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Мегаквесты</h3>' + (ends > 0 ? '<small>Окончание через<b>' + left(ends) + '</b></small>' : '') + '</header>' +
+    return '<section class="sq-col sq-mega sp-mega"><header><h3><svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 3h14a1 1 0 011 1v16a1 1 0 01-1 1H5a1 1 0 01-1-1V4a1 1 0 011-1z" fill="#fff" stroke="#14213f" stroke-width="2"/><path d="M8 12.5l3 3 5-6" fill="none" stroke="#e8203a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Мегаквесты</h3>' + (ends > 0 ? '<small>Окончание через<b>' + left(ends) + '</b></small>' : '') + '</header>' +
         '<div class="sp-deck">' + layers + questCard(cur, true, 0) + '</div>' +
         '<div class="sp-mega-foot"><span>Квест ' + Math.min(idx + 1, list.length) + ' из ' + list.length + '</span>' + (list.length > 1 ? '<button type="button" class="sp-megaall" data-megaall>Все мегаквесты</button>' : '') + '</div></section>';
 }
@@ -121,17 +125,30 @@ function megaAll() {
 }
 
 function questsTab() {
+    /* like in the reference: the page is one wide strip that moves sideways; every kind of quests is a column with its title and timer,
+       the cards of a column stand in rows (three high) and continue to the right, they never run down the page */
     const q = S.quests;
-    const sec = (kind, extra) => q[kind].length ? '<section class="sp-qsec ' + kind + '"><header><h3>' + KIND_TITLES[kind] + '</h3>' + (extra || '') + '</header><div class="sp-qlist">' + q[kind].map((x, i) => questCard(x, false, i)).join('') + '</div></section>' : '';
-    const cols = [[sec('daily', '<small>обновится через ' + left(S.refresh.daily_in) + '</small>'), sec('weekly', '<small>обновится через ' + left(S.refresh.weekly_in) + '</small>')].join(''), [sec('special'), sec('season')].join('')].filter(Boolean);
+    const sec = (kind, timer) => q[kind].length ? '<section class="sq-col sq-' + kind + '"><header><h3>' + KIND_TITLES[kind] + '</h3>' + (timer ? '<small>' + timer + '</small>' : '') + '</header>' +
+        '<div class="sq-grid" style="--n:' + q[kind].length + '">' + q[kind].map((x, i) => questCard(x, false, i)).join('') + '</div></section>' : '';
     const mega = megaDeck();
-    if (!mega && !cols.length) return '<div class="sp-quests"><p class="sp-empty">Квестов пока нет</p></div>';
-    return '<div class="sp-quests' + (mega ? ' has-mega' : '') + '">' + mega + '<div class="sp-qright cols-' + Math.max(1, cols.length) + '">' + cols.map(c => '<div class="sp-qcol">' + c + '</div>').join('') + '</div></div>';
+    const cols = [mega, sec('daily', 'До обновления <b>' + left(S.refresh.daily_in) + '</b>'), sec('weekly', 'До обновления <b>' + left(S.refresh.weekly_in) + '</b>'), sec('special', ''), sec('season', '')].filter(Boolean);
+    if (!cols.length) return '<div class="sp-quests"><p class="sp-empty">Квестов пока нет</p></div>';
+    return '<div class="sp-quests sq"><div class="sq-rail" data-sqrail>' + cols.join('') + '</div></div>';
+}
+
+function wireRail(rail) {                                       // the wheel and the mouse move the strip sideways, a finger swipes it itself
+    rail.addEventListener('wheel', ev => { if (Math.abs(ev.deltaY) > Math.abs(ev.deltaX) && rail.scrollWidth > rail.clientWidth && getComputedStyle(rail).overflowX === 'auto' && rail.clientHeight > 0 && !rail.classList.contains('is-col')) { rail.scrollLeft += ev.deltaY * 1.2; ev.preventDefault(); } }, {passive: false});
+    let down = null, moved = false;
+    rail.addEventListener('pointerdown', ev => { if (ev.pointerType !== 'mouse' || ev.button !== 0 || ev.target.closest('button')) return; down = {x: ev.clientX, left: rail.scrollLeft}; moved = false; });
+    const mv = ev => { if (!down) return; if (!rail.isConnected) { window.removeEventListener('pointermove', mv); return; } const dx = ev.clientX - down.x; if (Math.abs(dx) > 5) { moved = true; rail.classList.add('is-drag'); } if (moved) rail.scrollLeft = down.left - dx; };
+    window.addEventListener('pointermove', mv);
+    window.addEventListener('pointerup', () => { if (down) { down = null; setTimeout(() => rail.classList.remove('is-drag'), 0); } });
+    rail.addEventListener('click', ev => { if (moved) { ev.stopPropagation(); ev.preventDefault(); moved = false; } }, true);
 }
 
 function draw() {
     if (!root || !root.isConnected) return;
-    const keep = root.querySelector('[data-track]')?.scrollLeft || 0, keepY = root.querySelector('.sp-quests')?.scrollTop || 0;
+    const keep = root.querySelector('[data-track]')?.scrollLeft || 0, keepY = root.querySelector('.sp-quests')?.scrollTop || 0, keepQ = root.querySelector('[data-sqrail]')?.scrollLeft || 0, keepQY = root.querySelector('[data-sqrail]')?.scrollTop || 0;
     if (S && !S.season) { location.replace('/'); return; }
     if (!S || !S.season) { root.className = 'sp-root'; root.innerHTML = '<button type="button" class="sp-back sp-back-solo" data-back>‹ События</button><div class="sp-none"><h2>Сезонного пасса пока нет</h2><p>Как только сезон начнётся, он появится здесь.</p></div>'; root.style.cssText = ''; return; }
     root.className = 'sp-root' + (enter ? ' is-enter' : '');
@@ -146,6 +163,7 @@ function draw() {
         wireTrack(tr);
     }
     const qs = root.querySelector('.sp-quests'); if (qs) qs.scrollTop = keepY;
+    const rail = root.querySelector('[data-sqrail]'); if (rail) { rail.scrollLeft = keepQ; rail.scrollTop = keepQY; wireRail(rail); }
     fitRoad();
     if (lastLevel !== null && S.me.level > lastLevel) levelUp(S.me.level);
     lastLevel = S.me.level;
