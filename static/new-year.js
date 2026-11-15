@@ -204,6 +204,7 @@ function drawHub(main,data,shared,advState){
         (window.crafterAdvent&&advState?.enabled&&!isHiddenSection('advent')?window.crafterAdvent.card(advState):'')+
         '</div>';
     window.crafterWanted?.hubCard?.(main);
+    window.crafterGangs?.hubCard?.(main);                                                     // the card of the event «Войны банд»
     if(!isHiddenSection('season'))window.crafterSeasonPass?.hubCard?.(main);                    // the card of the season pass
     applyHubBackgrounds(main);
     ['market','community','advent'].forEach(name=>{
@@ -563,7 +564,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     const GROUPS=[
         ['Сезон и события',[['main','Основное','Включение Нового года и разделы страницы «Событие»','settings'],['events','События сообщества','Конкурсы, лидеры, награды','grid'],['advent','Адвент','Календарь подарков по дням','gift'],['freebies','Подарки по дням','Бесплатные награды по расписанию','gift'],['chains','Цепочки акций','Покупки по шагам с наградами','rotate-ccw']]],
         ['Магазин и награды',[['shop','Магазин','Акции, наборы, разделы и фоны','market'],['packs','Паки','Карточные паки и шансы','gift'],['chests','Ящики','Награды ящиков и фоны','gift'],['exchange','Обмен и коды','Обмен валюты и промокоды','rotate-ccw']]],
-        ['Валюта и игроки',[['currency','Управление валютой','Шары, поинты, коины или своя валюта и перерасчёт','wallet'],['emojis','Значки','Анимированные эмодзи: создать, изменить, выдать','star'],['wanted','Розыск: Vice City','Событие со звёздами розыска: миссии, награды, отсчёт до релиза','star'],['eventmusic','Музыка ивента','Новый год, Vice City или без музыки, громкость','star'],['eventstile','Кнопка «События»','Текст, рисунок и фон кнопки на странице «Игры»','market'],['balances','Балансы игроков','Начислить или списать вручную','wallet'],['lots','NFT-лоты','Создать лот и скрыть/вернуть существующие','gift']]]
+        ['Валюта и игроки',[['currency','Управление валютой','Шары, поинты, коины или своя валюта и перерасчёт','wallet'],['emojis','Значки','Анимированные эмодзи: создать, изменить, выдать','star'],['wanted','Розыск: Vice City','Событие со звёздами розыска: миссии, награды, отсчёт до релиза','star'],['gangs','Войны банд','Гошан против Николая: районы, очки, награды недели','star'],['eventmusic','Музыка ивента','Новый год, Vice City или без музыки, громкость','star'],['eventstile','Кнопка «События»','Текст, рисунок и фон кнопки на странице «Игры»','market'],['balances','Балансы игроков','Начислить или списать вручную','wallet'],['lots','NFT-лоты','Создать лот и скрыть/вернуть существующие','gift']]]
     ];
     const TITLES={};GROUPS.forEach(g=>g[1].forEach(x=>{TITLES[x[0]]=x[1];}));
     const hub=document.createElement('div');hub.className='nys-hub';
@@ -596,6 +597,7 @@ async function renderAdminNewYear(content=document.querySelector('#admin-content
     window.crafterEventsTileAdmin?.admin?.(content);
     window.crafterEventMusicAdmin?.admin?.(content);
     window.crafterWantedAdmin?.admin?.(content);
+    window.crafterGangsAdmin?.admin?.(content);
     content.querySelectorAll('[data-ny-admin-lot]').forEach(button=>{
         button.addEventListener('click',async()=>{
             const lot=result.lots.find(l=>l.id===button.dataset.nyAdminLot);
