@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ru" class="{{ '' if ny_on else 'ny-off' }}">
+<head>
+    <meta charset="utf-8">{% if cur.kind != 'balls' %}<style id="cur-style">img[src$="new-year-ornament.svg"],img[src$="crafter-winter-ornament.png"]{content:url("{{ cur.icon }}")}</style>{% endif %}<script>window.crafterCurrency={{ cur|tojson }};</script><script src="/static/currency-text.js?v=3"></script>
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/crafter-32.png?v=1"><link rel="shortcut icon" href="/favicon.ico?v=1"><link rel="apple-touch-icon" href="/static/icons/apple-touch-icon.png?v=1">
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+    <meta name="theme-color" content="#14052e">
+    <title>Розыск · Vice City</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="/static/season-page.css?v=1">
+    <link rel="stylesheet" href="/static/chests.css?v=cap1">
+    <link rel="stylesheet" href="/static/drops.css?v=11">
+    <link rel="stylesheet" href="/static/packs.css?v=many1"><link rel="stylesheet" href="/static/festive-market.css?v=6"><link rel="stylesheet" href="/static/festive-market-2.css?v=11"><link rel="stylesheet" href="/static/festive-scenes.css?v=8"><link rel="stylesheet" href="/static/festive-layout.css?v=3"><link rel="stylesheet" href="/static/festive-mobile.css?v=5">
+    <link rel="stylesheet" href="/static/wanted-page.css?v=3">
+</head>
+<body class="sp-open season-standalone wp-body">
+    <div id="wp-app"><div class="wp-boot">Загрузка…</div></div>
+    <div id="sp-toasts" aria-live="polite"></div>
+    <script src="/static/season-core.js?v=1"></script>
+    <script src="/static/chests.js?v=cap1"></script>
+    <script src="/static/drops.js?v=cur4"></script>
+    <script src="/static/festive-scenes.js?v=10"></script>
+    <script src="/static/packs.js?v=buy2"></script>
+    <script src="/static/festive-market.js?v=em8"></script>
+    <script src="/static/wanted-page.js?v=1"></script>
+</body>
+</html>

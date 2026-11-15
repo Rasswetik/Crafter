@@ -115,3 +115,10 @@
 .nyh-card.has-custom-bg>*:not(.nyh-bg):not(.nyh-copy):not(.nyh-go):not(.nyh-soon):not(.nyh-new):not(.nyh-dot){display:none!important}
 .nyh-card.has-custom-bg .nyh-copy,.nyh-card.has-custom-bg .nyh-go{position:relative;z-index:2}
 .ny-admin-points{display:flex;gap:10px;align-items:center}.ny-admin-points input{width:140px}
+
+/* the card of the event «Vice City: Розыск» */
+.nyh-wanted{position:relative;overflow:hidden;background:linear-gradient(120deg,#14052e,#4a1d96 55%,#ff4fa8) !important;color:#fff}
+.nyh-wanted .nyh-wanted-art{position:absolute;right:-2%;top:50%;height:150%;transform:translateY(-50%);pointer-events:none;filter:drop-shadow(0 6px 14px #0007)}
+.nyh-wanted .nyh-copy{position:relative;z-index:1}
+.nyh-wanted em{display:block;margin-top:4px;font-style:normal;font-weight:700;opacity:.9}
+.nyh-wstars{display:flex;gap:3px;margin-top:8px}.nyh-wstars i{font-style:normal;font-size:20px;color:#ffffff40}.nyh-wstars i.on{color:#ffc83a;text-shadow:0 0 10px #ffc83a}

@@ -304,6 +304,10 @@ def create_app(config=None):
         except Exception:
             return {'cur': {'kind': 'balls', 'name': 'Шары', 'gen': 'шаров', 'icon': '/static/assets/new-year-ornament.svg', 'epoch': 0}}
 
+    @app.get('/season/wanted')
+    def wanted_page():
+        return render_template('wanted.html', ny_on=new_year_enabled())
+
     @app.get('/season/pass')
     def season_page():
         # the season pass is a separate page with its own template
@@ -1522,6 +1526,8 @@ def create_app(config=None):
     install_emojis(app,db,auth,audit)
     from season_pass import install_season_pass
     install_season_pass(app,db,auth,audit,record)
+    from wanted import install_wanted                                # the event «Vice City: Розыск»: missions, stars, countdown, leaders
+    install_wanted(app,db,auth,audit)
     from shop_import import install_shop_import
     install_shop_import(app,db,auth,audit)
     from chains import install_chains

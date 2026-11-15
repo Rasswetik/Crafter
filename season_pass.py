@@ -39,12 +39,13 @@ METRICS = {
     'freebie': ('Бесплатные награды', ('freebie_claim',), None),
     'promo': ('Активации промокодов', ('promo_redeem',), None),
     'stake': ('Операции стейкинга', ('stake_deposit', 'stake_claim'), None),
+    'open_vicecity': ('Открытия паков Vice City', ('pack_open',), None),
     'open_goshanvice': ('Открытия паков Goshan Vice', ('pack_open',), None),
     'open_nikolayvice': ('Открытия паков Nikolay Vice', ('pack_open',), None),
     'buy_goshanvice': ('Покупки паков Goshan Vice', ('pack_buy',), None),
     'buy_nikolayvice': ('Покупки паков Nikolay Vice', ('pack_buy',), None),
 }
-PACK_METRICS = {'open_goshanvice': 'goshanvice', 'open_nikolayvice': 'nikolayvice', 'buy_goshanvice': 'goshanvice', 'buy_nikolayvice': 'nikolayvice'}      # a quest about one kind of pack: the pack of the event is read from the record
+PACK_METRICS = {'open_vicecity': 'vicecity', 'open_goshanvice': 'goshanvice', 'open_nikolayvice': 'nikolayvice', 'buy_goshanvice': 'goshanvice', 'buy_nikolayvice': 'nikolayvice'}      # a quest about one kind of pack: the pack of the event is read from the record
 ICONS = ('upgrade', 'craft', 'cart', 'pack', 'wallet', 'swords', 'chain', 'gift', 'trophy', 'heart', 'star', 'bolt')
 
 
@@ -525,6 +526,8 @@ def install_season_pass(app, db, auth, audit, record):
         return {'season': {'id': season['id'], 'number': int(season['number']), 'title': season['title']}, 'owned': owned, 'image': season['plus_ticket'] or '/static/assets/pass/ticket-plus.svg'}
 
     app.extensions['crafter_pass_grant_plus'] = grant_plus
+    app.extensions['crafter_reward_give'] = give                       # the prizes of other systems (the event «Розыск») are given and shown the same way
+    app.extensions['crafter_reward_describe'] = describe
     app.extensions['crafter_pass_short'] = pass_short
 
     @app.post('/api/pass/buy-level')

@@ -131,6 +131,13 @@ def install_emojis(app, db, auth, audit):
                                  (eid, title, desc, base + art + '.svg', 1, pos, now, '', 'wisecraft'))
             db().execute("INSERT INTO settings(key,payload) VALUES('emoji_wisecraft_redraw_v1','1') ON CONFLICT DO NOTHING")
 
+    with app.app_context(), db():                                       # «Day One»: the badge of the event «Vice City: Розыск» for those who came in time
+        if not db().execute("SELECT 1 FROM settings WHERE key='emoji_seed_dayone_v1'").fetchone():
+            if db().execute("SELECT 1 FROM emoji_collections WHERE id='wisecraft'").fetchone():
+                db().execute("INSERT INTO emoji_defs(id,title,description,media,enabled,position,created,poster,collection_id,rarity) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING",
+                             ('wisecraft-dayone', 'Day One', 'Вы были с самого первого дня: значок за звёзды розыска к выходу игры.', '/static/assets/emoji/wisecraft-dayone.svg', 1, 15, int(time.time()), '', 'wisecraft', 'legendary'))
+            db().execute("INSERT INTO settings(key,payload) VALUES('emoji_seed_dayone_v1','1') ON CONFLICT DO NOTHING")
+
     def media_kind(url):
         m = re.fullmatch(r'/media/shop/([0-9a-f]{32})', url or '')
         if m:
