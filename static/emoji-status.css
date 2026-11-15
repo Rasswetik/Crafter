@@ -67,3 +67,28 @@
 /* the bubble next to «УНИКАЛЬНЫЙ ЗНАЧОК»: as big as the two lines of the text, in the middle of them */
 .ep-kind{align-items:center}
 .ep-kind svg{width:clamp(44px,6vw,70px);height:auto;flex:none;align-self:center;filter:drop-shadow(0 3px 0 rgba(10,18,60,.5))}
+
+/* ---- v6: a calmer, richer page of a badge ---- */
+.ep-lot{gap:clamp(12px,4vw,70px)}
+.ep-hero{position:relative;max-height:min(66vh,560px)}
+.ep-hero::before{content:"";position:absolute;left:50%;top:48%;width:92%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.55),rgba(255,255,255,.18) 45%,transparent 70%);filter:blur(6px);animation:ep-breathe 4.6s ease-in-out infinite}
+.ep-hero::after{content:"";position:absolute;left:50%;bottom:-2%;width:58%;height:7%;transform:translateX(-50%);border-radius:50%;background:radial-gradient(ellipse,rgba(8,16,60,.5),transparent 70%);animation:ep-shadow 3.6s ease-in-out infinite}
+.ep-hero .ep-media,.ep-hero>img,.ep-hero>video{position:relative;z-index:1;animation:ep-float 3.6s ease-in-out infinite}
+@keyframes ep-float{50%{transform:translateY(-12px)}}
+@keyframes ep-shadow{50%{transform:translateX(-50%) scale(.84);opacity:.7}}
+@keyframes ep-breathe{50%{transform:translate(-50%,-50%) scale(1.07);opacity:.8}}
+.ep-panel{gap:16px;padding:clamp(14px,2.2vw,26px);border-radius:26px;background:linear-gradient(160deg,rgba(255,255,255,.16),rgba(255,255,255,.05));box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22),0 18px 40px rgba(6,20,80,.35);backdrop-filter:blur(6px)}
+.ep-coll{padding-bottom:12px;border-bottom:2px solid rgba(255,255,255,.18)}
+.ep-circle.is-big{box-shadow:inset 0 0 0 3px #fff,0 4px 12px rgba(0,0,0,.35)}
+.ep-kind{font-size:clamp(24px,4vw,44px)}
+.ep-desc{min-height:0}
+.ep-desc::before{display:none}
+.ep-desc span{display:inline-block;padding:9px 18px;border-radius:999px;background:rgba(8,18,70,.55);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16);font:700 clamp(15px,1.9vw,19px)/1.2 var(--sp-font,Inter,system-ui,sans-serif);text-shadow:none}
+.ep-in{gap:14px;padding-top:6px}
+.ep-in small{font-size:clamp(12px,1.4vw,14px);letter-spacing:.08em;color:#fff;opacity:.9}
+.ep-circle{width:clamp(44px,4.6vw,56px);height:clamp(44px,4.6vw,56px)}
+.ep-circle.is-this{position:relative;box-shadow:inset 0 0 0 3px #ffc933,0 0 14px rgba(255,201,51,.65)}
+.ep-circle.is-coll{box-shadow:inset 0 0 0 3px #38e08a,0 3px 8px rgba(0,0,0,.35)}
+.ep-circle{transition:transform .15s}.ep-circle:hover{transform:scale(1.08)}
+@media(max-width:760px){.ep-panel{padding:14px}.ep-hero::before{width:80%}}
+@media(prefers-reduced-motion:reduce){.ep-hero::before,.ep-hero::after,.ep-hero .ep-media,.ep-hero>img,.ep-hero>video{animation:none}}
