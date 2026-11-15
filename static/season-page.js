@@ -25,7 +25,7 @@ const DEFAULT_ICON = {                                            // the picture
     balls_spent: BALL, deposit: '/static/assets/gram.svg', deposit_gram: '/static/assets/gram.svg', stake: '/static/assets/gram.svg', market_sale: '/static/assets/gram.svg'};
 const icon = (key, size, metric) => {
     const url = /^\/(media\/shop\/[0-9a-f]{32}|static\/assets\/[\w./-]+)$/.test(key || '') ? key : (DEFAULT_ICON[metric] || BALL);
-    return '<span class="sp-ic" style="width:' + (size || 64) + 'px;height:' + (size || 64) + 'px"><img src="' + e(thumb(url, 240)) + '" alt="" loading="lazy"></span>';
+    return '<span class="sp-ic" style="width:' + (size || 64) + 'px;height:' + (size || 64) + 'px"><img src="' + e(thumb(url, Math.max(360, (size || 64) * 3))) + '" alt="" loading="lazy"></span>';
 };
 
 let S = null, tab = 'rewards', root = null, tick = 0, enter = true, justClaimed = new Set(), lastLevel = null, bound = false;
@@ -55,14 +55,14 @@ const rewardCell = (lv, track) => {
     const label = one(main) + more.map(r => ' + ' + one(r)).join('');
     const fresh = justClaimed.has(lv.level + '.' + track);
     return '<button type="button" class="sp-rw ' + track + ' ' + state + (fresh ? ' is-fresh' : '') + '" data-lv="' + lv.level + '" data-track="' + track + '" title="' + e(rs.map(r => r.title + (r.count > 1 ? ' ×' + r.count : '')).join(', ')) + '">' +
-        '<img class="sp-rw-img" src="' + e(prizeArt(main, 240)) + '" alt="" loading="lazy">' + (tokens ? '<span class="sp-rw-tok"><img src="' + BALL + '" alt=""><b>+' + num(tokens) + '</b></span>' : '') + more.map((r, k) => '<img class="sp-rw-more m' + k + '" src="' + e(prizeArt(r, 120)) + '" alt="">').join('') +
+        '<img class="sp-rw-img" src="' + e(prizeArt(main, 480)) + '" alt="" loading="lazy">' + (tokens ? '<span class="sp-rw-tok"><img src="' + BALL + '" alt=""><b>+' + num(tokens) + '</b></span>' : '') + more.map((r, k) => '<img class="sp-rw-more m' + k + '" src="' + e(prizeArt(r, 240)) + '" alt="">').join('') +
         '<b>' + e(label.trim()) + '</b>' + (side.claimed ? CHECK : state === 'is-locked' || state === 'is-nplus' ? '<i class="sp-lock">' + LOCK + '</i>' : '') + '</button>';
 };
 
 function questCard(q, big, i) {
     const pct = Math.max(q.progress > 0 ? 4 : 0, Math.min(100, Math.round(q.progress / q.target * 100)));
     const status = q.claimed ? 'is-claimed' : q.locked ? 'is-locked' : q.need_plus ? 'is-needplus' : q.done ? 'is-done' : '';
-    const chips = q.reward.map(r => '<span class="qc-chip"><img src="' + e(thumb(r.image, 90)) + '" alt=""><b>' + (r.kind === 'BALL' || r.kind === 'GRAM' ? num(r.amount) : r.count > 1 ? num(r.count) : '1') + '</b></span>').join('');
+    const chips = q.reward.map(r => '<span class="qc-chip"><img src="' + e(thumb(r.image, 180)) + '" alt=""><b>' + (r.kind === 'BALL' || r.kind === 'GRAM' ? num(r.amount) : r.count > 1 ? num(r.count) : '1') + '</b></span>').join('');
     const tag = q.opens_in ? '<span class="qc-tag is-time"><i></i>Откроется через ' + left(q.opens_in) + '</span>' : q.need_plus ? '<span class="qc-tag is-plus">' + LOCK + 'Только с Pass Plus</span>' : q.ends_in && q.kind !== 'daily' && q.kind !== 'weekly' && q.ends_in < 86400 * 14 ? '<span class="qc-tag is-time"><i></i>До конца ' + left(q.ends_in) + '</span>' : '';
     const canTake = q.done && !q.claimed && !q.locked && !q.need_plus;
     const bar = q.claimed ? '<div class="qc-bar is-got"><b>ПОЛУЧЕНО</b></div>' : q.locked ? '<div class="qc-bar is-lock">' + LOCK + '</div>' : canTake ? '<button type="button" class="qc-take" data-take="' + e(q.id) + '">ЗАБРАТЬ</button>' : '<div class="qc-bar"><i style="--w:' + pct + '%"></i><b>' + num(q.progress) + '/' + num(q.target) + '</b></div>';
@@ -123,7 +123,7 @@ function megaDeck() {
 function megaAll() {
     const list = S.quests.mega || [];
     const m = modal('<button type="button" class="sp-x" data-close aria-label="Закрыть">×</button><h2>МЕГАКВЕСТЫ</h2><p>Проходите квесты по порядку: следующий откроется после награды за этот.</p><div class="sp-megarow">' +
-        list.map((x, i) => (i ? '<i class="sp-mg-arrow"><svg viewBox="0 0 24 24"><path d="M5 6l7 6-7 6M13 6l7 6-7 6" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg></i>' : '') + questCard(x, true, i)).join('') + '</div>');
+        list.map((x, i) => '<div class="sp-mg-item"><i class="sp-mg-n">' + (i + 1) + '</i>' + questCard(x, innerWidth > 760, i) + '</div>').join('') + '</div>');
     m.querySelector('.sp-modal-box').classList.add('sp-megabox');
     m.addEventListener('click', ev => { const t = ev.target.closest('[data-take]'); if (t) { m.remove(); takeQuest(t.dataset.take, t); } });
 }

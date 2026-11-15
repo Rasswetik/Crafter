@@ -119,3 +119,20 @@
   .sq-mega .sp-deck{align-items:stretch!important;align-content:stretch!important}
   .sq-mega .sp-q.qc.is-big{transform:none!important;animation:none!important;height:auto!important;align-self:stretch}
 }
+
+/* the list of the mega quests: the cards stand in rows in the middle, numbered in the order of passing (no sideways scroll, no arrows) */
+.sp-megarow{display:flex!important;flex-wrap:wrap;justify-content:center;align-items:stretch;gap:26px 18px!important;overflow:visible!important;padding:18px 8px 10px!important}
+.sp-megarow .sp-mg-arrow{display:none!important}
+.sp-mg-item{position:relative;display:flex;width:230px}
+.sp-mg-item .sp-q{width:100%!important;flex:1}
+.sp-mg-n{position:absolute;left:-8px;top:-12px;z-index:5;display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#ffd45a;color:#3a2300;font:900 15px/1 var(--sp-font,system-ui);box-shadow:0 3px 8px rgba(0,0,0,.45),inset 0 0 0 2px #fff3c4;font-style:normal}
+.sp-megabox{max-height:92vh;overflow-y:auto}
+@media(max-width:760px){.sp-mg-item{width:100%}}
+@media(max-width:760px){
+  .sp-megarow .sp-mg-item .sp-q.qc{grid-template-columns:84px minmax(0,1fr);min-height:104px;text-align:left}
+  .sp-megarow .sp-mg-item .qc-ic{width:84px;height:76px}
+  .sp-megarow .sp-mg-item .qc-ic .sp-ic{width:76px!important;height:76px!important}
+  .sp-megarow .sp-mg-item .qc-ic .sp-ic img{max-width:76px!important;max-height:76px!important}
+  .sp-megarow .sp-mg-item .qc-title{font-size:15px!important;text-align:center}
+  .sp-megarow{gap:20px!important;padding:16px 4px 8px!important}
+}
