@@ -119,8 +119,8 @@ function clock(s, days) {
     return days && d ? d + ' дн. ' + h + ' ч.' : pad(h + d * 24) + ':' + pad(m) + ':' + pad(x);
 }
 function drawHub() {
-    root.innerHTML = hero() + playPanel() + '<nav class="is-tabs">' + [['play', 'Экспедиция'], ['relics', 'Реликвии'], ['leaders', 'Капитаны']].map(t => '<button type="button" data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>').join('') + '</nav>' +
-        (tab === 'play' ? rulesTab() : tab === 'relics' ? relicsTab() : leadersTab());
+    root.innerHTML = hero() + '<div class="is-cols"><div class="is-colL">' + playPanel() + '</div><div class="is-colR"><nav class="is-tabs">' + [['play', 'Экспедиция'], ['relics', 'Реликвии'], ['leaders', 'Капитаны']].map(t => '<button type="button" data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>').join('') + '</nav>' +
+        (tab === 'play' ? rulesTab() : tab === 'relics' ? relicsTab() : leadersTab()) + '</div></div>';
 }
 
 /* ---------- the run ---------- */
@@ -138,24 +138,40 @@ function mapSVG(run) {
     paths.push([curve(P(boss), [FIN.x, FIN.y * 16 / 9]), boss.state === 'done' ? 'done' : '']);
     return '<svg viewBox="0 0 100 177.78" preserveAspectRatio="none">' + paths.map(p => '<path class="' + p[1] + '" d="' + p[0] + '"/>').join('') + '</svg>';
 }
+function sidePanels(run, curRow) {
+    const hearts = Array.from({length: run.max_lives}, (_, i) => im(i < run.lives ? 'ui/heart_full' : 'ui/heart_empty')).join('');
+    const relics = run.relics.length ? run.relics.map(r => '<span class="is-mini" title="' + e(r.title + ': ' + r.text) + '"><img class="it" src="' + e(r.image) + '" alt="">' + im(FR[r.rarity], 'fr') + '</span>').join('') : '<span class="is-none">Реликвий нет: они находятся в экспедициях и надеваются на главной странице.</span>';
+    const bag = run.bag.length ? run.bag.map(r => rw(r)).join('') : '<span class="is-none">Пока пусто. Откройте сундук!</span>';
+    const legend = ['chest', 'trap', 'merchant', 'camp', 'riddle', 'event', 'elite', 'boss'].map(t => '<div class="is-lg">' + im('icons/i_' + t) + '<span><b>' + TYPE[t][0] + '</b>' + TYPE[t][1] + '</span></div>').join('');
+    return '<aside class="is-side is-l"><button type="button" class="is-back" data-back>‹ Выйти</button>' +
+        '<div class="is-sc is-who"><img class="ch" src="' + u('characters/goshan_explore') + '" alt=""><div><small>Экспедиция</small><b>Уровень ' + Math.min(8, curRow + 1) + ' из 8</b><span>Идите вверх: выберите светящееся место.</span></div></div>' +
+        '<div class="is-sc"><h4>Жизни <b>' + run.lives + ' из ' + run.max_lives + '</b></h4><div class="is-hearts big">' + hearts + '</div></div>' +
+        '<div class="is-sc"><h4>Удача <b>' + run.luck + '%</b></h4><div class="is-bar lucky"><i style="width:' + run.luck + '%"></i></div><small>Удача улучшает добычу и спасает от ловушек.</small></div>' +
+        '<div class="is-sc"><h4>Реликвии</h4><div class="is-minis">' + relics + '</div></div></aside>' +
+        '<aside class="is-side is-r"><div class="is-sc"><h4>Рюкзак <b>' + (run.bag_value ? num(run.bag_value) + ' ' + e(CURR.gen) : '') + '</b></h4><div class="is-chipline col">' + bag + '</div>' +
+        (run.bag.length ? '<small>Если жизни кончатся, вы потеряете около ' + run.death_loss + '% добычи.</small>' : '') + '</div>' +
+        '<button type="button" class="is-btn big" data-cashout' + (run.can_cashout ? '' : ' disabled') + '>Забрать добычу</button>' +
+        '<div class="is-sc"><h4>Что где</h4><div class="is-legend">' + legend + '</div></div></aside>';
+}
 function drawRun() {
     const run = H.run;
     const by = Object.fromEntries(run.nodes.map(n => [n.id, n]));
     const cur = by[run.pos];
     const spot = cur ? {x: nx(cur), y: ny(cur)} : START;
     const nodes = run.nodes.map(n => '<button type="button" class="is-node ' + n.state + (n.type === 'boss' ? ' big' : '') + '" data-node="' + n.id + '" style="left:' + nx(n) + '%;top:' + ny(n) + '%"' + (n.state === 'open' ? '' : ' tabindex="-1"') + ' aria-label="' + TYPE[n.type][0] + '">' +
-        im('nodes/' + n.type + '_' + n.state, 'n') + (n.state !== 'done' ? '<span class="lb">' + TYPE[n.type][0] + '</span>' : '') + '</button>').join('');
+        im('nodes/' + n.type + '_' + (n.state === 'done' ? 'done' : 'open'), 'n') + (n.state !== 'done' ? '<span class="lb">' + TYPE[n.type][0] + '</span>' : '') + '</button>').join('');
     const curRow = cur ? cur.row : 0;
     const rows = Array.from({length: 8}, (_, i) => '<span class="is-rn' + (i === 7 ? ' boss' : '') + (i === curRow ? ' cur' : '') + '" style="top:' + (i === 7 ? 19 : 82 - i * 8.6) + '%">' + (i === 7 ? 'Босс' : i + 1) + '</span>').join('');
     const hearts = Array.from({length: run.max_lives}, (_, i) => im(i < run.lives ? 'ui/heart_full' : 'ui/heart_empty')).join('');
     const from = lastBoat || spot;
     root.innerHTML = '<div class="is-run"><div class="is-hud"><div class="is-hearts">' + hearts + '</div><span class="is-depth">Уровень ' + Math.min(8, curRow + 1) + ' из 8</span><div class="is-luck">' + im('ui/luck_bar_frame', 'fr') + '<div class="fill"><i style="width:' + run.luck + '%"></i></div>' + im('ui/luck_clover', 'cl') + '</div>' +
         '<button type="button" class="is-bagbtn" data-bag aria-label="Рюкзак">' + im('ui/backpack_icon') + '<b>' + (run.bag.length ? num(run.bag_value) || run.bag.length : 0) + '</b></button><button type="button" class="is-exit" data-back>Выйти</button></div>' +
-        '<div class="is-scroll"><div class="is-canvas" id="is-canvas">' + mapSVG(run) + rows +
-        '<div class="is-node done" style="left:' + START.x + '%;top:' + START.y + '%;pointer-events:none">' + im('nodes/start_open', 'n') + '</div>' +
-        '<div class="is-node ' + (run.status === 'won' ? 'done' : 'locked') + ' big" style="left:' + FIN.x + '%;top:' + FIN.y + '%;pointer-events:none">' + im('nodes/finish_locked', 'n') + '</div>' + nodes +
+        sidePanels(run, curRow) +
+        '<div class="is-scroll"><div class="is-canvas" id="is-canvas">' + mapSVG(run) + rows + '<img class="is-compass" src="' + u('map/compass') + '" alt="" draggable="false"><img class="is-clouds" src="' + u('map/clouds') + '" alt="" draggable="false">' +
+        '<div class="is-node done start" style="left:' + START.x + '%;top:' + START.y + '%;pointer-events:none">' + im('nodes/start_open', 'n') + '</div>' +
+        '<div class="is-node ' + (run.status === 'won' ? 'done' : 'locked') + ' big" style="left:' + FIN.x + '%;top:' + FIN.y + '%;pointer-events:none">' + im('nodes/finish_open', 'n') + '</div>' + nodes +
         '<div class="is-boat" id="is-boat" style="left:' + from.x + '%;top:' + from.y + '%">' + im('map/boat') + '</div></div></div>' +
-        '<div class="is-dock"><p>Идите вверх по острову: выберите светящееся место. Цифры слева - уровни. Рюкзак: ' + (run.bag.length ? num(run.bag_value) + ' ' + e(CURR.gen) + (run.bag.some(i => i.kind !== 'BALL') ? ' и другое' : '') : 'пока пусто') + '.</p>' +
+        '<div class="is-dock"><p>Идите вверх по острову: выберите светящееся место. Рюкзак: ' + (run.bag.length ? num(run.bag_value) + ' ' + e(CURR.gen) + (run.bag.some(i => i.kind !== 'BALL') ? ' и другое' : '') : 'пока пусто') + '.</p>' +
         '<button type="button" class="is-btn" data-cashout' + (run.can_cashout ? '' : ' disabled') + '>Забрать добычу</button></div></div>';
     const boat = root.querySelector('#is-boat');
     lastBoat = spot;
