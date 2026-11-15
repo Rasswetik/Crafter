@@ -1,9 +1,8 @@
 /* Войны банд: Гошан против Николая (Vice City). Голубой цвет Гошана #27d3ff, розовый Николая #ff4fa8. */
 :root{--gp-pink:#ff4fa8;--gp-cyan:#27d3ff;--gp-violet:#8a45ff;--gp-gold:#ffc83a;--gp-deep:#14052e;--gp-card:#2b1252}
 html,body.gp-body{margin:0;height:auto!important;min-height:100%;overflow-y:visible!important;background:#14052e;color:#fff;font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif}
-body.gp-body{background:#14052e url(/static/assets/wanted/backgrounds/page_bg.webp) center top/cover fixed no-repeat;overflow-x:clip}
-body.gp-body::before,body.gp-body::after{content:"";position:fixed;top:12vh;bottom:0;width:min(20vw,240px);background:url(/static/assets/wanted/backgrounds/palms_left.webp) left bottom/contain no-repeat;pointer-events:none;opacity:.8;z-index:0}
-body.gp-body::before{left:0}body.gp-body::after{right:0;background-image:url(/static/assets/wanted/backgrounds/palms_right.webp);background-position:right bottom}
+body.gp-body{background:radial-gradient(900px 620px at 0% 0%,#27d3ff30,transparent 62%),radial-gradient(900px 620px at 100% 0%,#ff4fa830,transparent 62%),radial-gradient(700px 500px at 50% 100%,#8a45ff2e,transparent 70%),linear-gradient(#12042a,#1b0a3a 45%,#240f4a) fixed;overflow-x:clip}
+.gp-bg{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0;opacity:.6;pointer-events:none}
 #gp-app{position:relative;z-index:1;max-width:1040px;margin:0 auto;padding:max(10px,env(safe-area-inset-top)) 16px 90px}
 .gp-boot{padding:60px 0;text-align:center;opacity:.7}
 img{-webkit-user-drag:none}
@@ -12,13 +11,13 @@ img{-webkit-user-drag:none}
 .gp-state{padding:8px 14px;border-radius:999px;font:800 13px/1 inherit;background:#ffffff1c;color:#d9c8ff}.gp-state b{color:#fff;font-variant-numeric:tabular-nums}
 
 /* hero */
-.gp-hero{position:relative;border-radius:24px;overflow:hidden;box-shadow:0 18px 50px #0008,0 0 0 1px #ffffff22;height:clamp(220px,26vw,300px);background:#2b1252}
+.gp-hero{position:relative;border-radius:24px;overflow:hidden;box-shadow:0 18px 50px #0008,0 0 0 1px #ffffff22;height:clamp(170px,24vw,280px);background:linear-gradient(100deg,#27d3ff55,#2b1252 46%,#ff4fa855)}
 .gp-hero img{display:block;width:100%;height:100%;object-fit:cover}
-.gp-hero-text{position:absolute;inset:0 auto 0 0;width:48%;padding:0 5%;display:flex;flex-direction:column;justify-content:center;gap:10px}
+.gp-hero-text{position:absolute;inset:0;padding:0 6%;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;gap:8px}
 .gp-hero-text h1{margin:0;font:900 clamp(24px,4.4vw,48px)/1 'Arial Black',Inter,sans-serif;text-transform:uppercase;background:linear-gradient(#fff6b8,#ffc83a 55%,#ff8a3c);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 #2b1252) drop-shadow(0 0 14px #ff4fa8aa)}
 .gp-hero-text p{margin:0;font-weight:700;font-size:clamp(12px,1.4vw,16px);line-height:1.35;text-shadow:0 2px 6px #14052e}
 .gp-off{align-self:flex-start;padding:5px 10px;border-radius:99px;background:#ff2f55;font:800 11px/1 inherit}
-@media(max-width:720px){.gp-hero{height:auto;aspect-ratio:1200/1400;max-height:62vh}.gp-hero-text{inset:0 0 auto 0;width:auto;padding:6% 18px 0;align-items:center;text-align:center}.gp-hero-text h1{font-size:clamp(24px,8vw,38px)}}
+@media(max-width:720px){.gp-hero{height:auto;min-height:150px;aspect-ratio:1200/1000;max-height:56vh}.gp-hero-text{justify-content:flex-start;padding-top:6%}.gp-hero-text h1{font-size:clamp(24px,8vw,38px)}}
 
 /* claim banner */
 .gp-claim{display:flex;align-items:center;gap:14px;margin:14px 0 0;padding:14px 16px;border-radius:20px;background:linear-gradient(135deg,color-mix(in srgb,var(--gc) 32%,#2b1252),#2b1252);box-shadow:inset 0 0 0 2px var(--gc),0 10px 30px #0006}
@@ -100,3 +99,6 @@ img{-webkit-user-drag:none}
 .gp-cols{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:700px){.gp-cols{grid-template-columns:1fr}}
 .gp-col{display:grid;gap:8px;align-content:start}.gp-col h4{margin:0;padding:8px 12px;border-radius:12px;background:color-mix(in srgb,var(--gc) 30%,#2b1252);color:#fff;font:900 15px/1 inherit}
 @media(prefers-reduced-motion:reduce){.gp-tug .spark{animation:none}.gp-tug i,.gp-bar i{transition:none}}
+
+.gp-d{position:relative;overflow:hidden}.gp-d>.art{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.3;z-index:0;pointer-events:none}.gp-d>*:not(.art){position:relative;z-index:1}
+.gp-hero-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}.gp-hero-text{z-index:1}

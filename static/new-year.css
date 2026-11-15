@@ -128,7 +128,7 @@
 .nyh-wanted.is-off{filter:saturate(.6) brightness(.85)}
 .ny-hubpage .sh-head{order:-3}.ny-hubpage .nyh-market{order:-2}.ny-hubpage .nyh-wanted{order:-1}      /* the event stands right under the market button */
 .ny-hubpage .nyh-wanted .nyh-copy strong{text-shadow:none !important}
-.nyh-gangs{position:relative;overflow:hidden;color:#fff;background:#14052e url(/static/assets/wanted/key_art/banner_wide.webp) right center/cover no-repeat !important;box-shadow:0 14px 40px rgba(20,5,46,.6),inset 0 0 0 1.5px #27d3ff66,inset 0 0 0 3px #ff4fa822 !important}
+.nyh-gangs{position:relative;overflow:hidden;color:#fff;background:url(/static/assets/gangs/hub_card.webp) right center/cover no-repeat,linear-gradient(100deg,#0e4a63,#14052e 50%,#6b1b4a) !important;box-shadow:0 14px 40px rgba(20,5,46,.6),inset 0 0 0 1.5px #27d3ff66,inset 0 0 0 3px #ff4fa822 !important}
 .nyh-gangs::before{background:linear-gradient(90deg,rgba(20,5,46,.92) 0,rgba(20,5,46,.6) 46%,transparent 74%) !important}
 .nyh-gangs .nyh-copy{position:relative;z-index:2}.nyh-gangs .nyh-copy small{color:#27d3ff;font-weight:900}
 .nyh-gangs .nyh-copy strong{font-family:'Arial Black',Inter,sans-serif;text-transform:uppercase;background:linear-gradient(90deg,#7ee8ff,#ff9bd0);-webkit-background-clip:text;background-clip:text;color:transparent !important;text-shadow:none !important}

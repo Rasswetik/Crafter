@@ -49,7 +49,7 @@ function versus() {
 function districts() {
     return '<section class="gp-sec"><h3>Районы Вайс-Сити <small>район получает та банда, у которой в нём больше очков</small></h3><div class="gp-dist">' + S.districts.map(d => {
         const total = d.goshan + d.nikolay, pl = total ? Math.round(d.goshan / total * 100) : 50;
-        return '<article class="gp-d' + (d.owner ? ' own-' + d.owner : '') + '"><div class="gp-d-top"><img src="' + W + ICON[d.key] + '.webp" alt=""><div><b>' + e(d.title) + '</b><small>' + e(d.hint) + '</small></div>' +
+        return '<article class="gp-d' + (d.owner ? ' own-' + d.owner : '') + '"><img class="art" src="' + G + 'district_' + d.key + '.webp" onerror="this.remove()" alt=""><div class="gp-d-top"><img src="' + W + ICON[d.key] + '.webp" alt=""><div><b>' + e(d.title) + '</b><small>' + e(d.hint) + '</small></div>' +
             '<span class="gp-owner' + (d.owner ? ' is-' + d.owner : '') + '">' + (d.owner ? e(gang(d.owner).name) : 'Свободен') + '</span></div>' +
             '<div class="gp-bar"><i class="l" style="width:' + (total ? pl : 50) + '%"></i><i class="r" style="width:' + (total ? 100 - pl : 50) + '%"></i></div>' +
             '<div class="gp-d-n"><span style="color:' + COLOR.goshan + '">' + num(d.goshan) + '</span><span style="color:' + COLOR.nikolay + '">' + num(d.nikolay) + '</span></div></article>';
@@ -95,7 +95,7 @@ function draw() {
     if (!S) return;
     if (!S.enabled && !S.admin) { root.innerHTML = top() + '<section class="gp-sec"><h3>Войны банд скоро начнутся</h3><p class="gp-lead">Следите за новостями раздела «События».</p></section>'; return; }
     const tabs = [['prizes', 'Награды'], ['leaders', 'Топ'], ['rules', 'Правила']];
-    root.innerHTML = top() + '<section class="gp-hero"><picture><source media="(max-width:720px)" srcset="' + W + 'key_art/banner_mobile.webp"><img src="' + W + 'key_art/banner_wide.webp" alt="" draggable="false"></picture><div class="gp-hero-text"><h1>' + e(S.title) + '</h1><p>' + e(S.subtitle || '') + '</p>' + (!S.enabled ? '<span class="gp-off">Выключено: видно только вам</span>' : '') + '</div></section>' +
+    root.innerHTML = '<img class="gp-bg" src="' + G + 'bg.webp" onerror="this.remove()" alt="">' + top() + '<section class="gp-hero"><picture><source media="(max-width:720px)" srcset="' + G + 'versus_mobile.webp"><img class="gp-hero-img" src="' + G + 'versus_wide.webp" onerror="this.closest(\'picture\').remove()" alt="" draggable="false"></picture><div class="gp-hero-text"><h1>' + e(S.title) + '</h1><p>' + e(S.subtitle || '') + '</p>' + (!S.enabled ? '<span class="gp-off">Выключено: видно только вам</span>' : '') + '</div></section>' +
         claims() + versus() + districts() + mine() + '<nav class="gp-tabs">' + tabs.map(t => '<button type="button" data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>').join('') + '</nav>' +
         (tab === 'prizes' ? prizesTab() : tab === 'leaders' ? leadersTab() : rulesTab());
 }
