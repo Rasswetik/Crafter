@@ -33,6 +33,7 @@ function gangCard(x, side) {
     const other = gang(x.id === 'goshan' ? 'nikolay' : 'goshan');
     const crowd = x.members > other.members;
     return '<article class="gp-gang is-' + x.id + (mine ? ' is-mine' : '') + '" style="--gc:' + x.color + '">' +
+        '<img class="emb" src="' + G + 'emblem_' + x.id + '.png" onerror="this.remove()" alt="" draggable="false">' +
         '<div class="gp-gang-art">' + pic(x.id + '_crossed.png', 'characters/' + x.id + '_point.webp', 'ch') + '</div>' +
         '<div class="gp-gang-body"><span class="gp-tag">' + (mine ? 'Ваша банда' : 'Банда') + '</span><h2>' + e(x.name) + '</h2><p>' + e(x.slogan || '') + '</p>' +
         '<div class="gp-score"><b>' + num(x.points) + '</b><small>очков</small></div>' +
@@ -69,7 +70,7 @@ function mine() {
 function claims() {
     const rows = S.claims.filter(c => !c.claimed && c.rewards.length);
     if (!rows.length) return '';
-    return rows.map(c => '<section class="gp-claim is-' + c.gang + '" style="--gc:' + COLOR[c.gang] + '"><img src="' + W + 'ui/reward_crate.webp" alt=""><div><b>Война ' + e(c.war) + ' завершена: ' + (c.draw ? 'ничья' : c.won ? 'ваша банда победила!' : 'ваша банда проиграла, но вклад засчитан') + '</b><small>Очков: ' + num(c.points) + (c.districts ? ', районов: ' + c.districts : '') + (c.top ? ', место в топе: ' + c.top : '') + '</small>' + chips(c.rewards) + '</div>' +
+    return rows.map(c => '<section class="gp-claim is-' + c.gang + '" style="--gc:' + COLOR[c.gang] + '">' + pic(c.gang + (c.won ? '_cheer.png' : '_sad.png'), 'ui/reward_crate.webp', 'pose') + '<div><b>Война ' + e(c.war) + ' завершена: ' + (c.draw ? 'ничья' : c.won ? 'ваша банда победила!' : 'ваша банда проиграла, но вклад засчитан') + '</b><small>Очков: ' + num(c.points) + (c.districts ? ', районов: ' + c.districts : '') + (c.top ? ', место в топе: ' + c.top : '') + '</small>' + chips(c.rewards) + '</div>' +
         '<button type="button" class="gp-btn" data-claim="' + e(c.war) + '">Забрать</button></section>').join('');
 }
 function prizesTab() {
