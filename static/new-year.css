@@ -128,3 +128,11 @@
 .nyh-wanted.is-off{filter:saturate(.6) brightness(.85)}
 .ny-hubpage .sh-head{order:-3}.ny-hubpage .nyh-market{order:-2}.ny-hubpage .nyh-wanted{order:-1}      /* the event stands right under the market button */
 .ny-hubpage .nyh-wanted .nyh-copy strong{text-shadow:none !important}
+.nyh-island{position:relative;overflow:hidden;color:#fff;background:#0b3a5c url(/static/assets/island/key_art/hub_card.webp) right center/cover no-repeat !important;box-shadow:0 14px 40px rgba(11,58,92,.55),inset 0 0 0 1.5px #ffc83a88 !important}
+.nyh-island::before{background:linear-gradient(90deg,rgba(11,58,92,.92) 0,rgba(11,58,92,.55) 44%,transparent 72%) !important}
+.nyh-island .nyh-copy{position:relative;z-index:2}.nyh-island .nyh-copy small{color:#ffd96a;font-weight:900}
+.nyh-island .nyh-copy strong{font-family:'Arial Black',Inter,sans-serif;color:#fff !important;text-shadow:0 2px 0 #0b3a5c !important}
+.nyh-island em{display:block;margin-top:2px;font-style:normal;font-weight:800}
+.nyh-island .sh-open{background:linear-gradient(#ffd96a,#ffb92a);color:#4a2a0c}
+.nyh-island.is-off{filter:saturate(.6) brightness(.85)}
+.ny-hubpage .nyh-island{order:0}
