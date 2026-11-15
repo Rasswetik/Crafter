@@ -136,3 +136,19 @@
   .sp-megarow .sp-mg-item .qc-title{font-size:15px!important;text-align:center}
   .sp-megarow{gap:20px!important;padding:16px 4px 8px!important}
 }
+
+/* ---- the head of the pass: one clean font, a segmented switch of the tabs, a calm bar of the level ---- */
+.sp-root .sp-head,.sp-root .sp-head *{font-family:var(--sp-font,Inter,"Segoe UI",system-ui,sans-serif)}
+.sp-root .sp-tabs{align-self:center;display:flex;gap:4px;padding:4px;border-radius:15px;background:rgba(8,12,44,.62);box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.sp-root .sp-tabs button{position:relative;min-width:128px;padding:11px 26px!important;border:0!important;border-radius:11px!important;background:transparent!important;color:#c9d4f5;font:800 14px/1 var(--sp-font,Inter,system-ui)!important;letter-spacing:.08em;text-transform:uppercase;text-shadow:none!important;box-shadow:none;transition:background .2s,color .2s,transform .15s}
+.sp-root .sp-tabs button:hover{transform:none;color:#fff;background:rgba(255,255,255,.08)!important}
+.sp-root .sp-tabs button.is-on{background:linear-gradient(#ffb04a,#ff8a1f)!important;color:#fff;box-shadow:0 4px 14px rgba(255,138,31,.45)}
+.sp-root .sp-lvrow{width:min(100%,760px);gap:14px}
+.sp-root .sp-lvbadge{width:50px;height:50px;border:3px solid rgba(255,255,255,.9);background:radial-gradient(circle at 35% 30%,#fff,#dfe5ff);font:900 22px/1 var(--sp-font,Inter,system-ui);box-shadow:0 3px 10px rgba(0,0,0,.4)}
+.sp-root .sp-xp-track{height:30px;border:0;border-radius:15px;background:rgba(8,12,44,.78);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14)}
+.sp-root .sp-xp-track i{border-radius:15px}
+.sp-root .sp-xp-track b{font:800 13px/1 var(--sp-font,Inter,system-ui);-webkit-text-stroke:0;paint-order:normal;color:#fff;text-shadow:0 1px 4px rgba(0,0,0,.7);letter-spacing:.02em}
+.sp-root .sp-ends{font:700 12px/1.3 var(--sp-font,Inter,system-ui);color:#cfe3ff;text-shadow:none}.sp-root .sp-ends b{color:#fff;font-weight:800}
+.sp-root .sp-nextbox small{font:700 11px/1 var(--sp-font,Inter,system-ui);color:#e4ecff;opacity:1}
+.sp-root .sp-next{width:46px;height:46px}
+.sp-root .sp-wallet .sp-w b,.sp-root .sp-buylvl,.sp-root .sp-claimall,.sp-root .sp-back{font-family:var(--sp-font,Inter,system-ui)!important}
