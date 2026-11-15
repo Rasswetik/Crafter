@@ -181,7 +181,7 @@ def install_wanted(app, db, auth, audit):
         return {'enabled': bool(cfg['enabled']), 'active': active(cfg, now), 'title': cfg['title'], 'subtitle': cfg['subtitle'], 'now': now, 'starts_at': cfg['starts_at'], 'ends_at': cfg['ends_at'],
                 'release_at': cfg['release_at'], 'released': bool(cfg['release_at'] and now >= cfg['release_at']), 'level': level, 'missions': out, 'stars': stars,
                 'bonus': {'mult': mult, 'until': cfg['release_at'] + int(cfg['bonus_hours']) * 3600 if mult > 1 else 0}, 'day_one': {'stars': int(cfg['day_one_stars']), 'got': d1, 'badge': em},
-                'leader_prizes': cfg['leader_prizes']}
+                'leader_prizes': cfg['leader_prizes'], 'admin': bool(getattr(g, 'is_admin', False))}
 
     @app.get('/api/wanted')
     @auth()

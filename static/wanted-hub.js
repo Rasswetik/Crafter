@@ -6,18 +6,19 @@ async function hubCard(main) {
     let r;
     try { r = await api('wanted'); } catch (_) { return; }
     const page = main.querySelector('.ny-hubpage');
-    if (!page || !r.enabled || page.querySelector('.nyh-wanted')) return;
+    if (!page || page.querySelector('.nyh-wanted') || (!r.enabled && !r.admin)) return;      // a switched-off event is shown only to the administrator
     const left = r.release_at - r.now;
-    const when = left > 0 ? 'До выхода игры: ' + (Math.floor(left / 86400) ? Math.floor(left / 86400) + ' дн. ' : '') + Math.floor(left % 86400 / 3600) + ' ч.' : 'Игра вышла';
+    const days = Math.floor(left / 86400), hours = Math.floor(left % 86400 / 3600);
+    const when = !r.enabled ? 'Выключено: видно только вам' : left > 0 ? 'До выхода игры: ' + (days ? days + ' дн. ' : '') + hours + ' ч.' : 'Игра вышла!';
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = 'nyh-card nyh-wanted';
+    b.className = 'nyh-card nyh-wanted' + (r.enabled ? '' : ' is-off');
     b.setAttribute('aria-label', r.title);
-    b.innerHTML = '<img class="nyh-wanted-art" src="/static/assets/wanted/key_art/tile_art.webp" alt="" draggable="false"><span class="nyh-copy"><small>СОБЫТИЕ · РОЗЫСК</small><strong>' + e(r.title) + '</strong><em>' + e(when) + '</em>' +
-        '<span class="nyh-wstars">' + [1, 2, 3, 4, 5].map(i => '<i class="' + (i <= r.level ? 'on' : '') + '">★</i>').join('') + '</span></span><span class="sh-open">Открыть <b>›</b></span>';
+    b.innerHTML = '<span class="nyh-copy"><small>СОБЫТИЕ</small><strong>' + e(r.title) + '</strong><em>' + e(when) + '</em>' +
+        '<span class="nyh-wstars" aria-label="Уровень розыска ' + r.level + ' из 5">' + [1, 2, 3, 4, 5].map(i => '<i class="' + (i <= r.level ? 'on' : '') + '">★</i>').join('') + '</span></span><span class="sh-open">Открыть <b>›</b></span>';
     b.addEventListener('click', () => location.assign('/season/wanted'));
-    const first = page.querySelector('.nyh-card');
-    if (first) first.before(b); else page.prepend(b);
+    const market = page.querySelector('.nyh-market');                                       // right under the market button
+    if (market) market.after(b); else page.querySelector('.sh-head')?.after(b);
 }
 window.crafterWanted = {hubCard};
 })();

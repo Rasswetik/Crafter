@@ -116,9 +116,15 @@
 .nyh-card.has-custom-bg .nyh-copy,.nyh-card.has-custom-bg .nyh-go{position:relative;z-index:2}
 .ny-admin-points{display:flex;gap:10px;align-items:center}.ny-admin-points input{width:140px}
 
-/* the card of the event «Vice City: Розыск» */
-.nyh-wanted{position:relative;overflow:hidden;background:linear-gradient(120deg,#14052e,#4a1d96 55%,#ff4fa8) !important;color:#fff}
-.nyh-wanted .nyh-wanted-art{position:absolute;right:-2%;top:50%;height:150%;transform:translateY(-50%);pointer-events:none;filter:drop-shadow(0 6px 14px #0007)}
-.nyh-wanted .nyh-copy{position:relative;z-index:1}
-.nyh-wanted em{display:block;margin-top:4px;font-style:normal;font-weight:700;opacity:.9}
-.nyh-wstars{display:flex;gap:3px;margin-top:8px}.nyh-wstars i{font-style:normal;font-size:20px;color:#ffffff40}.nyh-wstars i.on{color:#ffc83a;text-shadow:0 0 10px #ffc83a}
+/* the card of the event «Vice City: Розыск»: the banner of the event, the text on its calm left side */
+.nyh-wanted{position:relative;overflow:hidden;color:#fff;background:#14052e url(/static/assets/wanted/key_art/banner_wide.webp) right center/cover no-repeat !important;box-shadow:0 14px 40px rgba(20,5,46,.6),inset 0 0 0 1.5px #ff4fa866 !important}
+.nyh-wanted::before{background:linear-gradient(90deg,rgba(20,5,46,.9) 0,rgba(20,5,46,.55) 44%,transparent 72%) !important}
+.nyh-wanted .nyh-copy{position:relative;z-index:2}
+.nyh-wanted .nyh-copy small{color:#ff8ac8;font-weight:900}
+.nyh-wanted .nyh-copy strong{font-family:'Arial Black',Inter,sans-serif;text-transform:uppercase;background:linear-gradient(#fff6b8,#ffc83a 55%,#ff8a3c);-webkit-background-clip:text;background-clip:text;color:transparent !important;filter:drop-shadow(0 2px 0 #2b1252)}
+.nyh-wanted em{display:block;margin-top:2px;font-style:normal;font-weight:800}
+.nyh-wstars{display:flex;gap:3px;margin-top:6px}.nyh-wstars i{font-style:normal;font-size:22px;line-height:1;color:#ffffff40}.nyh-wstars i.on{color:#ffc83a;text-shadow:0 0 10px #ffc83a}
+.nyh-wanted .sh-open{background:linear-gradient(135deg,#ff4fa8,#8a45ff);color:#fff}
+.nyh-wanted.is-off{filter:saturate(.6) brightness(.85)}
+.ny-hubpage .sh-head{order:-3}.ny-hubpage .nyh-market{order:-2}.ny-hubpage .nyh-wanted{order:-1}      /* the event stands right under the market button */
+.ny-hubpage .nyh-wanted .nyh-copy strong{text-shadow:none !important}
