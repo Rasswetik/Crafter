@@ -105,3 +105,19 @@
 .wa-reset{display:flex;gap:8px;max-width:360px}.wa-card>small{opacity:.55}
 .wa-save{position:sticky;bottom:12px;display:flex;justify-content:flex-end;padding:10px;border-radius:16px;background:#14052ee6;backdrop-filter:blur(8px)}
 .wa-save .primary{min-width:200px}
+
+/* the prizes of the event «Розыск»: cards with pictures from the real catalog */
+.wa-cells{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.wa-cell{position:relative;display:grid;justify-items:center;align-content:center;gap:2px;width:92px;padding:10px 6px 8px;border-radius:14px;background:#ffffff10;box-shadow:inset 0 0 0 1px #ffffff26;text-align:center}
+.wa-cell img{width:46px;height:46px;object-fit:contain}.wa-cell b{font-size:11px;line-height:1.15;max-height:2.4em;overflow:hidden}.wa-cell small{font-size:11px;opacity:.7}
+.wa-nft{display:grid;place-items:center;width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,#8a45ff,#ff4fa8);font:900 12px/1 inherit}
+.wa-x{position:absolute;right:4px;top:4px;width:20px;height:20px;padding:0;border-radius:50%;border:0;background:#0006;color:#fff;line-height:1;cursor:pointer}
+.wa-plus{display:grid;place-items:center;align-content:center;gap:0;width:92px;min-height:96px;border-radius:14px;border:2px dashed #ffffff40;background:transparent;color:inherit;cursor:pointer}
+.wa-plus span{font-size:28px;line-height:1}.wa-plus small{font-size:11px;opacity:.7}.wa-plus:hover{border-color:#ff4fa8;background:#ff4fa81a}
+.wa-lab{display:block;margin-bottom:8px;font-size:13px;opacity:.8}
+.wa-stars{display:grid;gap:14px}.wa-star{display:grid;gap:8px}.wa-star>b{color:#ffc83a;letter-spacing:2px}
+.wa-inline{max-width:320px;margin-bottom:12px}
+.wa-places{display:grid;gap:10px}.wa-place{display:flex;gap:12px;align-items:flex-start}.wa-place-n{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ffc83a,#ff8a3c);color:#3a2300;font:900 15px/1 inherit}.wa-place-b{flex:1}
+.wa-pay{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-top:16px;padding:14px;border-radius:14px;background:#ffc83a1c;box-shadow:inset 0 0 0 1px #ffc83a66}
+.wa-pay b{display:block}.wa-pay small{opacity:.75}
+.wa-paid{display:grid;gap:4px;margin-top:16px;padding:14px;border-radius:14px;background:#38e08a1f;box-shadow:inset 0 0 0 1px #38e08a88}.wa-paid span{font-size:13px;opacity:.85}.wa-paid button{justify-self:start;margin-top:8px}

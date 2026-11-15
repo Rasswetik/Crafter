@@ -8,9 +8,9 @@ from test_pass import add_history
 
 def setup_event(client, admin, **over):
     cfg = client.get('/api/admin/wanted', headers=admin).json['settings']
-    cfg.update(enabled=True, starts_at='', ends_at='', release_at='2030-01-01 00:00', leader_prizes=cfg['leader_prizes'])
+    cfg.update(enabled=True, starts_at='', ends_at='', release_at='2030-01-01 00:00')
     cfg.update(over)
-    res = client.post('/api/admin/wanted', headers=admin, json={'settings': {k: cfg[k] for k in ('enabled', 'title', 'subtitle', 'starts_at', 'ends_at', 'release_at', 'day_one_stars', 'bonus_mult', 'bonus_hours', 'leader_prizes')}})
+    res = client.post('/api/admin/wanted', headers=admin, json={'settings': {k: cfg[k] for k in ('enabled', 'title', 'subtitle', 'starts_at', 'ends_at', 'release_at', 'day_one_stars', 'bonus_mult', 'bonus_hours', 'leader_places', 'leader_rewards')}})
     assert res.status_code == 200, res.get_data(as_text=True)
     return res.json
 
@@ -56,7 +56,7 @@ def test_leaders_progress_and_reset(client):
     time.sleep(1.1)
     add_history(client, 73, 'arena_result', {}, n=2)
     leaders = client.get('/api/wanted/leaders', headers=player).json
-    assert leaders['me']['points'] == 6 and leaders['leaders'][0]['points'] >= 6 and len(leaders['prizes']) == 3
+    assert leaders['me']['points'] == 6 and leaders['leaders'][0]['points'] >= 6 and len(leaders['prizes']) == 3 and leaders['prizes']['1'][0]['kind'] == 'BALL'
     add_history(client, 73, 'pack_open', {'pack': 'vicecity'}, n=3)
     assert client.post('/api/wanted/claim', headers=player, json={'mission_id': 'first_theft'}).status_code == 200
     assert client.post('/api/admin/wanted/reset', headers=admin, json={'user_id': 73}).json['removed'] == 1
@@ -70,7 +70,8 @@ def test_admin_edits_missions_and_rewards_are_checked(client):
     assert client.post('/api/admin/wanted', headers=admin, json={'missions': [dict(missions[0], reward='Кошка 5')]}).status_code == 400
     assert client.post('/api/admin/wanted', headers=admin, json={'missions': [dict(missions[0], metric='nothing')]}).status_code == 400
     ok = client.post('/api/admin/wanted', headers=admin, json={'missions': [dict(missions[0], reward='Шары 7'), dict(missions[1], title='Новая тачка')], 'stars': [{'star': 1, 'reward': 'Шары 5'}]})
-    assert ok.status_code == 200 and len(ok.json['missions']) == 2 and ok.json['missions'][0]['reward'] == 'Шары 7' and ok.json['stars'][0]['reward'] == 'Шары 5'
+    assert ok.status_code == 200 and len(ok.json['missions']) == 2
+    assert ok.json['missions'][0]['reward'] == [{'kind': 'BALL', 'amount': '7', 'count': 1}] and ok.json['stars'][0]['reward'] == [{'kind': 'BALL', 'amount': '5', 'count': 1}]
 
 
 def test_day_one_badge_goes_to_those_with_enough_stars_at_the_release(client):
@@ -88,3 +89,27 @@ def test_day_one_badge_goes_to_those_with_enough_stars_at_the_release(client):
     time.sleep(5)
     assert client.get('/api/wanted', headers=player).json['day_one']['got'] is True
     assert client.get('/api/wanted', headers=late).json['day_one']['got'] is False
+
+
+def test_top_prizes_come_from_the_catalog_and_are_paid_once(client):
+    admin, first, second = signed(42), signed(76), signed(77)
+    for h in (first, second):
+        client.get('/api/me', headers=h)
+    setup_event(client, admin)
+    time.sleep(1.1)
+    add_history(client, 76, 'arena_result', {}, n=4)
+    add_history(client, 77, 'arena_result', {}, n=1)
+    cfg = client.get('/api/admin/wanted', headers=admin).json['settings']
+    base = {k: cfg[k] for k in ('enabled', 'title', 'subtitle', 'starts_at', 'ends_at', 'release_at', 'day_one_stars', 'bonus_mult', 'bonus_hours')}
+    base.update(starts_at=None, ends_at=None, release_at=None)
+    bad = dict(base, leader_places=2, leader_rewards={'1': [{'kind': 'PACK', 'amount': 'no-such-pack', 'count': 1}]})
+    assert client.post('/api/admin/wanted', headers=admin, json={'settings': bad}).status_code == 400          # only real packs
+    good = dict(base, leader_places=2, leader_rewards={'1': [{'kind': 'BALL', 'amount': '500', 'count': 1}, {'kind': 'EMOJI', 'amount': 'wisecraft-cash', 'count': 1}], '2': [{'kind': 'BALL', 'amount': '50', 'count': 1}]})
+    saved = client.post('/api/admin/wanted', headers=admin, json={'settings': good})
+    assert saved.status_code == 200, saved.get_data(as_text=True)
+    assert [t['user_id'] for t in saved.json['top']][:2] == ['76', '77']
+    paid = client.post('/api/admin/wanted/payout', headers=admin, json={})
+    assert paid.status_code == 200 and [p['place'] for p in paid.json['payouts']] == [1, 2]
+    assert client.post('/api/admin/wanted/payout', headers=admin, json={}).status_code == 409                # only once
+    assert client.get('/api/wanted/leaders', headers=first).json['paid'] is True
+    assert client.post('/api/admin/wanted/payout/reset', headers=admin, json={}).json['payouts'] == []

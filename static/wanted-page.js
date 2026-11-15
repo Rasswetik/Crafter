@@ -77,9 +77,10 @@ function leadersTab() {
     const medals = ['medal_gold', 'medal_silver', 'medal_bronze'];
     const rows = L.leaders.map(r => '<div class="wp-lr' + (r.rank <= 3 ? ' top' : '') + '">' + (r.rank <= 3 ? '<img class="wp-medal" src="' + A + 'ui/' + medals[r.rank - 1] + '.webp" alt="">' : '<b class="wp-rank">' + r.rank + '</b>') +
         (r.photo ? '<img class="wp-ava" src="' + e(r.photo) + '" alt="">' : '<span class="wp-ava">' + e((r.name || '?')[0]) + '</span>') + '<span class="wp-nm">' + e(r.name) + (r.emoji ? ' ' + media(r.emoji, 'wp-em') : '') + '</span><strong>' + num(r.points) + '</strong></div>').join('');
-    const prizes = (L.prizes || []).map((p, i) => '<span class="wp-pz"><img src="' + A + 'ui/' + medals[i] + '.webp" alt=""><b>' + e(p) + '</b></span>').join('');
+    const pz = L.prizes || {};
+    const prizes = Object.keys(pz).filter(k => (pz[k] || []).length).map(k => '<div class="wp-pz"><span class="wp-pz-n">' + (Number(k) <= 3 ? '<img src="' + A + 'ui/' + medals[Number(k) - 1] + '.webp" alt="">' : '<b>' + k + '</b>') + '</span><span class="wp-pz-r">' + pz[k].map(rewardChip).join('') + '</span></div>').join('');
     return '<div class="wp-lead-head"><img src="' + A + 'ui/trophy.webp" alt=""><div><h2>Король Вайс-Сити</h2><p>Очки за активность во время события: раунд арены ×3, открытие пака, апгрейд и крафт ×2, покупки и продажи ×1.</p></div></div>' +
-        (prizes ? '<div class="wp-pzs">' + prizes + '</div>' : '') +
+        (prizes ? '<h2 class="wp-h">Призы</h2><div class="wp-pzs">' + prizes + '</div>' + (L.paid ? '<p class="wp-none">Награды лидерам уже выданы.</p>' : '') : '') +
         (L.me ? '<div class="wp-me">Вы на ' + L.me.rank + ' месте · ' + num(L.me.points) + ' очков</div>' : '<div class="wp-me">Пока у вас нет очков: сыграйте или откройте пак.</div>') +
         '<div class="wp-lrows">' + (rows || '<p class="wp-none">Пока никого. Станьте первым!</p>') + '</div>';
 }

@@ -44,7 +44,7 @@ def default_release():
 def default_settings():
     return {'enabled': False, 'title': 'Vice City: Розыск', 'subtitle': 'Проходите миссии, получайте звёзды розыска и награды до выхода игры.',
             'starts_at': 0, 'ends_at': 0, 'release_at': default_release(), 'day_one_stars': 3, 'bonus_mult': 2, 'bonus_hours': 24,
-            'leader_prizes': ['Гифт и 5 000 GRAM', '2 500 GRAM', '1 000 GRAM']}
+            'leader_places': 3, 'leader_rewards': {'1': [{'kind': 'BALL', 'amount': '5000', 'count': 1}], '2': [{'kind': 'BALL', 'amount': '2500', 'count': 1}], '3': [{'kind': 'BALL', 'amount': '1000', 'count': 1}]}}
 
 
 def install_wanted(app, db, auth, audit):
@@ -56,6 +56,9 @@ def install_wanted(app, db, auth, audit):
                 image TEXT NOT NULL DEFAULT '', enabled BIGINT NOT NULL DEFAULT 1
             );
             CREATE TABLE IF NOT EXISTS wanted_stars (star BIGINT PRIMARY KEY, reward TEXT NOT NULL DEFAULT '[]');
+            CREATE TABLE IF NOT EXISTS wanted_payouts (
+                place BIGINT PRIMARY KEY, user_id BIGINT NOT NULL, points BIGINT NOT NULL, reward TEXT NOT NULL DEFAULT '[]', created BIGINT NOT NULL
+            );
             CREATE TABLE IF NOT EXISTS wanted_claims (
                 user_id BIGINT NOT NULL, mission_id TEXT NOT NULL, created BIGINT NOT NULL, PRIMARY KEY(user_id, mission_id)
             );
@@ -94,6 +97,15 @@ def install_wanted(app, db, auth, audit):
         except ValueError:
             return []
         return [x for x in data if isinstance(x, dict) and x.get('kind')]
+
+    def rewards_in(raw, where):
+        """Prizes from the admin: a list from the picker (checked against the real catalog) or a text like «Шары 100; Пак vicecity»."""
+        if isinstance(raw, list):
+            return app.extensions['crafter_reward_clean'](raw)
+        try:
+            return parse_rewards(raw, where)
+        except ValueError as err:
+            abort(400, description=str(err))
 
     def described(rewards, mult=1):
         out = []
@@ -181,7 +193,7 @@ def install_wanted(app, db, auth, audit):
         return {'enabled': bool(cfg['enabled']), 'active': active(cfg, now), 'title': cfg['title'], 'subtitle': cfg['subtitle'], 'now': now, 'starts_at': cfg['starts_at'], 'ends_at': cfg['ends_at'],
                 'release_at': cfg['release_at'], 'released': bool(cfg['release_at'] and now >= cfg['release_at']), 'level': level, 'missions': out, 'stars': stars,
                 'bonus': {'mult': mult, 'until': cfg['release_at'] + int(cfg['bonus_hours']) * 3600 if mult > 1 else 0}, 'day_one': {'stars': int(cfg['day_one_stars']), 'got': d1, 'badge': em},
-                'leader_prizes': cfg['leader_prizes'], 'admin': bool(getattr(g, 'is_admin', False))}
+                'leader_places': int(cfg['leader_places']), 'admin': bool(getattr(g, 'is_admin', False))}
 
     @app.get('/api/wanted')
     @auth()
@@ -239,18 +251,30 @@ def install_wanted(app, db, auth, audit):
         return {'ok': True, 'given': given, 'level_before': before, 'level_after': after, 'new_stars': new_stars, 'bonus': mult}
 
     # ------------------------------------------------------------------ leaderboard «Король Вайс-Сити»
+    def standings(cfg, now):
+        """[(user id, points)] from the best, counted from the start of the event."""
+        if not cfg['starts_at']:
+            return []
+        marks = ','.join('?' * len(POINTS))
+        score = {}
+        for r in db().execute("SELECT user_id,kind,COUNT(*) AS n FROM history WHERE kind IN (%s) AND created>=? AND created<=? GROUP BY user_id,kind" % marks, (*POINTS, cfg['starts_at'], now)).fetchall():
+            score[int(r['user_id'])] = score.get(int(r['user_id']), 0) + POINTS[r['kind']] * int(r['n'])
+        return sorted(score.items(), key=lambda x: (-x[1], x[0]))
+
+    def place_prizes(cfg):
+        out = {}
+        for i in range(1, int(cfg['leader_places']) + 1):
+            out[str(i)] = rewards_of(json.dumps((cfg['leader_rewards'] or {}).get(str(i)) or []))
+        return out
+
     @app.get('/api/wanted/leaders')
     @auth()
     def wanted_leaders():
         now = int(time.time())
         cfg = settings()
-        if not cfg['starts_at']:
-            return {'leaders': [], 'me': None, 'prizes': cfg['leader_prizes']}
-        marks = ','.join('?' * len(POINTS))
-        score = {}
-        for r in db().execute("SELECT user_id,kind,COUNT(*) AS n FROM history WHERE kind IN (%s) AND created>=? AND created<=? GROUP BY user_id,kind" % marks, (*POINTS, cfg['starts_at'], now)).fetchall():
-            score[int(r['user_id'])] = score.get(int(r['user_id']), 0) + POINTS[r['kind']] * int(r['n'])
-        order = sorted(score.items(), key=lambda x: (-x[1], x[0]))
+        prizes = {k: described(v) for k, v in place_prizes(cfg).items()}
+        paid = [{'place': int(r['place']), 'user_id': str(r['user_id'])} for r in db().execute("SELECT place,user_id FROM wanted_payouts ORDER BY place").fetchall()]
+        order = standings(cfg, now)
         top = order[:20]
         names = {}
         if top:
@@ -262,18 +286,19 @@ def install_wanted(app, db, auth, audit):
                     'points': p, 'emoji': badges.get(u)} for i, (u, p) in enumerate(top)]
         me = g.user['id']
         mine = next(((i + 1, p) for i, (u, p) in enumerate(order) if u == me), None)
-        return {'leaders': leaders, 'me': {'rank': mine[0], 'points': mine[1]} if mine else None, 'prizes': cfg['leader_prizes'],
-                'points': {'arena_result': 'раунд арены', 'pack_open': 'открытие пака', 'upgrade': 'апгрейд', 'craft': 'крафт'}, 'weights': POINTS}
+        return {'leaders': leaders, 'me': {'rank': mine[0], 'points': mine[1]} if mine else None, 'prizes': prizes, 'places': int(cfg['leader_places']), 'paid': bool(paid),
+                'weights': POINTS}
 
     # ------------------------------------------------------------------ admin
     def admin_view():
         cfg = settings()
         missions = db().execute("SELECT * FROM wanted_missions ORDER BY position, id").fetchall()
-        stars = {int(s['star']): rewards_text(rewards_of(s['reward'])) for s in db().execute("SELECT * FROM wanted_stars").fetchall()}
-        return {'settings': cfg, 'metrics': [{'key': k, 'title': v[0]} for k, v in METRICS.items()],
+        stars = {int(s['star']): rewards_of(s['reward']) for s in db().execute("SELECT * FROM wanted_stars").fetchall()}
+        pays = [{'place': int(r['place']), 'user_id': str(r['user_id']), 'points': int(r['points']), 'reward': described(rewards_of(r['reward'])), 'created': int(r['created'])} for r in db().execute("SELECT * FROM wanted_payouts ORDER BY place").fetchall()]
+        return {'settings': cfg, 'payouts': pays, 'top': [{'place': i + 1, 'user_id': str(u), 'points': p} for i, (u, p) in enumerate(standings(cfg, int(time.time()))[:int(cfg['leader_places'])])], 'metrics': [{'key': k, 'title': v[0]} for k, v in METRICS.items()],
                 'missions': [{'id': m['id'], 'title': m['title'], 'description': m['description'], 'metric': m['metric'], 'target': int(m['target']), 'level_after': int(m['level_after']),
-                              'reward': rewards_text(rewards_of(m['reward'])), 'image': m['image'], 'enabled': bool(m['enabled'])} for m in missions],
-                'stars': [{'star': s, 'reward': stars.get(s, '')} for s in range(1, 6)]}
+                              'reward': rewards_of(m['reward']), 'image': m['image'], 'enabled': bool(m['enabled'])} for m in missions],
+                'stars': [{'star': s, 'reward': stars.get(s, [])} for s in range(1, 6)]}
 
     @app.get('/api/admin/wanted')
     @auth(admin=True)
@@ -314,9 +339,10 @@ def install_wanted(app, db, auth, audit):
         cfg['day_one_stars'] = num(s.get('day_one_stars', cfg['day_one_stars']), 1, 5, 'Звёзд для Day One')
         cfg['bonus_mult'] = num(s.get('bonus_mult', cfg['bonus_mult']), 1, 10, 'Множитель бонуса')
         cfg['bonus_hours'] = num(s.get('bonus_hours', cfg['bonus_hours']), 1, 240, 'Часов бонуса')
-        prizes = s.get('leader_prizes')
-        if isinstance(prizes, list):
-            cfg['leader_prizes'] = [' '.join(str(x).split())[:80] for x in prizes[:3]]
+        cfg['leader_places'] = num(s.get('leader_places', cfg['leader_places']), 1, 10, 'Мест с призами')
+        lr = s.get('leader_rewards')
+        if isinstance(lr, dict):
+            cfg['leader_rewards'] = {str(i): rewards_in(lr.get(str(i)) or [], 'Место %d' % i) for i in range(1, int(cfg['leader_places']) + 1)}
         if cfg['enabled'] and not cfg['starts_at']:
             cfg['starts_at'] = now                                   # the progress counts from the moment the event is switched on for the first time
         missions = body.get('missions')
@@ -340,10 +366,7 @@ def install_wanted(app, db, auth, audit):
                     metric = str(m.get('metric') or '')
                     if metric not in METRICS:
                         abort(400, description='Миссия «%s»: выберите, что считать' % title)
-                    try:
-                        reward = parse_rewards(m.get('reward'), 'Миссия «%s»' % title)
-                    except ValueError as err:
-                        abort(400, description=str(err))
+                    reward = rewards_in(m.get('reward') or [], 'Миссия «%s»' % title)
                     img = str(m.get('image') or '').strip()
                     if img and not (img.startswith('/static/assets/') or img.startswith('/media/shop/')):
                         abort(400, description='Картинка миссии: неверная ссылка')
@@ -355,10 +378,7 @@ def install_wanted(app, db, auth, audit):
             if isinstance(stars, list):
                 for x in stars:
                     star = num(x.get('star'), 1, 5, 'Звезда')
-                    try:
-                        reward = parse_rewards(x.get('reward'), 'Звезда %d' % star)
-                    except ValueError as err:
-                        abort(400, description=str(err))
+                    reward = rewards_in(x.get('reward') or [], 'Звезда %d' % star)
                     db().execute("INSERT INTO wanted_stars(star,reward) VALUES(?,?) ON CONFLICT(star) DO UPDATE SET reward=excluded.reward", (star, json.dumps(reward)))
             save_settings(cfg)
         audit('Wanted event saved')
@@ -376,3 +396,35 @@ def install_wanted(app, db, auth, audit):
             n = db().execute("DELETE FROM wanted_claims WHERE user_id=?", (uid,)).rowcount
         audit('Wanted progress reset for %s' % uid)
         return {'ok': True, 'removed': n}
+
+    @app.post('/api/admin/wanted/payout')
+    @auth(admin=True)
+    def admin_wanted_payout():
+        """Gives the prizes of the leaders to the best players, once: the places are written down, a second press does nothing."""
+        now = int(time.time())
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            if db().execute("SELECT 1 FROM wanted_payouts LIMIT 1").fetchone():
+                abort(409, description='Награды лидерам уже выданы')
+            cfg = settings()
+            prizes = place_prizes(cfg)
+            done = []
+            for i, (uid, points) in enumerate(standings(cfg, now)[:int(cfg['leader_places'])], 1):
+                reward = prizes.get(str(i)) or []
+                if reward:
+                    app.extensions['crafter_reward_give'](uid, reward, 'wanted-top:%d' % i)
+                db().execute("INSERT INTO wanted_payouts(place,user_id,points,reward,created) VALUES(?,?,?,?,?)", (i, uid, points, json.dumps(reward), now))
+                done.append(i)
+            if not done:
+                abort(409, description='Пока никто не набрал очков')
+        audit('Wanted leaders paid: %d places' % len(done))
+        return admin_view()
+
+    @app.post('/api/admin/wanted/payout/reset')
+    @auth(admin=True)
+    def admin_wanted_payout_reset():
+        """Only clears the record (the prizes already given stay with the players): lets the payout be made again after a mistake."""
+        with db():
+            db().execute("DELETE FROM wanted_payouts")
+        audit('Wanted payout record cleared')
+        return admin_view()

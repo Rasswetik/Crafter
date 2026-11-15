@@ -528,6 +528,7 @@ def install_season_pass(app, db, auth, audit, record):
     app.extensions['crafter_pass_grant_plus'] = grant_plus
     app.extensions['crafter_reward_give'] = give                       # the prizes of other systems (the event «Розыск») are given and shown the same way
     app.extensions['crafter_reward_describe'] = describe
+    app.extensions['crafter_reward_clean'] = clean_rewards
     app.extensions['crafter_pass_short'] = pass_short
 
     @app.post('/api/pass/buy-level')
