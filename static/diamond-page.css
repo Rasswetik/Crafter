@@ -73,3 +73,57 @@ img{-webkit-user-drag:none}
 .dm-win{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 10px;margin-top:6px;border-radius:12px;background:#ffffff0f;border-left:4px solid #ffffff30;font-size:13px}
 .dm-win.rare{border-left-color:#ffc83a}.dm-win.epic{border-left-color:#27d3ff}.dm-win.jackpot{border-left-color:#ff9f1c;background:#ff9f1c22}.dm-win .jp{color:#ffd96a}
 @media(prefers-reduced-motion:reduce){.dm-lamp{animation:none;opacity:.6}.dm-burst.on{animation:none;opacity:.9}}
+
+/* ===== tabs, wheels, jackpot show, slots ===== */
+.dm-tabs{display:flex;gap:6px;margin:14px 0 0;padding:5px;border-radius:999px;background:#00000040}
+.dm-tabs button{flex:1;border:0;border-radius:999px;padding:12px 8px;font:800 15px/1 inherit;color:#e3d2ff;background:transparent;cursor:pointer}
+.dm-tabs button.on{background:linear-gradient(135deg,#ff4fa8,#8a45ff);color:#fff;box-shadow:0 4px 12px #0006}
+.dm-wsel{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;max-width:560px}
+.dm-wcard{display:grid;justify-items:center;gap:2px;padding:8px 4px;border-radius:14px;border:2px solid #ffffff2a;background:#2b1252cc;color:#fff;cursor:pointer;font:inherit;transition:transform .12s}
+.dm-wcard img{width:36px;height:36px;object-fit:contain}.dm-wcard b{font-size:12.5px;line-height:1.1}.dm-wcard small{font-size:10.5px;opacity:.8;line-height:1.2}
+.dm-wcard:hover{transform:translateY(-2px)}.dm-wcard.on{border-color:var(--dm-gold);box-shadow:0 0 18px #ffc83a55;background:#3d1a6ad0}.dm-wcard.lock{opacity:.7}.dm-wcard.lock img{filter:grayscale(.9) brightness(.8)}
+.dm-theme-gold .dm-rim{filter:hue-rotate(-14deg) saturate(1.2) brightness(1.04) drop-shadow(0 12px 22px #000a)}
+.dm-theme-diamond .dm-rim{filter:hue-rotate(150deg) saturate(1.1) drop-shadow(0 12px 22px #000a)}
+.dm-theme-royal .dm-rim{filter:hue-rotate(-20deg) saturate(1.35) brightness(.92) drop-shadow(0 12px 22px #000a)}
+.dm-result{display:grid;gap:6px;justify-items:center;width:min(100%,520px);padding:10px 14px;border-radius:16px;background:#2b1252d0;box-shadow:inset 0 0 0 2px #ffffff30;text-align:center}
+.dm-result small{font:900 11px/1 inherit;letter-spacing:.2em;color:#ffd96a}.dm-result .dm-chip{font-size:15px;padding:5px 12px 5px 6px}.dm-result .dm-chip img{width:34px;height:34px}
+.dm-result.rare{box-shadow:inset 0 0 0 2px #ffc83a}.dm-result.epic{box-shadow:inset 0 0 0 2px #27d3ff,0 0 24px #27d3ff44}.dm-result.jackpot{box-shadow:inset 0 0 0 2px #ff9f1c,0 0 30px #ff9f1c66}
+.dm-jp-box::before{content:"";position:absolute;inset:25% 27% 15%;border-radius:18px;box-shadow:0 0 34px #ffc83a88;animation:dm-glow 2.4s ease-in-out infinite;pointer-events:none}
+.dm-jp-box .sp{position:absolute;width:12px;height:12px;border-radius:50%;background:radial-gradient(#fff 20%,#ffd96a88 50%,transparent 72%);pointer-events:none;z-index:2;animation:dm-tw 2.2s ease-in-out infinite}
+.dm-jp-box .s1{left:26%;top:32%}.dm-jp-box .s2{right:26%;top:36%;animation-delay:.7s}.dm-jp-box .s3{left:42%;top:8%;animation-delay:1.3s}.dm-jp-box .s4{right:34%;bottom:12%;animation-delay:.4s}
+.dm-jp-last{margin:4px 0 0;font-size:12px;opacity:.8;text-align:center}
+@keyframes dm-glow{50%{box-shadow:0 0 56px #ffc83acc,0 0 18px #ff4fa8aa}}@keyframes dm-tw{0%,100%{opacity:0;transform:scale(.4)}50%{opacity:1;transform:scale(1.4)}}
+/* the jackpot ceremony */
+.dm-jpov{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:radial-gradient(circle at 50% 45%,#4a1470ee,#14052ef2 72%);animation:dm-fade .3s}
+@keyframes dm-fade{from{opacity:0}}
+.dm-jpov .rays{position:absolute;width:min(170vw,1200px);left:50%;top:50%;transform:translate(-50%,-50%);animation:dm-spin 16s linear infinite;opacity:.6;pointer-events:none}
+@keyframes dm-spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+.dm-jpov .in{position:relative;z-index:2;display:grid;justify-items:center;gap:12px;text-align:center;padding:20px}
+.dm-jpov .gem{width:clamp(110px,26vw,190px);animation:dm-float 2.4s ease-in-out infinite;filter:drop-shadow(0 0 30px #ff4fa8)}
+@keyframes dm-float{50%{transform:translateY(-12px)}}
+.dm-jpov h2{margin:0;font:900 clamp(40px,10vw,84px)/1 'Arial Black',Inter,sans-serif;background:linear-gradient(#fff6b8,#ffc83a 55%,#ff8a3c);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 4px 0 #2b1252) drop-shadow(0 0 24px #ff4fa8);animation:dm-pulse .9s ease-in-out infinite alternate}
+@keyframes dm-pulse{to{transform:scale(1.06)}}
+.dm-jpov .amt{display:flex;align-items:center;gap:10px;font:900 clamp(34px,9vw,70px)/1 'Arial Black',Inter,sans-serif;color:#fff;text-shadow:0 0 18px #27d3ff,0 0 40px #ff4fa8;font-variant-numeric:tabular-nums}.dm-jpov .amt img{width:.9em;height:.9em}
+.dm-jpov p{margin:0;opacity:.9;font-weight:700}
+.dm-confetti{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+/* the slot machine */
+.dm-slot{--rh:clamp(78px,21vw,118px);width:min(100%,540px);padding:14px 14px 16px;border-radius:28px;background:linear-gradient(#ffe27a,#c98a00 7%,#8a1f7a 8%,#3b0a4f 100%);border:3px solid #14052e;box-shadow:inset 0 0 0 3px #ffd96a,inset 0 0 44px #000a,0 18px 50px #000a}
+.dm-slot-top{display:flex;align-items:center;justify-content:center;gap:5px;margin:2px 0 12px}
+.dm-slot-top i{width:9px;height:9px;border-radius:50%;background:#ffe27a;box-shadow:0 0 8px #ffc83a;animation:dm-blink 1.2s steps(1) infinite}.dm-slot-top i.b{animation-delay:.6s}
+.dm-slot-top b{margin:0 8px;white-space:nowrap;font:900 clamp(14px,3.6vw,20px)/1 'Arial Black',Inter,sans-serif;letter-spacing:.14em;color:#fff;text-shadow:0 0 12px #ff4fa8,0 0 22px #27d3ff}
+.dm-reels{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px;border-radius:18px;background:#0b0220;box-shadow:inset 0 0 0 3px #ffffff30,inset 0 8px 30px #000}
+.dm-reel{height:var(--rh);overflow:hidden;border-radius:12px;background:linear-gradient(#1b0a3a,#341566 50%,#1b0a3a);box-shadow:inset 0 0 0 2px #ffffff22,inset 0 12px 18px #000a,inset 0 -12px 18px #000a}
+.dm-strip{will-change:transform}
+.dm-cell{height:var(--rh);display:grid;place-items:center}.dm-cell img{width:72%;height:72%;object-fit:contain;filter:drop-shadow(0 4px 6px #0008)}
+.dm-payline{position:absolute;left:8px;right:8px;top:50%;height:3px;margin-top:-1px;background:linear-gradient(90deg,transparent,#ff4fa8,#27d3ff,transparent);opacity:.75;pointer-events:none}
+.dm-reels.hit{animation:dm-flash .5s 4}@keyframes dm-flash{50%{box-shadow:inset 0 0 0 3px #ffc83a,0 0 30px #ffc83a}}
+.dm-slotwin{margin-top:12px;min-height:26px;text-align:center;font:900 clamp(15px,4vw,20px)/1.2 inherit;color:#e3d2ff}
+.dm-slotwin.win{color:#ffd96a;text-shadow:0 0 14px #ffc83a}.dm-slotwin.jp{background:linear-gradient(90deg,#ff4fa8,#ffc83a,#27d3ff);-webkit-background-clip:text;background-clip:text;color:transparent}.dm-slotwin.lose{opacity:.7}
+.dm-bets{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.dm-bet{min-width:64px;padding:10px 16px;border:2px solid #ffffff30;border-radius:999px;background:#2b1252cc;color:#fff;font:900 15px/1 inherit;cursor:pointer;font-variant-numeric:tabular-nums}
+.dm-bet.on{border-color:var(--dm-gold);background:linear-gradient(#ffe27a,#ffb92a);color:#4a2a0c;box-shadow:0 0 16px #ffc83a66}.dm-bet:disabled{opacity:.6;cursor:not-allowed}
+.dm-pay{display:grid;gap:6px;margin-top:12px}
+.dm-pr{display:grid;grid-template-columns:40px 1fr auto;gap:10px;align-items:center;padding:6px 10px;border-radius:12px;background:#ffffff0f;font-size:13px}.dm-pr img{width:34px;height:34px;object-fit:contain}.dm-pr i{font-style:normal;opacity:.7;font-variant-numeric:tabular-nums}
+.dm-lv .op{color:#ffd96a;font-weight:800}
+@media(max-width:620px){.dm-wsel{gap:5px}.dm-wcard{padding:6px 2px}.dm-wcard img{width:30px;height:30px}.dm-wcard b{font-size:11px}.dm-wcard small{font-size:9.5px}.dm-slot{padding:10px 10px 14px}.dm-reels{gap:7px;padding:9px}}
+@media(prefers-reduced-motion:reduce){.dm-jp-box::before,.dm-jp-box .sp,.dm-jpov .rays,.dm-jpov .gem,.dm-jpov h2,.dm-slot-top i{animation:none}}
