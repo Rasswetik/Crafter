@@ -55,7 +55,7 @@ function stage() {
     const canFree = S.free_left > 0, canPaid = S.paid_left > 0 && S.balls >= S.price;
     const reset = clock(nextReset() - now());
     return '<section class="dm-stage"><img class="dm-host l" src="' + u('goshan_host') + '" alt="" draggable="false"><div class="dm-center">' +
-        '<div class="dm-jp"><img src="' + u('jackpot_frame') + '" alt="" draggable="false"><div class="dm-jp-in"><small>ДЖЕКПОТ</small><b id="dm-pool">' + num(shownPool) + '</b></div></div>' +
+        '<div class="dm-jp"><small class="dm-jp-l">ОБЩИЙ ДЖЕКПОТ</small><div class="dm-jp-box"><img src="' + u('jackpot_frame') + '" alt="" draggable="false"><b id="dm-pool" class="dm-jp-n">' + num(shownPool) + '</b></div></div>' +
         '<div class="dm-wheel" id="dm-wheel">' + wheelSVG() + '<img class="dm-rim" src="' + u('rim') + '" alt="" draggable="false">' + lamps() + '<img class="dm-hubcap" src="' + u('hub') + '" alt="" draggable="false"><img class="dm-pointer" src="' + u('pointer') + '" alt="" draggable="false"><img class="dm-burst" id="dm-burst" alt="" draggable="false"></div>' +
         '<div class="dm-actions"><button type="button" class="dm-btn" data-spin="free"' + (canFree && !busy ? '' : ' disabled') + '><span class="dm-t">Крутить бесплатно</span><small>осталось ' + S.free_left + ' из ' + S.free_total + '</small></button>' +
         '<button type="button" class="dm-btn pink" data-spin="paid"' + (canPaid && !busy ? '' : ' disabled') + '><span class="dm-t">Крутить за ' + num(S.price) + ' <img src="' + BALL + '" alt=""></span><small>' + (S.paid_left ? 'сегодня ещё ' + S.paid_left + ', у вас ' + num(S.balls) : 'лимит на сегодня исчерпан') + '</small></button></div>' +
