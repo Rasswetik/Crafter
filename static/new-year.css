@@ -136,3 +136,4 @@
 .nyh-gtug{display:flex;height:9px;margin-top:8px;max-width:230px;border-radius:99px;overflow:hidden;background:#0b0220}.nyh-gtug .l{background:#27d3ff}.nyh-gtug .r{background:#ff4fa8}
 .nyh-gnames{display:flex;justify-content:space-between;max-width:230px;margin-top:4px;font-size:11px}
 .nyh-gangs .sh-open{background:linear-gradient(135deg,#27d3ff,#ff4fa8);color:#14052e}.nyh-gangs.is-off{filter:saturate(.6) brightness(.85)}
+.nyh-gangs .nyh-copy{max-width:60%}.nyh-gangs .nyh-copy strong{font-size:clamp(22px,6.4vw,34px);line-height:1.02}.nyh-gtug,.nyh-gnames{max-width:100%}.nyh-gangs{background-position:right center,0 0 !important}

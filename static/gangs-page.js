@@ -26,15 +26,15 @@ const clock = s => { const t = left(s); return (t.d ? t.d + ' дн ' : '') + p2(
 /* ---------- the pieces ---------- */
 function top() {
     return '<header class="gp-top"><button type="button" class="gp-back" data-back>‹ События</button>' +
-        (S.war ? '<span class="gp-state">Война ' + e(S.war.id) + ' · до конца <b data-cd>' + clock(S.war.ends - now()) + '</b></span>' : '<span class="gp-state">Скоро</span>') + '</header>';
+        (S.war ? '<span class="gp-state"><span class="gp-st-l">Война ' + e(S.war.id) + ' · </span>до конца <b data-cd>' + clock(S.war.ends - now()) + '</b></span>' : '<span class="gp-state">Скоро</span>') + '</header>';
 }
 function gangCard(x, side) {
     const mine = S.me && S.me.gang === x.id;
     const other = gang(x.id === 'goshan' ? 'nikolay' : 'goshan');
     const crowd = x.members > other.members;
     return '<article class="gp-gang is-' + x.id + (mine ? ' is-mine' : '') + '" style="--gc:' + x.color + '">' +
-        '<img class="emb" src="' + G + 'emblem_' + x.id + '.png" onerror="this.remove()" alt="" draggable="false">' +
-        '<div class="gp-gang-art">' + pic(x.id + '_crossed.png', 'characters/' + x.id + '_point.webp', 'ch') + '</div>' +
+        '<img class="emb" decoding="async" src="' + G + 'emblem_' + x.id + '.webp" onerror="this.remove()" alt="" draggable="false">' +
+        '<div class="gp-gang-art">' + pic(x.id + '_crossed.webp', 'characters/' + x.id + '_point.webp', 'ch') + '</div>' +
         '<div class="gp-gang-body"><span class="gp-tag">' + (mine ? 'Ваша банда' : 'Банда') + '</span><h2>' + e(x.name) + '</h2><p>' + e(x.slogan || '') + '</p>' +
         '<div class="gp-score"><b>' + num(x.points) + '</b><small>очков</small></div>' +
         '<div class="gp-meta"><span>' + num(x.members) + ' игроков' + (crowd ? '' : '') + '</span>' + (x.mult > 1 ? '<span class="gp-boost" title="Меньшая банда получает множитель очков">×' + x.mult + ' поддержка</span>' : '') + '</div>' +
@@ -56,7 +56,7 @@ function lastWar() {
 function districts() {
     return '<section class="gp-sec"><h3>Районы Вайс-Сити <small>район получает та банда, у которой в нём больше очков</small></h3><div class="gp-dist">' + S.districts.map(d => {
         const total = d.goshan + d.nikolay, pl = total ? Math.round(d.goshan / total * 100) : 50;
-        return '<article class="gp-d' + (d.owner ? ' own-' + d.owner : '') + '"><img class="art" src="' + G + 'district_' + d.key + '.webp" onerror="this.remove()" alt=""><div class="gp-d-top"><img src="' + W + ICON[d.key] + '.webp" alt=""><div><b>' + e(d.title) + '</b><small>' + e(d.hint) + '</small></div>' +
+        return '<article class="gp-d' + (d.owner ? ' own-' + d.owner : '') + '"><img class="art" loading="lazy" decoding="async" src="' + G + 'district_' + d.key + '.webp" onerror="this.remove()" alt=""><div class="gp-d-top"><img src="' + W + ICON[d.key] + '.webp" alt=""><div><b>' + e(d.title) + '</b><small>' + e(d.hint) + '</small></div>' +
             '<span class="gp-owner' + (d.owner ? ' is-' + d.owner : '') + '">' + (d.owner ? e(gang(d.owner).name) : 'Свободен') + '</span></div>' +
             '<div class="gp-bar"><i class="l" style="width:' + (total ? pl : 50) + '%"></i><i class="r" style="width:' + (total ? 100 - pl : 50) + '%"></i></div>' +
             '<div class="gp-d-n"><span style="color:' + COLOR.goshan + '">' + num(d.goshan) + '</span><span style="color:' + COLOR.nikolay + '">' + num(d.nikolay) + '</span></div></article>';
@@ -67,7 +67,7 @@ function mine() {
     if (!m) return '<section class="gp-sec gp-me"><h3>Вступите в банду</h3><p class="gp-lead">Выберите сторону: Гошан или Николай. Банду можно сменить, пока вы ещё не набрали очков в текущей войне.</p></section>';
     const g0 = gang(m.gang), nxt = m.rank.next;
     const pct = nxt ? Math.min(100, Math.round(m.points / nxt.need * 100)) : 100;
-    return '<section class="gp-sec gp-me is-' + m.gang + '" style="--gc:' + g0.color + '"><div class="gp-me-h"><div class="gp-rank">' + pic('rank_' + m.gang + '_' + m.rank.level + '.png', 'icons/i_star.webp', 'ic') + '<div><small>' + e(g0.name) + ', ваш ранг</small><b>' + e(m.rank.title) + '</b></div></div>' +
+    return '<section class="gp-sec gp-me is-' + m.gang + '" style="--gc:' + g0.color + '"><div class="gp-me-h"><div class="gp-rank">' + pic('rank_' + m.gang + '_' + m.rank.level + '.webp', 'icons/i_star.webp', 'ic') + '<div><small>' + e(g0.name) + ', ваш ранг</small><b>' + e(m.rank.title) + '</b></div></div>' +
         '<div class="gp-pts"><b>' + num(m.points) + '</b><small>очков за войну' + (m.rank_in_gang ? ', #' + m.rank_in_gang + ' в банде' : '') + '</small></div></div>' +
         '<div class="gp-prog"><div class="gp-prog-h"><span>' + (nxt ? 'До ранга «' + e(nxt.title) + '»' : 'Высший ранг') + '</span><span>' + (nxt ? num(m.points) + ' / ' + num(nxt.need) : '') + '</span></div><div class="gp-meter"><i style="width:' + pct + '%"></i></div></div>' +
         (m.cap ? '<div class="gp-prog"><div class="gp-prog-h"><span>Очков сегодня (потолок ' + num(m.cap) + ')</span><span>' + num(m.today) + '</span></div><div class="gp-meter day"><i style="width:' + Math.min(100, Math.round(m.today / m.cap * 100)) + '%"></i></div></div>' : '') +
@@ -76,7 +76,7 @@ function mine() {
 function claims() {
     const rows = S.claims.filter(c => !c.claimed && c.rewards.length);
     if (!rows.length) return '';
-    return rows.map(c => '<section class="gp-claim is-' + c.gang + '" style="--gc:' + COLOR[c.gang] + '">' + pic(c.gang + (c.won ? '_cheer.png' : '_sad.png'), 'ui/reward_crate.webp', 'pose') + '<div><b>Война ' + e(c.war) + ' завершена: ' + (c.draw ? 'ничья' : c.won ? 'ваша банда победила!' : 'ваша банда проиграла, но вклад засчитан') + '</b><small>Очков: ' + num(c.points) + (c.districts ? ', районов: ' + c.districts : '') + (c.top ? ', место в топе: ' + c.top : '') + '</small>' + chips(c.rewards) + '</div>' +
+    return rows.map(c => '<section class="gp-claim is-' + c.gang + '" style="--gc:' + COLOR[c.gang] + '">' + pic(c.gang + (c.won ? '_cheer.webp' : '_sad.webp'), 'ui/reward_crate.webp', 'pose') + '<div><b>Война ' + e(c.war) + ' завершена: ' + (c.draw ? 'ничья' : c.won ? 'ваша банда победила!' : 'ваша банда проиграла, но вклад засчитан') + '</b><small>Очков: ' + num(c.points) + (c.districts ? ', районов: ' + c.districts : '') + (c.top ? ', место в топе: ' + c.top : '') + '</small>' + chips(c.rewards) + '</div>' +
         '<button type="button" class="gp-btn" data-claim="' + e(c.war) + '">Забрать</button></section>').join('');
 }
 function prizesTab() {
@@ -102,7 +102,7 @@ function draw() {
     if (!S) return;
     if (!S.enabled && !S.admin) { root.innerHTML = top() + '<section class="gp-sec"><h3>Войны банд скоро начнутся</h3><p class="gp-lead">Следите за новостями раздела «События».</p></section>'; return; }
     const tabs = [['prizes', 'Награды'], ['leaders', 'Топ'], ['rules', 'Правила']];
-    root.innerHTML = '<img class="gp-bg" src="' + G + 'bg.webp" onerror="this.remove()" alt="">' + top() + '<section class="gp-hero"><picture><source media="(max-width:720px)" srcset="' + G + 'versus_mobile.webp"><img class="gp-hero-img" src="' + G + 'versus_wide.webp" onerror="this.closest(\'picture\').remove()" alt="" draggable="false"></picture><div class="gp-hero-text"><h1>' + e(S.title) + '</h1><p>' + e(S.subtitle || '') + '</p>' + (!S.enabled ? '<span class="gp-off">Выключено: видно только вам</span>' : '') + '</div></section>' +
+    root.innerHTML = '<img class="gp-bg" src="' + G + 'bg.webp" onerror="this.remove()" alt="">' + top() + '<section class="gp-hero"><picture><source media="(max-width:720px)" srcset="' + G + 'versus_mobile.webp"><img class="gp-hero-img" fetchpriority="high" decoding="async" src="' + G + 'versus_wide.webp" onerror="this.closest(\'picture\').remove()" alt="" draggable="false"></picture><div class="gp-hero-text"><h1>' + e(S.title) + '</h1><p>' + e(S.subtitle || '') + '</p>' + (!S.enabled ? '<span class="gp-off">Выключено: видно только вам</span>' : '') + '</div></section>' +
         claims() + versus() + districts() + mine() + '<nav class="gp-tabs">' + tabs.map(t => '<button type="button" data-tab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>').join('') + '</nav>' +
         (tab === 'prizes' ? prizesTab() : tab === 'leaders' ? leadersTab() : rulesTab());
 }

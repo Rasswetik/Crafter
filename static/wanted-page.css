@@ -122,3 +122,4 @@ body.wp-body{background:radial-gradient(900px 620px at 0% 0%,#27d3ff30,transpare
 .wp-newstar h2{position:relative;margin:14px 0 0;font:900 clamp(30px,8vw,48px)/1 'Arial Black',Inter,sans-serif;background:linear-gradient(#fff6b8,#ffc83a 60%,#ff8a3c);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 3px 0 #2b1252)}
 .wp-newstar p{position:relative;margin:0 0 14px;font-weight:800;letter-spacing:.06em;color:#ffe9a8}.wp-newstar .wp-take{position:relative;width:auto;min-width:220px}
 @media(prefers-reduced-motion:reduce){.wp-mission,.wp-star,.wp-take,.wp-state.is-on,.wp-siren,.wp-ns-glow,.wp-ns-star,.wp-ns-burst,.wp-passed,.wp-m-art>img{animation:none!important}}
+html{overflow-x:clip}body.wp-body{overflow-x:clip;max-width:100vw}
