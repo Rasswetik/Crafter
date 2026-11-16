@@ -304,6 +304,10 @@ def create_app(config=None):
         except Exception:
             return {'cur': {'kind': 'balls', 'name': 'Шары', 'gen': 'шаров', 'icon': '/static/assets/new-year-ornament.svg', 'epoch': 0}}
 
+    @app.get('/season/diamond')
+    def diamond_page():
+        return render_template('diamond.html', ny_on=new_year_enabled())
+
     @app.get('/season/gangs')
     def gangs_page():
         return render_template('gangs.html', ny_on=new_year_enabled())
@@ -1534,6 +1538,8 @@ def create_app(config=None):
     install_wanted(app,db,auth,audit)
     from gangs import install_gangs                                  # the event «Войны банд»: Гошан против Николая
     install_gangs(app,db,auth,audit)
+    from diamond import install_diamond                              # the casino «Diamond»: the wheel, the jackpot, VIP levels
+    install_diamond(app,db,auth,audit)
     from shop_import import install_shop_import
     install_shop_import(app,db,auth,audit)
     from chains import install_chains
