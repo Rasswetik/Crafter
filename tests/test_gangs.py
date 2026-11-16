@@ -107,3 +107,19 @@ def test_too_few_points_gets_no_prize_and_admin_validation(client):
     assert client.post('/api/admin/gangs', headers=admin, json=dict(cfg, daily_cap='abc')).status_code == 400
     assert client.post('/api/admin/gangs', headers=admin, json=dict(cfg, underdog_max=50)).status_code == 400
     assert client.post('/api/admin/gangs', headers=admin, json=dict(cfg, win_reward=[{'kind': 'PACK', 'amount': 'no-such', 'count': 1}])).status_code == 400
+
+
+def test_sleeping_accounts_do_not_give_the_other_gang_a_bonus(client):
+    admin = signed(42)
+    players = [signed(100 + i) for i in range(5)]
+    for h in players:
+        client.get('/api/me', headers=h)
+    enable(client, admin)
+    for h in players[:4]:
+        client.post('/api/gangs/join', headers=h, json={'gang': 'goshan'})
+    client.post('/api/gangs/join', headers=players[4], json={'gang': 'nikolay'})
+    add_history(client, 100, 'arena_result', {}, n=2)          # one active player in Goshan, three sleeping ones
+    add_history(client, 104, 'arena_result', {}, n=2)          # one active player in Nikolay
+    st = client.get('/api/gangs', headers=players[0]).json
+    assert st['gangs'][0]['members'] == 4 and st['gangs'][1]['members'] == 1
+    assert st['gangs'][1]['mult'] == 1.0 and st['gangs'][0]['points'] == st['gangs'][1]['points'] == 6

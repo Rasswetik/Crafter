@@ -131,9 +131,11 @@ def install_gangs(app, db, auth, audit):
         for uid, p in users.items():
             totals[members[uid][0]] += p
         mult = {g_: 1.0 for g_ in GANG_IDS}
-        big, small = max(GANG_IDS, key=lambda x: counts[x]), min(GANG_IDS, key=lambda x: counts[x])
-        if counts[small] > 0 and counts[big] > counts[small]:
-            mult[small] = min(counts[big] / counts[small], max(1.0, int(cfg['underdog_max']) / 100.0))
+        # the multiplier looks at the players who really play this week, so a crowd of sleeping accounts does not give the other gang a bonus
+        active = {g_: sum(1 for u, p in users.items() if p > 0 and members[u][0] == g_) for g_ in GANG_IDS}
+        big, small = max(GANG_IDS, key=lambda x: active[x]), min(GANG_IDS, key=lambda x: active[x])
+        if active[small] > 0 and active[big] > active[small]:
+            mult[small] = min(active[big] / active[small], max(1.0, int(cfg['underdog_max']) / 100.0))
         score = {g_: totals[g_] * mult[g_] for g_ in GANG_IDS}
         owner = {}
         for key, per in dist.items():
@@ -227,10 +229,12 @@ def install_gangs(app, db, auth, audit):
             rewards = rewards_for(war, row)
             claims.append({'war': war['war'], 'gang': row['gang'], 'won': war['winner'] == row['gang'], 'draw': not war['winner'], 'points': int(row['points']), 'top': int(row['top']), 'districts': sum(1 for v in json.loads(war['districts']).values() if v == row['gang']),
                            'claimed': bool(row['claimed']), 'rewards': described(rewards)})
+        lw = db().execute("SELECT * FROM gang_wars ORDER BY war DESC LIMIT 1").fetchone()
+        last = {'war': lw['war'], 'winner': lw['winner'], 'gangs': json.loads(lw['gangs'])} if lw else None
         prizes = {'win': described(cfg['win_reward']), 'lose': described(cfg['lose_reward']), 'district': described(cfg['district_reward']), 'min_points': int(cfg['min_points']),
                   'top': {k: described(v) for k, v in cfg['top_rewards'].items() if int(k) <= int(cfg['top_places'])}}
         return {**base, 'war': {'id': week_id(start), 'starts': start, 'ends': end}, 'gangs': gangs, 'districts': districts, 'me': my_state(uid, cfg, c, now), 'claims': claims, 'prizes': prizes,
-                'daily_cap': int(cfg['daily_cap']), 'weights': {k: v for k, v in POINTS.items()}, 'underdog': {'gang': next((x for x in GANG_IDS if c['mult'][x] > 1), ''), 'mult': round(max(c['mult'].values()), 2)}}
+                'last': last, 'daily_cap': int(cfg['daily_cap']), 'weights': {k: v for k, v in POINTS.items()}, 'underdog': {'gang': next((x for x in GANG_IDS if c['mult'][x] > 1), ''), 'mult': round(max(c['mult'].values()), 2)}}
 
     @app.get('/api/gangs')
     @auth()

@@ -45,7 +45,13 @@ function versus() {
     const share = a.share;
     return '<section class="gp-vs">' + gangCard(a) + '<div class="gp-mid"><div class="gp-vsmark">VS</div><div class="gp-weeknote">Неделя: с понедельника до воскресенья</div></div>' + gangCard(b) + '</section>' +
         '<div class="gp-tug" aria-label="Перевес банд"><i class="l" style="width:' + share + '%"></i><i class="r" style="width:' + (100 - share) + '%"></i><span class="spark" style="left:' + share + '%"></span>' +
-        '<b class="pl">' + share + '%</b><b class="pr">' + (Math.round((100 - share) * 10) / 10) + '%</b></div>';
+        '<b class="pl">' + share + '%</b><b class="pr">' + (Math.round((100 - share) * 10) / 10) + '%</b></div>' + lastWar();
+}
+function lastWar() {
+    const l = S.last;
+    if (!l) return '';
+    const a = gang('goshan'), b = gang('nikolay');
+    return '<p class="gp-last">Прошлая война ' + e(l.war) + ': ' + (l.winner ? 'победила банда «' + e(gang(l.winner).name) + '»' : 'ничья') + ' (' + e(a.name) + ' ' + num(l.gangs.goshan) + ' : ' + num(l.gangs.nikolay) + ' ' + e(b.name) + ')</p>';
 }
 function districts() {
     return '<section class="gp-sec"><h3>Районы Вайс-Сити <small>район получает та банда, у которой в нём больше очков</small></h3><div class="gp-dist">' + S.districts.map(d => {
@@ -89,7 +95,7 @@ function leadersTab() {
 function rulesTab() {
     const W2 = S.weights;
     return '<section class="gp-sec"><h3>Как это работает</h3><ol class="gp-rules"><li>Вступите в одну из двух банд. Сменить её можно, пока в этой войне у вас ещё нет очков.</li><li>Очки даёт всё, что вы и так делаете: арена (' + W2.arena_result + ' за раунд), открытие пака (' + W2.pack_open + '), апгрейд (' + W2.upgrade + '), крафт (' + W2.craft + '), покупки и продажи (' + W2.buy + '), цепочки и подарки (' + W2.chain_claim + ').</li>' +
-        '<li>В сутки один игрок приносит банде не больше ' + num(S.daily_cap) + ' очков, чтобы войну решали все, а не один.</li><li>Если в одной банде игроков больше, меньшая получает множитель очков (до ×1,5).</li><li>Каждое действие относится к своему району: паки к Оушен-Бичу, арена к Даунтауну, апгрейды к Малой Гаване, крафт к Порту, магазин и рынок к Стар-Айленду, цепочки и подарки к Вайс-Пойнту. Район достаётся банде с большим числом очков в нём.</li>' +
+        '<li>В сутки один игрок приносит банде не больше ' + num(S.daily_cap) + ' очков, чтобы войну решали все, а не один.</li><li>Если в одной банде активных игроков больше, меньшая получает множитель очков (до ×1,5). Считаются те, кто уже набрал очки на этой неделе.</li><li>Каждое действие относится к своему району: паки к Оушен-Бичу, арена к Даунтауну, апгрейды к Малой Гаване, крафт к Порту, магазин и рынок к Стар-Айленду, цепочки и подарки к Вайс-Пойнту. Район достаётся банде с большим числом очков в нём.</li>' +
         '<li>В воскресенье в полночь по Москве война заканчивается, в понедельник начинается новая. Награды забираются кнопкой на этой странице.</li></ol></section>';
 }
 function draw() {
