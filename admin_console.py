@@ -402,8 +402,18 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
                     "network": str(payload.get("network") or "")[:20],
                 })
             return result
+        try:
+            facts = db().execute(
+                "SELECT (SELECT count(*) FROM users r WHERE CAST(r.referrer AS TEXT)=CAST(? AS TEXT)) referrals,"
+                "(SELECT max(created) FROM history WHERE user_id=?) last_activity,"
+                "(SELECT count(*) FROM history WHERE user_id=?) actions", (uid, uid, uid)).fetchone()
+            stats = {"referrals": int(facts["referrals"] or 0), "last_activity": facts["last_activity"],
+                     "actions": int(facts["actions"] or 0)}
+        except Exception:
+            stats = {"referrals": 0, "last_activity": None, "actions": 0}
         return {
             "user": dict(user),
+            "stats": stats,
             "deposits": sanitized(deposits),
             "withdrawals": sanitized(withdrawals),
             "gift_withdrawals": [dict(row) for row in gift_withdrawals],

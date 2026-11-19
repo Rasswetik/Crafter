@@ -14,6 +14,7 @@ SECTIONS = (
     "tonconnect", "relayer", "crafts", "modes", "staking", "arena", "banners",
     "craft_banner", "ice_banner", "events", "portal", "telegram-bot",
     "announcements", "snow", "new-year", "promocodes", "creators", "pass",
+    "characters",
 )
 
 def ensure_admin_tables(db):

@@ -304,9 +304,6 @@ def create_app(config=None):
         except Exception:
             return {'cur': {'kind': 'balls', 'name': 'Шары', 'gen': 'шаров', 'icon': '/static/assets/new-year-ornament.svg', 'epoch': 0}}
 
-    @app.get('/season/diamond')
-    def diamond_page():
-        return render_template('diamond.html', ny_on=new_year_enabled())
 
     @app.get('/season/gangs')
     def gangs_page():
@@ -1412,9 +1409,12 @@ def create_app(config=None):
     @app.get('/api/admin/users')
     @auth(admin=True)
     def users():
-        query='%'+request.args.get('search','')[:100]+'%'
-        rows=db().execute('SELECT u.*, COALESCE(a.balance,\'0\') balance,(SELECT count(*) FROM inventory i WHERE i.user_id=u.id) gifts, EXISTS(SELECT 1 FROM user_bans WHERE user_id=u.id) AS banned FROM users u LEFT JOIN demo_accounts a ON a.user_id=u.id WHERE CAST(u.id AS TEXT) LIKE ? OR u.name LIKE ? OR u.username LIKE ? ORDER BY u.created DESC LIMIT 100',(query,query,query)).fetchall()
-        return {'users':[dict(r) for r in rows]}
+        typed=request.args.get('search','').strip()[:100].lstrip('@').strip()
+        raw=typed.lower()
+        query='%'+raw+'%'
+        as_typed,capitalized='%'+typed+'%','%'+typed[:1].upper()+typed[1:].lower()+'%'      # SQLite lower() only knows ASCII
+        rows=db().execute('SELECT u.*, COALESCE(a.balance,\'0\') balance,(SELECT count(*) FROM inventory i WHERE i.user_id=u.id) gifts, EXISTS(SELECT 1 FROM user_bans WHERE user_id=u.id) AS banned FROM users u LEFT JOIN demo_accounts a ON a.user_id=u.id WHERE CAST(u.id AS TEXT) LIKE ? OR LOWER(COALESCE(u.name,\'\')) LIKE ? OR LOWER(COALESCE(u.username,\'\')) LIKE ? OR u.name LIKE ? OR u.name LIKE ? ORDER BY CASE WHEN CAST(u.id AS TEXT)=? OR LOWER(COALESCE(u.username,\'\'))=? THEN 0 ELSE 1 END, u.created DESC LIMIT 100',(query,query,query,as_typed,capitalized,raw,raw)).fetchall()
+        return {'users':[dict(r) for r in rows],'limit':100,'has_more':len(rows)>=100}
     @app.post('/api/admin/users/<int:uid>/balance')
     @auth(admin=True)
     def user_balance(uid):
@@ -1538,8 +1538,6 @@ def create_app(config=None):
     install_wanted(app,db,auth,audit)
     from gangs import install_gangs                                  # the event «Войны банд»: Гошан против Николая
     install_gangs(app,db,auth,audit)
-    from diamond import install_diamond                              # the casino «Diamond»: the wheel, the jackpot, VIP levels
-    install_diamond(app,db,auth,audit)
     from shop_import import install_shop_import
     install_shop_import(app,db,auth,audit)
     from chains import install_chains

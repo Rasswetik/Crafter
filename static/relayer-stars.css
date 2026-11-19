@@ -1,0 +1,116 @@
+/* Admin → Relayer: ordinary-gift auto-withdrawal card and a readable type scale for the whole section. */
+
+/* ---- type scale: nothing smaller than 12px, body copy 13-14px ---- */
+.relayer-dashboard {font-size:14px;line-height:1.45}
+.relayer-overline {font-size:12px}
+.relayer-state {font-size:12px}
+.relayer-detail-label {font-size:12px}
+.relayer-hero-bottom small,.relayer-gift-copy small,.relayer-history-head span,.relayer-overview span,
+.relayer-checked,.relayer-feedback,.relayer-footnote,.relayer-config summary small,.relayer-empty>span:last-child {font-size:13px!important}
+.relayer-history-row time {font-size:12px;max-width:96px}
+.relayer-gift-copy b {font-size:14px}
+.relayer-config-description {font-size:13px!important}
+.relayer-config .form-label {font-size:13px}
+.relayer-issue {font-size:13px!important}
+.relayer-actions button {font-size:14px}
+@media(max-width:480px) {
+  .relayer-overline {font-size:12px;letter-spacing:.05em}
+  .relayer-hero-bottom small {font-size:12px}
+  .relayer-history-row time {font-size:12px;max-width:80px}
+}
+
+/* ---- Stars card ---- */
+.relayer-stars {
+  display:grid;gap:14px;padding:18px;
+  border:1px solid var(--rel-panel-edge,#373940);border-radius:23px;background:var(--rel-panel,#25262b);
+  color:var(--rel-text,#f6f6f8);
+}
+#star-gifts-admin.relayer-stars {display:grid!important}
+#star-gifts-admin.relayer-stars>* {margin-bottom:0}
+.rs-head {display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.rs-eyebrow {display:block;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#a69bd8;margin-bottom:4px}
+.rs-head h3 {margin:0;font-size:20px;font-weight:800;color:#fff;letter-spacing:-.02em}
+.rs-lead {margin:0;font-size:13px;line-height:1.55;color:#aeb0ba}
+.relayer-stars .admin-pill {font-size:12px;white-space:nowrap}
+
+.rs-balance {
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px;
+  padding:16px;border-radius:18px;border:1px solid #ffffff1a;
+  background:linear-gradient(140deg,#35305a66,#ffffff06);
+}
+.rs-balance.is-low {border-color:#d9804a88;background:linear-gradient(140deg,#6a3a2455,#ffffff05)}
+.rs-balance-main {display:grid;gap:4px;min-width:0}
+.rs-label {font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#a8a9b5}
+.rs-stars {font-size:clamp(28px,7vw,38px);font-weight:850;line-height:1.1;letter-spacing:-.03em;color:#fff}
+.rs-note {font-size:13px;color:#a9abb6}
+.rs-note b {color:#ffc89d;font-weight:700}
+.rs-refresh {
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:0 18px;
+  border-radius:15px;border:0;font-size:14px;font-weight:750;color:#fff;background:#8d73ed;
+  box-shadow:inset 0 1px #ffffff37;white-space:nowrap;cursor:pointer;
+}
+.rs-refresh svg {width:18px;height:18px;flex:none}
+.rs-refresh:disabled {opacity:.6;cursor:progress}
+.rs-refresh.is-busy svg {animation:rs-spin .9s linear infinite}
+@keyframes rs-spin {to {transform:rotate(360deg)}}
+
+.rs-stats {display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.rs-stat {display:grid;gap:3px;justify-items:center;padding:12px 6px;border-radius:15px;background:#ffffff0a;border:1px solid #ffffff14;text-align:center}
+.rs-stat strong {font-size:22px;font-weight:800;line-height:1}
+.rs-stat span {font-size:12px;color:#a9abb6;line-height:1.25}
+.rs-stat.is-alert {border-color:#d9804a66}.rs-stat.is-alert strong {color:#ffc89d}
+.rs-stat.is-good strong {color:#8ce4b1}
+
+.relayer-stars .sg-report {margin:0;gap:8px}
+.relayer-stars .sg-report li {font-size:14px;align-items:flex-start;line-height:1.4}
+.relayer-stars .sg-report i {margin-top:5px}
+
+.rs-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.rs-actions button {
+  min-height:46px;padding:10px 12px;border-radius:15px;font-size:14px;font-weight:700;
+  background:#32333a;color:#ededf1;border:1px solid #ffffff1a;
+}
+.rs-actions button.rs-primary {background:#8d73ed;color:#fff;border-color:transparent}
+
+.rs-fold {border:1px solid #ffffff14;border-radius:16px;background:#ffffff06;overflow:hidden}
+.rs-fold>summary {
+  display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;cursor:pointer;
+  font-size:14px;font-weight:750;color:#f1f0f3;list-style:none;
+}
+.rs-fold>summary::-webkit-details-marker {display:none}
+.rs-fold>summary::after {content:"";width:9px;height:9px;border-right:2px solid #9396a0;border-bottom:2px solid #9396a0;transform:rotate(45deg);margin:-4px 2px 0 8px;flex:none;transition:transform .2s}
+.rs-fold[open]>summary::after {transform:rotate(-135deg);margin-top:4px}
+.rs-fold>summary small {margin-left:auto;font-size:13px;font-weight:500;color:#9ea0ab}
+.rs-fold>.sg-catalog,.rs-fold>.sg-grant {margin:0;padding:0 16px 16px}
+.rs-fold .sg-item small {font-size:12px}
+.rs-fold .sg-item b {font-size:13px}
+
+.rs-subhead {margin:6px 0 0;font-size:15px;font-weight:800;color:#fff;display:flex;align-items:baseline;gap:8px}
+.rs-subhead small {font-size:13px;font-weight:500;color:#9ea0ab}
+.rs-empty {margin:0;font-size:13px;color:#9ea0ab}
+.rs-jobs {display:grid;gap:8px}
+.rs-job {
+  display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:6px 12px;align-items:center;
+  padding:12px;border-radius:16px;background:#ffffff08;border:1px solid #ffffff12;
+}
+.rs-job img {width:44px;height:44px;object-fit:contain;grid-row:span 1}
+.rs-job-main {display:grid;gap:2px;min-width:0}
+.rs-job-main b {font-size:14px;color:#fff}
+.rs-job-main span {font-size:13px;color:#cfd0d8;overflow-wrap:anywhere}
+.rs-job-main small {font-size:12px;color:#9ea0ab;overflow-wrap:anywhere}
+.rs-job-actions {grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+.rs-job-actions button {flex:1 1 150px;min-height:40px;border-radius:12px;font-size:13px;font-weight:700;background:#32333a;color:#ededf1;border:1px solid #ffffff1a}
+
+@media(max-width:560px) {
+  .relayer-stars {padding:14px;border-radius:20px}
+  .rs-balance {grid-template-columns:1fr}
+  .rs-refresh {width:100%}
+  .rs-stats {grid-template-columns:repeat(2,minmax(0,1fr))}
+  .rs-actions {grid-template-columns:1fr}
+  .rs-job {grid-template-columns:44px minmax(0,1fr)}
+  .rs-job .admin-pill {grid-column:2;justify-self:start}
+}
+@media(prefers-reduced-motion:reduce) {
+  .rs-refresh.is-busy svg {animation:none}
+  .rs-fold>summary::after {transition:none}
+}

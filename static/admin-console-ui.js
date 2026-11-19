@@ -467,6 +467,10 @@ async function renderAdminUserDetail(uid){
             adminMetric('Подарки',Number(u.gifts),'шт.')+
             adminMetric('Депозиты',info.deposits?.length||0,'','Последние 30 операций')+
             adminMetric('Выводы',info.withdrawals?.length||0,'','Последние 30 операций')+
+            adminMetric('Рефералы',Number(info.stats?.referrals||0),'чел.','Пригласил игрок')+
+            adminMetric('Действий',Number(info.stats?.actions||0),'','В истории')+
+            adminMetric('Последняя активность',info.stats?.last_activity?adminWhen(info.stats.last_activity):'—','','')+
+            adminMetric('Регистрация',u.created?adminWhen(u.created):'—','','')+
             '</div>'+adminUserActionTabs(uid,adminConsoleState.userTab||'overview')+'</div>';
         await adminUserTab(uid,adminConsoleState.userTab||'overview');
     }catch(error){
@@ -591,7 +595,7 @@ const adminRoleLabels = {
     staking:'Стейкинг',arena:'Arena',banners:'Баннеры',
     craft_banner:'Баннер крафтов',ice_banner:'Баннер Ice Arena',
     events:'Ивенты',portal:'Portal Market','telegram-bot':'Telegram-бот',
-    announcements:'Анонсы',snow:'Снег'
+    announcements:'Анонсы',snow:'Снег',characters:'Персонажи'
 };
 let adminRoleData=null;
 async function renderAdminRoles(content=document.querySelector('#admin-content')){

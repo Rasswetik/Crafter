@@ -1,0 +1,50 @@
+/* Games tab: Arena, Events and Author tiles (see games-tiles.js). */
+
+/* ---- Arena: the colours of the Arena page, a miniature of its board ---- */
+.crafter-games .gt-arena-tile{
+  background:radial-gradient(ellipse at 76% 45%,#3a2c52 0%,#241b33 58%,#15111d 100%);
+  border-color:#7d63b94d;
+}
+.crafter-games .gt-arena-tile .arena-tile-icon{
+  position:absolute;top:50%!important;right:6%!important;left:auto;bottom:auto;
+  width:clamp(112px,40%,190px)!important;height:auto!important;aspect-ratio:1;
+  transform:translateY(-50%) rotate(-6deg)!important;z-index:1;color:inherit;
+  filter:drop-shadow(0 12px 18px #0008);
+}
+.gt-arena{display:block;width:100%;height:100%;max-height:none}
+.gt-puck{animation:gt-puck 5.2s ease-in-out infinite}
+.gt-aim{transform-box:fill-box;transform-origin:center;animation:gt-aim 9s linear infinite}
+@keyframes gt-puck{0%,100%{transform:translate(0,0)}35%{transform:translate(9px,-7px)}70%{transform:translate(-8px,8px)}}
+@keyframes gt-aim{to{transform:rotate(360deg)}}
+
+/* ---- Events: one neutral picture that fits inside the tile (a custom background or picture from the admin wins) ---- */
+.crafter-games .gt-events-tile:not(.has-bg){
+  background:radial-gradient(ellipse at 78% 45%,#3b4094 0%,#232759 56%,#14152e 100%);
+  border-color:#6b74d44d;
+}
+.crafter-games .gt-events-tile .ny-art{right:3%!important;bottom:6%!important;top:6%;width:min(48%,230px)!important;display:grid;place-items:center}
+.gt-events,.gt-author{display:block;width:100%;height:auto;overflow:visible}
+.gt-sway{transform-box:fill-box;transform-origin:50% 0;animation:gt-sway 5s ease-in-out infinite}
+.gt-coin{transform-box:fill-box;transform-origin:50% 100%;animation:gt-bob 3.8s ease-in-out infinite}
+.gt-tw{transform-box:fill-box;transform-origin:center;animation:gt-tw 3.2s ease-in-out infinite}
+.gt-tw.tw2{animation-delay:-1.1s}.gt-tw.tw3{animation-delay:-2.1s}
+@keyframes gt-sway{0%,100%{transform:rotate(-2.2deg)}50%{transform:rotate(2.2deg)}}
+@keyframes gt-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+@keyframes gt-tw{0%,100%{opacity:.35;transform:scale(.7)}50%{opacity:1;transform:scale(1.1)}}
+
+/* ---- Author: a code ticket and coins ---- */
+.crafter-games .gt-author-tile{
+  background:radial-gradient(ellipse at 78% 45%,#1f6b57 0%,#173d38 56%,#0f2121 100%);
+  border-color:#3a8f774d;
+}
+.crafter-games .gt-author-tile .crafter-game-label{position:relative;z-index:2}
+.gt-author-art{position:absolute;right:4%;top:50%;width:min(50%,240px);transform:translateY(-50%);pointer-events:none;z-index:1;filter:drop-shadow(0 10px 14px #0007)}
+.crafter-games .gt-author-tile{min-height:176px}
+
+@media(max-width:480px){
+  .crafter-games .gt-events-tile .ny-art{width:52%!important}
+  .gt-author-art{width:54%}
+}
+@media(prefers-reduced-motion:reduce){
+  .gt-puck,.gt-aim,.gt-sway,.gt-coin,.gt-tw{animation:none!important}
+}

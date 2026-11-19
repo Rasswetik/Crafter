@@ -1024,3 +1024,75 @@ def test_real_gift_of_a_drop_or_box_is_bought_after_the_transaction_and_settled_
     before = balance(client, player)
     paid = client.post('/api/nft-orders/%s/settle' % item2['order_id'], headers=player, json={}).json
     assert paid['credited'] and balance(client, player) > before
+
+
+def _thermos_market(client, budget_ton, lot_price='9'):
+    """WORK mode on the Thermos market with `budget_ton` TON on the Thermos balance and three lots of `lot_price` GRAM each."""
+    ctx = client.application.extensions['crafter_pack_ctx']
+    ctx['work_mode'] = lambda: True
+    ctx['test_mode'] = lambda: False
+    ctx['thermos_backend'] = lambda: True
+    ctx['gram_per_ton'] = lambda: 1
+    ctx['ensure_listings'] = lambda *a: None
+    ctx['market_candidates'] = lambda target: [(
+        {'id': 'lot-%s-%d' % (target['id'], i), 'name': target['name'], 'number': 100 + i, 'model': 'Model %d' % i, 'image': 'https://img.example/%d.png' % i,
+         'price': lot_price, 'price_unit': 'GRAM', 'backdrop': 'Persimmon', 'symbol': 'Star', 'collection_id': target['id']}, Decimal(lot_price)) for i in range(3)]
+    bought = []
+    ctx['acquire'] = lambda gifts: (bought.append(gifts[0]['id']) or ('ok', ''))
+    client.application.extensions['crafter_thermos_budget'] = lambda fetch=True: budget_ton
+    client.application.extensions['crafter_pack_avail_cache'].clear()
+    return bought
+
+
+def test_gift_the_thermos_balance_cannot_pay_for_never_drops(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    _nft_only_pack(client, admin)
+    bought = _thermos_market(client, Decimal('5'))                  # 5 TON < 9 GRAM lots: nothing can be bought
+    opened = client.post('/api/packs/open', headers=player, json={'user_pack_id': _grant_pack(client, admin, player, 'budget-req-001')}).json
+    assert [c['kind'] for c in opened['cards']] == ['GRAM'] * 3 and bought == []
+
+
+def test_gifts_of_one_pack_together_stay_within_the_thermos_balance(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    _nft_only_pack(client, admin)
+    bought = _thermos_market(client, Decimal('20'))                 # two 9-GRAM lots fit, the third does not
+    opened = client.post('/api/packs/open', headers=player, json={'user_pack_id': _grant_pack(client, admin, player, 'budget-req-002')}).json
+    nfts = [c for c in opened['cards'] if c['kind'] == 'NFT']
+    assert len(nfts) == 2 and len(bought) == 2 and sum(Decimal(c['value']) for c in nfts) <= Decimal('20')
+
+
+def test_unknown_thermos_balance_does_not_hide_gifts(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    _nft_only_pack(client, admin)
+    bought = _thermos_market(client, None)                          # the balance could not be read: the old behaviour stays
+    opened = client.post('/api/packs/open', headers=player, json={'user_pack_id': _grant_pack(client, admin, player, 'budget-req-003')}).json
+    assert len([c for c in opened['cards'] if c['kind'] == 'NFT']) == 3 and len(bought) == 3
+
+
+def test_chest_and_drop_pools_use_the_same_balance_check(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    _nft_only_pack(client, admin)
+    _thermos_market(client, Decimal('50'))
+    available = client.application.extensions['crafter_nft_available']
+    with client.application.app_context():
+        catalog_id = next(iter(client.application.extensions['crafter_pack_ctx']['public_catalog']()))['id']
+    client.application.extensions['crafter_pack_avail_cache'][f'nft:{catalog_id}:'] = (__import__('time').time(), [({'id': 'x'}, Decimal('30'))])
+    assert available(str(catalog_id), '') is True
+    client.application.extensions['crafter_thermos_budget'] = lambda fetch=True: Decimal('10')
+    assert available(str(catalog_id), '') is False                  # 30 GRAM lot, 10 GRAM on Thermos
+
+
+def test_packs_cannot_be_put_into_staking(client):
+    admin, player = signed(42), signed(43)
+    client.get('/api/me', headers=player)
+    _nft_only_pack(client, admin)
+    upid = _grant_pack(client, admin, player, 'stake-req-001')
+    assert client.post('/api/staking/activate', headers=player, json={}).status_code in (200, 409)
+    refused = client.post('/api/staking/deposit', headers=player, json={'gift_ids': ['packitem-' + upid]})
+    assert refused.status_code == 409
+    still = [x for x in client.get('/api/inventory', headers=player).json['gifts'] if x['id'] == 'packitem-' + upid]
+    assert still and still[0]['status'] == 'unlisted'

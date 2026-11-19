@@ -109,9 +109,10 @@ def telegram_network_report():
     return report
 
 
-async def with_client(api_id, api_hash, session, operation):
+async def with_client(api_id, api_hash, session, operation, connect_retries=1):
+    # connect_retries only repeats the connection handshake; requests are never repeated (request_retries=1)
     client = TelegramClient(StringSession(session), api_id, api_hash, proxy=telegram_proxy(),
-                            connection_retries=1, request_retries=1, timeout=12)
+                            connection_retries=connect_retries, request_retries=1, timeout=12)
     await client.connect()
     try:
         return await operation(client)

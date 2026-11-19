@@ -855,8 +855,20 @@ def install_packs(app, db, auth, record, audit):
         return {'id': 'nft:%s:%s' % (cid, model), 'kind': 'NFT', 'weight': 1, 'name': info['collection'], 'collection_id': str(cid), 'model': info['model'],
                 'image': info['image'], 'value': info['value'], 'amount': ''}
 
+    def budget_gram(fetch=True):
+        """GRAM that the Thermos balance can spend on gifts now (after the fee), or None when it is unknown or the market is not Thermos."""
+        ctx = pack_ctx()
+        fn = app.extensions.get('crafter_thermos_budget')
+        if not fn or not ctx or not ctx['thermos_backend']():
+            return None
+        try:
+            ton = fn(fetch=fetch)
+            return None if ton is None else Decimal(str(ton)) * Decimal(str(ctx['gram_per_ton']()))
+        except Exception:
+            return None
+
     def nft_available(cid, model):
-        """Can this gift be bought on the connected market? Without the real market (demo) every gift is available. This runs inside transactions, so it only looks into
+        """Can this gift be bought on the connected market, and does the Thermos balance cover it? Without the real market (demo) every gift is available. This runs inside transactions, so it only looks into
         the cache of the market; an unknown gift counts as available (and is checked in the background): if it cannot be bought later, its value is paid in GRAM."""
         if not work_mode():
             return True
@@ -864,7 +876,12 @@ def install_packs(app, db, auth, record, audit):
         if hit is None:
             warm_nft(cid, model)
             return True
-        return bool(hit[1]) or time.time() - hit[0] > 300
+        if time.time() - hit[0] > 300:
+            return True                                   # an old answer: unknown, it is checked again in the background
+        if not hit[1]:
+            return False
+        budget = budget_gram(False)                       # no call to Thermos here: this runs inside a transaction
+        return budget is None or any(lot[1] <= budget for lot in hit[1])
 
     def warm_nft(cid, model):
         key = 'nft:%s:%s' % (cid, model)
@@ -1087,6 +1104,7 @@ def install_packs(app, db, auth, record, audit):
     def availability(prizes):
         """prize id -> real lots (WORK mode). Cached for two minutes so opening a pack stays quick."""
         out, now = {}, time.time()
+        budget = budget_gram(True) if any(p['kind'] == 'NFT' and float(p['weight']) > 0 for p in prizes) else None
         for p in prizes:
             if p['kind'] != 'NFT' or float(p['weight']) <= 0:
                 continue
@@ -1097,7 +1115,8 @@ def install_packs(app, db, auth, record, audit):
                 except Exception:
                     hit = (now, [])
                 avail_cache[p['id']] = hit
-            out[p['id']] = list(hit[1])
+            # a lot that the Thermos balance cannot pay for is not offered (the cache keeps all lots, the balance is checked every time)
+            out[p['id']] = [lot for lot in hit[1] if budget is None or lot[1] <= budget]
         return out
 
     warming = set()
@@ -1138,6 +1157,9 @@ def install_packs(app, db, auth, record, audit):
         real = work_mode()
         early = db().execute("SELECT pack_id,opened_at FROM user_packs WHERE id=?", (upid,)).fetchone()
         lots_by_prize = availability(prizes_of(early['pack_id'])) if (real and early and not early['opened_at']) else {}
+        budget = budget_gram(True) if lots_by_prize else None      # what Thermos can still pay for all the gifts of this pack together
+        spent = Decimal('0')
+        fits = lambda lot: lot[0]['id'] not in used and (budget is None or lot[1] + spent <= budget)
         pending = []        # [(card, listing, price)] real purchases to make after the pack is opened
         with db():
             db().execute('BEGIN IMMEDIATE')
@@ -1168,7 +1190,7 @@ def install_packs(app, db, auth, record, audit):
                 while True:
                     # Gifts that are not available on the market cannot drop in WORK mode; their chance is zero.
                     eligible = [p for p in pool if p['kind'] == 'GRAM' or not real or
-                                any(l[0]['id'] not in used for l in lots_by_prize.get(p['id'], []))]
+                                any(fits(l) for l in lots_by_prize.get(p['id'], []))]
                     if not eligible:
                         eligible = [p for p in prizes if p['kind'] == 'GRAM']
                     if not eligible:
@@ -1180,8 +1202,9 @@ def install_packs(app, db, auth, record, audit):
                     total += amount
                     cards.append({'kind': 'GRAM', 'amount': plain(amount), 'title': '+' + plain(amount) + ' GRAM'})
                 elif real:
-                    shown, price = next(l for l in lots_by_prize[prize['id']] if l[0]['id'] not in used)
+                    shown, price = next(l for l in lots_by_prize[prize['id']] if fits(l))
                     used.add(shown['id'])
+                    spent += price
                     card = {'kind': 'NFT', 'nft_id': 'thermos-' + uuid.uuid4().hex, 'title': str(shown['name']) + ' ' + str(shown['model']),
                             'name': str(shown['name']), 'number': shown.get('number'),
                             'image': shown['image'], 'value': plain(price), 'real': True}

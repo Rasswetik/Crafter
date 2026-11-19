@@ -101,7 +101,7 @@ go = async function(page, eventId = null, focusLeaderboard = true) {
         if (state.page !== 'staking') return;
         stakeUi.status = info;
         state.inventory = inventory.gifts;
-        stakeUi.gifts = inventory.gifts.filter(g => g.status === 'unlisted' && !g.catalog_only);
+        stakeUi.gifts = inventory.gifts.filter(g => g.status === 'unlisted' && !g.catalog_only && !g.pack_item && !g.star_gift && !String(g.id || '').startsWith('packitem-') && g.collection_id !== 'packs');
         renderStaking();
     } catch(error) {
         if (state.page === 'staking') {

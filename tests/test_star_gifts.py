@@ -380,3 +380,74 @@ def test_network_report_names_every_data_centre(monkeypatch):
     monkeypatch.setattr('urllib.request.urlopen', lambda *a, **k: (_ for _ in ()).throw(OSError('blocked')))
     report = telegram_deposits.telegram_network_report()
     assert [x['ok'] for x in report[:6]] == [False] * 6 and 'DC5' in report[4]['text'] and 'api.telegram.org' in report[5]['text']
+
+
+def test_balance_button_reads_stars_without_the_heavy_sync(client, monkeypatch):
+    client.application.extensions['crafter_relayer_credentials'] = lambda: (1, 'hash', 'session', 777)
+
+    async def stars_balance(api_id, api_hash, session):
+        return 777
+
+    monkeypatch.setattr(rs, 'stars_balance', stars_balance)
+    done = client.post('/api/admin/star-gifts/balance', headers=signed(), json={})
+    assert done.status_code == 200 and done.json['refreshed'] is True
+    assert done.json['state']['stars'] == 777 and done.json['state']['stars_at'] and not done.json['state'].get('error')
+    assert done.json['balance_every'] >= 60
+    assert client.post('/api/admin/star-gifts/balance', headers=signed(43), json={}).status_code == 403
+
+
+def test_balance_failure_keeps_the_last_known_value(client, monkeypatch):
+    client.application.extensions['crafter_relayer_credentials'] = lambda: (1, 'hash', 'session', 777)
+    answers = iter([300, ConnectionError('down')])
+
+    async def stars_balance(api_id, api_hash, session):
+        value = next(answers)
+        if isinstance(value, Exception):
+            raise value
+        return value
+
+    monkeypatch.setattr(rs, 'stars_balance', stars_balance)
+    assert client.post('/api/admin/star-gifts/balance', headers=signed(), json={}).json['refreshed'] is True
+    failed = client.post('/api/admin/star-gifts/balance', headers=signed(), json={}).json
+    assert failed['refreshed'] is False and failed['state']['stars'] == 300 and 'ConnectionError' in failed['state']['error']
+
+
+def test_balance_without_relayer_reports_it(client):
+    def missing():
+        raise RuntimeError('no relayer')
+
+    client.application.extensions['crafter_relayer_credentials'] = missing
+    result = client.post('/api/admin/star-gifts/balance', headers=signed(), json={}).json
+    assert result['refreshed'] is False and result['state']['error']
+
+
+def test_lost_connection_is_retried_soon_and_nothing_is_sent_twice(client, monkeypatch):
+    gift, = grant(client, 43, 'bear')
+    relayer(client, monkeypatch, ConnectionError('timeout'))
+    client.post('/api/star-gifts/withdraw', headers=signed(43), json={'gift_id': gift['id']})
+    enable(client)
+    client.post('/api/admin/star-gifts/run', headers=signed(), json={})
+    job, = client.get('/api/admin/star-gifts', headers=signed()).json['jobs']
+    assert job['status'] == 'queued' and job['note'].startswith('retry: ConnectionError')
+    import time
+    assert 0 < job['retry_at'] - time.time() <= star_gifts.CONNECT_RETRY + 2
+
+
+def test_admin_user_search_ignores_case_at_sign_and_puts_exact_id_first(client):
+    client.get('/api/me', headers=signed(501, username='IgorKing', first_name='Игорь'))
+    client.get('/api/me', headers=signed(5010, username='other', first_name='Boris'))
+    client.get('/api/me', headers=signed(777, username='x', first_name='Xenia'))
+    headers = signed()
+
+    def ids(q):
+        return [u['id'] for u in client.get('/api/admin/users', headers=headers, query_string={'search': q}).json['users']]
+
+    assert ids('igorking') == [501] and ids('@IGORKING') == [501] and ids('игорь') == [501]
+    assert ids('501')[0] == 501 and 5010 in ids('501')
+    assert 777 in ids('') and ids('no-such-player') == []
+
+
+def test_admin_user_card_has_activity_facts(client):
+    client.get('/api/me', headers=signed(601, first_name='Ref'))
+    card = client.get('/api/admin/user/601', headers=signed()).json
+    assert set(card['stats']) == {'referrals', 'last_activity', 'actions'} and card['stats']['referrals'] == 0

@@ -151,4 +151,4 @@ async def send(api_id, api_hash, session, to_user_id, to_username, stars, emoji,
         before_send()                      # from here on the outcome may be unknown
         await client(functions.payments.SendStarsFormRequest(form_id=form.form_id, invoice=invoice))
         return True
-    return await with_client(api_id, api_hash, session, run)
+    return await with_client(api_id, api_hash, session, run, connect_retries=4)

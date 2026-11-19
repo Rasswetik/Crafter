@@ -1,0 +1,31 @@
+/* Admin → «Персонажи» */
+.chr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.chr-card{display:grid;gap:10px;padding:12px;text-align:left;border-radius:18px;border:1px solid #2b3037;background:#15171b;color:#e8ebf0;cursor:pointer}
+.chr-card:hover{border-color:#3f4752;background:#1b1e23}
+.chr-thumb{display:grid;place-items:center;aspect-ratio:1;border-radius:14px;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#2a3140,#14171c)}
+.chr-thumb img{width:100%;height:100%;object-fit:contain}
+.chr-meta{display:grid;gap:2px}
+.chr-meta b{font-size:17px}
+.chr-meta small{font-size:13px;color:#98a1ac}
+.chr-open{font-size:14px;font-weight:700;color:#8fc0ff}
+
+.chr-view{display:grid;gap:12px}
+.chr-top{display:flex;gap:14px;align-items:flex-start}
+.chr-top h3{margin:0 0 4px;font-size:20px}
+.chr-top p{margin:0;font-size:14px;color:#a3abb6;line-height:1.45}
+.chr-back{flex:none;min-height:40px;padding:0 14px;border-radius:12px;border:1px solid #2f353d;background:#1b1e23;color:#dfe3e8;font-size:14px;cursor:pointer}
+.chr-stage{position:relative;height:min(68vh,620px);min-height:360px;border-radius:20px;overflow:hidden;border:1px solid #2b3037;
+  background:radial-gradient(ellipse at 50% 35%,#323a4a 0%,#1a1e26 60%,#111318 100%)}
+.chr-stage canvas{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+.chr-stage canvas:active{cursor:grabbing}
+.chr-status{position:absolute;inset:0;display:grid;place-items:center;font-size:15px;color:#cfd6df;background:#0006}
+.chr-hint{position:absolute;left:12px;bottom:10px;font-size:12px;color:#c3cad4;background:#0008;padding:4px 8px;border-radius:8px;pointer-events:none}
+.chr-controls{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center}
+.chr-anims{display:flex;flex-wrap:wrap;gap:8px}
+.chr-anims button,.chr-opts button,.chr-opts select{min-height:40px;padding:0 14px;border-radius:12px;border:1px solid #2f353d;background:#1b1e23;color:#e3e7ec;font-size:14px;cursor:pointer}
+.chr-anims button.is-on{background:#2f6fd6;border-color:#4d8bf0;color:#fff}
+.chr-anims button:disabled{opacity:.4;cursor:not-allowed}
+.chr-opts{display:flex;flex-wrap:wrap;gap:10px;align-items:center;font-size:14px;color:#c3cad4}
+.chr-opts label{display:flex;gap:6px;align-items:center}
+.chr-info{margin:0;font-size:13px;color:#8e97a2}
+@media(max-width:560px){.chr-top{flex-direction:column}.chr-stage{height:62vh}}

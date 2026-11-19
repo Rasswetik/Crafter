@@ -190,6 +190,25 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         account = login().get('account', {})
         return Decimal(str(account.get('effective_balance', 0))) / NANO
 
+    budget_cache = {'at': 0.0, 'ton': None}
+
+    def thermos_budget(fetch=True):
+        """TON that Thermos can spend on gifts right now (balance minus the withdrawal fee); None when it is not known.
+        fetch=False never calls Thermos (it is used inside transactions): it answers from the last reading, if that is not older than 15 minutes."""
+        now = time.time()
+        if now - budget_cache['at'] < 30:
+            return budget_cache['ton']
+        if not fetch:
+            return budget_cache['ton'] if now - budget_cache['at'] < 900 else None
+        try:
+            value = max(balance_ton() - FEE_WITHDRAW_OTHER_TON, Decimal(0))
+        except Exception:
+            budget_cache['at'] = now - 20                      # do not ask again for ten seconds; an old reading stays valid for a while
+            return budget_cache['ton'] if now - budget_cache['at'] < 900 else None
+        budget_cache.update(at=now, ton=value)
+        return value
+    app.extensions['crafter_thermos_budget'] = thermos_budget
+
     def can_buy(gift, price_gram):
         """WORK mode gate for games: lot still listed on Thermos and the Thermos balance covers it."""
         if app.extensions['crafter_purchase_mode']() != 'work' or not gift.get('id'):

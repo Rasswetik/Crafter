@@ -24,8 +24,10 @@ import relayer_stars as rs
 
 STARS_PER_GRAM = 100
 MESSAGE = 'Gift from Crafter'
-POLL_SECONDS = 20
+POLL_SECONDS = 5
 LOW_STARS_RETRY = 300
+BALANCE_EVERY = 120                  # the Stars balance is re-read from Telegram this often, no button needed
+CONNECT_RETRY = 20                   # a failed connection to Telegram is retried soon, nothing was sent
 SETTINGS_KEY = 'star_gift_withdraw_v1'
 STATE_KEY = 'star_gift_state_v1'
 
@@ -185,6 +187,13 @@ def install_star_gifts(app, db, auth, record, audit):
     def now():
         return int(time.time())
 
+    def kick_queue():
+        try:
+            with app.app_context():
+                process()
+        except Exception:
+            app.logger.warning('star gift kick failed')
+
     @app.post('/api/star-gifts/withdraw')
     @auth()
     def star_withdraw():
@@ -203,6 +212,8 @@ def install_star_gifts(app, db, auth, record, audit):
             db().execute("INSERT INTO star_gift_withdrawals(id,user_id,gift_id,payload,status,created,updated) VALUES(?,?,?,?,'queued',?,?)",
                          (wid, uid, gift_id, json.dumps(payload, ensure_ascii=False), now(), now()))
             record('star_gift_withdraw_requested', {'gift': gift, 'withdrawal_id': wid}, uid=uid)
+        if enabled() and not app.config.get('TESTING'):
+            threading.Thread(target=kick_queue, daemon=True, name='star-gifts-kick').start()      # no waiting for the next poll
         return {'ok': True, 'id': wid, 'status': 'queued', 'auto': enabled()}
 
     def set_row(wid, **fields):
@@ -311,7 +322,8 @@ def install_star_gifts(app, db, auth, record, audit):
                     app.logger.warning('star gift step failed: %s', type(error).__name__)
                     cur = db().execute("SELECT status FROM star_gift_withdrawals WHERE id=?", (row['id'],)).fetchone()
                     if cur and cur['status'] == 'queued':
-                        set_row(row['id'], retry_at=now() + 60, note=('retry: ' + type(error).__name__)[:200])
+                        quick = isinstance(error, (ConnectionError, TimeoutError, OSError))
+                        set_row(row['id'], retry_at=now() + (CONNECT_RETRY if quick else 60), note=('retry: ' + type(error).__name__)[:200])
         finally:
             with db():
                 db().execute('UPDATE star_gift_lease SET until=0 WHERE id=1')
@@ -361,7 +373,7 @@ def install_star_gifts(app, db, auth, record, audit):
             (state.get('stars') is not None and int(state.get('stars') or 0) >= 15, 'Звёзд на релейере: ' + str(state.get('stars', '—')) + ' (нужно хотя бы 15 на подарок)'),
             (all(i['synced'] for i in catalog), 'Настоящие картинки и ID из Telegram загружены: ' + str(sum(1 for i in catalog if i['synced'])) + ' из ' + str(len(catalog))),
         ]
-        return {'enabled': enabled(), 'relayer_connected': connected, 'state': state, 'counts': counts, 'jobs': jobs,
+        return {'enabled': enabled(), 'relayer_connected': connected, 'balance_every': BALANCE_EVERY, 'state': state, 'counts': counts, 'jobs': jobs,
                 'catalog': catalog, 'message': MESSAGE, 'report': [{'ok': ok, 'text': text} for ok, text in report]}
 
     @app.get('/api/admin/star-gifts')
@@ -408,6 +420,27 @@ def install_star_gifts(app, db, auth, record, audit):
         except Exception as error:
             save_state(error='Не удалось проверить: ' + type(error).__name__ + ': ' + str(error)[:120] + '. Нажмите «Проверить доступ сервера к Telegram»: это покажет, блокирует ли сеть сервера Telegram.', checked=now())
             return False
+
+    def refresh_balance():
+        """Only the Stars balance (one short connection); the heavy ids/prices/pictures sync stays on its own button."""
+        try:
+            api_id, api_hash, session, _ = creds()
+        except Exception:
+            save_state(error='Релейер не подключён', checked=now())
+            return False
+        try:
+            stars = asyncio.run(rs.stars_balance(api_id, api_hash, session))
+            save_state(stars=stars, stars_at=now(), checked=now(), error='')
+            return True
+        except Exception as error:
+            save_state(error='Не удалось обновить баланс Stars: ' + type(error).__name__ + '. Повторим автоматически.')
+            return False
+
+    @app.post('/api/admin/star-gifts/balance')
+    @auth(admin=True)
+    def star_admin_balance():
+        ok = refresh_balance()
+        return {**overview(), 'refreshed': ok}
 
     @app.post('/api/admin/star-gifts/check')
     @auth(admin=True)
@@ -457,7 +490,7 @@ def install_star_gifts(app, db, auth, record, audit):
         audit('Star gift %s x%d granted to %d' % (body['key'], count, uid))
         return {'ok': True}
 
-    last_sync = {'at': 0.0}
+    last_sync = {'at': 0.0, 'balance': 0.0}
 
     def background():
         while True:
@@ -465,6 +498,13 @@ def install_star_gifts(app, db, auth, record, audit):
                 with app.app_context():
                     if enabled():
                         process()
+                    if time.time() - last_sync['balance'] > BALANCE_EVERY:
+                        last_sync['balance'] = time.time()
+                        try:
+                            creds()
+                            refresh_balance()
+                        except Exception:
+                            pass                                   # relayer not connected: nothing to read
                     if time.time() - last_sync['at'] > 1800 and not all(i['synced'] for i in catalog_now()):
                         last_sync['at'] = time.time()          # pictures, ids and prices are missing: load them, no button needed
                         sync_assets()

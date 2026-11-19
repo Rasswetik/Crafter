@@ -233,8 +233,9 @@ def install_staking(app, db, auth, record, audit, staking_catalog, canonical_nam
             valued = []
             for i in ids:
                 item = json.loads(gifts[i]['payload'])
-                if item.get('catalog_only') or item.get('pack_item') or item.get('star_gift'):
-                    abort(409, description='Нельзя заморозить каталоговую модель')
+                if (item.get('catalog_only') or item.get('pack_item') or item.get('star_gift') or str(i).startswith('packitem-')
+                        or (item.get('origin') == 'pack' and not item.get('real')) or str(item.get('collection_id') or '') == 'packs'):
+                    abort(409, description='Паки, ящики и каталоговые модели нельзя заморозить в стейкинге')
                 value = gift_value(item, floors)
                 if value is None:
                     abort(409, description='Нет оценки для стейкинга: ' + str(item.get('name') or 'подарок'))
