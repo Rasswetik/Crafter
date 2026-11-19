@@ -71,7 +71,8 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
                 pass
         return bool(user and admin_access(user.get("id"))["is_admin"])
 
-    MODE_DEFAULTS = {'craft': True, 'arena': True, 'staking': True, 'upgrade': True}
+    # season and author only show/hide their buttons; the four games are also blocked on the server
+    MODE_DEFAULTS = {'craft': True, 'arena': True, 'staking': True, 'upgrade': True, 'season': True, 'author': True}
 
     def site_modes():
         row = db().execute("SELECT payload FROM settings WHERE key='site_modes_v1'").fetchone()
@@ -127,15 +128,18 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
         # Signing in must work during maintenance: an administrator logs in first and is then let through.
         if path.startswith("/api/web-login/"):
             return None
+        # The partner API (and the ordinary endpoints it calls on behalf of a key) keeps working during
+        # the countdown and maintenance. The environ key is set only by the server itself, never by a client.
+        partner = path.startswith("/api/partner/") or bool(request.environ.get("crafter.internal_user"))
         # The countdown screen comes first: it can run together with maintenance and has priority over it.
-        countdown = launch()
+        countdown = {"active": False} if partner else launch()
         if countdown["active"] and not valid_admin_request():
             response = jsonify({"error": "До запуска осталось совсем немного", "launch": True,
                                 "opens_at": countdown["opens_at"], "now": countdown["now"]})
             response.status_code = 503
             response.headers["Cache-Control"] = "no-store"
             return response
-        state = maintenance()
+        state = {"enabled": False} if partner else maintenance()
         if state["enabled"] and not valid_admin_request():
             response = jsonify({
                 "error": "Сервис находится на технических работах",

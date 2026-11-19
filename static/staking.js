@@ -1,21 +1,24 @@
 /* Crafter Games Hub and gift staking. The existing craft mechanic is preserved. */
 const stakeUi = {status:null, picked:new Set(), tutorialStep:0, gifts:[], pending:false};
-const crafterModePolicy = {craft:true,arena:true,staking:true,upgrade:true};
+const crafterModePolicy = {craft:true,arena:true,staking:true,upgrade:true,season:true,author:true};
 let crafterModePolicyLoaded = false;
 async function loadCrafterModePolicy() {
     if (crafterModePolicyLoaded) return;
     crafterModePolicyLoaded = true;
     try {
         const data = await api('site/modes');
-        for (const id of ['craft','arena','staking','upgrade'])
+        for (const id of Object.keys(crafterModePolicy))
             if (typeof data.modes?.[id] === 'boolean') crafterModePolicy[id] = data.modes[id];
         if (state.page === 'games') renderGamesHub();
         if (typeof nav === 'function') nav();
+        if (typeof window.crafterDesktopNavRefresh === 'function') window.crafterDesktopNavRefresh();
     } catch(_) { crafterModePolicyLoaded = false; }
 }
+// a button hidden in the admin panel disappears for everyone, administrators included (their API access stays)
 function crafterCanSeeMode(mode) {
-    return Boolean(state.me?.is_admin || crafterModePolicy[mode]);
+    return crafterModePolicy[mode] !== false;
 }
+setTimeout(loadCrafterModePolicy, 0);
 
 const stakingMachinePNG = '<img class="staking-machine-png" src="/static/assets/staking-machine.png" alt="Стейкинг подарков" decoding="async">';
 const magnateArt = (className) => `<img class="${className}" src="/static/assets/craft-magnate.webp" alt="" decoding="async">`;

@@ -197,3 +197,31 @@ def test_ton_withdrawal_through_the_api(client):
     assert '/ton/withdraw' in spec['paths'] and '/ton/withdrawals/{withdrawal_id}' in spec['paths']
     page = client.get('/partner-api').get_data(as_text=True)
     assert 'id="ton"' in page and 'href="#ton"' in page and 'IntersectionObserver' in page
+
+
+def test_partner_api_works_during_maintenance_and_countdown(client):
+    import time as _time
+    prepare_sale(client)
+    seller, buyer = key_for(client, 42), key_for(client, 43)
+    admin, player = signed(42), signed(43)
+    assert client.post('/api/admin/maintenance', headers=admin, json={
+        'enabled': True, 'confirm': 'ENABLE_MAINTENANCE', 'message': 'Работы'}).status_code == 200
+    assert client.post('/api/admin/maintenance/launch', headers=admin,
+                       json={'opens_at': int(_time.time()) + 86400}).status_code == 200
+    # the site itself is closed for players ...
+    assert client.get('/api/me', headers=player).status_code == 503
+    assert client.get('/api/inventory', headers=player).status_code == 503
+    # ... the partner API is not: reading and trading (its internal calls included) go through
+    assert client.get(BASE + '/account', headers=bearer(buyer)).status_code == 200
+    assert client.get(BASE + '/collections', headers=bearer(buyer)).status_code == 200
+    assert client.get(BASE + '/account').status_code == 401                        # a key is still required
+    sell = client.post(BASE + '/sell', headers=bearer(seller, 'sell-op-maint-00001'), json={'gift_id': 'trade-gift', 'price': '12.5'})
+    assert sell.status_code == 200, sell.json
+    name = client.get(BASE + '/inventory', headers=bearer(seller)).json['gifts'][0]['name']
+    lots = client.get(BASE + '/lots', query_string={'collection': name, 'source': 'crafter'}, headers=bearer(buyer)).json
+    lot = next(x for x in lots['lots'] if x['source'] == 'crafter')
+    bought = client.post(BASE + '/buy', headers=bearer(buyer, 'buy-op-maint-000001'), json={'lot_id': lot['lot_id'], 'max_price': '13'})
+    assert bought.status_code == 200 and bought.json['status'] == 'done', bought.json
+    assert [x['gift_id'] for x in client.get(BASE + '/inventory', headers=bearer(buyer)).json['gifts']] == ['trade-gift']
+    # a client cannot forge the internal marker to slip past maintenance
+    assert client.get('/api/me', headers={**player, 'Crafter-Internal-User': '{"id": 43}'}).status_code == 503

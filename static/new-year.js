@@ -55,7 +55,7 @@ function navSeason(){
     document.querySelector('#nav .nav-main .ny-nav-tab')?.remove();      // on the phone the event is not in the bottom bar: it lives in the Games section
     const desktop=document.querySelector('#crafter-desktop-sidebar .desktop-sidebar-menu');
     desktop?.querySelector('.ny-desktop-link')?.remove();
-    if(desktop){
+    if(desktop&&(typeof crafterCanSeeMode!=='function'||crafterCanSeeMode('season'))){
         const button=document.createElement('button');
         button.type='button';
         button.className='desktop-sidebar-link ny-desktop-link'+(state.page==='new-year'?' is-active':'');
@@ -87,6 +87,7 @@ function tileHTML(cfg){
 function addSeasonTile(){
     const wrap=document.querySelector('#main .crafter-games');
     if(!wrap)return;
+    if(typeof crafterCanSeeMode==='function'&&!crafterCanSeeMode('season')){wrap.querySelector('.ny-game-tile')?.remove();return;}
     if(!wrap.querySelector('.ny-game-tile'))wrap.insertAdjacentHTML('afterbegin',tileHTML(tileCfg));
     if(!tileCfg&&!tileLoading){
         tileLoading=true;

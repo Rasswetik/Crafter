@@ -341,9 +341,11 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
         ['arena','Arena','Игровая арена'],
         ['staking','Стейкинг','Начисление по APR'],
         ['upgrade','Апгрейд','Колесо апгрейдов'],
+        ['season','Сезон / События','Кнопка сезона в разделе «Игры» и в меню'],
+        ['author','Автор','Кнопка раздела автора'],
     ];
     content.innerHTML=adminQueueHeader('Управление режимами',
-        'При отключении сервер блокирует новые игровые запросы обычных пользователей. Администраторы сохраняют доступ.')+
+        'Выключенная кнопка полностью пропадает из раздела «Игры» и меню у всех. Для Крафтов, Арены, Стейкинга и Апгрейда сервер ещё и блокирует игровые запросы обычных пользователей.')+
         (buy?'<section class="admin-glass-panel admin-purchase-mode"><div><h3>Режим покупок</h3>'+
             '<p>ТЕСТ — подарок покупается без проверки Portals. РАБОТА — проверяется наличие лота на Portals и баланс, затем подарок покупается и попадает в инвентарь.</p>'+
             (buy.mode==='test'&&buy.missing?.length?'<p class="admin-mode-missing">Для РАБОТА не хватает: '+buy.missing.map(esc).join('; ')+'</p>':'')+'</div>'+
@@ -359,9 +361,9 @@ async function renderAdminModes(content=document.querySelector('#admin-content')
             return '<section class="admin-glass-panel admin-mode-card"><div>'+
                 '<h3>'+name+'</h3><p>'+details+'</p></div>'+
                 '<span class="admin-pill '+(enabled?'is-good':'is-alert')+'">'+
-                (enabled?'Включён':'Выключен')+'</span>'+
+                (enabled?'Показан':'Скрыт')+'</span>'+
                 '<button type="button" onclick="adminChangeMode('+arg(id)+','+(!enabled)+')">'+
-                (enabled?'Отключить':'Включить')+'</button></section>';
+                (enabled?'Скрыть':'Показать')+'</button></section>';
         }).join('')+'</div><div class="admin-glass-panel">'+
         '<h3>Настройки режимов</h3><div class="admin-glass-action-grid">'+
         '<button onclick="openAdminSection(\'arena\')">Arena — банк и комиссия →</button>'+
@@ -413,7 +415,7 @@ async function adminSetPurchaseMode(mode){
     }catch(error){toast(error.message);}
 }
 async function adminChangeMode(mode,enabled){
-    if(!confirm((enabled?'Включить':'Отключить')+' режим '+mode+' для всех обычных пользователей?'))return;
+    if(!confirm((enabled?'Показать':'Скрыть')+' кнопку «'+mode+'» для всех пользователей?'))return;
     try{
         await api('admin/modes',{mode,enabled,confirm:'SET_MODE'});
         toast('Настройки режима сохранены');

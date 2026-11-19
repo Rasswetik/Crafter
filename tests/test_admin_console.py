@@ -104,8 +104,15 @@ def test_mode_management_is_authenticated_and_changes_actual_game_access(client)
     admin, member = signed(42), signed(43)
     assert client.get('/api/me', headers=member).status_code == 200
     assert client.get('/api/site/modes').json['modes'] == {
-        'craft': True, 'arena': True, 'staking': True, 'upgrade': True
+        'craft': True, 'arena': True, 'staking': True, 'upgrade': True, 'season': True, 'author': True
     }
+    # season and author only hide their buttons: the API behind them keeps answering
+    assert client.post('/api/admin/modes',headers=admin,json={
+        'mode':'season','enabled':False,'confirm':'SET_MODE'}).status_code == 200
+    assert client.get('/api/site/modes').json['modes']['season'] is False
+    assert client.get('/api/me',headers=member).status_code == 200
+    assert client.post('/api/admin/modes',headers=admin,json={
+        'mode':'season','enabled':True,'confirm':'SET_MODE'}).status_code == 200
     assert client.post('/api/admin/modes',headers=member,json={
         'mode':'craft','enabled':False,'confirm':'SET_MODE'}).status_code == 403
     assert client.post('/api/admin/modes',headers=admin,json={

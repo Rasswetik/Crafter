@@ -17,7 +17,9 @@ async function check() {
 }
 function refreshNav() { if (typeof nav === 'function') nav(); window.crafterDesktopNavRefresh?.(); }
 
+const authorShown = () => typeof crafterCanSeeMode !== 'function' || crafterCanSeeMode('author');
 function navAuthor() {
+    if (!authorShown()) { document.querySelector('#crafter-desktop-sidebar .au-nav-link')?.remove(); return; }
     if (!info?.has_code) return;
     const side = document.querySelector('#crafter-desktop-sidebar');
     if (side && !side.querySelector('.au-nav-link')) {
@@ -34,6 +36,7 @@ function navAuthor() {
 }
 function addTile() {                                              // on the phone: a tile in the Games section, next to the event
     const wrap = document.querySelector('#main .crafter-games');
+    if (wrap && !authorShown()) { wrap.querySelector('.au-game-tile')?.remove(); return; }
     if (!wrap || !info?.has_code || wrap.querySelector('.au-game-tile')) return;
     wrap.insertAdjacentHTML('beforeend', '<button class="crafter-game-tile au-game-tile" type="button" onclick="go(\'author\')"><span class="crafter-game-label"><strong>Автор</strong><span>Статистика вашего кода</span></span></button>');
 }
