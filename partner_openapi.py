@@ -45,6 +45,7 @@ def build(base):
             '/lots': get('Лоты', 'Лоты Crafter и подключённого маркета вместе, дешёвые первыми. Паки в список не попадают.',
                          [q('collection', 'ID или название коллекции', True), q('model', 'Название модели'), q('number', 'Номер подарка'),
                           q('source', 'all, crafter или market', schema={'type': 'string', 'enum': ['all', 'crafter', 'market']}),
+                          q('market', 'Фильтр по маркету: crafter, thermos, portals… Без параметра — все'),
                           q('sort', 'price_asc или price_desc'), q('page', 'Страница, с 1', schema={'type': 'integer'}), q('limit', 'До 50', schema={'type': 'integer'})]),
             '/inventory': get('Ваши подарки', 'До 50 подарков за запрос. Курсор: `before` = последний `gift_id` предыдущей страницы.', [q('before', 'Курсор')]),
             '/gifts/{gift_id}': get('Подарок или лот', 'Ваш подарок либо открытый лот Crafter.', [{'name': 'gift_id', 'in': 'path', 'required': True, 'schema': {'type': 'string'}}]),

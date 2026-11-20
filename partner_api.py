@@ -271,7 +271,10 @@ def install_partner_api(app, db, auth, record, audit):
     @app.get(BASE + '/lots')
     @partner
     def p_lots():
-        collection = find_collection(request.args.get('collection', ''))
+        raw_collection = request.args.get('collection', '').strip()
+        if not raw_collection:
+            raise PartnerError(400, 'collection_required', 'Укажите collection — ID или название коллекции. Список: GET /collections')
+        collection = find_collection(raw_collection)
         source = request.args.get('source', 'all')
         if source not in ('all', 'crafter', 'market'):
             raise PartnerError(400, 'bad_request', 'source: all, crafter или market')
@@ -280,6 +283,11 @@ def install_partner_api(app, db, auth, record, audit):
             lots += crafter_lots(collection, g.partner['id'])
         if source in ('all', 'market'):
             lots += market_lots(collection)
+        wanted = request.args.get('market', '').strip().lower()
+        if wanted == 'thermos':                                    # «Thermos» is the backend of the connected market, not a name on the lot
+            lots = [x for x in lots if x['source'] == 'market'] if pack_ctx()['thermos_backend']() else []
+        elif wanted:
+            lots = [x for x in lots if str(x['market']).lower() == wanted]
         model = request.args.get('model', '').strip().lower()
         if model:
             lots = [x for x in lots if x['model'].lower() == model]

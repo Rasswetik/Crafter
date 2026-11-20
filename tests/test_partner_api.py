@@ -74,6 +74,12 @@ def test_trading_flow_with_idempotency(client):
     assert lot['price'] == '12.5'
     assert client.get(BASE + '/lots', query_string={'collection': name, 'source': 'crafter'}, headers=bearer(seller)).json['total'] == 0
 
+    # a request without a collection gets an explicit answer, and the market filter narrows the list
+    missing = client.get(BASE + '/lots', query_string={'source': 'market', 'market': 'thermos'}, headers=bearer(buyer))
+    assert missing.status_code == 400 and missing.json['code'] == 'collection_required'
+    by_market = lambda market: client.get(BASE + '/lots', query_string={'collection': name, 'source': 'crafter', 'market': market}, headers=bearer(buyer)).json
+    assert by_market('crafter')['total'] == 1 and by_market('thermos')['total'] == 0
+
     too_low = client.post(BASE + '/buy', headers=bearer(buyer, 'buy-op-00000000001'), json={'lot_id': lot['lot_id'], 'max_price': '10'})
     assert too_low.status_code == 409 and too_low.json['result']['code'] == 'price_changed'
 
