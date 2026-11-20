@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#101114">
 <title>Crafter Partner API v1</title>
 <meta name="description" content="Партнёрское API Crafter: баланс, каталог, лоты, покупка, продажа и передача подарков по одному серверному ключу.">
-<link rel="stylesheet" href="/static/partner-api.css?v=11">
+<link rel="stylesheet" href="/static/partner-docs.css?v=1">
 </head>
 <body>
 <div class="page">
@@ -54,13 +54,13 @@
     <tr><th>Заголовок</th><th>Значение</th><th>Когда нужен</th></tr>
     <tr><td><code>Authorization</code></td><td><code>Bearer CRT/…</code></td><td>В каждом запросе</td></tr>
     <tr><td><code>Content-Type</code></td><td><code>application/json</code></td><td>В POST-запросах</td></tr>
-    <tr><td><code>Idempotency-Key</code></td><td>Уникальный номер операции</td><td>В каждом POST, см. <a href="#more">Офферы и выводы</a><a href="#ton">Вывод TON</a><a href="#stars">Обычные подарки</a><a href="#idem">раздел</a></td></tr>
+    <tr><td><code>Idempotency-Key</code></td><td>Уникальный номер операции</td><td>В каждом POST, см. <a href="#idem">Idempotency-Key</a></td></tr>
   </table>
   <h3>Правила</h3>
   <ul>
     <li>Только HTTPS и только с сервера. Запросы из браузера с заголовком <code>Origin</code> отклоняются: ключ нельзя встраивать в сайт или мобильное приложение.</li>
     <li>Ключ даёт доступ к <b>одному</b> аккаунту: его баланс, покупки и подарки. Чужие аккаунты, админ-функции и вывод средств за пределы Crafter ему недоступны.</li>
-    <li>Права ключа: <code>read</code>, <code>buy</code>, <code>sell</code>, <code>transfer</code>. Список приходит в <code>GET /account</code>.</li>
+    <li>Права ключа: <code>read</code> (чтение), <code>buy</code> (покупка), <code>sell</code> (продажа и снятие с продажи), <code>transfer</code> (передача), <code>offers</code> (офферы), <code>withdraw</code> (вывод NFT и TON). Список приходит в <code>GET /account</code>, поле <code>rights</code>.</li>
     <li>Заблокированный аккаунт теряет доступ к API.</li>
   </ul>
 </section>
@@ -130,15 +130,19 @@
 }</pre>
 
   <div class="ep" id="lots"><span class="m get">GET</span><code>/lots</code><em>право read</em></div>
-  <p>Главный запрос для витрины: лоты игроков Crafter и подключённого маркета в <b>одном</b> списке. Цена всегда точная, как при покупке.</p>
+  <p>Лоты игроков Crafter и подключённого маркета в <b>одном</b> списке. Цена всегда точная, как при покупке.</p>
+  <div class="ok"><b>Все коллекции одним запросом.</b> Без параметра <code>collection</code> приходят лоты <b>всех</b> коллекций сразу, дешёвые первыми. Это один запрос вместо сотни, поэтому лимит частоты не мешает. Страница до 500 лотов (<code>limit</code>), лист листается параметром <code>page</code>. Примеры: <code>/lots?source=market&amp;market=thermos&amp;sort=price_asc&amp;limit=500</code>.</div>
+  <div class="note"><b>Поле <code>complete</code>.</b> Первый запрос «по всем» может собирать маркет до 8 секунд. Если ответ пришёл с <code>"complete": false</code>, часть коллекций ещё не загружена: подождите <code>retry_after</code> секунд (5) и повторите тот же запрос, загрузка продолжится с того места. Готовый список хранится 30 секунд, повторные запросы и следующие страницы отвечают мгновенно.</div>
   <table>
-    <tr><th>Параметр</th><th>Описание</th></tr>
-    <tr><td><code>collection</code></td><td>Обязательный. ID или название коллекции.</td></tr>
-    <tr><td><code>model</code></td><td>Только эта модель.</td></tr>
-    <tr><td><code>number</code></td><td>Только подарок с этим номером.</td></tr>
-    <tr><td><code>source</code></td><td><code>all</code> (по умолчанию), <code>crafter</code> — только лоты игроков, <code>market</code> — только подключённый маркет.</td></tr>
-    <tr><td><code>sort</code></td><td><code>price_asc</code> (по умолчанию) или <code>price_desc</code>.</td></tr>
-    <tr><td><code>page</code>, <code>limit</code></td><td>Страница с 1 и размер страницы до 50 (по умолчанию 20).</td></tr>
+    <tr><th>Параметр</th><th>Нужен</th><th>Описание</th></tr>
+    <tr><td><code>collection</code></td><td>нет</td><td>ID (<code>id</code> из <code>/collections</code>) или название коллекции. Не указан: лоты всех коллекций. Указана несуществующая: <code>404 collection_not_found</code>.</td></tr>
+    <tr><td><code>source</code></td><td>нет</td><td><code>all</code> (по умолчанию) — лоты игроков и маркета; <code>crafter</code> — только лоты игроков; <code>market</code> — только подключённый маркет. Другое значение: <code>400 bad_request</code>.</td></tr>
+    <tr><td><code>market</code></td><td>нет</td><td>Фильтр по маркету. <code>crafter</code> — лоты игроков; <code>thermos</code> — все лоты подключённого маркета, если сервер сейчас работает через Thermos (иначе список пуст); любое другое имя (например <code>portals</code>) сравнивается с полем <code>market</code> лота без учёта регистра. Не задан — без фильтра.</td></tr>
+    <tr><td><code>model</code></td><td>нет</td><td>Только эта модель (точное название, без учёта регистра).</td></tr>
+    <tr><td><code>number</code></td><td>нет</td><td>Только подарок с этим номером.</td></tr>
+    <tr><td><code>sort</code></td><td>нет</td><td><code>price_asc</code> (по умолчанию) или <code>price_desc</code>. Сортировка по цене в GRAM.</td></tr>
+    <tr><td><code>page</code></td><td>нет</td><td>Страница, считая с 1. По умолчанию 1.</td></tr>
+    <tr><td><code>limit</code></td><td>нет</td><td>Размер страницы от 1 до 50 (по умолчанию 20); без <code>collection</code> — до 500. Больше максимума урезается. Нечисловые <code>page</code> и <code>limit</code>: <code>400 bad_request</code>.</td></tr>
   </table>
 <pre>{
   "ok": true,
@@ -161,6 +165,42 @@
   ]
 }</pre>
   <div class="note"><b>Защита от неверных цен.</b> Лоты подключённого маркета, цена которых намного ниже минимальной цены коллекции, считаются ошибкой данных и в список не попадают.</div>
+  <h3>Поля лота</h3>
+  <table>
+    <tr><th>Поле</th><th>Значение</th></tr>
+    <tr><td><code>lot_id</code></td><td>Идентификатор для <code>/buy</code> и <code>/offers/create</code>. У лота игрока вид <code>crafter-…</code>, у лота маркета <code>m.&lt;коллекция&gt;.&lt;id&gt;</code>.</td></tr>
+    <tr><td><code>source</code></td><td><code>crafter</code> или <code>market</code>.</td></tr>
+    <tr><td><code>market</code></td><td>Название площадки: <code>Crafter</code>, <code>Thermos</code>, <code>Portals</code> и т. п.</td></tr>
+    <tr><td><code>collection</code>, <code>name</code></td><td>Название коллекции.</td></tr>
+    <tr><td><code>number</code>, <code>model</code>, <code>backdrop</code>, <code>symbol</code></td><td>Номер, модель, фон и узор. Если атрибута нет, приходит пустая строка.</td></tr>
+    <tr><td><code>image</code></td><td>Адрес картинки. Лоты маркета без картинки в список не попадают.</td></tr>
+    <tr><td><code>price</code>, <code>price_nano</code></td><td>Цена в GRAM строкой и в нано-единицах строкой. У лотов маркета цена пересчитана из TON по курсу сервиса.</td></tr>
+  </table>
+  <h3>Как собрать витрину</h3>
+  <ol class="steps">
+    <li><b>Запросите все лоты.</b> <code>GET /lots?source=market&amp;market=thermos&amp;sort=price_asc&amp;limit=500</code>. Если нужны только лоты одной коллекции, добавьте <code>collection</code>.</li>
+    <li><b>Дождитесь полной загрузки.</b> Если <code>complete</code> равен <code>false</code>, повторите запрос через <code>retry_after</code> секунд.</li>
+    <li><b>Листайте страницы.</b> Пока <code>has_more</code> равен <code>true</code>, увеличивайте <code>page</code>.</li>
+    <li><b>Не превышайте лимит.</b> Запросы по коллекциям шлите по очереди, учитывайте <code>429</code> и <code>Retry-After</code>: на ключ приходится {{ limit }} запросов за {{ window }} секунд.</li>
+    <li><b>Логируйте ответ при ошибке.</b> Записывайте HTTP-статус, поле <code>code</code> и количество полученных лотов: по ним сразу видно, что случилось (<code>rate_limited</code>, <code>collection_not_found</code>, <code>unauthorized</code> или просто пустой список).</li>
+  </ol>
+<pre><span class="c"># Python: самые дешёвые лоты Thermos по всем коллекциям</span>
+import time, requests
+H = {"Authorization": "Bearer " + KEY}
+params = {"source": "market", "market": "thermos", "sort": "price_asc", "limit": 500, "page": 1}
+lots = []
+while True:
+    r = requests.get("{{ base }}/lots", headers=H, params=params, timeout=30)
+    if r.status_code == 429:                                   <span class="c"># лимит: ждём, сколько сказал сервер</span>
+        time.sleep(int(r.headers.get("Retry-After", 10))); continue
+    body = r.json()
+    print(r.status_code, body.get("code"), len(body.get("lots", [])), body.get("complete"))
+    if not body.get("ok"): break
+    if body.get("complete") is False:                          <span class="c"># маркет ещё грузится</span>
+        time.sleep(body.get("retry_after", 5)); continue
+    lots += body["lots"]
+    if not body["has_more"]: break
+    params["page"] += 1</pre>
 
   <div class="ep" id="inventory"><span class="m get">GET</span><code>/inventory</code><em>право read</em></div>
   <p>Ваши подарки (без паков и тестовых подарков). За один запрос приходит до 50 штук. Если подарков больше, в ответе есть <code>next</code> — передайте его в параметре <code>before</code>, чтобы получить следующую страницу.</p>
@@ -321,7 +361,7 @@
 
 <section id="stars">
   <h2><span>09</span>Обычные подарки Telegram</h2>
-  <p>Bear, Rose, Cake и другие обычные подарки Telegram устроены проще NFT: у каждого есть фиксированная цена в Stars, а курс везде одинаков: <b>100  = 1 GRAM</b>. Они работают отдельными запросами и не попадают в <code>/lots</code> и <code>/inventory</code>.</p>
+  <p>Bear, Rose, Cake и другие обычные подарки Telegram устроены проще NFT: у каждого есть фиксированная цена в Stars, а курс везде одинаков: <b>100 &#9733; = 1 GRAM</b>. Они работают отдельными запросами и не попадают в <code>/lots</code> и <code>/inventory</code>.</p>
   <table><tr><th>Подарок</th><th>Stars</th><th>Цена в GRAM</th></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/heart.png" alt="">Heart</span></td><td>15 &#9733;</td><td><code>0.15</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/bear.png" alt="">Bear</span></td><td>15 &#9733;</td><td><code>0.15</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/rose.png" alt="">Rose</span></td><td>25 &#9733;</td><td><code>0.25</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/gift.png" alt="">Gift</span></td><td>25 &#9733;</td><td><code>0.25</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/cake.png" alt="">Cake</span></td><td>50 &#9733;</td><td><code>0.5</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/bouquet.png" alt="">Bouquet</span></td><td>50 &#9733;</td><td><code>0.5</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/rocket.png" alt="">Rocket</span></td><td>50 &#9733;</td><td><code>0.5</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/champagne.png" alt="">Champagne</span></td><td>50 &#9733;</td><td><code>0.5</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/trophy.png" alt="">Trophy</span></td><td>100 &#9733;</td><td><code>1</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/ring.png" alt="">Ring</span></td><td>100 &#9733;</td><td><code>1</code></td></tr><tr><td><span class="sg"><img src="{{ site }}/static/assets/stargifts/diamond.png" alt="">Diamond</span></td><td>100 &#9733;</td><td><code>1</code></td></tr></table>
   <div class="ep"><span class="m get">GET</span><code>/star-gifts</code><em>право read</em></div>
   <p>Каталог: ключ, название, цена, PNG-картинка и <code>telegram_gift_id</code> — идентификатор подарка в Telegram, по которому его отправляют. Идентификатор и картинка появляются после загрузки из Telegram в админ-панели; до этого <code>telegram_gift_id</code> равен <code>null</code>, а картинка встроенная.</p>
@@ -389,10 +429,10 @@ console.log(r.status, await r.json());</pre>
     <tr><th>HTTP / status</th><th>Что означает и что делать</th></tr>
     <tr><td>200 · <code>done</code></td><td>Операция выполнена, результат сохранён.</td></tr>
     <tr><td>202 · <code>processing</code></td><td>Операция ещё выполняется. Опрашивайте <code>/operations/{id}</code>, не создавайте новую.</td></tr>
-    <tr><td>400 · <code>failed</code></td><td>Неверный запрос: проверьте <code>code</code> и <code>error</code>. Повторять можно только с новым ключом и исправленными данными.</td></tr>
+    <tr><td>400 · <code>failed</code></td><td>Неверный запрос (<code>bad_request</code>): проверьте <code>code</code> и <code>error</code>. Повторять можно только после исправления запроса, а для POST — с новым ключом.</td></tr>
     <tr><td>401</td><td>Нет или неверный ключ, ключ заменён.</td></tr>
     <tr><td>403</td><td>Запрос из браузера (есть <code>Origin</code>), аккаунт заблокирован или недостаточно прав.</td></tr>
-    <tr><td>404</td><td>Коллекция, лот, подарок или операция не найдены. Лот мог быть продан.</td></tr>
+    <tr><td>404</td><td>Коллекция, лот, подарок, вывод или операция не найдены. Лот мог быть продан.</td></tr>
     <tr><td>409 · <code>conflict</code></td><td>Idempotency-Key уже использован с другим запросом.</td></tr>
     <tr><td>409 · <code>failed</code></td><td>Операция отклонена по существу: <code>price_changed</code>, недостаточно баланса, лот недоступен.</td></tr>
     <tr><td>429</td><td>Слишком много запросов. Подождите заголовок <code>Retry-After</code> (10 секунд).</td></tr>
@@ -402,6 +442,12 @@ console.log(r.status, await r.json());</pre>
   <table>
     <tr><th><code>code</code></th><th>Причина</th></tr>
     <tr><td><code>unauthorized</code></td><td>Ключ не передан или не подходит.</td></tr>
+    <tr><td><code>bad_request</code></td><td>Неверный параметр или тело запроса (например, <code>source</code> вне списка или нецелый <code>page</code>). Подробности в <code>error</code>.</td></tr>
+    <tr><td><code>collection_required</code></td><td>В <code>/models</code> не указан <code>collection</code> (HTTP 400). Для <code>/lots</code> параметр необязателен.</td></tr>
+    <tr><td><code>collection_not_found</code></td><td>Такой коллекции нет (HTTP 404). Берите <code>id</code> из <code>/collections</code>.</td></tr>
+    <tr><td><code>operation_not_found</code></td><td>По этому Idempotency-Key операции нет (HTTP 404).</td></tr>
+    <tr><td><code>withdrawal_not_found</code></td><td>Такого вывода нет среди ваших (HTTP 404).</td></tr>
+    <tr><td><code>banned</code></td><td>Аккаунт заблокирован (HTTP 403).</td></tr>
     <tr><td><code>browser_forbidden</code></td><td>Запрос пришёл из браузера.</td></tr>
     <tr><td><code>idempotency_required</code></td><td>В POST нет корректного <code>Idempotency-Key</code>.</td></tr>
     <tr><td><code>price_changed</code></td><td>Цена лота выше вашего <code>max_price</code>.</td></tr>
@@ -420,6 +466,7 @@ console.log(r.status, await r.json());</pre>
   <ul>
     <li><b>Частота:</b> до {{ limit }} запросов за {{ window }} секунд на один ключ. При превышении приходит <code>429</code> и заголовок <code>Retry-After</code>.</li>
     <li><b>Страницы:</b> до 50 элементов в <code>/lots</code> и <code>/inventory</code>.</li>
+    <li><b>Техработы и отсчёт до запуска:</b> Partner API продолжает отвечать, пока сайт закрыт для игроков экраном техработ или отсчётом.</li>
     <li><b>Покупки:</b> действуют обычные правила Crafter: нужен достаточный баланс, а подарок должен быть ещё в продаже.</li>
     <li><b>Кэш:</b> список лотов подключённого маркета обновляется регулярно, но может отставать на секунды. Окончательную цену проверяет сам <code>/buy</code>.</li>
   </ul>

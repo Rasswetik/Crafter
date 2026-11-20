@@ -209,6 +209,8 @@ def install_partner_api(app, db, auth, record, audit):
     @app.get(BASE + '/models')
     @partner
     def p_models():
+        if not request.args.get('collection', '').strip():
+            raise PartnerError(400, 'collection_required', 'Укажите collection — ID или название коллекции. Список: GET /collections')
         collection = find_collection(request.args.get('collection', ''))
         from packs import catalog
         seed = catalog().get(str(collection['id'])) or {}
@@ -245,15 +247,18 @@ def install_partner_api(app, db, auth, record, audit):
                 price = Decimal(str(row['price']))
             except InvalidOperation:
                 continue
-            out.append(lot_view(gift, price, row['id'], 'crafter', 'Crafter'))
+            lot = lot_view(gift, price, row['id'], 'crafter', 'Crafter')
+            lot['collection_id'] = str(collection['id'])
+            out.append(lot)
         return out
 
-    def market_lots(collection):
+    def market_lots(collection, fetch=True):
         ctx = pack_ctx()
-        try:
-            ctx['ensure_listings'](collection, Decimal('0.01'), Decimal('100000000'))
-        except Exception:
-            pass
+        if fetch:                                                  # fetch=False: only what is already cached (used when the time budget of a call is spent)
+            try:
+                ctx['ensure_listings'](collection, Decimal('0.01'), Decimal('100000000'))
+            except Exception:
+                pass
         rate = Decimal(str(ctx['gram_per_ton']()))
         out = []
         for gift, price in ctx['market_candidates'](collection):
@@ -265,24 +270,53 @@ def install_partner_api(app, db, auth, record, audit):
             if price is None or gift.get('pack_item') or not gift.get('image'):
                 continue
             market = gift.get('marketplace') or ('Thermos' if ctx['thermos_backend']() else 'Portals')
-            out.append(lot_view(gift, price, 'm.' + str(collection['id']) + '.' + str(gift['id']), 'market', market))
+            lot = lot_view(gift, price, 'm.' + str(collection['id']) + '.' + str(gift['id']), 'market', market)
+            lot['collection_id'] = str(collection['id'])
+            out.append(lot)
         return out
+
+    # All collections in one request (the rate limit is per request, so a client must not need one request per collection).
+    # The merged list is kept for 30 seconds per key; the market of a collection is fetched at most once a minute (ensure_listings caches it).
+    # A call that runs out of its time budget answers with what is cached and complete=false: the next call continues where it stopped.
+    ALL_BUDGET, ALL_TTL = 8.0, 30.0
+    all_cache = {}
+
+    def all_lots(source, uid):
+        key = (source, uid)
+        hit = all_cache.get(key)
+        if hit and time.time() - hit[0] < ALL_TTL:
+            return hit[1], True
+        ctx = pack_ctx()
+        end, complete, out = time.time() + ALL_BUDGET, True, []
+        for collection in ctx['public_catalog']():
+            if source in ('all', 'crafter'):
+                out += crafter_lots(collection, uid)
+            if source in ('all', 'market'):
+                fetch = time.time() < end
+                complete = complete and fetch
+                out += market_lots(collection, fetch)
+        if complete:
+            all_cache[key] = (time.time(), out)
+            if len(all_cache) > 200:
+                all_cache.pop(min(all_cache, key=lambda k: all_cache[k][0]), None)
+        return out, complete
 
     @app.get(BASE + '/lots')
     @partner
     def p_lots():
         raw_collection = request.args.get('collection', '').strip()
-        if not raw_collection:
-            raise PartnerError(400, 'collection_required', 'Укажите collection — ID или название коллекции. Список: GET /collections')
-        collection = find_collection(raw_collection)
+        collection = find_collection(raw_collection) if raw_collection else None
         source = request.args.get('source', 'all')
         if source not in ('all', 'crafter', 'market'):
             raise PartnerError(400, 'bad_request', 'source: all, crafter или market')
-        lots = []
-        if source in ('all', 'crafter'):
-            lots += crafter_lots(collection, g.partner['id'])
-        if source in ('all', 'market'):
-            lots += market_lots(collection)
+        lots, complete = [], True
+        if collection is None:
+            lots, complete = all_lots(source, g.partner['id'])
+        else:
+            if source in ('all', 'crafter'):
+                lots += crafter_lots(collection, g.partner['id'])
+            if source in ('all', 'market'):
+                lots += market_lots(collection)
         wanted = request.args.get('market', '').strip().lower()
         if wanted == 'thermos':                                    # «Thermos» is the backend of the connected market, not a name on the lot
             lots = [x for x in lots if x['source'] == 'market'] if pack_ctx()['thermos_backend']() else []
@@ -296,12 +330,17 @@ def install_partner_api(app, db, auth, record, audit):
             lots = [x for x in lots if str(x['number']) == number]
         lots.sort(key=lambda x: Decimal(x['price']), reverse=request.args.get('sort') == 'price_desc')
         try:
-            page, limit = max(1, int(request.args.get('page', 1))), min(50, max(1, int(request.args.get('limit', 20))))
+            page, limit = max(1, int(request.args.get('page', 1))), min(50 if collection else 500, max(1, int(request.args.get('limit', 20))))
         except ValueError:
             raise PartnerError(400, 'bad_request', 'page и limit — целые числа')
         chunk = lots[(page - 1) * limit:page * limit]
-        return jsonify({'ok': True, 'collection': {'id': str(collection['id']), 'name': collection['name']}, 'page': page, 'limit': limit,
-                        'total': len(lots), 'has_more': page * limit < len(lots), 'lots': chunk})
+        reply = {'ok': True, 'collection': {'id': str(collection['id']), 'name': collection['name']} if collection else None, 'page': page, 'limit': limit,
+                 'total': len(lots), 'has_more': page * limit < len(lots), 'lots': chunk}
+        if collection is None:
+            reply['complete'] = complete                           # false: the market is still being loaded, call again in a few seconds
+            if not complete:
+                reply['retry_after'] = 5
+        return jsonify(reply)
 
     def own_gifts(uid):
         status, body = internal('GET', '/api/inventory')

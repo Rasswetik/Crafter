@@ -54,6 +54,9 @@ def test_rate_limit(client):
 def test_docs_and_openapi_are_public(client):
     page = client.get('/partner-api')
     assert page.status_code == 200 and 'Idempotency-Key' in page.get_data(as_text=True)
+    html = page.get_data(as_text=True)
+    assert '/static/partner-docs.css' in html and 'collection_required' in html and 'Как собрать витрину' in html
+    assert client.get('/static/partner-docs.css').status_code == 200
     spec = client.get('/partner-api.openapi.json').json
     assert spec['openapi'].startswith('3.') and '/buy' in spec['paths']
 
@@ -75,8 +78,9 @@ def test_trading_flow_with_idempotency(client):
     assert client.get(BASE + '/lots', query_string={'collection': name, 'source': 'crafter'}, headers=bearer(seller)).json['total'] == 0
 
     # a request without a collection gets an explicit answer, and the market filter narrows the list
-    missing = client.get(BASE + '/lots', query_string={'source': 'market', 'market': 'thermos'}, headers=bearer(buyer))
-    assert missing.status_code == 400 and missing.json['code'] == 'collection_required'
+    everything = client.get(BASE + '/lots', query_string={'source': 'crafter'}, headers=bearer(buyer))
+    assert everything.status_code == 200 and everything.json['collection'] is None and everything.json['complete'] is True
+    assert any(x['source'] == 'crafter' for x in everything.json['lots'])
     by_market = lambda market: client.get(BASE + '/lots', query_string={'collection': name, 'source': 'crafter', 'market': market}, headers=bearer(buyer)).json
     assert by_market('crafter')['total'] == 1 and by_market('thermos')['total'] == 0
 

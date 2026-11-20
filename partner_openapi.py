@@ -43,7 +43,7 @@ def build(base):
             '/collections': get('Коллекции', 'Все коллекции каталога с минимальной ценой (флор) в GRAM.'),
             '/models': get('Модели коллекции', 'Модели с картинками, а также фоны и узоры.', [q('collection', 'ID или название коллекции', True)]),
             '/lots': get('Лоты', 'Лоты Crafter и подключённого маркета вместе, дешёвые первыми. Паки в список не попадают.',
-                         [q('collection', 'ID или название коллекции', True), q('model', 'Название модели'), q('number', 'Номер подарка'),
+                         [q('collection', 'ID или название коллекции. Без него — лоты всех коллекций сразу (до 500 на страницу, поле complete)'), q('model', 'Название модели'), q('number', 'Номер подарка'),
                           q('source', 'all, crafter или market', schema={'type': 'string', 'enum': ['all', 'crafter', 'market']}),
                           q('market', 'Фильтр по маркету: crafter, thermos, portals… Без параметра — все'),
                           q('sort', 'price_asc или price_desc'), q('page', 'Страница, с 1', schema={'type': 'integer'}), q('limit', 'До 50', schema={'type': 'integer'})]),
