@@ -39,17 +39,20 @@ def install_gift_withdrawals(app, db, auth, record, audit):
         """)
 
 
-    def debit_fee(uid,operation_id):
+    def debit_fee(uid,operation_id,receipt_user=None):
+        """Takes the fee from `uid`. The receipt belongs to `receipt_user` (default: the same account): a failed withdrawal refunds it to that account."""
+        receipt_user=uid if receipt_user is None else receipt_user
         row=db().execute('SELECT balance FROM demo_accounts WHERE user_id=?',(uid,)).fetchone()
         current=Decimal(str(row['balance'])) if row else Decimal('0')
         if current < FEE_GRAM:
-            abort(409,description='Для вывода необходимо 0,4 GRAM на балансе Crafter')
+            abort(409,description='Для вывода необходимо 0,4 GRAM на балансе Crafter' if receipt_user==uid
+                  else 'Для оплаты вывода получателю необходимо 0,4 GRAM на балансе Crafter')
         after=current-FEE_GRAM
         db().execute('INSERT INTO demo_accounts(user_id,balance) VALUES(?,?) '
                      'ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance',
                      (uid,str(after)))
         db().execute('INSERT INTO nft_withdraw_fee_receipts(id,user_id,amount,status) '
-                     'VALUES(?,?,?,?)',(operation_id,uid,str(FEE_GRAM),'charged'))
+                     'VALUES(?,?,?,?)',(operation_id,receipt_user,str(FEE_GRAM),'charged'))
         return after
 
     def refund_fee(uid,operation_id):
@@ -65,9 +68,29 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                      ('refunded',operation_id))
         return True
 
+    def withdrawal_problem(gift,allow_partner=False):
+        """Why this gift cannot be withdrawn (text for the player), or '' when it can."""
+        if gift.get('catalog_only') or gift.get('test_only') or gift.get('pack_item'):
+            return 'Тестовый NFT нельзя вывести'
+        relayer=(gift.get('origin')=='telegram-deposit' and
+                 _TELEGRAM_NFT.fullmatch(str(gift.get('telegram_url') or '')))
+        fallback=(allow_partner and gift.get('origin')=='portals-partner')
+        bought=(gift.get('origin')=='thermos')      # bought on Thermos: delivered to the relayer
+        if not relayer and not fallback and not bought:
+            return 'Нужен подтверждённый подарок Relayer или Portals'
+        return ''
+
+    def can_withdraw(uid,gift_id):
+        row=db().execute('SELECT payload,status FROM inventory WHERE user_id=? AND nft_id=?',(uid,gift_id)).fetchone()
+        if not row or row['status']!='unlisted':
+            return 'Подарок недоступен для вывода'
+        return withdrawal_problem(json.loads(row['payload']))
+
     # Used by partner-withdrawal fallback. It only queues verified inventory gifts
     # after a custody lookup, and shares the same transaction/idempotency guard.
-    def queue_manual(uid,gift_id,rid,allow_partner=False,reason=''):
+    # payer: whose balance pays the fee (default: the owner). username: the Telegram name of the owner when the caller is someone else.
+    def queue_manual(uid,gift_id,rid,allow_partner=False,reason='',payer=None,username=None):
+        payer=uid if payer is None else payer
         wid='gw-'+str(uid)+'-'+rid
         auto_now=bool(app.extensions.get('crafter_auto_nft_enabled') and app.extensions['crafter_auto_nft_enabled']())
         with db():
@@ -84,20 +107,17 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             if not row or row['status']!='unlisted':
                 abort(409,description='Подарок недоступен для вывода')
             gift=json.loads(row['payload'])
-            if gift.get('catalog_only') or gift.get('test_only') or gift.get('pack_item'):
-                abort(409,description='Тестовый NFT нельзя вывести')
-            relayer=(gift.get('origin')=='telegram-deposit' and
-                     _TELEGRAM_NFT.fullmatch(str(gift.get('telegram_url') or '')))
-            fallback=(allow_partner and gift.get('origin')=='portals-partner')
-            bought=(gift.get('origin')=='thermos')      # bought on Thermos: delivered to the relayer
-            if not relayer and not fallback and not bought:
-                abort(409,description='Нужен подтверждённый подарок Relayer или Portals')
-            after=debit_fee(uid,wid)
+            problem=withdrawal_problem(gift,allow_partner)
+            if problem:
+                abort(409,description=problem)
+            after=debit_fee(payer,wid,uid)
             now=int(time.time())
             payload={'gift':gift,'receiver_user_id':uid,
-                     'receiver_username':g.user.get('username') or '',
+                     'receiver_username':(g.user.get('username') or '') if username is None else username,
                      'fee_gram':str(FEE_GRAM),'balance_after':str(after),
                      'custody_check':reason or 'relayer-account'}
+            if payer!=uid:
+                payload['paid_by']=payer
             db().execute('INSERT INTO gift_withdrawals VALUES(?,?,?,?,?,?,?,?)',
                          (wid,uid,gift_id,json.dumps(payload,ensure_ascii=False),
                           'queued',now,now,reason[:500]))
@@ -108,6 +128,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                 'balance':str(after)}
 
     app.extensions['crafter_nft_queue_manual']=queue_manual
+    app.extensions['crafter_nft_can_withdraw']=can_withdraw
     app.extensions['crafter_nft_debit_fee']=debit_fee
     app.extensions['crafter_nft_refund_fee']=refund_fee
 
@@ -126,6 +147,24 @@ def install_gift_withdrawals(app, db, auth, record, audit):
         if app.config['DEMO_MODE']:
             abort(409,description='Вывод демоподарков недоступен')
         return queue_manual(g.user['id'],gift_id,rid)
+
+    @app.post('/api/gifts/withdraw-paid')
+    @auth()
+    def paid_gift_withdrawal():
+        """Only the Partner API calls this (it marks its internal requests): the gift has just been transferred to the receiver, and the sender pays
+        the fee of withdrawing it to the receiver's Telegram. A failed withdrawal returns the gift to the receiver's inventory and the fee to the receiver."""
+        if not request.environ.get('crafter.internal_user'):
+            abort(404)
+        data=request.get_json(silent=True)
+        if not isinstance(data,dict):
+            abort(400)
+        gift_id,recipient,username,rid=(data.get(k) for k in ('gift_id','recipient_id','username','request_id'))
+        if (not isinstance(gift_id,str) or not 1<=len(gift_id)<=200 or type(recipient) is not int or recipient==g.user['id'] or
+                not isinstance(username,str) or not isinstance(rid,str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}',rid)):
+            abort(400,description='Некорректный запрос')
+        if app.config['DEMO_MODE']:
+            abort(409,description='Вывод демоподарков недоступен')
+        return queue_manual(recipient,gift_id,rid,False,'paid-by-sender',payer=g.user['id'],username=username)
 
     STAGES = {
         'portal_withdraw': 'Запрос на вывод с Portals', 'portal_sending': 'Запрос на вывод с Portals',

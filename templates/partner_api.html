@@ -237,7 +237,7 @@ while True:
     <tr><td><code>/buy</code></td><td>buy</td><td><code>{"lot_id":"crafter-9f2c…","max_price":"10"}</code></td></tr>
     <tr><td><code>/sell</code></td><td>sell</td><td><code>{"gift_id":"thermos-7a1c…","price":"12.5"}</code></td></tr>
     <tr><td><code>/unlist</code></td><td>sell</td><td><code>{"gift_id":"thermos-7a1c…"}</code></td></tr>
-    <tr><td><code>/transfer</code></td><td>transfer</td><td><code>{"gift_id":"thermos-7a1c…","telegram_id":"123456789"}</code></td></tr>
+    <tr><td><code>/transfer</code></td><td>transfer</td><td><code>{"gift_id":"thermos-7a1c…","telegram_id":"123456789"}</code>; необязательно <code>"pay_withdraw_fee": true</code></td></tr>
   </table>
   <h3>Комиссии</h3>
   <ul>
@@ -282,6 +282,33 @@ while True:
 <pre>{ "gift_id": "thermos-7a1c…", "telegram_id": "123456789" }</pre>
 <pre>{ "ok": true, "operation_id": "…", "status": "done",
   "result": { "gift_id": "thermos-7a1c…", "state": "done", "telegram_id": "123456789", "fee": "0" } }</pre>
+
+  <h3 id="transfer-withdraw">Передать и оплатить получателю вывод</h3>
+  <p>Если добавить в <code>/transfer</code> поле <code>"pay_withdraw_fee": true</code>, вы платите за получателя комиссию вывода, а Crafter <b>сразу выводит подарок ему в Telegram</b>. В инвентарь получателя в Crafter подарок не попадает, а отдельного сообщения «вам передали подарок» он не получает: вместо него приходит сообщение Crafter о том, что подарок выведен.</p>
+  <table>
+    <tr><th>Шаг</th><th>Что происходит</th></tr>
+    <tr><td>1. Проверка</td><td>До передачи проверяется, что подарок можно вывести и что на вашем балансе есть <code>0.4</code> GRAM. Иначе подарок не двигается: <code>409 withdraw_unavailable</code> или <code>409 insufficient_balance</code>.</td></tr>
+    <tr><td>2. Оплата</td><td>С вашего баланса списывается <code>0.4</code> GRAM (комиссия вывода, как при обычном выводе).</td></tr>
+    <tr><td>3. Вывод</td><td>Заявка <code>queued</code> попадает в очередь релейера. Когда подарок выведен, получатель получает сообщение «ваш подарок был успешно выведен».</td></tr>
+    <tr><td>4. Если вывод не удался</td><td>Подарок остаётся в инвентаре получателя в Crafter (его можно продать на маркете), а ему на баланс возвращаются <code>0.4</code> GRAM, которые заплатили вы.</td></tr>
+  </table>
+<pre>curl -X POST {{ base }}/transfer \
+  -H "Authorization: Bearer CRT/ваш_ключ" \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: gift-2026-12-01-0001" \
+  -d '{"gift_id":"thermos-7a1c…","telegram_id":"123456789","pay_withdraw_fee":true}'</pre>
+<pre>{ "ok": true, "operation_id": "gift-2026-12-01-0001", "status": "done",
+  "result": {
+    "gift_id": "thermos-7a1c…", "state": "done", "telegram_id": "123456789", "fee": "0.4",
+    "withdraw": { "status": "queued", "withdrawal_id": "gw-123456789-gift-2026-12-01-0001",
+                  "fee": "0.4", "balance": "132.2", "note": "Подарок выводится получателю в Telegram…" }
+  } }</pre>
+  <ul>
+    <li><b><code>withdraw.status</code></b>: <code>queued</code> — вывод принят и комиссия списана; <code>unavailable</code> — вывод не удалось запустить, подарок передан в инвентарь получателя в Crafter, комиссия не списана, причина в <code>reason</code>.</li>
+    <li>Итог вывода (выведен или нет) в этом ответе не приходит: он зависит от релейера. Узнать его можно у получателя по сообщению Crafter, а по своей истории — запросом <code>GET /history</code>.</li>
+    <li>Как и любая операция записи, запрос требует <code>Idempotency-Key</code>; повтор с тем же ключом вернёт тот же результат и не спишет комиссию второй раз.</li>
+    <li>Работает только для NFT-подарков, которые Crafter умеет выводить (полученные через релейер или купленные на подключённом маркете). Получателю нужен <code>@username</code> в Telegram.</li>
+  </ul>
 </section>
 
 
@@ -456,6 +483,8 @@ console.log(r.status, await r.json());</pre>
     <tr><td><code>gift_not_found</code></td><td>Подарка нет среди ваших (или это пак, которого в API нет).</td></tr>
     <tr><td><code>recipient_not_found</code></td><td>Получатель ни разу не открывал Crafter.</td></tr>
     <tr><td><code>recipient_no_username</code></td><td>У получателя нет @username в Telegram.</td></tr>
+    <tr><td><code>withdraw_unavailable</code></td><td>Подарок нельзя вывести, поэтому <code>/transfer</code> с <code>pay_withdraw_fee</code> не выполнен (HTTP 409). Передайте подарок без этого поля.</td></tr>
+    <tr><td><code>insufficient_balance</code></td><td>На вашем балансе меньше <code>0.4</code> GRAM для оплаты вывода получателю (HTTP 409).</td></tr>
     <tr><td><code>market_unavailable</code></td><td>Покупки на подключённом маркете сейчас отключены.</td></tr>
     <tr><td><code>rejected</code></td><td>Приложение отклонило операцию; причина в <code>error</code> (например, недостаточно GRAM).</td></tr>
     <tr><td><code>rate_limited</code></td><td>Превышен лимит запросов.</td></tr>

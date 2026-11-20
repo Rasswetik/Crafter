@@ -79,7 +79,8 @@ def build(base):
             '/ton/withdrawals/{withdrawal_id}': get('Статус вывода TON', 'Одна заявка. Опрашивайте раз в 10–30 секунд, пока status не станет done.', [{'name': 'withdrawal_id', 'in': 'path', 'required': True, 'schema': {'type': 'string'}}]),
             '/ton/withdraw': post('Вывести GRAM в TON', 'Списывает GRAM с баланса и отправляет TON на подключённый кошелёк. Сумма в GRAM с точностью до 0,01. Лимиты и суточный лимит те же, что в приложении.',
                                   {'type': 'object', 'required': ['gram'], 'properties': {'gram': money}}, {'type': 'object'}),
-            '/transfer': post('Передать подарок', 'Бесплатно передаёт подарок игроку Crafter по Telegram ID. Получатель должен хотя бы раз открыть Crafter.',
-                              {'type': 'object', 'required': ['gift_id', 'telegram_id'], 'properties': {'gift_id': {'type': 'string'}, 'telegram_id': {'type': 'string', 'example': '123456789'}}}, {'type': 'object'}),
+            '/transfer': post('Передать подарок', 'Бесплатно передаёт подарок игроку Crafter по Telegram ID. Получатель должен хотя бы раз открыть Crafter. С pay_withdraw_fee=true вы платите 0,4 GRAM за вывод, и Crafter сразу выводит подарок получателю в Telegram (при неудаче подарок остаётся у него в Crafter, а комиссия возвращается ему).',
+                              {'type': 'object', 'required': ['gift_id', 'telegram_id'], 'properties': {'gift_id': {'type': 'string'}, 'telegram_id': {'type': 'string', 'example': '123456789'},
+                               'pay_withdraw_fee': {'type': 'boolean', 'default': False, 'description': 'Оплатить вывод подарка получателю (0,4 GRAM с вашего баланса)'}}}, {'type': 'object'}),
         },
     }

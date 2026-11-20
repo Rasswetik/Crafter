@@ -121,6 +121,44 @@ def test_unlist_transfer_and_packs_excluded(client):
     assert client.post(BASE + '/sell', headers=bearer(owner, 'sell-op-0000000003'), json={'gift_id': 'pack-x', 'price': '1'}).status_code == 404
 
 
+def _relayer_gift(client, uid, gift_id, balance):
+    gift = {'id': gift_id, 'name': 'Lucky Locket', 'collection_id': 'luckylocket', 'number': 5469, 'source_number': 5469, 'origin': 'telegram-deposit',
+            'telegram_url': 'https://t.me/nft/luckylocket-5469', 'image': 'https://nft.fragment.com/gift/luckylocket-5469.webp'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO inventory VALUES (?,?,?,'unlisted')", (uid, gift_id, json.dumps(gift)))
+        db.execute("INSERT INTO demo_accounts(user_id,balance) VALUES (?,?) ON CONFLICT(user_id) DO UPDATE SET balance=excluded.balance", (uid, balance))
+    return gift
+
+
+def test_transfer_with_paid_withdrawal(client):
+    sender = key_for(client, 42)
+    bob, admin = signed(44, username='bob'), signed()
+    client.get('/api/me', headers=bob)
+    gift = _relayer_gift(client, 42, 'telegram-luckylocket-5469', '1.0')
+    send = lambda op, **extra: client.post(BASE + '/transfer', headers=bearer(sender, op), json={'gift_id': gift['id'], 'telegram_id': '44', **extra})
+
+    assert send('paid-transfer-00000001', pay_withdraw_fee='yes').status_code == 400                      # only true or false
+    sent = send('paid-transfer-00000002', pay_withdraw_fee=True)
+    assert sent.status_code == 200, sent.json
+    result = sent.json['result']
+    assert result['fee'] == '0.4' and result['withdraw']['status'] == 'queued' and result['withdraw']['balance'] == '0.6'
+    assert client.get(BASE + '/account', headers=bearer(sender)).json['balance'] == '0.6'
+    received = client.get('/api/inventory', headers=bob).json['gifts']
+    assert [(x['id'], x['status']) for x in received] == [(gift['id'], 'withdrawing')]                    # not in the inventory of the receiver: it is being withdrawn
+    again = send('paid-transfer-00000002', pay_withdraw_fee=True)
+    assert again.json['result'] == result and client.get(BASE + '/account', headers=bearer(sender)).json['balance'] == '0.6'
+
+    failed = client.post('/api/admin/withdrawals/gift/' + result['withdraw']['withdrawal_id'] + '/resolve', headers=admin, json={'decision': 'failed', 'note': 'Relayer unavailable'})
+    assert failed.status_code == 200
+    assert client.get('/api/inventory', headers=bob).json['gifts'][0]['status'] == 'unlisted'            # stays with the receiver in Crafter
+    assert client.get('/api/balance', headers=bob).json['balance'] == '0.4'                               # and the receiver gets the fee the sender paid
+
+    second = _relayer_gift(client, 42, 'telegram-luckylocket-7001', '0.1')
+    poor = client.post(BASE + '/transfer', headers=bearer(sender, 'paid-transfer-00000003'), json={'gift_id': second['id'], 'telegram_id': '44', 'pay_withdraw_fee': True})
+    assert poor.json['result']['code'] == 'insufficient_balance'
+    assert second['id'] in [x['gift_id'] for x in client.get(BASE + '/inventory', headers=bearer(sender)).json['gifts']]      # nothing moved
+
+
 def test_rotation_replaces_key_and_bot_command(client, monkeypatch):
     monkeypatch.setenv('RENDER_EXTERNAL_URL', 'https://crafter.example')
     old = key_for(client, 43)

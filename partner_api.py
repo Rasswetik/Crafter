@@ -509,10 +509,32 @@ def install_partner_api(app, db, auth, record, audit):
             raise PartnerError(404, 'recipient_not_found', 'Получатель ещё не открывал Crafter')
         if not row['username']:
             raise PartnerError(409, 'recipient_no_username', 'У получателя нет @username в Telegram: передача возможна только игроку с именем пользователя')
-        status, reply = internal('POST', '/api/inventory/transfer', {'gift_ids': [gift['gift_id']], 'recipient_id': recipient, 'request_id': op_id, 'username': row['username']})
+        paid = body.get('pay_withdraw_fee', False)
+        if type(paid) is not bool:
+            raise PartnerError(400, 'bad_request', 'pay_withdraw_fee — true или false')
+        if paid:                                                   # everything that can be checked is checked before the gift moves
+            from gift_withdrawals import FEE_GRAM
+            problem = app.extensions['crafter_nft_can_withdraw'](g.partner['id'], gift['gift_id'])
+            if problem:
+                raise PartnerError(409, 'withdraw_unavailable', problem + '. Передайте подарок без pay_withdraw_fee')
+            if balance_of(g.partner['id']) < FEE_GRAM:
+                raise PartnerError(409, 'insufficient_balance', 'Для оплаты вывода получателю нужно ' + plain(FEE_GRAM) + ' GRAM на балансе')
+        status, reply = internal('POST', '/api/inventory/transfer', {'gift_ids': [gift['gift_id']], 'recipient_id': recipient, 'request_id': op_id, 'username': row['username'], 'quiet': paid})
         if status != 200:
             relay_error(status, reply)
-        return {'gift_id': gift['gift_id'], 'state': 'done', 'telegram_id': str(recipient), 'fee': '0'}
+        result = {'gift_id': gift['gift_id'], 'state': 'done', 'telegram_id': str(recipient), 'fee': '0'}
+        if not paid:
+            return result
+        # the sender pays; the gift goes to the receiver's Telegram instead of staying in the receiver's inventory
+        w_status, w_reply = internal('POST', '/api/gifts/withdraw-paid', {'gift_id': gift['gift_id'], 'recipient_id': recipient, 'username': row['username'], 'request_id': op_id})
+        if w_status == 200:
+            result['fee'] = plain(FEE_GRAM)
+            result['withdraw'] = {'status': 'queued', 'withdrawal_id': w_reply.get('id'), 'fee': plain(FEE_GRAM), 'balance': plain(balance_of(g.partner['id'])),
+                                  'note': 'Подарок выводится получателю в Telegram. Он получит сообщение от Crafter, когда вывод завершится'}
+        else:                                                      # the gift stays in the receiver's Crafter inventory, nothing is charged
+            result['withdraw'] = {'status': 'unavailable', 'fee': '0', 'reason': w_reply.get('error') or w_reply.get('message') or 'Вывод не удался',
+                                  'note': 'Подарок передан в инвентарь получателя в Crafter, комиссия не списана'}
+        return result
 
     # ---------------- ordinary Telegram gifts (Bear, Rose ...): a separate set of requests ----------------
     def absolute(path):

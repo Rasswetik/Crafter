@@ -1208,6 +1208,8 @@ def create_app(config=None):
             sender = None if anonymous else {'name': g.user.get('first_name', ''), 'username': g.user.get('username', '')}
             record('gift_received', {'gifts': gifts, 'sender': sender, 'message': message}, uid=recipient_id)
             db().execute('INSERT INTO gift_transfers VALUES (?,?,?)', (sender_id, request_id, json.dumps(order)))
+        if data.get('quiet') is True and request.environ.get('crafter.internal_user'):
+            return {'ok': True, 'gift_ids': ids}
         try:
             notify_gift_transfer(bot_settings(), recipient_id, gifts, sender, request.url_root, app.config['BOT_TOKEN'], message)
         except Exception:
