@@ -269,8 +269,11 @@ def install_partner_api(app, db, auth, record, audit):
                 price = None
             if price is None or gift.get('pack_item') or not gift.get('image'):
                 continue
-            market = gift.get('marketplace') or ('Thermos' if ctx['thermos_backend']() else 'Portals')
+            # `market` is the connected market the lot is bought on (Thermos when the server runs through it); `marketplace` is the exchange behind it
+            underlying = str(gift.get('marketplace') or '').upper()
+            market = 'Thermos' if ctx['thermos_backend']() else (underlying.title() or 'Portals')
             lot = lot_view(gift, price, 'm.' + str(collection['id']) + '.' + str(gift['id']), 'market', market)
+            lot['marketplace'] = underlying or market.upper()
             lot['collection_id'] = str(collection['id'])
             out.append(lot)
         return out
@@ -321,7 +324,7 @@ def install_partner_api(app, db, auth, record, audit):
         if wanted == 'thermos':                                    # «Thermos» is the backend of the connected market, not a name on the lot
             lots = [x for x in lots if x['source'] == 'market'] if pack_ctx()['thermos_backend']() else []
         elif wanted:
-            lots = [x for x in lots if str(x['market']).lower() == wanted]
+            lots = [x for x in lots if wanted in (str(x['market']).lower(), str(x.get('marketplace', '')).lower())]
         model = request.args.get('model', '').strip().lower()
         if model:
             lots = [x for x in lots if x['model'].lower() == model]

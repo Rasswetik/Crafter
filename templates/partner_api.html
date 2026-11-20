@@ -137,7 +137,7 @@
     <tr><th>Параметр</th><th>Нужен</th><th>Описание</th></tr>
     <tr><td><code>collection</code></td><td>нет</td><td>ID (<code>id</code> из <code>/collections</code>) или название коллекции. Не указан: лоты всех коллекций. Указана несуществующая: <code>404 collection_not_found</code>.</td></tr>
     <tr><td><code>source</code></td><td>нет</td><td><code>all</code> (по умолчанию) — лоты игроков и маркета; <code>crafter</code> — только лоты игроков; <code>market</code> — только подключённый маркет. Другое значение: <code>400 bad_request</code>.</td></tr>
-    <tr><td><code>market</code></td><td>нет</td><td>Фильтр по маркету. <code>crafter</code> — лоты игроков; <code>thermos</code> — все лоты подключённого маркета, если сервер сейчас работает через Thermos (иначе список пуст); любое другое имя (например <code>portals</code>) сравнивается с полем <code>market</code> лота без учёта регистра. Не задан — без фильтра.</td></tr>
+    <tr><td><code>market</code></td><td>нет</td><td>Фильтр по маркету. <code>crafter</code> — лоты игроков; <code>thermos</code> — все лоты подключённого маркета, если сервер сейчас работает через Thermos (иначе список пуст); любое другое имя (например <code>portals</code>, <code>tonnel</code>, <code>mrkt</code>) сравнивается с полями <code>market</code> и <code>marketplace</code> лота без учёта регистра. Не задан — без фильтра.</td></tr>
     <tr><td><code>model</code></td><td>нет</td><td>Только эта модель (точное название, без учёта регистра).</td></tr>
     <tr><td><code>number</code></td><td>нет</td><td>Только подарок с этим номером.</td></tr>
     <tr><td><code>sort</code></td><td>нет</td><td><code>price_asc</code> (по умолчанию) или <code>price_desc</code>. Сортировка по цене в GRAM.</td></tr>
@@ -151,7 +151,7 @@
   "lots": [
     {
       "lot_id": "m.snowmittens.8f1d2c…",
-      "source": "market", "market": "Thermos",
+      "source": "market", "market": "Thermos", "marketplace": "PORTALS",
       "collection": "Snow Mittens", "number": 40411,
       "model": "Frost Fingers", "backdrop": "Black", "symbol": "Star",
       "image": "https://…", "price": "9.4", "price_nano": "9400000000"
@@ -170,7 +170,8 @@
     <tr><th>Поле</th><th>Значение</th></tr>
     <tr><td><code>lot_id</code></td><td>Идентификатор для <code>/buy</code> и <code>/offers/create</code>. У лота игрока вид <code>crafter-…</code>, у лота маркета <code>m.&lt;коллекция&gt;.&lt;id&gt;</code>.</td></tr>
     <tr><td><code>source</code></td><td><code>crafter</code> или <code>market</code>.</td></tr>
-    <tr><td><code>market</code></td><td>Название площадки: <code>Crafter</code>, <code>Thermos</code>, <code>Portals</code> и т. п.</td></tr>
+    <tr><td><code>market</code></td><td>Маркет, на котором покупается лот: <code>Crafter</code> (лот игрока) или <code>Thermos</code> (все лоты подключённого маркета, когда сервер работает через Thermos; иначе <code>Portals</code>).</td></tr>
+    <tr><td><code>marketplace</code></td><td>Только у лотов маркета: биржа за ним, например <code>PORTALS</code>, <code>TONNEL</code> или <code>MRKT</code>. Для лотов игроков поля нет.</td></tr>
     <tr><td><code>collection</code>, <code>name</code></td><td>Название коллекции.</td></tr>
     <tr><td><code>number</code>, <code>model</code>, <code>backdrop</code>, <code>symbol</code></td><td>Номер, модель, фон и узор. Если атрибута нет, приходит пустая строка.</td></tr>
     <tr><td><code>image</code></td><td>Адрес картинки. Лоты маркета без картинки в список не попадают.</td></tr>
