@@ -595,7 +595,7 @@ const adminRoleLabels = {
     staking:'Стейкинг',arena:'Arena',banners:'Баннеры',
     craft_banner:'Баннер крафтов',ice_banner:'Баннер Ice Arena',
     events:'Ивенты',portal:'Portal Market','telegram-bot':'Telegram-бот',
-    announcements:'Анонсы',snow:'Снег',characters:'Персонажи'
+    announcements:'Анонсы',snow:'Снег',characters:'Персонажи',boostup:'BoostUp'
 };
 let adminRoleData=null;
 async function renderAdminRoles(content=document.querySelector('#admin-content')){

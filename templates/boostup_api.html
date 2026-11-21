@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101114">
+<meta name="robots" content="noindex">
+<title>Crafter × BoostUp: пополнение подарками</title>
+<meta name="description" content="Инструкция для BoostUp: приём подарков игроков через Crafter, webhook, личный ключ и API проверки.">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/icons/crafter-32.png?v=1">
+<link rel="stylesheet" href="/static/partner-docs.css?v=1">
+</head>
+<body>
+<div class="page">
+<header class="head">
+  <a class="logo" href="{{ site }}"><i></i>Crafter</a>
+  <div class="meta"><small>BoostUp / пополнение</small><a href="/partner-api">Общий API Crafter ↗</a></div>
+  <details class="menu"><summary aria-label="Меню"><span></span><span></span><span></span></summary><div class="menu-box"><a href="#flow">Как это работает</a><a href="#keys">Два ключа</a><a href="#start">Что настроить</a><a href="#webhook">Webhook</a><a href="#sign">Проверка подписи</a><a href="#api">API пополнения</a><a href="#inventory">Работа с подарком</a><a href="#statuses">Статусы</a><a href="#player">Что видит игрок</a><a href="#errors">Ошибки и повторы</a><a href="#test">Проверка</a><a href="#checklist">Перед запуском</a></div></details>
+</header>
+
+<div class="cols">
+<main>
+<h1>Пополнение BoostUp<br>подарками через Crafter.</h1>
+<p class="lead">Игрок отправляет подарок на релейер Crafter. Бот спрашивает, куда его отправить. Если игрок выбирает BoostUp и подтверждает передачу, <b>этот же подарок сразу передаётся в инвентарь аккаунта BoostUp внутри Crafter</b> ({{ account }}). Crafter присылает BoostUp подписанный webhook, и BoostUp добавляет этот NFT в инвентарь игрока.</p>
+<div class="note"><b>Подарок, а не деньги.</b> На баланс BoostUp ничего не зачисляется. BoostUp получает сам NFT; цена (в TON и GRAM, по флору коллекции) приходит только для информации, игрок видит её в окне подтверждения в GRAM.</div>
+
+<section id="flow">
+  <h2><span>01</span>Как это работает</h2>
+  <ol class="steps">
+    <li><b>Игрок отправляет подарок на релейер Crafter.</b> Он должен хотя бы раз открыть приложение Crafter: так Crafter узнаёт, чей это подарок.</li>
+    <li><b>Бот Crafter пишет игроку:</b> «Куда отправить подарок?» с двумя кнопками: <b>«В маркет»</b> (подарок остаётся в инвентаре Crafter) и <b>«В BoostUp»</b>.</li>
+    <li><b>«В BoostUp» → подтверждение.</b> Бот просит подтвердить и даёт кнопку, которая открывает окно Crafter: большая анимация подарка, название и цена в GRAM. Кнопка «Подтвердить» открывает второе окно «Точно передать подарок в BoostUp?», и только «Да, передать» запускает передачу.</li>
+    <li><b>Подарок передаётся внутри Crafter.</b> В одной операции он исчезает из инвентаря игрока и появляется в инвентаре аккаунта BoostUp ({{ account }}). Через Telegram ничего не отправляется: передача мгновенная, без комиссии и без ожидания.</li>
+    <li><b>Webhook в BoostUp.</b> Crafter отправляет <code>deposit.delivered</code> с данными игрока и подарка. BoostUp добавляет NFT в инвентарь игрока и отвечает <code>{"ok": true}</code>.</li>
+    <li><b>Игроку приходит сообщение бота:</b> подарок зачислен в инвентарь BoostUp.</li>
+  </ol>
+  <div class="ok"><b>Игрок один и тот же.</b> Игрок определяется по Telegram ID: поле <code>telegram_id</code> в webhook совпадает с Telegram ID игрока в BoostUp.</div>
+</section>
+
+<section id="keys">
+  <h2><span>02</span>Два ключа</h2>
+  <table>
+    <tr><th>Ключ</th><th>Кто получает</th><th>Для чего</th></tr>
+    <tr><td><b>1. Ключ Partner API</b> <code>CRT/…</code></td><td>Все, через бота командой <code>/api</code>. У аккаунта BoostUp тоже есть такой.</td><td>Обычная работа с аккаунтом Crafter через API: посмотреть полученный подарок, продать, передать, вывести в Telegram. Описание: <a href="/partner-api">/partner-api</a>.</td></tr>
+    <tr><td><b>2. Личный ключ BoostUp</b> <code>BUP/…</code></td><td>Только BoostUp, лично от Crafter.</td><td>Подключение именно пополнения: список пополнений, подтверждение зачисления. Только для сервера BoostUp.</td></tr>
+  </table>
+  <div class="warn"><b>Ключи нельзя показывать.</b> Храните их на сервере в переменных окружения, не в репозитории, логах и клиентском коде. Запросы с заголовком <code>Origin</code> (из браузера) отклоняются. Если ключ мог утечь, попросите Crafter заменить его: старый перестанет работать сразу. Ключ <code>BUP/…</code> не открывает Partner API, а ключ <code>CRT/…</code> не открывает API пополнения.</div>
+</section>
+
+<section id="start">
+  <h2><span>03</span>Что нужно настроить</h2>
+  <table>
+    <tr><th>Что</th><th>Кто даёт</th><th>Зачем</th></tr>
+    <tr><td><b>Личный ключ</b> <code>BUP/…</code></td><td>Crafter</td><td>API пополнения: проверка и подтверждение зачисления.</td></tr>
+    <tr><td><b>Секрет подписи</b></td><td>Crafter</td><td>Проверка, что webhook прислал именно Crafter (HMAC-SHA256).</td></tr>
+    <tr><td><b>Аккаунт BoostUp в Crafter</b> ({{ account }})</td><td>BoostUp</td><td>Crafter-аккаунт, в инвентарь которого передаются подарки. Он должен хотя бы раз открыть Crafter и получить обычный ключ <code>CRT/…</code> командой <code>/api</code>.</td></tr>
+    <tr><td><b>Адрес webhook</b> (https)</td><td>BoostUp</td><td>Куда Crafter присылает <code>deposit.delivered</code>. Только публичные https-адреса.</td></tr>
+  </table>
+  <p>Ключ, секрет, адрес webhook и аккаунт вносит администратор Crafter в разделе «BoostUp» админ-панели. Базовый адрес API пополнения: <code>{{ base }}</code>.</p>
+</section>
+
+<section id="webhook">
+  <h2><span>04</span>Webhook <code>deposit.delivered</code></h2>
+  <p>Crafter отправляет его, когда подарок уже <b>в инвентаре аккаунта BoostUp</b>. Это единственное событие, по которому нужно зачислять подарок.</p>
+  <div class="ep"><span class="m post">POST</span><code>ваш адрес webhook</code><em>от Crafter</em></div>
+  <table>
+    <tr><th>Заголовок</th><th>Значение</th></tr>
+    <tr><td><code>X-Crafter-Event</code></td><td><code>deposit.delivered</code> (при проверке из админки: <code>ping</code>)</td></tr>
+    <tr><td><code>X-Crafter-Timestamp</code></td><td>Время отправки, секунды Unix (UTC)</td></tr>
+    <tr><td><code>X-Crafter-Signature</code></td><td><code>sha256=</code> и HMAC-SHA256 от <code>timestamp + "." + тело</code>, см. <a href="#sign">проверку подписи</a></td></tr>
+    <tr><td><code>Content-Type</code></td><td><code>application/json</code></td></tr>
+  </table>
+<pre>{
+  "event": "deposit.delivered",
+  "deposit_id": "bu_3f9c1a7b2d4e5f60a1b2c3d4",
+  "telegram_id": "123456789",
+  "username": "anna_dev",
+  "name": "Anna",
+  "gift": {
+    "gift_id": "telegram-plushpepe-4102",
+    "name": "Plush Pepe", "number": 4102, "collection": "Plush Pepe",
+    "model": "Vice City", "backdrop": "Black", "symbol": "Star",
+    "slug": "PlushPepe-4102", "url": "https://t.me/nft/PlushPepe-4102",
+    "image": "https://nft.fragment.com/gift/plushpepe-4102.webp"
+  },
+  "value": { "ton": "7094.99", "gram": "41760.05", "floor_ton": "7094.99", "percent": "100", "rate_gram_per_ton": "5.886" },
+  "account": { "telegram_id": "777000111", "username": "boostup_relayer", "name": "BoostUp" },
+  "created": 1790000000, "confirmed": 1790000060, "delivered": 1790000060
+}</pre>
+  <p><code>gift.gift_id</code> — номер подарка в инвентаре аккаунта BoostUp: по нему подарок находится через Partner API (<a href="#inventory">как работать с подарком</a>). <code>gift.slug</code> и <code>gift.url</code> — идентификатор NFT в Telegram.</p>
+  <h3>Что должен ответить BoostUp</h3>
+  <table>
+    <tr><th>Ответ</th><th>Что делает Crafter</th></tr>
+    <tr><td>HTTP 2xx и <code>{"ok": true}</code></td><td>Считает подарок зачисленным, пишет игроку «подарок в инвентаре BoostUp». Можно добавить <code>"external_id"</code> — ваш номер операции.</td></tr>
+    <tr><td>Любой другой ответ, таймаут, ошибка сети</td><td>Повторяет webhook: через 10 сек, 30 сек, 2 мин, 10 мин, 30 мин, затем каждый час, пока не получит ответ.</td></tr>
+  </table>
+  <div class="warn"><b>Зачисляйте идемпотентно.</b> Один и тот же <code>deposit_id</code> может прийти несколько раз (повтор после сбоя). Если пополнение с таким <code>deposit_id</code> уже зачислено, не зачисляйте второй раз и ответьте <code>{"ok": true}</code>.</div>
+  <ul>
+    <li>Проверяйте подпись <b>до</b> любых действий. Для подписи используйте исходные байты тела, не пересобранный JSON.</li>
+    <li>Отклоняйте запросы со старым <code>X-Crafter-Timestamp</code> (старше 5 минут): так не получится повторить чужой запрос.</li>
+    <li>Отвечайте за 8 секунд: дольше Crafter не ждёт и повторит запрос.</li>
+  </ul>
+</section>
+
+<section id="sign">
+  <h2><span>05</span>Проверка подписи</h2>
+<pre><span class="c"># Python (Flask)</span>
+import hashlib, hmac, time
+
+SECRET = "секрет_подписи_из_админки"
+
+def verify(raw_body: bytes, headers) -&gt; bool:
+    stamp = headers.get("X-Crafter-Timestamp", "")
+    if not stamp.isdigit() or abs(time.time() - int(stamp)) &gt; 300:
+        return False
+    expected = hmac.new(SECRET.encode(), stamp.encode() + b"." + raw_body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest("sha256=" + expected, headers.get("X-Crafter-Signature", ""))</pre>
+<pre><span class="c">// Node.js (Express: тело как Buffer, express.raw({type: "application/json"}))</span>
+const crypto = require("crypto");
+function verify(raw, headers) {
+  const stamp = headers["x-crafter-timestamp"] || "";
+  if (!/^\d+$/.test(stamp) || Math.abs(Date.now() / 1000 - Number(stamp)) &gt; 300) return false;
+  const expected = "sha256=" + crypto.createHmac("sha256", process.env.CRAFTER_SECRET)
+    .update(Buffer.concat([Buffer.from(stamp + "."), raw])).digest("hex");
+  const given = headers["x-crafter-signature"] || "";
+  return given.length === expected.length &amp;&amp; crypto.timingSafeEqual(Buffer.from(given), Buffer.from(expected));
+}</pre>
+</section>
+
+<section id="api">
+  <h2><span>06</span>API пополнения</h2>
+  <p>Эти запросы нужны, чтобы сверить пополнение и подтвердить зачисление, если webhook не дошёл. Авторизация: <code>Authorization: Bearer BUP/ваш_ключ</code>. Только с сервера, не из браузера. Лимит: <b>{{ limit }} запросов за {{ window }} секунд</b>, при превышении <code>429</code> и <code>Retry-After</code>. Ответы всегда JSON, ошибка выглядит так: <code>{"ok": false, "error": "текст", "code": "код"}</code>.</p>
+  <table>
+    <tr><th>Запрос</th><th>Что делает</th></tr>
+    <tr><td><code>GET /ping</code></td><td>Проверка ключа: включена ли интеграция, задан ли webhook, аккаунт BoostUp в Crafter.</td></tr>
+    <tr><td><code>GET /deposits</code></td><td>Список пополнений, новые первыми. Параметры: <code>status</code>, <code>limit</code> (1–100, по умолчанию 50), <code>after</code> (время создания, секунды).</td></tr>
+    <tr><td><code>GET /deposits/{deposit_id}</code></td><td>Одно пополнение: игрок, подарок, цена, статус.</td></tr>
+    <tr><td><code>POST /deposits/{deposit_id}/ack</code></td><td>Подтвердить зачисление: <code>{"external_id": "ваш_номер"}</code> (необязательно). Повтор безопасен.</td></tr>
+  </table>
+<pre>curl {{ base }}/deposits?status=delivered \
+  -H "Authorization: Bearer BUP/ваш_ключ"</pre>
+  <div class="note"><b>Если webhook не доходит.</b> Раз в несколько минут запрашивайте <code>GET /deposits?status=delivered</code>, зачисляйте найденное (идемпотентно по <code>deposit_id</code>) и вызывайте <code>/ack</code>. Подарок при этом уже лежит в инвентаре аккаунта BoostUp.</div>
+</section>
+
+<section id="inventory">
+  <h2><span>07</span>Работа с подарком после зачисления</h2>
+  <p>Подарок лежит в обычном инвентаре аккаунта BoostUp в Crafter. Дальше с ним работают обычным ключом Partner API (<code>Authorization: Bearer CRT/…</code>, адрес <code>{{ partner_base }}</code>):</p>
+  <table>
+    <tr><th>Задача</th><th>Запрос</th></tr>
+    <tr><td>Найти подарок</td><td><code>GET /inventory</code> или <code>GET /gifts/{gift_id}</code>, где <code>gift_id</code> из webhook</td></tr>
+    <tr><td>Вывести в Telegram</td><td><code>POST /withdraw</code> (комиссия вывода 0,4 GRAM с баланса аккаунта)</td></tr>
+    <tr><td>Передать игроку Crafter</td><td><code>POST /transfer</code>, в том числе с <code>"pay_withdraw_fee": true</code></td></tr>
+    <tr><td>Выставить на продажу</td><td><code>POST /sell</code></td></tr>
+  </table>
+  <p>Все запросы записи требуют <code>Idempotency-Key</code>. Подробности и примеры: <a href="/partner-api">/partner-api</a>.</p>
+</section>
+
+<section id="statuses">
+  <h2><span>08</span>Статусы пополнения</h2>
+  <table>
+    <tr><th><code>status</code></th><th>Что значит</th><th>Что делать BoostUp</th></tr>
+    <tr><td><code>delivered</code></td><td>Подарок уже в инвентаре аккаунта BoostUp. Webhook отправляется.</td><td><b>Зачислить NFT игроку.</b></td></tr>
+    <tr><td><code>credited</code></td><td>BoostUp подтвердил зачисление.</td><td>Конец.</td></tr>
+    <tr><td><code>returned</code></td><td>Администратор Crafter вернул подарок игроку (BoostUp не зачислил его).</td><td>Ничего не зачислять.</td></tr>
+  </table>
+  <p>Пополнения, которые игрок ещё не подтвердил (бот спросил, игрок не ответил), в API не видны.</p>
+</section>
+
+<section id="player">
+  <h2><span>09</span>Что видит игрок</h2>
+  <table>
+    <tr><th>Момент</th><th>Сообщение бота Crafter</th></tr>
+    <tr><td>Подарок пришёл на релейер Crafter</td><td>«Подарок получен. Куда отправить подарок?» и кнопки «В маркет» / «В BoostUp»</td></tr>
+    <tr><td>Игрок выбрал «В BoostUp»</td><td>Просьба подтвердить отправку и кнопка «Открыть подтверждение» (окно Crafter)</td></tr>
+    <tr><td>Окно подтверждения</td><td>Большая анимация подарка, название и цена в GRAM. «Подтвердить» открывает второе окно «Точно передать подарок в BoostUp?» с кнопками «Да, передать» и «Назад»</td></tr>
+    <tr><td>Подарок передан</td><td>«Подарок передан BoostUp»</td></tr>
+    <tr><td>BoostUp зачислил (ответ <code>ok</code> или <code>/ack</code>)</td><td>«Подарок в инвентаре BoostUp»</td></tr>
+  </table>
+</section>
+
+<section id="errors">
+  <h2><span>10</span>Ошибки и повторы</h2>
+  <table>
+    <tr><th>HTTP / <code>code</code></th><th>Причина</th></tr>
+    <tr><td>401 · <code>unauthorized</code></td><td>Ключ не передан, не подходит или заменён.</td></tr>
+    <tr><td>403 · <code>browser_forbidden</code></td><td>Запрос с заголовком <code>Origin</code>: API работает только с серверов.</td></tr>
+    <tr><td>403 · <code>disabled</code></td><td>Интеграция отключена администратором Crafter.</td></tr>
+    <tr><td>404 · <code>deposit_not_found</code></td><td>Такого пополнения нет, либо игрок его ещё не подтвердил.</td></tr>
+    <tr><td>409 · <code>not_delivered</code></td><td>Это пополнение нельзя подтвердить (например, оно возвращено игроку).</td></tr>
+    <tr><td>429 · <code>rate_limited</code></td><td>Слишком много запросов. Ждите <code>Retry-After</code> (10 секунд).</td></tr>
+  </table>
+  <ul>
+    <li><b>Если зачислить подарок нельзя,</b> ответьте не <code>ok</code> и свяжитесь с поддержкой Crafter: администратор вернёт подарок игроку, пока вы его не выставили и не вывели.</li>
+    <li>Не выставляйте и не выводите подарок, пока не зачислили его игроку.</li>
+  </ul>
+</section>
+
+<section id="test">
+  <h2><span>11</span>Проверка до запуска</h2>
+  <ol class="steps">
+    <li><b>Ключ.</b> <code>GET {{ base }}/ping</code> возвращает <code>"ok": true</code> и аккаунт BoostUp.</li>
+    <li><b>Webhook.</b> Администратор Crafter нажимает «Отправить тестовый webhook» в разделе «BoostUp». К вам приходит событие <code>ping</code>: проверьте подпись и ответьте 2xx.</li>
+    <li><b>Настоящее пополнение.</b> Отправьте недорогой подарок на релейер Crafter с аккаунта, у которого есть и Crafter, и BoostUp. Пройдите кнопки бота и оба окна подтверждения. Убедитесь, что подарок появился в инвентаре аккаунта BoostUp (<code>GET /inventory</code> с ключом <code>CRT/…</code>) и NFT добавлен игроку в BoostUp.</li>
+    <li><b>Повтор.</b> Проверьте, что повторный <code>deposit_id</code> не зачисляется второй раз.</li>
+  </ol>
+</section>
+
+<section id="checklist">
+  <h2><span>12</span>Перед запуском</h2>
+  <ul>
+    <li>Подпись webhook проверяется, старые запросы отклоняются.</li>
+    <li>Зачисление идемпотентно по <code>deposit_id</code>.</li>
+    <li>Адрес webhook отвечает быстрее 8 секунд.</li>
+    <li>Раз в несколько минут BoostUp сверяет <code>GET /deposits?status=delivered</code>.</li>
+    <li>Оба ключа и секрет лежат только на сервере.</li>
+    <li>Аккаунт BoostUp в Crafter открывал приложение и имеет ключ <code>CRT/…</code>.</li>
+  </ul>
+</section>
+
+<footer>
+  <div class="support">
+    <div><b>Нужна помощь с подключением?</b><p>Замена ключа, адрес webhook, проблемные пополнения: пишите в поддержку Crafter.</p></div>
+    <a class="btn" href="https://t.me/crafter_support">@crafter_support</a>
+  </div>
+  <p class="fine">Crafter × BoostUp · <a href="{{ site }}">Открыть Crafter</a> · <a href="/partner-api">Общий API</a></p>
+</footer>
+</main>
+<aside class="toc"><small>Содержание</small>
+<a href="#flow">Как это работает</a><a href="#keys">Два ключа</a><a href="#start">Что настроить</a><a href="#webhook">Webhook</a><a href="#sign">Проверка подписи</a><a href="#api">API пополнения</a><a href="#inventory">Работа с подарком</a><a href="#statuses">Статусы</a><a href="#player">Что видит игрок</a><a href="#errors">Ошибки и повторы</a><a href="#test">Проверка</a><a href="#checklist">Перед запуском</a></aside>
+</div>
+</div>
+<script>document.querySelectorAll(".menu-box a").forEach(function(a){a.addEventListener("click",function(){document.querySelector(".menu").removeAttribute("open")})});document.addEventListener("click",function(e){var m=document.querySelector(".menu");if(m&&!m.contains(e.target))m.removeAttribute("open")});</script>
+<script>(function(){
+var secs=[].slice.call(document.querySelectorAll("main section[id]"));
+var links=[].slice.call(document.querySelectorAll(".toc a,.menu-box a"));
+secs.forEach(function(s){s.classList.add("rv")});
+function mark(id){links.forEach(function(a){a.classList.toggle("is-active",a.getAttribute("href")==="#"+id)})}
+if("IntersectionObserver" in window){
+ var reveal=new IntersectionObserver(function(es){es.forEach(function(e){if(e.isIntersecting){e.target.classList.add("in");reveal.unobserve(e.target)}})},{threshold:.05});
+ secs.forEach(function(s){reveal.observe(s)});
+ var vis={};var spy=new IntersectionObserver(function(es){es.forEach(function(e){vis[e.target.id]=e.isIntersecting?e.boundingClientRect.top:null});
+  var best=null,bt=1e9;Object.keys(vis).forEach(function(k){if(vis[k]!==null&&Math.abs(vis[k])<bt){bt=Math.abs(vis[k]);best=k}});if(best)mark(best)},{rootMargin:"-20% 0px -55% 0px",threshold:[0,1]});
+ secs.forEach(function(s){spy.observe(s)});
+}else{secs.forEach(function(s){s.classList.add("in")})}
+})();</script>
+</body>
+</html>

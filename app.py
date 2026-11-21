@@ -989,19 +989,42 @@ def create_app(config=None):
         db().execute('INSERT INTO craft_quotes VALUES(?,?,?,?)',(qid,g.user['id'],json.dumps(q),int(time.time())));db().commit()
         return dict(quote_id=qid,chance=q['chance_bps']/100,input_value=q['input_value'],target_value=q['target_value'],price_unit=q.get('price_unit','TON'),mode=q.get('mode','collection'),expires_at=int(time.time())+120,scope='application')
 
+    market_page_memo = {}
+
+    def market_pages():
+        """The fresh cached market pages as {canonical collection name: [gifts]}, newest page first.
+        A page is parsed and indexed once per change (key, time and size), not on every craft, upgrade or Partner API request."""
+        rows = db().execute(
+            "SELECT key,updated,length(payload) AS size FROM cache WHERE (key LIKE 'public:market:%' OR key LIKE 'market:%') "
+            "AND updated >= ? ORDER BY updated DESC", (int(time.time()) - 300,)).fetchall()
+        pages = []
+        for row in rows:
+            stamp = (row['updated'], row['size'])
+            hit = market_page_memo.get(row['key'])
+            if not hit or hit[0] != stamp:
+                body = db().execute('SELECT payload FROM cache WHERE key=?', (row['key'],)).fetchone()
+                if not body:
+                    continue
+                index = {}
+                for gift in json.loads(body['payload']).get('gifts', []):
+                    index.setdefault(canonical_name(gift.get('name', '')), []).append(gift)
+                hit = market_page_memo[row['key']] = (stamp, index)
+                if len(market_page_memo) > 800:
+                    market_page_memo.pop(next(iter(market_page_memo)), None)
+            pages.append(hit[1])
+        return pages
+
     def craft_market_candidates(target):
         sold = {row[0] for row in db().execute('SELECT source_id FROM local_sold')}
         reserved = {row[0] for row in db().execute(
             'SELECT number FROM local_numbers WHERE collection_id=?', (target['id'],))}
-        pages = db().execute(
-            "SELECT payload FROM cache WHERE (key LIKE 'public:market:%' OR key LIKE 'market:%') "
-            "AND updated >= ? ORDER BY updated DESC", (int(time.time()) - 300,))
         collection_name = canonical_name(target['name'])
-        for row in pages:
-            for gift in json.loads(row['payload']).get('gifts', []):
+        refused = hidden_lots()                                  # lots that Thermos listed but would not sell: hidden for 6 hours
+        for by_name in market_pages():
+            for gift in by_name.get(collection_name, ()):
                 source_id = gift.get('id')
                 key = market_collectible_key(gift)
-                if (not source_id or source_id in sold or not key or key in sold or
+                if (not source_id or source_id in sold or str(source_id) in refused or not key or key in sold or
                         gift.get('catalog_only') or gift.get('pack_item') or canonical_name(gift.get('name', '')) != collection_name or
                         int(gift['number']) in reserved or gift.get('price_unit', 'GRAM') not in ('GRAM', 'TON')):
                     continue
@@ -1010,7 +1033,7 @@ def create_app(config=None):
                 except InvalidOperation:
                     continue
                 if price.is_finite() and price > 0:
-                    yield gift, price
+                    yield dict(gift), price                      # a copy: the parsed page is shared by every request
 
     def lucky_listing(target, listing_id):
         gift = next((gift for gift, _ in craft_market_candidates(target) if gift['id'] == listing_id), None)
@@ -1671,6 +1694,8 @@ def create_app(config=None):
         gram_per_ton=lambda: app.extensions['crafter_new_year_trade_conversion']()))
     from partner_api import install_partner_api
     install_partner_api(app,db,auth,record,audit)
+    from boostup import install_boostup
+    install_boostup(app,db,auth,audit,record,bot_settings)
     from auctions import install_auctions
 
     def notify_crafter_auction(event, user_id, gift, amount, auction_id=None):

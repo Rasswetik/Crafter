@@ -14,7 +14,7 @@ SECTIONS = (
     "tonconnect", "relayer", "crafts", "modes", "staking", "arena", "banners",
     "craft_banner", "ice_banner", "events", "portal", "telegram-bot",
     "announcements", "snow", "new-year", "promocodes", "creators", "pass",
-    "characters",
+    "characters", "boostup",
 )
 
 def ensure_admin_tables(db):
@@ -100,6 +100,8 @@ def required_section(path):
         return "tonconnect"
     if p.startswith("tonconnect"):
         return "ton_withdraw"
+    if p.startswith("boostup"):
+        return "boostup"
     if p.startswith("telegram-deposits") or p.startswith("star-gifts"):
         return "relayer"
     if p.startswith("selection") or p.startswith("crafts"):

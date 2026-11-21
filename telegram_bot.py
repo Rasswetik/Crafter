@@ -844,7 +844,7 @@ def install_telegram_bot(app, db, auth, audit):
             secret = config.get('secret') or secrets.token_urlsafe(32)
             url = f"{origin.rstrip('/')}/api/telegram/webhook/{bot_id}"
             bot_api(token, 'setWebhook', {'url': url, 'secret_token': secret,
-                                        'allowed_updates': ['message'], 'max_connections': 1})
+                                        'allowed_updates': ['message', 'callback_query'], 'max_connections': 1})
             config.update(bot_id=bot_id, username=bot.get('username', ''), secret=secret, webhook_url=url)
             save(config)
             audit('Telegram bot webhook connected')
@@ -879,6 +879,15 @@ def install_telegram_bot(app, db, auth, audit):
         update = request.get_json(silent=True)
         if not isinstance(update, dict) or type(update.get('update_id')) is not int:
             abort(400)
+        callback = update.get('callback_query')
+        if isinstance(callback, dict):
+            handler = app.extensions.get('crafter_bot_callback')
+            if handler:
+                try:
+                    handler(callback)
+                except Exception:
+                    app.logger.warning('Telegram button handler failed')
+            return {'ok': True}
         message = update.get('message')
         if not isinstance(message, dict):
             return {'ok': True}

@@ -14,6 +14,37 @@ from test_app import client, signed
 LOT = 'lot-thermos-1'
 
 
+def test_broken_cheap_lots_are_recognised_by_the_real_floor_of_the_collection():
+    from decimal import Decimal as D
+    snow = [{'name': 'Snow Mittens', 'price': p} for p in ('3.1605', '4.578', '4.6305', '9.975', '9.975', '9.975', '10.05', '10.08')]
+    assert thermos.robust_floor([D(x['price']) for x in snow]) == D('9.975')              # the broken lots do not form a group of three
+    thermos._ROBUST.clear()
+    thermos.remember_floors(snow)
+    assert [x['price'] for x in snow if thermos.plausible_price(x['name'], x['price'], {})] == ['9.975', '9.975', '9.975', '10.05', '10.08']
+    assert thermos.plausible_price('Snow Mittens', '8.1', {})                              # a real small discount stays
+    # no group of three lots: nothing is known, the old rule (40 % of the reference floor) decides
+    thermos._ROBUST.clear()
+    thermos.remember_floors([{'name': 'Rare', 'price': '100'}, {'name': 'Rare', 'price': '300'}])
+    assert 'rare' not in thermos._ROBUST
+    # a market that really fell: the new cheapest page replaces the old floor
+    thermos.remember_floors([{'name': 'Snow Mittens', 'price': p} for p in ('6.0', '6.1', '6.2', '9.9')])
+    assert thermos.plausible_price('Snow Mittens', '6.0', {}) and not thermos.plausible_price('Snow Mittens', '4.7', {})
+    thermos._ROBUST.clear()
+
+
+def test_a_lot_that_thermos_refused_is_hidden_from_every_list(client):
+    client.get('/api/me', headers=signed(42))
+    ext = client.application.extensions
+    target = {'id': '5170594532177215681', 'name': 'Lol Pop'}
+    lot = lambda n: {'id': 'lot-%d' % n, 'name': 'Lol Pop', 'number': 100 + n, 'price': '5.1', 'price_unit': 'TON', 'marketplace': 'MRKT', 'image': 'x'}
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO cache VALUES (?,?,?)", ('public:market:t', json.dumps({'gifts': [lot(1), lot(2)]}), int(time.time())))
+    with client.application.app_context():
+        assert sorted(g['id'] for g, _ in ext['crafter_pack_ctx']['market_candidates'](target)) == ['lot-1', 'lot-2']
+        ext['crafter_hide_lots'](['lot-2'])
+        assert [g['id'] for g, _ in ext['crafter_pack_ctx']['market_candidates'](target)] == ['lot-1']
+
+
 class Resp(io.BytesIO):
     def __enter__(self):
         return self

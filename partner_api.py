@@ -115,6 +115,27 @@ def install_partner_api(app, db, auth, record, audit):
             response.headers['Retry-After'] = '10'
         return response
 
+    # last_used / requests are statistics: they are collected in memory and written at most once every USAGE_FLUSH seconds (one commit instead of one per request)
+    USAGE_FLUSH = 15.0
+    usage, usage_lock, usage_flushed = {}, threading.Lock(), [time.monotonic()]
+
+    def note_use(uid):
+        batch = None
+        with usage_lock:
+            entry = usage.setdefault(uid, [0, 0])
+            entry[0] += 1
+            entry[1] = int(time.time())
+            if time.monotonic() - usage_flushed[0] >= USAGE_FLUSH:
+                batch, usage_flushed[0] = dict(usage), time.monotonic()
+                usage.clear()
+        if batch:
+            try:
+                with db():
+                    db().executemany("UPDATE partner_keys SET last_used=?,requests=requests+? WHERE user_id=?",
+                                     [(seen, count, user) for user, (count, seen) in batch.items()])
+            except Exception:
+                app.logger.warning('Partner API usage counters were not saved')
+
     def authorize():
         header = request.headers.get('Authorization', '')
         if request.headers.get('Origin'):
@@ -122,14 +143,15 @@ def install_partner_api(app, db, auth, record, audit):
         if not header.startswith('Bearer ') or not header[7:].startswith(KEY_PREFIX):
             raise PartnerError(401, 'unauthorized', 'Передайте ключ: Authorization: Bearer CRT/…')
         digest = key_hash(header[7:].strip())
-        row = db().execute("SELECT user_id FROM partner_keys WHERE key_hash=?", (digest,)).fetchone()
-        if not row:
-            raise PartnerError(401, 'unauthorized', 'Ключ не найден или заменён')
-        uid = int(row['user_id'])
-        user = db().execute("SELECT id,name,username FROM users WHERE id=?", (uid,)).fetchone()
+        user = db().execute("SELECT k.user_id,u.id AS known,u.name,u.username,"
+                            "(SELECT 1 FROM user_bans b WHERE b.user_id=k.user_id LIMIT 1) AS banned "
+                            "FROM partner_keys k LEFT JOIN users u ON u.id=k.user_id WHERE k.key_hash=?", (digest,)).fetchone()
         if not user:
+            raise PartnerError(401, 'unauthorized', 'Ключ не найден или заменён')
+        uid = int(user['user_id'])
+        if user['known'] is None:
             raise PartnerError(401, 'unauthorized', 'Аккаунт не найден')
-        if db().execute("SELECT 1 FROM user_bans WHERE user_id=?", (uid,)).fetchone():
+        if user['banned']:
             raise PartnerError(403, 'banned', 'Аккаунт заблокирован')
         now = time.monotonic()
         with hits_lock:
@@ -139,8 +161,7 @@ def install_partner_api(app, db, auth, record, audit):
             if len(queue) >= RATE_LIMIT:
                 raise PartnerError(429, 'rate_limited', f'Не больше {RATE_LIMIT} запросов за {int(RATE_WINDOW)} секунд на один ключ')
             queue.append(now)
-        with db():
-            db().execute("UPDATE partner_keys SET last_used=?,requests=requests+1 WHERE user_id=?", (int(time.time()), uid))
+        note_use(uid)
         g.partner = {'id': uid, 'first_name': user['name'] or '', 'username': user['username'] or ''}
         g.user = g.partner
         return g.partner
@@ -163,6 +184,15 @@ def install_partner_api(app, db, auth, record, audit):
 
     def pack_ctx():
         return app.extensions['crafter_pack_ctx']
+
+    catalog_memo = [0.0, None]
+
+    def public_catalog():
+        """The catalogue of collections (refreshed by the app every 5 minutes); kept for 5 seconds here so a request does not re-read and re-parse it."""
+        now = time.monotonic()
+        if catalog_memo[1] is None or now - catalog_memo[0] > 5.0:
+            catalog_memo[1], catalog_memo[0] = pack_ctx()['public_catalog'](), now
+        return catalog_memo[1]
 
     # ---------------- reading ----------------
     @app.get(BASE + '/account')
@@ -192,7 +222,7 @@ def install_partner_api(app, db, auth, record, audit):
     @partner
     def p_collections():
         out = []
-        for c in pack_ctx()['public_catalog']():
+        for c in public_catalog():
             floor = floor_gram(c)
             out.append({'id': str(c['id']), 'name': c['name'], 'image': c.get('photo_url') or '',
                         'floor': plain(floor) if floor else None, 'floor_nano': nano(floor) if floor else None})
@@ -201,7 +231,7 @@ def install_partner_api(app, db, auth, record, audit):
     def find_collection(raw):
         ctx = pack_ctx()
         canon = ctx['canonical_name']
-        for c in ctx['public_catalog']():
+        for c in public_catalog():
             if str(c['id']) == str(raw) or canon(c.get('name', '')) == canon(str(raw)):
                 return c
         raise PartnerError(404, 'collection_not_found', 'Такой коллекции нет. Список: GET /collections')
@@ -229,8 +259,10 @@ def install_partner_api(app, db, auth, record, audit):
                 'number': gift.get('number'), 'model': gift.get('model') or '', 'backdrop': gift.get('backdrop') or '', 'symbol': gift.get('symbol') or '',
                 'image': gift.get('image') or '', 'price': plain(price), 'price_nano': nano(price)}
 
-    def crafter_lots(collection, uid):
+    def crafter_candidates(uid):
+        """Open lots of other players as (canonical collection name, lot id, price, gift), read and parsed once."""
         ctx, canon = pack_ctx(), pack_ctx()['canonical_name']
+        work = ctx['work_mode']()
         rows = db().execute("""SELECT l.id,l.price,i.payload FROM crafter_listings l
             JOIN inventory i ON i.user_id=l.seller_id AND i.nft_id=l.gift_id AND i.status='listed'
             WHERE l.seller_id!=? ORDER BY l.listed_at DESC""", (uid,)).fetchall()
@@ -239,15 +271,22 @@ def install_partner_api(app, db, auth, record, audit):
             gift = json.loads(row['payload'])
             if gift.get('pack_item') or gift.get('star_gift') or gift.get('pack_prize') or gift.get('catalog_only') or gift.get('test_only'):
                 continue                                           # card packs and virtual gifts are not part of the API
-            if ctx['work_mode']() and gift.get('origin') != 'telegram-deposit':
-                continue
-            if canon(gift.get('name', '')) != canon(collection['name']):
+            if work and gift.get('origin') != 'telegram-deposit':
                 continue
             try:
                 price = Decimal(str(row['price']))
             except InvalidOperation:
                 continue
-            lot = lot_view(gift, price, row['id'], 'crafter', 'Crafter')
+            out.append((canon(gift.get('name', '')), row['id'], price, gift))
+        return out
+
+    def crafter_lots(collection, uid, candidates=None):
+        name = pack_ctx()['canonical_name'](collection['name'])
+        out = []
+        for canon_name, lot_id, price, gift in (crafter_candidates(uid) if candidates is None else candidates):
+            if canon_name != name:
+                continue
+            lot = lot_view(gift, price, lot_id, 'crafter', 'Crafter')
             lot['collection_id'] = str(collection['id'])
             out.append(lot)
         return out
@@ -291,9 +330,10 @@ def install_partner_api(app, db, auth, record, audit):
             return hit[1], True
         ctx = pack_ctx()
         end, complete, out = time.time() + ALL_BUDGET, True, []
-        for collection in ctx['public_catalog']():
+        players = crafter_candidates(uid) if source in ('all', 'crafter') else []
+        for collection in public_catalog():
             if source in ('all', 'crafter'):
-                out += crafter_lots(collection, uid)
+                out += crafter_lots(collection, uid, players)
             if source in ('all', 'market'):
                 fetch = time.time() < end
                 complete = complete and fetch

@@ -249,6 +249,13 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         )
 
     def notify(uid, gift):
+        hook = app.extensions.get('crafter_deposit_notify')          # BoostUp: «Куда отправить подарок?» instead of the standard message
+        if hook:
+            try:
+                if hook(uid, gift):
+                    return
+            except Exception:
+                app.logger.warning('BoostUp offer was not sent for gift %s', gift.get('telegram_slug'))
         settings = bot_settings()
         token = settings.get('token') or app.config['BOT_TOKEN']
         if not token:

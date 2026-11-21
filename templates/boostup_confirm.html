@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#131313">
+<meta name="robots" content="noindex">
+<title>Подтверждение передачи подарка</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/icons/crafter-32.png?v=1">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{color-scheme:dark;--bg:#131313;--panel:#222;--line:#303030;--text:#f9f9f9;--muted:#87878b;--blue:#1689ff;--green:#8fd6a6;--red:#e9a8a8}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 Arial,Helvetica,sans-serif;-webkit-text-size-adjust:100%}
+body{min-height:100dvh;display:flex;flex-direction:column;padding:14px 18px calc(22px + env(safe-area-inset-bottom))}
+main{width:100%;max-width:440px;margin:0 auto;flex:1;display:flex;flex-direction:column}
+.stage{position:relative;width:min(80vw,320px);aspect-ratio:1;margin:10px auto 0;border-radius:34px;background:radial-gradient(at 50% 28%,#414457,#23242c);border:1px solid #ffffff12;overflow:hidden}
+.stage .anim,.stage img{position:absolute;inset:0;width:100%;height:100%}
+.stage img{object-fit:cover}
+.stage .anim svg{width:100%;height:100%}
+h1{margin:18px 0 4px;font-size:26px;letter-spacing:-.6px;text-align:center}
+.price{display:flex;align-items:center;justify-content:center;gap:9px;font-size:34px;font-weight:800;letter-spacing:-1px;margin:2px 0 0}
+.price img{width:30px;height:30px;flex:none}
+.price.small{font-size:22px;letter-spacing:-.4px;gap:7px}.price.small img{width:20px;height:20px}
+.hint{text-align:center;color:var(--muted);font-size:12px;letter-spacing:1.4px;text-transform:uppercase;margin:0 0 2px}
+.actions{margin-top:auto;padding-top:22px;display:grid;gap:10px}
+button{font:inherit;border:0;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+button:disabled{opacity:.5;cursor:default}
+.primary{background:var(--blue);color:#fff;border-radius:26px;padding:17px;font-weight:700;font-size:16px;min-height:54px}
+.secondary{background:#303030;border-radius:24px;padding:15px;font-weight:700}
+.state{text-align:center;border-radius:22px;padding:14px 16px;font-size:14px;margin:18px 0 0}
+.state.wait{background:#182a39;border:1px solid #273e50;color:#9bb3ce}
+.state.ok{background:#17261d;border:1px solid #29412f;color:var(--green)}
+.state.bad{background:#2a1c1c;border:1px solid #4a2c2c;color:var(--red)}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #9bb3ce55;border-top-color:#9bb3ce;border-radius:50%;margin-right:8px;vertical-align:-2px;animation:s 1s linear infinite}
+@keyframes s{to{transform:rotate(360deg)}}
+.skeleton{height:22px;border-radius:11px;background:linear-gradient(90deg,#222,#2c2c2c,#222);background-size:200% 100%;animation:sk 1.2s infinite;margin:14px auto;width:55%}
+@keyframes sk{to{background-position:-200% 0}}
+/* the second window */
+.veil{position:fixed;inset:0;background:#000000e0;backdrop-filter:blur(6px);display:flex;align-items:flex-end;justify-content:center;padding:16px;z-index:5;animation:fade .18s ease}
+.sheet{width:100%;max-width:440px;background:#1d1d1d;border:1px solid #363636;border-radius:30px;padding:22px 20px calc(18px + env(safe-area-inset-bottom));text-align:center;animation:rise .22s cubic-bezier(.2,.9,.3,1)}
+.sheet .thumb{width:84px;height:84px;border-radius:24px;margin:0 auto 12px;overflow:hidden;background:#2c2e3a}
+.sheet .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.sheet h2{margin:0 0 6px;font-size:21px;letter-spacing:-.4px}
+.sheet p{margin:0 0 4px;color:#c9c9cc}
+.sheet .price{margin:6px 0 14px}
+.sheet .note{color:var(--muted);font-size:13px;margin:0 0 16px}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+@keyframes rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+@media(prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<main id="root"><div class="stage"></div><div class="skeleton"></div><div class="skeleton" style="width:38%"></div></main>
+<script>
+(function () {
+'use strict';
+var tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { try { tg.ready(); tg.expand(); } catch (e) {} }
+var root = document.getElementById('root');
+var offer = new URLSearchParams(location.search).get('offer') || '';
+var DONE = {delivered: 1, credited: 1};
+var STOP = {delivered: 1, credited: 1, returned: 1, review: 1};
+var lottieLib = null, current = null;
+
+function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text !== undefined) n.textContent = text; return n; }
+function api(path, body) {
+    var headers = {'X-Telegram-Init-Data': (tg && tg.initData) || ''};
+    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    return fetch('/api/boostup/' + path, {method: body === undefined ? 'GET' : 'POST', headers: headers, body: body === undefined ? undefined : JSON.stringify(body)})
+        .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.error || d.message || 'Ошибка ' + r.status); return d; }); });
+}
+function loadLottie() {
+    if (window.lottie) return Promise.resolve(window.lottie);
+    if (lottieLib) return lottieLib;
+    lottieLib = new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/lottie-web/5.12.2/lottie.min.js';
+        s.onload = function () { window.lottie ? resolve(window.lottie) : reject(); };
+        s.onerror = reject;
+        document.head.appendChild(s);
+    });
+    return lottieLib;
+}
+function gram(amount) {
+    var n = Number(amount);
+    return Number.isFinite(n) ? n.toLocaleString('ru-RU', {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '—';
+}
+function price(data, small) {
+    var box = el('div', 'price' + (small ? ' small' : ''));
+    var icon = el('img'); icon.src = '/static/assets/gram.svg'; icon.alt = 'GRAM';
+    box.append(icon, el('span', '', data.value ? gram(data.value.gram) : '—'));
+    return box;
+}
+function stage(data) {
+    var box = el('div', 'stage');
+    if (data.gift.image) { var img = el('img'); img.alt = ''; img.src = data.gift.image; box.appendChild(img); }
+    if (data.lottie) {
+        Promise.all([loadLottie(), fetch(data.lottie).then(function (r) { if (!r.ok) throw 0; return r.json(); })]).then(function (x) {
+            var holder = el('div', 'anim'); box.appendChild(holder);
+            x[0].loadAnimation({container: holder, renderer: 'svg', loop: true, autoplay: true, animationData: x[1], rendererSettings: {preserveAspectRatio: 'xMidYMid meet'}});
+        }).catch(function () { /* the picture stays */ });
+    }
+    return box;
+}
+function name(data) { return el('h1', '', data.gift.name + ' #' + data.gift.number); }
+function close() { if (tg && tg.close) tg.close(); else history.back(); }
+function fail(message) {
+    var b = el('button', 'secondary', 'Закрыть'); b.onclick = close;
+    var a = el('div', 'actions'); a.appendChild(b);
+    root.replaceChildren(el('div', 'state bad', message), a);
+}
+
+/* the second window: «Точно передать?» */
+function ask(data) {
+    var veil = el('div', 'veil'), sheet = el('div', 'sheet');
+    sheet.setAttribute('role', 'dialog'); sheet.setAttribute('aria-modal', 'true');
+    var thumb = el('div', 'thumb');
+    if (data.gift.image) { var img = el('img'); img.alt = ''; img.src = data.gift.image; thumb.appendChild(img); }
+    var yes = el('button', 'primary', 'Да, передать'), back = el('button', 'secondary', 'Назад');
+    sheet.append(thumb, el('h2', '', 'Точно передать подарок в BoostUp?'), el('p', '', data.gift.name + ' #' + data.gift.number), price(data, true),
+        el('p', 'note', 'Это действие нельзя отменить.'), yes, document.createTextNode(' '), back);
+    back.style.marginTop = '10px'; back.style.width = '100%';
+    yes.style.width = '100%';
+    veil.appendChild(sheet);
+    document.body.appendChild(veil);
+    function done() { veil.remove(); }
+    back.onclick = done;
+    veil.onclick = function (ev) { if (ev.target === veil) done(); };
+    yes.onclick = function () {
+        yes.disabled = back.disabled = true; yes.textContent = 'Отправляем…';
+        api('offer/' + encodeURIComponent(offer) + '/confirm', {}).then(function (d) { done(); render(d); watch(); })
+            .catch(function (e) { done(); fail(e.message); });
+    };
+}
+
+function render(data) {
+    current = data;
+    root.replaceChildren(stage(data), name(data), price(data));
+    if (data.status === 'offered') {
+        var actions = el('div', 'actions'), ok = el('button', 'primary', 'Подтвердить'), no = el('button', 'secondary', 'Отмена');
+        ok.disabled = !data.can_confirm;
+        ok.onclick = function () { ask(data); };
+        no.onclick = close;
+        actions.append(ok, no);
+        root.appendChild(actions);
+        return;
+    }
+    var kind = DONE[data.status] ? 'ok' : (data.status === 'returned' || data.status === 'review') ? 'bad' : 'wait';
+    var state = el('div', 'state ' + kind);
+    if (kind === 'wait') state.appendChild(el('span', 'spin'));
+    state.append(data.status_text + (data.note && kind !== 'ok' ? ': ' + data.note : ''));
+    root.appendChild(state);
+    if (STOP[data.status]) {
+        var done = el('button', 'secondary', 'Закрыть'); done.onclick = close;
+        var a = el('div', 'actions'); a.appendChild(done); root.appendChild(a);
+    }
+}
+var timer = 0, started = Date.now();
+function watch() {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+        api('offer/' + encodeURIComponent(offer)).then(function (d) { render(d); if (!STOP[d.status] && Date.now() - started < 600000) watch(); }).catch(function () { watch(); });
+    }, 2500);
+}
+if (!offer) fail('Откройте это окно кнопкой из сообщения бота.');
+else if (!tg || !tg.initData) fail('Откройте это окно из Telegram: кнопкой под сообщением бота.');
+else api('offer/' + encodeURIComponent(offer)).then(function (d) { render(d); if (d.status !== 'offered' && !STOP[d.status]) watch(); }).catch(function (e) { fail(e.message); });
+})();
+</script>
+</body>
+</html>

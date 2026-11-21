@@ -130,7 +130,8 @@ def install_admin_console(app, db, auth, audit, verify_telegram, bot_settings, a
             return None
         # The partner API (and the ordinary endpoints it calls on behalf of a key) keeps working during
         # the countdown and maintenance. The environ key is set only by the server itself, never by a client.
-        partner = path.startswith("/api/partner/") or bool(request.environ.get("crafter.internal_user"))
+        partner = (path.startswith("/api/partner/") or path.startswith("/api/boostup/v1/") or
+                   bool(request.environ.get("crafter.internal_user")))
         # The countdown screen comes first: it can run together with maintenance and has priority over it.
         countdown = {"active": False} if partner else launch()
         if countdown["active"] and not valid_admin_request():
