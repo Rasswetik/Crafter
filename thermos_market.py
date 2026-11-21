@@ -787,7 +787,9 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
             if expected_ton is not None:
                 try:
                     shown = sum((Decimal(str(found[i]['price'])) for i in ids), Decimal(0))
-                    if Decimal(str(expected_ton)) != shown:
+                    # the market shows every price rounded to cents (5.1975 -> 5.20) and sends that sum back: it must match the exact sum or the rounded one
+                    shown_rounded = sum((Decimal(str(found[i]['price'])).quantize(Decimal('0.01')) for i in ids), Decimal(0))
+                    if Decimal(str(expected_ton)) not in (shown, shown_rounded):
                         abort(409, description='Цена изменилась — обновите маркет')
                 except (InvalidOperation, ValueError):
                     abort(400)
