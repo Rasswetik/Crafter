@@ -754,6 +754,10 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
             abort(409, description='Токен Thermos не настроен')
         uid = g.user['id']
         ids = sorted(ids)
+        # The market keeps one request number per lot for the whole session. An order that Thermos refused (the GRAM were returned, nothing was bought)
+        # must not answer every later attempt of the same lot: it is put aside, and the number is free again. Completed and unclear orders still replay.
+        with db():
+            db().execute("UPDATE thermos_orders SET request_id=request_id||':retired:'||id WHERE user_id=? AND request_id=? AND status='failed'", (uid, rid))
         replay = db().execute('SELECT 1 FROM thermos_orders WHERE user_id=? AND request_id=?', (uid, rid)).fetchone()
         found = {}
         if not replay:
