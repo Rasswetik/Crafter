@@ -763,6 +763,10 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
             for gift in found.values():
                 if gift.get('price_unit') != 'TON':
                     abort(409, description='Неподдерживаемая цена лота')
+                import thermos as thermos_data
+                if not thermos_data.plausible_price(gift.get('name'), gift['price'], {}):
+                    app.extensions['crafter_hide_lots']([gift['id']])          # a broken price far below the floor: such a lot cannot be bought
+                    abort(409, description='У этого лота ошибочная цена на маркете, его нельзя купить. Он убран из списка')
                 if not still_listed(gift, gift['price']):
                     app.extensions['crafter_hide_lots']([gift['id']])          # gone from Thermos: stop showing it
                     abort(409, description='Этот лот уже купили или цена изменилась — он убран из списка. Выберите другой')

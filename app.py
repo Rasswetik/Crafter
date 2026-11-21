@@ -129,6 +129,9 @@ def create_app(config=None):
     def local_market_rows(result):
         bad=hidden_lots()
         if bad:result={**result,'gifts':[x for x in result.get('gifts',[]) if str(x.get('id')) not in bad]}
+        if result.get('source')=='thermos':                      # the same check as when the page was loaded: a cached page may be older than the floors
+            import thermos
+            result={**result,'gifts':thermos.drop_broken(result.get('gifts',[]))}
         # Local test prices use the source numeric amount in app GRAM; no FX or external purchase.
         result = hide_claimed_market_gifts(result)
         return {**result,'price_unit':'GRAM',
@@ -481,6 +484,64 @@ def create_app(config=None):
         except Exception:
             if not rows:raise
         return thermos.unique_collections(rows)
+    # ---- real floors of the collections (Thermos): found by a background sweep, shared by every worker through the database ----
+    FLOORS_KEY, FLOORS_EVERY = 'thermos:floors', 540
+    with app.app_context(), db():
+        db().executescript('CREATE TABLE IF NOT EXISTS thermos_floor_lease(id INTEGER PRIMARY KEY, until BIGINT NOT NULL)')
+        db().execute('INSERT INTO thermos_floor_lease VALUES(1,0) ON CONFLICT(id) DO NOTHING')
+    floors_memo = {'at': 0.0, 'data': {}}
+
+    def stored_floors():
+        if time.time() - floors_memo['at'] > 20:
+            data, _ = cached(FLOORS_KEY, {})
+            floors_memo.update(at=time.time(), data=data if isinstance(data, dict) else {})
+        return floors_memo['data']
+
+    import thermos as _thermos_floors
+    _thermos_floors.FLOORS_LOADER = stored_floors
+
+    def sweep_floors(delay=0.3):
+        """The cheapest page of every collection shows its real floor (thermos.remember_floors); the result is stored for all workers.
+        A collection that cannot be read keeps its previous floor until it expires."""
+        import thermos
+        catalog = public_catalog()
+        for collection in catalog:
+            try:
+                thermos.gifts({'collection_id': str(collection['id']), 'sort_by': 'price asc', 'markets': 'PORTALS,TONNEL,MRKT'}, catalog)
+            except Exception:
+                pass
+            if delay:
+                time.sleep(delay)
+        data = {**stored_floors(), **thermos.snapshot_floors()}
+        with db():
+            db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated', (FLOORS_KEY, json.dumps(data), int(time.time())))
+        floors_memo.update(at=0.0)
+        return len(data)
+    app.extensions['crafter_thermos_floor_sweep'] = sweep_floors
+
+    def floors_worker():
+        time.sleep(20)
+        while True:
+            try:
+                with app.app_context():
+                    _, updated = cached(FLOORS_KEY, {})
+                    now = int(time.time())
+                    if not updated or now - updated >= FLOORS_EVERY:
+                        with db():
+                            db().execute('BEGIN IMMEDIATE')
+                            got = db().execute('UPDATE thermos_floor_lease SET until=? WHERE id=1 AND until<=?', (now + 600, now)).rowcount
+                        if got:
+                            try:
+                                sweep_floors()
+                            finally:
+                                with db():
+                                    db().execute('UPDATE thermos_floor_lease SET until=0 WHERE id=1')
+            except Exception:
+                app.logger.warning('Thermos floor sweep failed')
+            time.sleep(60)
+    if not app.config.get('TESTING'):
+        threading.Thread(target=floors_worker, daemon=True, name='thermos-floors').start()
+
     @app.get('/api/catalog')
     @auth()
     def catalog():
@@ -991,6 +1052,10 @@ def create_app(config=None):
 
     market_page_memo = {}
 
+    def thermos_plausible(name, price):
+        import thermos
+        return thermos.plausible_price(name, price, {})
+
     def market_pages():
         """The fresh cached market pages as {canonical collection name: [gifts]}, newest page first.
         A page is parsed and indexed once per change (key, time and size), not on every craft, upgrade or Partner API request."""
@@ -1024,6 +1089,8 @@ def create_app(config=None):
             for gift in by_name.get(collection_name, ()):
                 source_id = gift.get('id')
                 key = market_collectible_key(gift)
+                if gift.get('price_unit') == 'TON' and not thermos_plausible(gift.get('name'), gift.get('price')):
+                    continue                                     # a lot with a broken price: it cannot be bought
                 if (not source_id or source_id in sold or str(source_id) in refused or not key or key in sold or
                         gift.get('catalog_only') or gift.get('pack_item') or canonical_name(gift.get('name', '')) != collection_name or
                         int(gift['number']) in reserved or gift.get('price_unit', 'GRAM') not in ('GRAM', 'TON')):

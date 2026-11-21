@@ -22,6 +22,19 @@ def test_broken_cheap_lots_are_recognised_by_the_real_floor_of_the_collection():
     thermos.remember_floors(snow)
     assert [x['price'] for x in snow if thermos.plausible_price(x['name'], x['price'], {})] == ['9.975', '9.975', '9.975', '10.05', '10.08']
     assert thermos.plausible_price('Snow Mittens', '8.1', {})                              # a real small discount stays
+    # a group of broken lots of ONE market is not a floor: Snow Mittens, three broken MRKT lots at 4.6-4.9 next to the real lots of two markets from 9.975
+    thermos._ROBUST.clear()
+    mixed = [('3.16', 'MRKT'), ('4.578', 'MRKT'), ('4.63', 'MRKT'), ('4.872', 'MRKT'), ('9.975', 'PORTALS'), ('9.975', 'PORTALS'), ('10.04', 'MRKT'), ('10.08', 'PORTALS')]
+    thermos.remember_floors([{'name': 'Snow Mittens', 'price': p, 'marketplace': m} for p, m in mixed])
+    assert thermos._ROBUST['snowmittens'][0] == D('9.975')
+    assert [p for p, _m in mixed if thermos.plausible_price('Snow Mittens', p, {})] == ['9.975', '9.975', '10.04', '10.08']
+    # no real floor from the lots, but the old rule still hides a lot far below the reference floor of the catalogue snapshot (13 TON)
+    thermos._ROBUST.clear()
+    assert thermos.plausible_price('Snow Mittens', '8', {}) and not thermos.plausible_price('Snow Mittens', '4.6', {})
+    # a new collection without a snapshot: only the real floor protects it (Chill Flame: one broken MRKT lot at 3.87 next to the lots from 5.2)
+    thermos.remember_floors([{'name': 'Chill Flame', 'price': p, 'marketplace': m} for p, m in
+                             [('3.87', 'MRKT'), ('5.208', 'PORTALS'), ('5.25', 'MRKT'), ('5.3', 'PORTALS'), ('5.4', 'MRKT')]])
+    assert not thermos.plausible_price('Chill Flame', '3.87', {}) and thermos.plausible_price('Chill Flame', '5.25', {})
     # no group of three lots: nothing is known, the old rule (40 % of the reference floor) decides
     thermos._ROBUST.clear()
     thermos.remember_floors([{'name': 'Rare', 'price': '100'}, {'name': 'Rare', 'price': '300'}])
@@ -29,6 +42,40 @@ def test_broken_cheap_lots_are_recognised_by_the_real_floor_of_the_collection():
     # a market that really fell: the new cheapest page replaces the old floor
     thermos.remember_floors([{'name': 'Snow Mittens', 'price': p} for p in ('6.0', '6.1', '6.2', '9.9')])
     assert thermos.plausible_price('Snow Mittens', '6.0', {}) and not thermos.plausible_price('Snow Mittens', '4.7', {})
+    thermos._ROBUST.clear()
+
+
+def test_floors_found_by_the_sweep_protect_every_list(client, monkeypatch):
+    from decimal import Decimal
+    thermos._ROBUST.clear()
+    client.get('/api/me', headers=signed(42))
+    ext = client.application.extensions
+    now = int(time.time())
+    catalog = [{'id': 'chill', 'short_name': 'chill', 'name': 'Chill Flame', 'photo_url': '', 'floor_price': '3.68', 'price_unit': 'TON'}]
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        db.execute("INSERT INTO cache VALUES (?,?,?)", ('thermos:collections', json.dumps(catalog), now))
+    items = [('3.87', 'MRKT'), ('5.208', 'PORTALS'), ('5.25', 'MRKT'), ('5.3', 'PORTALS'), ('5.4', 'MRKT')]
+
+    def fake_request(path, body=None):
+        assert path == 'gifts'
+        return {'count': 5, 'items': [{'external_id': 'lot-%d' % i, 'collection': 'Chill Flame', 'model': {'name': 'M'}, 'symbol': {'name': 'S'}, 'backdrop': {'name': 'B'},
+                                       'number': 100 + i, 'price': str(int(Decimal(p) * 10 ** 9)), 'image_url': 'x', 'marketplace': m} for i, (p, m) in enumerate(items)]}
+    monkeypatch.setattr(thermos, 'request', fake_request)
+    with client.application.app_context():
+        assert ext['crafter_thermos_floor_sweep'](delay=0) == 1
+    with sqlite3.connect(client.application.config['DATABASE']) as db:
+        saved = json.loads(db.execute("SELECT payload FROM cache WHERE key='thermos:floors'").fetchone()[0])
+    assert Decimal(saved['chillflame'][0]) == Decimal('5.208')                                           # stored for every worker
+    thermos._ROBUST.clear()                                                                              # another worker: nothing in its memory, the stored floor decides
+    page = {'source': 'thermos', 'price_unit': 'TON', 'gifts': [{'id': 'a', 'name': 'Chill Flame', 'price': '3.87', 'price_unit': 'TON'}, {'id': 'b', 'name': 'Chill Flame', 'price': '5.25', 'price_unit': 'TON'}]}
+    with client.application.app_context():
+        assert thermos.known_floor('chillflame') == Decimal('5.208')
+        assert [g['id'] for g in thermos.drop_broken(page['gifts'])] == ['b']
+    with sqlite3.connect(client.application.config['DATABASE']) as db:                                   # a cached page of the shop from before the sweep
+        db.execute("INSERT INTO cache VALUES (?,?,?)", ('public:market:old', json.dumps({'gifts': [{'id': 'a', 'name': 'Chill Flame', 'number': 1, 'price': '3.87', 'price_unit': 'TON', 'marketplace': 'MRKT'},
+                                                                                              {'id': 'b', 'name': 'Chill Flame', 'number': 2, 'price': '5.25', 'price_unit': 'TON', 'marketplace': 'MRKT'}]}), now))
+    with client.application.app_context():
+        assert [g['id'] for g, _ in ext['crafter_pack_ctx']['market_candidates']({'id': 'chill', 'name': 'Chill Flame'})] == ['b']
     thermos._ROBUST.clear()
 
 

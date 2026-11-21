@@ -85,15 +85,19 @@ def seed_floors():
 MIN_SHARE_OF_FLOOR = Decimal('0.4')
 
 # The floor reported by the market is dragged down by the broken lots themselves (Snow Mittens: "floor" 3.0 TON while the real lots start at 10),
-# so the real floor is read from the lots: the lowest price at which at least CLUSTER_LOTS lots stand within CLUSTER_BAND of each other.
+# so the real floor is read from the lots: the lowest price at which at least CLUSTER_LOTS lots of at least two different markets stand within
+# CLUSTER_BAND of each other. Broken lots usually come from one market (MRKT) and may stand in a group of their own: one market is not enough.
 CLUSTER_LOTS, CLUSTER_BAND, BUGGED_BELOW, ROBUST_TTL = 3, Decimal('1.25'), Decimal('0.8'), 1800
 _ROBUST = {}
+FLOORS_LOADER = None        # set by the app: a callable -> {canonical name: [floor, time]}, the floors found by the background sweep (shared by all workers)
 
 
-def robust_floor(prices):
-    prices = sorted(p for p in prices if p > 0)
-    for index, price in enumerate(prices):
-        if sum(1 for other in prices[index:] if other <= price * CLUSTER_BAND) >= CLUSTER_LOTS:
+def robust_floor(prices, markets=None):
+    """prices: Decimals; markets: the market of each price (same order) or None when it is not known."""
+    pairs = sorted((p, (markets[i] if markets else '')) for i, p in enumerate(prices) if p > 0)
+    for index, (price, _market) in enumerate(pairs):
+        window = [pair for pair in pairs[index:] if pair[0] <= price * CLUSTER_BAND]
+        if len(window) >= CLUSTER_LOTS and (not markets or len({pair[1] for pair in window}) >= 2):
             return price
     return None
 
@@ -104,33 +108,57 @@ def remember_floors(lots, now=None):
     by_name = {}
     for lot in lots:
         try:
-            by_name.setdefault(canon(lot['name']), []).append(Decimal(str(lot['price'])))
+            by_name.setdefault(canon(lot['name']), []).append((Decimal(str(lot['price'])), str(lot.get('marketplace') or '')))
         except Exception:
             continue
-    for key, prices in by_name.items():
-        floor = robust_floor(prices)
+    for key, items in by_name.items():
+        markets = [m for _p, m in items] if any(m for _p, m in items) else None
+        floor = robust_floor([p for p, _m in items], markets)
         if floor:
             _ROBUST[key] = (floor, now)
         else:
             _ROBUST.pop(key, None)
 
 
-def plausible_price(name, price_ton, catalog_floors):
-    """A lot far below the collection floor is a data error (wrong currency or a broken listing), not a bargain: such lots cannot be bought."""
-    key = canon(name)
-    known = _ROBUST.get(key)
-    if known and time.time() - known[1] < ROBUST_TTL:
+def snapshot_floors():
+    """The floors that are known now, ready to be stored: {canonical name: [floor, time]}."""
+    return {key: [str(value[0]), value[1]] for key, value in _ROBUST.items() if time.time() - value[1] < ROBUST_TTL}
+
+
+def known_floor(key):
+    """The real floor of a collection: found by this process, or by the background sweep of any worker. None when it is not known (or too old)."""
+    now = time.time()
+    own = _ROBUST.get(key)
+    if own and now - own[1] < ROBUST_TTL:
+        return own[0]
+    if FLOORS_LOADER:
         try:
-            return Decimal(str(price_ton)) >= known[0] * BUGGED_BELOW
+            item = (FLOORS_LOADER() or {}).get(key)
+            if item and now - float(item[1]) < ROBUST_TTL:
+                return Decimal(str(item[0]))
         except Exception:
-            return False
-    reference = max([v for v in (catalog_floors.get(key), seed_floors().get(key)) if v] or [Decimal('0')])
-    if reference <= 0:
-        return True
+            return None
+    return None
+
+
+def plausible_price(name, price_ton, catalog_floors):
+    """A lot far below the collection floor is a data error (wrong currency or a broken listing), not a bargain: such lots cannot be bought.
+    Two rules, both must pass: not below 40 % of the reference floor (catalogue snapshot / market), and not below 80 % of the real floor read from the lots."""
+    key = canon(name)
     try:
-        return Decimal(str(price_ton)) >= reference * MIN_SHARE_OF_FLOOR
+        price = Decimal(str(price_ton))
     except Exception:
         return False
+    reference = max([v for v in (catalog_floors.get(key), seed_floors().get(key)) if v] or [Decimal('0')])
+    if reference > 0 and price < reference * MIN_SHARE_OF_FLOOR:
+        return False
+    real = known_floor(key)
+    return not (real and price < real * BUGGED_BELOW)
+
+
+def drop_broken(lots):
+    """The lots of a listing without those whose price is far below the floor of their collection (TON prices only)."""
+    return [lot for lot in lots if lot.get('price_unit', 'TON') != 'TON' or plausible_price(lot.get('name'), lot.get('price'), {})]
 
 
 def gifts(params, catalog):
