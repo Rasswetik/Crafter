@@ -803,8 +803,8 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 if listed is False:
                     app.extensions['crafter_hide_lots']([gift['id']])          # gone from Thermos: stop showing it
                     abort(409, description='Этот лот уже купили или цена изменилась — он убран из списка. Выберите другой')
-                if listed is None and row_ages.get(gift['id'], 10 ** 9) > 300:
-                    abort(409, description='Не удалось проверить лот на Thermos (лимит запросов). Обновите каталог и повторите через минуту')
+                if listed is None and row_ages.get(gift['id'], 10 ** 9) > 1800:
+                    abort(409, description='Не удалось проверить лот на Thermos (лимит запросов), данные о нём устарели. Обновите каталог и повторите через минуту')
             need = sum((Decimal(str(x['price'])) for x in found.values()), Decimal(0)) + FEE_WITHDRAW_OTHER_TON * len(ids)
             if balance_ton() < need:
                 abort(409, description='Ошибка покупки. Попробуйте позже.')

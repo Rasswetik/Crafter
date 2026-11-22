@@ -671,7 +671,7 @@ def install_partner_api(app, db, auth, record, audit):
         if not match:
             raise PartnerError(400, 'bad_request', 'Неверный lot_id: берите его из GET /lots')
         collection = find_collection(match.group(1))
-        found = next((x for x in market_lots(collection, fetch=False) if x['lot_id'] == lot_id), None)   # cached: the purchase re-checks the lot on the market itself
+        found = next((x for x in market_lots(collection, False, 300) if x['lot_id'] == lot_id), None)   # the same pages as the catalogue showed; the purchase re-checks the lot on the market itself
         if not found:
             raise PartnerError(404, 'lot_not_found', 'Лот уже продан или снят с продажи')
         return 'market', Decimal(found['price']), collection, match.group(2)
