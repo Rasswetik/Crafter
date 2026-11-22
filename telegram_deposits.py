@@ -169,12 +169,13 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
     def relayer_holds():
         """Lower-cased slugs of the gifts that the relayer holds according to the last scan; None when the scan is older than 5 minutes (nothing is filtered then)."""
         row = db().execute("SELECT payload,updated FROM cache WHERE key='relayer:held'").fetchone()
-        if not row or time.time() - int(row['updated']) > 300:
-            return None
+        if not row or time.time() - int(row['updated']) > 180:
+            return None                                              # the last scan is too old: nothing is filtered
         try:
-            return set(json.loads(row['payload']))
+            held = set(json.loads(row['payload']))
         except (TypeError, ValueError):
             return None
+        return held or None                                          # an empty answer is more likely a failed read than an empty relayer
     app.extensions['crafter_relayer_holds'] = relayer_holds
 
     def supplier_ids():

@@ -187,12 +187,15 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 break
             except (OSError, ValueError, KeyError, StopIteration) as error:
                 app.logger.warning('Thermos lot check failed (%s, attempt %d): %r', params.get('markets'), attempt + 1, error)
+                if isinstance(error, thermos.ThermosBusy):
+                    break                                # a limit of requests: asking again at once would only make it longer
                 if attempt == 0:
                     time.sleep(0.8)                      # a short network hiccup: one more look before giving up
         if live is None:
-            # nothing was bought and nothing was charged: a plain refusal (409), not an «unknown result» (503), so the caller may simply try again
-            abort(409, description='Не удалось проверить наличие лота на Thermos. Повторите через несколько секунд')
+            return None                                  # the market could not be asked now (a limit of requests): unknown, the caller decides
         return any(x['id'] == gift['id'] and Decimal(str(x['price'])) == Decimal(str(ton_price)) for x in live)
+
+    app.extensions['crafter_thermos_still_listed'] = still_listed
 
     def balance_ton():
         account = login().get('account', {})
@@ -222,7 +225,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         if app.extensions['crafter_purchase_mode']() != 'work' or not gift.get('id'):
             return
         ton_price = ton_of(gift, price_gram)
-        if not still_listed(gift, ton_price):
+        if still_listed(gift, ton_price) is False:       # None = the market could not be asked: Thermos itself checks the lot when it is bought
             abort(409, description='Лот уже недоступен на маркете или цена изменилась — выберите другой')
         if balance_ton() < ton_price + FEE_WITHDRAW_OTHER_TON:
             abort(409, description='Ошибка покупки. Попробуйте позже.')
@@ -251,7 +254,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         if outcome == 'failed' and re.search(r'price|mismatch', note, re.I):
             time.sleep(1.5)
             try:
-                if all(still_listed(gift, gift.get('price')) for gift in gifts):
+                if all(still_listed(gift, gift.get('price')) is not False for gift in gifts):
                     app.logger.warning('Thermos price mismatch: trying once more')
                     outcome, note = acquire_once(gifts)
             except HTTPException:
@@ -743,9 +746,11 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         return overview()
 
     # ---- shop purchase (WORK mode) ---------------------------------------------------------------
+    row_ages = {}
+
     def public_rows(ids):
         found = {}
-        for row in db().execute("SELECT payload FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",
+        for row in db().execute("SELECT payload,updated FROM cache WHERE key LIKE 'public:market:%' AND updated>=? ORDER BY updated DESC",
                                 (int(time.time()) - 6 * 3600,)):    # re-checked live on Thermos before paying
 
             try:
@@ -757,6 +762,7 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
             for gift in data.get('gifts', []):
                 if gift.get('id') in ids and gift['id'] not in found:
                     found[gift['id']] = gift
+                    row_ages[gift['id']] = int(time.time()) - int(row['updated'])      # how old the page is that showed this lot
         return found
 
     @app.post('/api/thermos/buy')
@@ -793,9 +799,12 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
                 if not thermos_data.plausible_price(gift.get('name'), gift['price'], {}):
                     app.extensions['crafter_hide_lots']([gift['id']])          # a broken price far below the floor: such a lot cannot be bought
                     abort(409, description='У этого лота ошибочная цена на маркете, его нельзя купить. Он убран из списка')
-                if not still_listed(gift, gift['price']):
+                listed = still_listed(gift, gift['price'])
+                if listed is False:
                     app.extensions['crafter_hide_lots']([gift['id']])          # gone from Thermos: stop showing it
                     abort(409, description='Этот лот уже купили или цена изменилась — он убран из списка. Выберите другой')
+                if listed is None and row_ages.get(gift['id'], 10 ** 9) > 300:
+                    abort(409, description='Не удалось проверить лот на Thermos (лимит запросов). Обновите каталог и повторите через минуту')
             need = sum((Decimal(str(x['price'])) for x in found.values()), Decimal(0)) + FEE_WITHDRAW_OTHER_TON * len(ids)
             if balance_ton() < need:
                 abort(409, description='Ошибка покупки. Попробуйте позже.')

@@ -500,12 +500,14 @@ def create_app(config=None):
     import thermos as _thermos_floors
     _thermos_floors.FLOORS_LOADER = stored_floors
 
-    def sweep_floors(delay=0.3):
+    def sweep_floors(delay=1.0):
         """The cheapest page of every collection shows its real floor (thermos.remember_floors); the result is stored for all workers.
         A collection that cannot be read keeps its previous floor until it expires."""
         import thermos
         catalog = public_catalog()
         for collection in catalog:
+            if thermos.is_blocked():
+                break                                   # Thermos limits the requests: the sweep goes on later, the floors found so far are kept
             try:
                 thermos.gifts({'collection_id': str(collection['id']), 'sort_by': 'price asc', 'markets': 'PORTALS,TONNEL,MRKT'}, catalog)
             except Exception:
@@ -1789,7 +1791,7 @@ def create_app(config=None):
     install_creator_apps(app,db,auth,record,audit,creator_notice)
     app.extensions['crafter_pack_ctx'] = dict(
         public_catalog=public_catalog, canonical_name=canonical_name, market_candidates=craft_market_candidates,
-        market_candidates_fresh=lambda target: craft_market_candidates(target, 75),       # the Partner API: a lot bought elsewhere is gone within about a minute
+        market_candidates_fresh=lambda target: craft_market_candidates(target, 180),      # the Partner API: a lot bought elsewhere is gone within about three minutes
         ensure_listings=ensure_upgrade_listings, test_mode=lambda: purchase_mode() == 'test',
         work_mode=lambda: purchase_mode() == 'work',
         thermos_backend=lambda: app.extensions['crafter_market_backend']() == 'thermos',

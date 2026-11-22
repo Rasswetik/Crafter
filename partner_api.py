@@ -260,11 +260,18 @@ def install_partner_api(app, db, auth, record, audit):
                 'number': gift.get('number'), 'model': gift.get('model') or '', 'backdrop': gift.get('backdrop') or '', 'symbol': gift.get('symbol') or '',
                 'image': gift.get('image') or '', 'price': plain(price), 'price_nano': nano(price)}
 
+    def slug_of(gift):
+        """The Telegram slug of a gift (PlushPepe-4102): known for deposits, made from the name and the number for the gifts bought on Thermos."""
+        return str(gift.get('telegram_slug') or (re.sub(r'[^A-Za-z0-9]', '', str(gift.get('name') or '')) + '-' + str(gift.get('number') or ''))).lower()
+
+    def relayer_holds():
+        return app.extensions['crafter_relayer_holds']() if 'crafter_relayer_holds' in app.extensions else None
+
     def crafter_candidates(uid):
         """Open lots of other players as (canonical collection name, lot id, price, gift), read and parsed once."""
         ctx, canon = pack_ctx(), pack_ctx()['canonical_name']
         work = ctx['work_mode']()
-        holds = app.extensions['crafter_relayer_holds']() if work and 'crafter_relayer_holds' in app.extensions else None
+        holds = relayer_holds() if work else None
         rows = db().execute("""SELECT l.id,l.price,i.payload FROM crafter_listings l
             JOIN inventory i ON i.user_id=l.seller_id AND i.nft_id=l.gift_id AND i.status='listed'
             WHERE l.seller_id!=? ORDER BY l.listed_at DESC""", (uid,)).fetchall()
@@ -274,8 +281,9 @@ def install_partner_api(app, db, auth, record, audit):
             if gift.get('pack_item') or gift.get('star_gift') or gift.get('pack_prize') or gift.get('catalog_only') or gift.get('test_only'):
                 continue                                           # card packs and virtual gifts are not part of the API
             if work and gift.get('origin') != 'telegram-deposit':
-                continue
-            if holds is not None and str(gift.get('telegram_slug') or '').lower() not in holds:
+                if not (gift.get('origin') == 'thermos' and holds is not None and slug_of(gift) in holds):
+                    continue                                       # in the working mode only the gifts that the relayer really holds are offered
+            if holds is not None and slug_of(gift) not in holds:
                 continue                                           # the gift is not on the relayer any more: it cannot be delivered, so it is not offered
             try:
                 price = Decimal(str(row['price']))
@@ -295,7 +303,7 @@ def install_partner_api(app, db, auth, record, audit):
             out.append(lot)
         return out
 
-    def market_lots(collection, fetch=True):
+    def market_lots(collection, fetch=True, max_age=None):
         ctx = pack_ctx()
         if fetch:                                                  # fetch=False: only what is already cached (used when the time budget of a call is spent)
             try:
@@ -304,7 +312,7 @@ def install_partner_api(app, db, auth, record, audit):
                 pass
         rate = Decimal(str(ctx['gram_per_ton']()))
         out = []
-        for gift, price in (ctx.get('market_candidates_fresh') or ctx['market_candidates'])(collection):
+        for gift, price in (ctx['market_candidates'](collection, max_age) if max_age else (ctx.get('market_candidates_fresh') or ctx['market_candidates'])(collection)):
             unit = gift.get('price_unit', 'GRAM')
             if unit == 'TON':
                 price = (Decimal(str(price)) * rate).quantize(Decimal('0.01')) if (ctx['thermos_backend']() or ctx['test_mode']()) else None
@@ -324,41 +332,86 @@ def install_partner_api(app, db, auth, record, audit):
     # All collections in one request (the rate limit is per request, so a client must not need one request per collection).
     # The merged list is kept for 30 seconds per key; the market of a collection is fetched at most once a minute (ensure_listings caches it).
     # A call that runs out of its time budget answers with what is cached and complete=false: the next call continues where it stopped.
-    ALL_BUDGET, ALL_TTL = 8.0, 30.0
+    # The market is never asked from this request (Thermos answers 429 when it is asked too often): a collection whose page is older than 90 seconds is put
+    # into a queue, and ONE background worker refreshes the queue at a safe pace. The answer is made from the cached pages (not older than 5 minutes).
+    ALL_TTL, STALE_AFTER = 15.0, 90
     all_cache = {}
+    refresh_queue, refresh_lock = collections.OrderedDict(), threading.Lock()
+
+    def queue_refresh(collection):
+        with refresh_lock:
+            refresh_queue.setdefault(str(collection['id']), collection)
+
+    def refresher():
+        time.sleep(15)
+        while True:
+            with refresh_lock:
+                item = refresh_queue.popitem(last=False)[1] if refresh_queue else None
+            if item is None:
+                time.sleep(3)
+                continue
+            try:
+                with app.app_context():
+                    pack_ctx()['ensure_listings'](item, Decimal('0.01'), Decimal('100000000'))      # cached for a minute; a request limit only makes it fail fast
+            except Exception:
+                pass
+            time.sleep(0.1)
+
+    if not app.config.get('TESTING'):
+        threading.Thread(target=refresher, daemon=True, name='partner-market-refresh').start()
 
     def all_lots(source, uid):
         key = (source, uid)
         hit = all_cache.get(key)
         if hit and time.time() - hit[0] < ALL_TTL:
-            return hit[1], True
+            return hit[1], True, hit[0]
         ctx = pack_ctx()
-        end, complete, out = time.time() + ALL_BUDGET, True, []
+        out, matched = [], set()
         players = crafter_candidates(uid) if source in ('all', 'crafter') else []
+        ages = {}
+        if source in ('all', 'market'):
+            ages = {row['key']: int(row['updated']) for row in db().execute("SELECT key,updated FROM cache WHERE key LIKE 'public:market:upgrade:%'").fetchall()}
+        canon = ctx['canonical_name']
         for collection in public_catalog():
             if source in ('all', 'crafter'):
+                matched.add(canon(collection['name']))
                 out += crafter_lots(collection, uid, players)
             if source in ('all', 'market'):
-                fetch = time.time() < end
-                complete = complete and fetch
-                out += market_lots(collection, fetch)
-        if complete:
-            all_cache[key] = (time.time(), out)
-            if len(all_cache) > 200:
-                all_cache.pop(min(all_cache, key=lambda k: all_cache[k][0]), None)
-        return out, complete
+                if time.time() - ages.get('public:market:upgrade:%s:0:100000000' % collection['id'], 0) > STALE_AFTER:
+                    queue_refresh(collection)
+                out += market_lots(collection, False, 300)
+        for canon_name, lot_id, price, gift in players:            # lots of players in collections that are not in the catalogue of the market
+            if canon_name not in matched:
+                lot = lot_view(gift, price, lot_id, 'crafter', 'Crafter')
+                lot['collection_id'] = str(gift.get('collection_id') or canon_name)
+                out.append(lot)
+        all_cache[key] = (time.time(), out)
+        if len(all_cache) > 200:
+            all_cache.pop(min(all_cache, key=lambda k: all_cache[k][0]), None)
+        return out, True, all_cache[key][0]
 
     @app.get(BASE + '/lots')
     @partner
     def p_lots():
         raw_collection = request.args.get('collection', '').strip()
-        collection = find_collection(raw_collection) if raw_collection else None
         source = request.args.get('source', 'all')
         if source not in ('all', 'crafter', 'market'):
             raise PartnerError(400, 'bad_request', 'source: all, crafter или market')
+        collection, as_of = None, int(time.time())
+        if raw_collection:
+            try:
+                collection = find_collection(raw_collection)
+            except PartnerError:
+                # a collection of players that the market does not have: its lots of players are still shown
+                canon = pack_ctx()['canonical_name']
+                own = [c for c in crafter_candidates(g.partner['id']) if c[0] == canon(raw_collection) or str(c[3].get('collection_id') or '') == raw_collection]
+                if not own or source == 'market':
+                    raise
+                collection = {'id': str(own[0][3].get('collection_id') or own[0][0]), 'name': own[0][3].get('name') or raw_collection}
         lots, complete = [], True
         if collection is None:
-            lots, complete = all_lots(source, g.partner['id'])
+            lots, complete, as_of = all_lots(source, g.partner['id'])
+            as_of = int(as_of)
         else:
             if source in ('all', 'crafter'):
                 lots += crafter_lots(collection, g.partner['id'])
@@ -382,12 +435,53 @@ def install_partner_api(app, db, auth, record, audit):
             raise PartnerError(400, 'bad_request', 'page и limit — целые числа')
         chunk = lots[(page - 1) * limit:page * limit]
         reply = {'ok': True, 'collection': {'id': str(collection['id']), 'name': collection['name']} if collection else None, 'page': page, 'limit': limit,
-                 'total': len(lots), 'has_more': page * limit < len(lots), 'lots': chunk}
+                 'total': len(lots), 'has_more': page * limit < len(lots), 'as_of': as_of, 'lots': chunk}
         if collection is None:
-            reply['complete'] = complete                           # false: the market is still being loaded, call again in a few seconds
-            if not complete:
-                reply['retry_after'] = 5
+            reply['complete'] = complete
         return jsonify(reply)
+
+    @app.get(BASE + '/lots/<path:lot_id>')
+    @partner
+    def p_lot(lot_id):
+        """One lot, checked now: is it still for sale, and if not, why. For the Crafter market this is the database and the relayer; for the connected
+        market the lot is asked from the market itself (when the market cannot be asked now, the answer says so and comes from the cache)."""
+        checked = int(time.time())
+
+        def reply(lot, available, reason=None, live=False, note=None):
+            return jsonify({'ok': True, 'lot_id': lot_id, 'available': available, 'reason': reason, 'live': live, 'checked': checked, 'note': note, 'lot': lot})
+        ctx = pack_ctx()
+        if CRAFTER_LOT.match(lot_id):
+            row = db().execute("""SELECT l.id,l.price,l.seller_id,i.payload,i.status FROM crafter_listings l
+                LEFT JOIN inventory i ON i.user_id=l.seller_id AND i.nft_id=l.gift_id WHERE l.id=?""", (lot_id,)).fetchone()
+            if not row or not row['payload']:
+                return reply(None, False, 'sold_or_unlisted')
+            gift = json.loads(row['payload'])
+            if row['status'] != 'listed':
+                return reply(None, False, 'not_listed')
+            if row['seller_id'] == g.partner['id']:
+                return reply(None, False, 'own_lot')
+            if gift.get('pack_item') or gift.get('star_gift') or gift.get('pack_prize') or gift.get('catalog_only') or gift.get('test_only'):
+                return reply(None, False, 'not_available')
+            holds = relayer_holds() if ctx['work_mode']() else None
+            if ctx['work_mode']() and gift.get('origin') != 'telegram-deposit' and not (gift.get('origin') == 'thermos' and holds is not None and slug_of(gift) in holds):
+                return reply(None, False, 'not_deliverable')
+            if holds is not None and slug_of(gift) not in holds:
+                return reply(None, False, 'not_on_relayer')
+            return reply(lot_view(gift, Decimal(str(row['price'])), row['id'], 'crafter', 'Crafter'), True, live=True)
+        match = re.match(r'^m\.([^.]+)\.(.+)$', lot_id)
+        if not match:
+            raise PartnerError(400, 'bad_request', 'Неверный lot_id: берите его из GET /lots')
+        collection = find_collection(match.group(1))
+        found = next((x for x in market_lots(collection, False, 900) if x['lot_id'] == lot_id), None)
+        gift = next((x for x, _p in ctx['market_candidates'](collection, 900) if str(x.get('id')) == match.group(2)), None)
+        if not found or gift is None:
+            return reply(None, False, 'not_in_market')
+        listed = app.extensions['crafter_thermos_still_listed'](gift, gift['price']) if 'crafter_thermos_still_listed' in app.extensions else None
+        if listed is False:
+            return reply(None, False, 'sold_or_price_changed', live=True)
+        if listed is None:
+            return reply(found, True, live=False, note='Маркет сейчас не отвечает (лимит запросов): ответ из кэша, покупка всё равно проверит лот на маркете')
+        return reply(found, True, live=True)
 
     def own_gifts(uid):
         status, body = internal('GET', '/api/inventory')
@@ -427,12 +521,63 @@ def install_partner_api(app, db, auth, record, audit):
                 return jsonify({'ok': True, 'kind': 'lot', 'lot': lot_view(gift, Decimal(str(row['price'])), row['id'], 'crafter', 'Crafter')})
         raise PartnerError(404, 'gift_not_found', 'Подарок не найден: показываются только ваши подарки и открытые лоты Crafter')
 
+    STUCK_AFTER = 150
+
+    def settle_stuck(row):
+        """An operation that is still «processing» long after it began was interrupted (the server was restarted): its real outcome is read from the records
+        of the purchase, otherwise it becomes «review» (unknown). Nobody has to wait for it for ever."""
+        row = dict(row)
+        if row['status'] != 'processing' or time.time() - int(row['created']) < STUCK_AFTER:
+            return row
+        uid, op = row['user_id'], row['op_id']
+        http, payload = 503, {'ok': False, 'error': 'Операция прервана (перезапуск сервера). Итог неизвестен: сверьте баланс и инвентарь, новую операцию не создавайте', 'code': 'review'}
+        if row['method'] == 'buy':
+            order = db().execute("SELECT status,response FROM thermos_orders WHERE user_id=? AND request_id=?", (uid, op)).fetchone()
+            receipt = db().execute("SELECT result FROM crafter_sale_receipts WHERE buyer_id=? AND request_id=?", (uid, op)).fetchone()
+            if order and order['status'] == 'complete':
+                done = json.loads(order['response'] or '{}')
+                first = (done.get('gifts') or [{}])[0]
+                http, payload = 200, {'state': 'done', 'recovered': True, 'gift': {'gift_id': first.get('id'), 'name': first.get('name'), 'number': first.get('number'), 'model': first.get('model') or ''},
+                                      'balance': plain(balance_of(uid))}
+            elif order and order['status'] == 'failed':
+                http, payload = 409, {'ok': False, 'error': 'Покупка не выполнена, деньги возвращены', 'code': 'rejected'}
+            elif receipt:
+                http, payload = 200, {'state': 'done', 'recovered': True, 'balance': plain(balance_of(uid))}
+        status = 'done' if http < 300 else ('review' if http == 503 else 'failed')
+        with db():
+            db().execute("UPDATE partner_ops SET status=?,http=?,result=?,finished=? WHERE user_id=? AND op_id=? AND status='processing'",
+                         (status, http, json.dumps(payload, ensure_ascii=False), int(time.time()), uid, op))
+        row.update(status=status, http=http, result=json.dumps(payload, ensure_ascii=False), finished=int(time.time()))
+        return row
+
+    @app.get(BASE + '/operations')
+    @partner
+    def p_operations():
+        """The latest operations of the key (up to 100): to find out what became of the requests whose answer was lost."""
+        status = request.args.get('status', '')
+        if status and status not in ('processing', 'done', 'failed', 'review'):
+            raise PartnerError(400, 'bad_request', 'status: processing, done, failed или review')
+        try:
+            limit = max(1, min(100, int(request.args.get('limit', 30))))
+        except ValueError:
+            raise PartnerError(400, 'bad_request', 'limit — целое число')
+        rows = db().execute("SELECT * FROM partner_ops WHERE user_id=? ORDER BY created DESC LIMIT ?", (g.partner['id'], 100)).fetchall()
+        out = []
+        for row in rows:
+            row = settle_stuck(row)
+            if status and row['status'] != status:
+                continue
+            out.append({'operation_id': row['op_id'], 'method': row['method'], 'status': row['status'], 'http': row['http'], 'created': int(row['created']),
+                        'finished': row['finished'], 'result': json.loads(row['result']) if row['result'] else None})
+        return jsonify({'ok': True, 'operations': out[:limit]})
+
     @app.get(BASE + '/operations/<op_id>')
     @partner
     def p_operation(op_id):
         row = db().execute("SELECT * FROM partner_ops WHERE user_id=? AND op_id=?", (g.partner['id'], op_id)).fetchone()
         if not row:
             raise PartnerError(404, 'operation_not_found', 'Операции с таким Idempotency-Key нет. Отправьте исходный запрос с тем же ключом.')
+        row = settle_stuck(row)
         result = json.loads(row['result']) if row['result'] else None
         response = jsonify({'ok': row['http'] and row['http'] < 300, 'operation_id': op_id, 'status': row['status'], 'method': row['method'], 'result': result})
         response.status_code = 202 if row['status'] == 'processing' else int(row['http'] or 200)
@@ -448,6 +593,9 @@ def install_partner_api(app, db, auth, record, audit):
             raise PartnerError(400, 'bad_request', 'Тело запроса — JSON-объект')
         digest = hashlib.sha256(json.dumps([name, body], sort_keys=True).encode()).hexdigest()
         uid = g.partner['id']
+        earlier = db().execute("SELECT * FROM partner_ops WHERE user_id=? AND op_id=?", (uid, op_id)).fetchone()
+        if earlier:
+            settle_stuck(earlier)                                  # an interrupted «processing» becomes final before the repeat is answered
         with db():
             db().execute('BEGIN IMMEDIATE')
             row = db().execute("SELECT * FROM partner_ops WHERE user_id=? AND op_id=?", (uid, op_id)).fetchone()

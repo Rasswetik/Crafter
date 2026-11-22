@@ -1,15 +1,56 @@
 """Read-only public gift data. All prices are TON, never GRAM."""
 import json
+import threading
 import time
 from decimal import Decimal
+from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
+
+class ThermosBusy(OSError):
+    """The public Thermos proxy limits the requests (HTTP 429) or this server is in the pause after that, or the queue of its own requests is too long.
+    The caller must use what is cached; no request was made."""
+
+
+# Every request of this process to the public proxy goes through one queue: at most one request per MIN_GAP seconds. After a 429 there is a pause
+# (the Retry-After of Thermos, at least 20 s) during which nothing is asked at all: the proxy forgives sooner when it is left alone.
+MIN_GAP, MAX_QUEUE_WAIT = 0.8, 6.0
+_gate = threading.Lock()
+_next_slot = [0.0]
+_paused_until = [0.0]
+
+
+def is_blocked():
+    return time.time() < _paused_until[0]
+
+
 def request(path, body=None):
+    now = time.time()
+    if now < _paused_until[0]:
+        raise ThermosBusy('Thermos: пауза после лимита запросов, ещё %d с' % int(_paused_until[0] - now))
+    with _gate:
+        slot = max(time.time(), _next_slot[0])
+        if slot - time.time() > MAX_QUEUE_WAIT:
+            raise ThermosBusy('Thermos: очередь запросов слишком длинная')
+        _next_slot[0] = slot + MIN_GAP
+    wait = slot - time.time()
+    if wait > 0:
+        time.sleep(wait)
     req=Request('https://proxy.thermos.gifts/api/v1/'+path,
         data=json.dumps(body).encode() if body is not None else None,
         headers={'Accept':'application/json','Content-Type':'application/json'})
-    with urlopen(req,timeout=8) as response:
-        return json.load(response)
+    try:
+        with urlopen(req,timeout=8) as response:
+            return json.load(response)
+    except HTTPError as error:
+        if error.code == 429:
+            try:
+                retry = int(error.headers.get('Retry-After', '') or 0)
+            except (TypeError, ValueError):
+                retry = 0
+            _paused_until[0] = time.time() + min(max(retry, 20), 300)
+            raise ThermosBusy('Thermos: лимит запросов (429), пауза %d с' % min(max(retry, 20), 300)) from error
+        raise
 
 def ton(value):
     return str(Decimal(str(value or '0'))/Decimal(1000000000))

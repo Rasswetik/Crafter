@@ -90,7 +90,9 @@
     <tr><td><code>/account</code></td><td>Баланс, права ключа, режим работы</td></tr>
     <tr><td><code>/collections</code></td><td>Коллекции с минимальной ценой</td></tr>
     <tr><td><code>/models?collection=snowmittens</code></td><td>Модели, фоны, узоры и картинки</td></tr>
-    <tr><td><code>/lots?collection=snowmittens&amp;page=1</code></td><td>Лоты Crafter и маркета вместе</td></tr>
+    <tr><td><code>/lots?collection=snowmittens&amp;page=1</code></td><td>Лоты Crafter и маркета вместе; в ответе <code>as_of</code> — время, на которое собраны данные</td></tr>
+    <tr><td><code>/lots/{lot_id}</code></td><td>Один лот, проверенный сейчас: <code>available</code> и, если нет, <code>reason</code> (продан, снят, нет на релейере, куплен на маркете)</td></tr>
+    <tr><td><code>/operations</code></td><td>Последние операции ключа (до 100), <code>?status=processing</code> для зависших: чтобы узнать итог потерянных ответов</td></tr>
     <tr><td><code>/inventory?before=…</code></td><td>Ваши подарки, по 50 за запрос</td></tr>
     <tr><td><code>/gifts/{gift_id}</code></td><td>Ваш подарок или открытый лот Crafter</td></tr>
     <tr><td><code>/operations/{id}</code></td><td>Результат операции по её Idempotency-Key</td></tr>
