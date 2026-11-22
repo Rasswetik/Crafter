@@ -169,8 +169,8 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
     def relayer_holds():
         """Lower-cased slugs of the gifts that the relayer holds according to the last scan; None when the scan is older than 5 minutes (nothing is filtered then)."""
         row = db().execute("SELECT payload,updated FROM cache WHERE key='relayer:held'").fetchone()
-        if not row or time.time() - int(row['updated']) > 180:
-            return None                                              # the last scan is too old: nothing is filtered
+        if not row or time.time() - int(row['updated']) > 900:
+            return None                                              # the last scan is too old (15 minutes): nothing is filtered; a shorter limit made lots blink
         try:
             held = set(json.loads(row['payload']))
         except (TypeError, ValueError):

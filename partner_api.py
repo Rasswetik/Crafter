@@ -360,35 +360,38 @@ def install_partner_api(app, db, auth, record, audit):
     if not app.config.get('TESTING'):
         threading.Thread(target=refresher, daemon=True, name='partner-market-refresh').start()
 
-    def all_lots(source, uid):
-        key = (source, uid)
-        hit = all_cache.get(key)
-        if hit and time.time() - hit[0] < ALL_TTL:
-            return hit[1], True, hit[0]
-        ctx = pack_ctx()
-        out, matched = [], set()
-        players = crafter_candidates(uid) if source in ('all', 'crafter') else []
-        ages = {}
-        if source in ('all', 'market'):
-            ages = {row['key']: int(row['updated']) for row in db().execute("SELECT key,updated FROM cache WHERE key LIKE 'public:market:upgrade:%'").fetchall()}
-        canon = ctx['canonical_name']
+    def player_lots(uid):
+        """The open lots of other players, read from the database on EVERY call (never cached): a lot that was bought, taken off the sale or re-priced
+        must change in the catalogue at once, with the price that a buyer is charged."""
+        canon = pack_ctx()['canonical_name']
+        players, out, matched = crafter_candidates(uid), [], set()
         for collection in public_catalog():
-            if source in ('all', 'crafter'):
-                matched.add(canon(collection['name']))
-                out += crafter_lots(collection, uid, players)
-            if source in ('all', 'market'):
-                if time.time() - ages.get('public:market:upgrade:%s:0:100000000' % collection['id'], 0) > STALE_AFTER:
-                    queue_refresh(collection)
-                out += market_lots(collection, False, 300)
+            matched.add(canon(collection['name']))
+            out += crafter_lots(collection, uid, players)
         for canon_name, lot_id, price, gift in players:            # lots of players in collections that are not in the catalogue of the market
             if canon_name not in matched:
                 lot = lot_view(gift, price, lot_id, 'crafter', 'Crafter')
                 lot['collection_id'] = str(gift.get('collection_id') or canon_name)
                 out.append(lot)
+        return out
+
+    def all_lots(source, uid):
+        """The connected market is cached (ALL_TTL, pages of the market); the lots of players are always fresh."""
+        mine = player_lots(uid) if source in ('all', 'crafter') else []
+        if source == 'crafter':
+            return mine, True, time.time()
+        key = ('market', 0)
+        hit = all_cache.get(key)
+        if hit and time.time() - hit[0] < ALL_TTL:
+            return mine + hit[1], True, time.time()
+        ages = {row['key']: int(row['updated']) for row in db().execute("SELECT key,updated FROM cache WHERE key LIKE 'public:market:upgrade:%'").fetchall()}
+        out = []
+        for collection in public_catalog():
+            if time.time() - ages.get('public:market:upgrade:%s:0:100000000' % collection['id'], 0) > STALE_AFTER:
+                queue_refresh(collection)
+            out += market_lots(collection, False, 300)
         all_cache[key] = (time.time(), out)
-        if len(all_cache) > 200:
-            all_cache.pop(min(all_cache, key=lambda k: all_cache[k][0]), None)
-        return out, True, all_cache[key][0]
+        return mine + out, True, all_cache[key][0]
 
     @app.get(BASE + '/lots')
     @partner
