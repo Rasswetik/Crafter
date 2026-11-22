@@ -1322,7 +1322,7 @@ def create_app(config=None):
             try:
                 tell(sender_id, recipient_id, gifts)
             except Exception:
-                app.logger.warning('Transfer hook failed')
+                app.logger.warning('Transfer hook failed', exc_info=True)
         if data.get('quiet') is True and request.environ.get('crafter.internal_user'):
             return {'ok': True, 'gift_ids': ids}
         try:

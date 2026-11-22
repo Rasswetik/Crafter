@@ -310,12 +310,22 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
         """The second way of depositing: a player gives a gift to the Crafter account of BoostUp (the button «Передать» in the app or the Partner API).
         The gift is already in the inventory of BoostUp, so the deposit is `delivered` at once and BoostUp is told by the same webhook as for the first way."""
         config = settings()
-        if not config['enabled'] or not config['account_id'] or recipient_id != config['account_id'] or sender_id == recipient_id:
+        try:
+            same = bool(config['account_id']) and int(recipient_id) == int(config['account_id'])
+        except (TypeError, ValueError):
+            same = False
+        if not config['enabled'] or not same or sender_id == recipient_id:
             return
+        record_transfer(config, sender_id, int(recipient_id), gifts)
+
+    def record_transfer(config, sender_id, recipient_id, gifts, quiet=False):
         now = int(time.time())
         for gift in gifts:
             if gift.get('pack_item') or gift.get('test_only') or gift.get('catalog_only'):
                 continue
+            if db().execute("SELECT 1 FROM boostup_deposits WHERE user_id=? AND gift_id=? AND status IN ('delivered','credited') AND via='transfer' AND created>=?",
+                            (sender_id, gift['id'], now - 3 * 86400)).fetchone():
+                continue                                             # this transfer is already a deposit
             try:
                 value = gift_value(gift, config['percent'])
             except Exception:
@@ -328,10 +338,45 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
                               str(value['ton']) if value else None, str(value['gram']) if value else None, str(value['floor_ton']) if value else None,
                               str(value['percent']) if value else None, str(value['rate']) if value else None, recipient_id, now, now, now,
                               'Передача внутри Crafter', 'transfer', now, now))
-            send(sender_id, '🚀 <b>Подарок передан BoostUp</b>\n\n' + gift_link(gift) + ' передан BoostUp. Он сейчас появится в вашем инвентаре BoostUp.')
+            try:
+                send(sender_id, '🚀 <b>Подарок передан BoostUp</b>\n\n' + gift_link(gift) + ' передан BoostUp. Он сейчас появится в вашем инвентаре BoostUp.')
+            except Exception:
+                pass
         wake.set()
 
     app.extensions['crafter_transfer_hook'] = on_transfer
+    catch_up_at = [0]
+
+    def catch_up():
+        """A safety net for the second way: transfers to the BoostUp account of the last 3 days that did not become a deposit (the hook failed, the server
+        restarted in the middle of the request, the account was set later) are registered now. A gift that is no longer with BoostUp is skipped."""
+        if time.time() - catch_up_at[0] < 30:
+            return
+        catch_up_at[0] = time.time()
+        config = settings()
+        if not config['enabled'] or not config['account_id']:
+            return
+        account = int(config['account_id'])
+        user = db().execute("SELECT username FROM users WHERE id=?", (account,)).fetchone()
+        if not user or not user['username']:
+            return
+        rows = db().execute("SELECT user_id,payload,created FROM history WHERE kind='transfer' AND created>=? AND payload LIKE ? ORDER BY created",
+                            (int(time.time()) - 3 * 86400, '%' + json.dumps(user['username'])[1:-1] + '%')).fetchall()
+        for row in rows:
+            try:
+                data = json.loads(row['payload'])
+            except (TypeError, ValueError):
+                continue
+            if data.get('boostup') or str((data.get('recipient') or {}).get('username', '')).casefold() != user['username'].casefold():
+                continue
+            fresh = []
+            for gift in data.get('gifts') or []:
+                held = db().execute("SELECT status FROM inventory WHERE user_id=? AND nft_id=?", (account, gift.get('id'))).fetchone()
+                done = db().execute("SELECT 1 FROM boostup_deposits WHERE user_id=? AND gift_id=? AND created>=?", (row['user_id'], gift.get('id'), int(row['created']) - 120)).fetchone()
+                if held and held['status'] == 'unlisted' and not done:
+                    fresh.append(gift)
+            if fresh:
+                record_transfer(config, row['user_id'], account, fresh)
 
     # ---------------- 2. buttons of the bot ----------------
     def on_callback(callback):
@@ -492,6 +537,10 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
             return {'busy': True}
         done = 0
         try:
+            try:
+                catch_up()
+            except Exception:
+                app.logger.warning('BoostUp catch-up failed', exc_info=True)
             rows = db().execute("SELECT * FROM boostup_deposits WHERE status='delivered' AND next_try<=? ORDER BY created LIMIT 10", (now,)).fetchall()
             for row in rows:
                 try:
