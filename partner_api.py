@@ -23,6 +23,7 @@ KEY_PREFIX = 'CRT/'
 ALPHABET = string.ascii_letters + string.digits
 BASE = '/api/partner/v1'
 RATE_LIMIT, RATE_WINDOW = 30, 10.0
+INLINE_WAIT = 8.0                       # seconds a purchase may take before the API answers 202 «processing"
 OP_ID = re.compile(r'^[A-Za-z0-9_-]{16,80}$')
 CRAFTER_LOT = re.compile(r'^crafter-[0-9a-f]{32}$')
 RIGHTS = ['read', 'buy', 'sell', 'transfer', 'withdraw', 'offers']
@@ -263,6 +264,7 @@ def install_partner_api(app, db, auth, record, audit):
         """Open lots of other players as (canonical collection name, lot id, price, gift), read and parsed once."""
         ctx, canon = pack_ctx(), pack_ctx()['canonical_name']
         work = ctx['work_mode']()
+        holds = app.extensions['crafter_relayer_holds']() if work and 'crafter_relayer_holds' in app.extensions else None
         rows = db().execute("""SELECT l.id,l.price,i.payload FROM crafter_listings l
             JOIN inventory i ON i.user_id=l.seller_id AND i.nft_id=l.gift_id AND i.status='listed'
             WHERE l.seller_id!=? ORDER BY l.listed_at DESC""", (uid,)).fetchall()
@@ -273,6 +275,8 @@ def install_partner_api(app, db, auth, record, audit):
                 continue                                           # card packs and virtual gifts are not part of the API
             if work and gift.get('origin') != 'telegram-deposit':
                 continue
+            if holds is not None and str(gift.get('telegram_slug') or '').lower() not in holds:
+                continue                                           # the gift is not on the relayer any more: it cannot be delivered, so it is not offered
             try:
                 price = Decimal(str(row['price']))
             except InvalidOperation:
@@ -300,7 +304,7 @@ def install_partner_api(app, db, auth, record, audit):
                 pass
         rate = Decimal(str(ctx['gram_per_ton']()))
         out = []
-        for gift, price in ctx['market_candidates'](collection):
+        for gift, price in (ctx.get('market_candidates_fresh') or ctx['market_candidates'])(collection):
             unit = gift.get('price_unit', 'GRAM')
             if unit == 'TON':
                 price = (Decimal(str(price)) * rate).quantize(Decimal('0.01')) if (ctx['thermos_backend']() or ctx['test_mode']()) else None
@@ -455,17 +459,44 @@ def install_partner_api(app, db, auth, record, audit):
                 response.status_code = 202 if row['status'] == 'processing' else int(row['http'] or 200)
                 return response
             db().execute("INSERT INTO partner_ops(user_id,op_id,method,digest,status,created) VALUES(?,?,?,?,?,?)", (uid, op_id, name, digest, 'processing', int(time.time())))
-        try:
-            http, payload = 200, handler(body, op_id)
-        except PartnerError as error:
-            http, payload = error.status, {'ok': False, 'error': error.message, 'code': error.code}
-        except Exception:
-            app.logger.exception('Partner operation failed')
-            http, payload = 503, {'ok': False, 'error': 'Результат неизвестен: проверьте GET /operations/{id}', 'code': 'review'}
-        status = 'done' if http < 300 else ('review' if http == 503 else 'failed')
-        with db():
-            db().execute("UPDATE partner_ops SET status=?,http=?,result=?,finished=? WHERE user_id=? AND op_id=?", (status, http, json.dumps(payload, ensure_ascii=False), int(time.time()), uid, op_id))
-        record('partner_' + name, {'op': op_id, 'status': status}, uid=uid)
+        def execute():
+            try:
+                return 200, handler(body, op_id)
+            except PartnerError as error:
+                return error.status, {'ok': False, 'error': error.message, 'code': error.code}
+            except Exception:
+                app.logger.exception('Partner operation failed')
+                return 503, {'ok': False, 'error': 'Результат неизвестен: проверьте GET /operations/{id}', 'code': 'review'}
+
+        def finish(http, payload):
+            status = 'done' if http < 300 else ('review' if http == 503 else 'failed')
+            with db():
+                db().execute("UPDATE partner_ops SET status=?,http=?,result=?,finished=? WHERE user_id=? AND op_id=?", (status, http, json.dumps(payload, ensure_ascii=False), int(time.time()), uid, op_id))
+            record('partner_' + name, {'op': op_id, 'status': status}, uid=uid)
+            return status
+
+        if name == 'buy':
+            # Buying on the connected market waits for the market (up to 40 seconds). The client must not wait that long: after INLINE_WAIT seconds the
+            # answer is 202 «processing» and the operation goes on in the background; its result is read from GET /operations/{operation_id}.
+            outcome = {}
+
+            def work(partner):
+                with app.app_context():
+                    g.partner = g.user = partner
+                    code, answer = execute()
+                    outcome.update(http=code, payload=answer, status=finish(code, answer))
+            worker = threading.Thread(target=work, args=(dict(g.partner),), daemon=True, name='partner-buy')
+            worker.start()
+            worker.join(INLINE_WAIT)
+            if 'status' not in outcome:
+                slow = jsonify({'ok': True, 'operation_id': op_id, 'status': 'processing', 'result': None,
+                                'note': 'Покупка выполняется. Итог: GET /operations/' + op_id})
+                slow.status_code = 202
+                return slow
+            http, payload, status = outcome['http'], outcome['payload'], outcome['status']
+        else:
+            http, payload = execute()
+            status = finish(http, payload)
         response = jsonify({'ok': http < 300, 'operation_id': op_id, 'status': status, 'result': payload})
         response.status_code = http
         return response
@@ -473,6 +504,8 @@ def install_partner_api(app, db, auth, record, audit):
     def relay_error(status, body):
         message = body.get('error') or body.get('message') or 'Операция отклонена'
         code = {400: 'bad_request', 401: 'unauthorized', 403: 'forbidden', 404: 'not_found', 409: 'rejected'}.get(status, 'failed' if status < 500 else 'review')
+        if status == 409 and re.search(r'price|цен', message, re.I):
+            code = 'price_changed'                                 # the lot was re-priced or bought by somebody else: take another lot or ask GET /lots again
         raise PartnerError(status if status in (400, 403, 404, 409) else (503 if status >= 500 else 409), code, message)
 
     def lot_for_buy(lot_id):
@@ -482,12 +515,15 @@ def install_partner_api(app, db, auth, record, audit):
             gift = json.loads(row['payload']) if row else None
             if not row or gift.get('pack_item') or gift.get('test_only') or gift.get('catalog_only'):
                 raise PartnerError(404, 'lot_not_found', 'Лот уже продан или снят с продажи')
+            holds = app.extensions['crafter_relayer_holds']() if pack_ctx()['work_mode']() and 'crafter_relayer_holds' in app.extensions else None
+            if holds is not None and str(gift.get('telegram_slug') or '').lower() not in holds:
+                raise PartnerError(404, 'lot_not_found', 'Подарка уже нет на релейере: лот недоступен')
             return 'crafter', Decimal(str(row['price'])), None, lot_id
         match = re.match(r'^m\.([^.]+)\.(.+)$', lot_id)
         if not match:
             raise PartnerError(400, 'bad_request', 'Неверный lot_id: берите его из GET /lots')
         collection = find_collection(match.group(1))
-        found = next((x for x in market_lots(collection) if x['lot_id'] == lot_id), None)
+        found = next((x for x in market_lots(collection, fetch=False) if x['lot_id'] == lot_id), None)   # cached: the purchase re-checks the lot on the market itself
         if not found:
             raise PartnerError(404, 'lot_not_found', 'Лот уже продан или снят с продажи')
         return 'market', Decimal(found['price']), collection, match.group(2)

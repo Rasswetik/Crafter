@@ -1056,12 +1056,12 @@ def create_app(config=None):
         import thermos
         return thermos.plausible_price(name, price, {})
 
-    def market_pages():
+    def market_pages(max_age=300):
         """The fresh cached market pages as {canonical collection name: [gifts]}, newest page first.
         A page is parsed and indexed once per change (key, time and size), not on every craft, upgrade or Partner API request."""
         rows = db().execute(
             "SELECT key,updated,length(payload) AS size FROM cache WHERE (key LIKE 'public:market:%' OR key LIKE 'market:%') "
-            "AND updated >= ? ORDER BY updated DESC", (int(time.time()) - 300,)).fetchall()
+            "AND updated >= ? ORDER BY updated DESC", (int(time.time()) - max_age,)).fetchall()
         pages = []
         for row in rows:
             stamp = (row['updated'], row['size'])
@@ -1079,13 +1079,13 @@ def create_app(config=None):
             pages.append(hit[1])
         return pages
 
-    def craft_market_candidates(target):
+    def craft_market_candidates(target, max_age=300):
         sold = {row[0] for row in db().execute('SELECT source_id FROM local_sold')}
         reserved = {row[0] for row in db().execute(
             'SELECT number FROM local_numbers WHERE collection_id=?', (target['id'],))}
         collection_name = canonical_name(target['name'])
         refused = hidden_lots()                                  # lots that Thermos listed but would not sell: hidden for 6 hours
-        for by_name in market_pages():
+        for by_name in market_pages(max_age):
             for gift in by_name.get(collection_name, ()):
                 source_id = gift.get('id')
                 key = market_collectible_key(gift)
@@ -1789,6 +1789,7 @@ def create_app(config=None):
     install_creator_apps(app,db,auth,record,audit,creator_notice)
     app.extensions['crafter_pack_ctx'] = dict(
         public_catalog=public_catalog, canonical_name=canonical_name, market_candidates=craft_market_candidates,
+        market_candidates_fresh=lambda target: craft_market_candidates(target, 75),       # the Partner API: a lot bought elsewhere is gone within about a minute
         ensure_listings=ensure_upgrade_listings, test_mode=lambda: purchase_mode() == 'test',
         work_mode=lambda: purchase_mode() == 'work',
         thermos_backend=lambda: app.extensions['crafter_market_backend']() == 'thermos',

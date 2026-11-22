@@ -17,6 +17,13 @@ from flask import Response, abort, request
 from html import escape
 
 
+from werkzeug.exceptions import BadGateway
+
+
+class TelegramUnsure(BadGateway):
+    """The request may or may not have reached Telegram (timeout, lost answer). A message must not be sent again blindly: it could arrive twice."""
+
+
 def bot_api(token, method, payload, sticker=None):
     if sticker is None:
         body = json.dumps(payload).encode()
@@ -33,14 +40,14 @@ def bot_api(token, method, payload, sticker=None):
         headers = {'Content-Type': f'multipart/form-data; boundary={boundary}'}
     req = Request(f'https://api.telegram.org/bot{token}/{method}', data=body, headers=headers)
     try:
-        with urlopen(req, timeout=3 if sticker is not None else 5) as response:
+        with urlopen(req, timeout=3 if sticker is not None else 9) as response:
             result = json.load(response)
     except HTTPError as error:
         if error.code in (401, 404) and method == 'getMe':
             abort(400, description='Telegram отклонил токен бота')
         abort(502, description='Telegram отклонил запрос к Bot API')
-    except (URLError, TimeoutError, ValueError):
-        abort(502, description='Telegram Bot API временно недоступен')
+    except (URLError, TimeoutError, ValueError, OSError):
+        raise TelegramUnsure(description='Telegram Bot API временно недоступен')
     if not result.get('ok'):
         abort(502, description='Telegram отклонил запрос к Bot API')
     return result.get('result')
@@ -125,8 +132,10 @@ def send_message(token, message):
         if fancy != text:
             try:
                 return bot_api(token, 'sendMessage', {**message, 'text': fancy})
+            except TelegramUnsure:
+                raise                                  # it may be delivered already: a second message would be a duplicate
             except Exception:
-                pass
+                pass                                   # Telegram refused the premium emoji: the same message goes out plain
     return bot_api(token, 'sendMessage', message)
 
 GIFT_TEMPLATE_STYLES = {'b', 'i', 'u', 's', 'tg-spoiler', 'code'}
@@ -883,10 +892,16 @@ def install_telegram_bot(app, db, auth, audit):
         if isinstance(callback, dict):
             handler = app.extensions.get('crafter_bot_callback')
             if handler:
-                try:
-                    handler(callback)
-                except Exception:
-                    app.logger.warning('Telegram button handler failed')
+                def handle():
+                    try:
+                        with app.app_context():
+                            handler(callback)
+                    except Exception:
+                        app.logger.warning('Telegram button handler failed')
+                if app.config.get('TESTING'):
+                    handle()
+                else:
+                    threading.Thread(target=handle, daemon=True, name='bot-button').start()
             return {'ok': True}
         message = update.get('message')
         if not isinstance(message, dict):

@@ -18,7 +18,7 @@ from telethon.errors import SessionPasswordNeededError
 from telethon.sessions import StringSession
 from telethon.tl import functions, types
 
-from telegram_bot import bot_api
+from telegram_bot import TelegramUnsure, bot_api, send_message
 
 
 def gift_payload(entry):
@@ -155,6 +155,9 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
               id INTEGER PRIMARY KEY, lease_until INTEGER NOT NULL DEFAULT 0,
               last_scan INTEGER NOT NULL DEFAULT 0, last_error TEXT NOT NULL DEFAULT ''
             );
+            CREATE TABLE IF NOT EXISTS project_gifts (
+              slug TEXT PRIMARY KEY, sender_id BIGINT, payload TEXT NOT NULL, received BIGINT NOT NULL, note TEXT NOT NULL DEFAULT ''
+            );
         """)
         db().execute("""INSERT INTO telegram_gift_monitor(id,lease_until,last_scan,last_error)
                         VALUES(1,0,0,'') ON CONFLICT(id) DO NOTHING""")
@@ -162,6 +165,52 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
     def config():
         row = db().execute("SELECT payload FROM settings WHERE key='telegram_deposit_connection'").fetchone()
         return json.loads(row[0]) if row else {}
+
+    def relayer_holds():
+        """Lower-cased slugs of the gifts that the relayer holds according to the last scan; None when the scan is older than 5 minutes (nothing is filtered then)."""
+        row = db().execute("SELECT payload,updated FROM cache WHERE key='relayer:held'").fetchone()
+        if not row or time.time() - int(row['updated']) > 300:
+            return None
+        try:
+            return set(json.loads(row['payload']))
+        except (TypeError, ValueError):
+            return None
+    app.extensions['crafter_relayer_holds'] = relayer_holds
+
+    def supplier_ids():
+        """Telegram IDs of the accounts of the markets (Thermos, Portals ...): what they send to the relayer belongs to the project."""
+        row = db().execute("SELECT payload FROM settings WHERE key='relayer_suppliers_v1'").fetchone()
+        try:
+            return {int(x) for x in json.loads(row['payload']).get('ids', [])} if row else set()
+        except (TypeError, ValueError, AttributeError):
+            return set()
+
+    @app.get('/api/admin/suppliers')
+    @auth(admin=True)
+    def suppliers_get():
+        count = db().execute('SELECT count(*) n FROM project_gifts').fetchone()['n']
+        recent = [{'name': json.loads(r['payload']).get('name'), 'number': json.loads(r['payload']).get('number'), 'sender_id': r['sender_id'], 'received': r['received']}
+                  for r in db().execute('SELECT * FROM project_gifts ORDER BY received DESC LIMIT 20').fetchall()]
+        return {'ok': True, 'ids': sorted(supplier_ids()), 'project_gifts': count, 'recent': recent}
+
+    @app.post('/api/admin/suppliers')
+    @auth(admin=True)
+    def suppliers_set():
+        body = request.get_json(silent=True) or {}
+        raw = body.get('ids')
+        if body.get('confirm') != 'SET_SUPPLIERS' or not isinstance(raw, list) or len(raw) > 200:
+            abort(400, description='Передайте список Telegram ID и подтвердите')
+        try:
+            ids = sorted({int(str(x).strip()) for x in raw if str(x).strip()})
+        except ValueError:
+            abort(400, description='Telegram ID — только цифры')
+        if any(not 0 < x < 2 ** 63 for x in ids):
+            abort(400, description='Некорректный Telegram ID')
+        with db():
+            db().execute("INSERT INTO settings(key,payload) VALUES('relayer_suppliers_v1',?) ON CONFLICT(key) DO UPDATE SET payload=excluded.payload",
+                         (json.dumps({'ids': ids}),))
+        audit('Relayer suppliers: %d accounts' % len(ids))
+        return suppliers_get()
 
     def save(settings):
         db().execute("""INSERT INTO settings(key,payload) VALUES('telegram_deposit_connection',?)
@@ -249,6 +298,8 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         )
 
     def notify(uid, gift):
+        """ONE message about a deposit: the question «Куда отправить подарок?» of BoostUp when it is on, otherwise the standard message.
+        Never repeated: when Telegram does not answer, the message may already be delivered."""
         hook = app.extensions.get('crafter_deposit_notify')          # BoostUp: «Куда отправить подарок?» instead of the standard message
         if hook:
             try:
@@ -264,8 +315,7 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         label = escape(gift['name'] + ' #' + str(gift['number']))
         emoji = escape(config().get('notification_emoji') or '🎁')
         msg = dict(chat_id=uid, parse_mode='HTML', disable_web_page_preview=True,
-                   text=f"{emoji} <a href=\"{url}\">{label}</a> just passed through the crafter.\n\n"
-                        "It's now in your inventory — go take a look.")
+                   text=f"{emoji} <b>Подарок получен</b>\n\n<a href=\"{url}\">{label}</a> уже в вашем инвентаре Crafter.")
         app_url = settings.get('app_url') or os.getenv('RENDER_EXTERNAL_URL', '')
         if app_url.startswith('https://'):
             from urllib.parse import urlsplit, parse_qsl, urlencode
@@ -274,8 +324,11 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
             q['view'] = 'gifts'
             dest = u._replace(query=urlencode(q)).geturl()
             msg['reply_markup'] = {'inline_keyboard': [[
-                {'text': 'View in Inventory', 'web_app': {'url': dest}}]]}
-        bot_api(token, 'sendMessage', msg)
+                {'text': 'Открыть инвентарь', 'web_app': {'url': dest}}]]}
+        try:
+            send_message(token, msg)
+        except TelegramUnsure:
+            app.logger.warning('Deposit message: Telegram did not answer, it is not repeated')
 
     def scan():
         api_id, api_hash = credentials()
@@ -288,6 +341,12 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         if c.get('account_username') != account_username:
             c['account_username'] = account_username
             save(c)
+        # What the relayer really holds now: the catalogue of the API shows only such gifts (a gift that left the relayer is not for sale).
+        holds = sorted({str(getattr(entry.gift, 'slug', '') or '').lower() for entry in received
+                        if getattr(entry, 'gift', None) is not None and not getattr(entry, 'refunded', False)} - {''})
+        with db():
+            db().execute("INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated",
+                         ('relayer:held', json.dumps(holds), int(time.time())))
         # Baseline: items already owned when monitoring is first enabled are not deposits.
         baseline = not c.get('baseline_done')
         added = []
@@ -307,25 +366,42 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
                 received_at = int(time.time())
             with db():
                 db().execute('BEGIN IMMEDIATE')
-                exists = db().execute('SELECT 1 FROM telegram_gift_receipts WHERE slug=?',
-                                      (gift['telegram_slug'],)).fetchone()
-                if exists:
-                    continue
+                # One gift can arrive many times (it is withdrawn and sent again): every arrival is an event of its own, told apart by its date.
+                plain, arrival = gift['telegram_slug'], gift['telegram_slug'] + '@' + str(received_at)
+                known = db().execute('SELECT slug,received,processed FROM telegram_gift_receipts WHERE slug IN (?,?)', (plain, arrival)).fetchall()
+                if any(row['slug'] == arrival or int(row['received']) == received_at or int(row['processed']) + 2 >= received_at for row in known):
+                    continue                                    # this very arrival was handled before
+                key = arrival if known else plain
                 # A sender without a verified numeric Telegram ID cannot be attributed.
                 registered = (sender is not None and
                               db().execute('SELECT 1 FROM users WHERE id=?', (sender,)).fetchone())
-                inventory_exists = db().execute(
-                    'SELECT 1 FROM inventory WHERE nft_id=? LIMIT 1', (gift['id'],)).fetchone()
+                holders = [dict(row) for row in db().execute('SELECT user_id,status FROM inventory WHERE nft_id=?', (gift['id'],)).fetchall()]
+                supplier = sender is not None and sender in supplier_ids()
+                already_his = any(row['user_id'] == sender for row in holders)
+                pending_out = any(row['user_id'] != sender and row['status'] == 'withdrawing' for row in holders)
                 status_code = ('baseline' if baseline else
-                               'duplicate' if inventory_exists else
+                               'supplier' if supplier else
+                               'duplicate' if already_his or (holders and pending_out) else
                                'credited' if registered else
                                'unmatched' if sender else 'anonymous')
                 recipient = sender if status_code == 'credited' else None
                 db().execute("""INSERT INTO telegram_gift_receipts
                   (slug,sender_id,recipient_id,status,payload,received,processed)
                   VALUES(?,?,?,?,?,?,?) ON CONFLICT(slug) DO NOTHING""",
-                             (gift['telegram_slug'], sender, recipient, status_code,
+                             (key, sender, recipient, status_code,
                               json.dumps(gift), received_at, int(time.time())))
+                if status_code in ('supplier', 'credited'):
+                    # The gift has just arrived from this account, so an entry of anybody else in the inventories is out of date: it goes away.
+                    for row in holders:
+                        if row['user_id'] != sender or status_code == 'supplier':
+                            db().execute('DELETE FROM inventory WHERE user_id=? AND nft_id=?', (row['user_id'], gift['id']))
+                            db().execute('DELETE FROM crafter_listings WHERE seller_id=? AND gift_id=?', (row['user_id'], gift['id']))
+                            record('gift_taken_over', dict(gifts=[gift], reason='Подарок снова пришёл на релейер с другого аккаунта'), uid=row['user_id'])
+                if status_code == 'supplier':
+                    # an account of a market (a supplier): the gift belongs to the project, not to anybody's inventory
+                    db().execute("""INSERT INTO project_gifts(slug,sender_id,payload,received) VALUES(?,?,?,?)
+                                  ON CONFLICT(slug) DO UPDATE SET sender_id=excluded.sender_id,payload=excluded.payload,received=excluded.received""",
+                                 (plain, sender, json.dumps(gift), received_at))
                 if recipient:
                     db().execute('INSERT INTO inventory(user_id,nft_id,payload,status) VALUES(?,?,?,?)',
                                  (recipient, gift['id'], json.dumps(gift), 'unlisted'))
@@ -338,11 +414,19 @@ def install_telegram_deposits(app, db, auth, audit, record, bot_settings):
         with db():
             db().execute('UPDATE telegram_gift_monitor SET last_scan=?,last_error=? WHERE id=1',
                          (int(time.time()), ''))
-        for uid, gift in added:
-            try:
-                notify(uid, gift)
-            except Exception:
-                app.logger.warning('Telegram NFT deposit notification failed for gift %s', gift['telegram_slug'])
+        def tell():
+            for uid, gift in added:
+                try:
+                    notify(uid, gift)
+                except Exception:
+                    app.logger.warning('Telegram NFT deposit notification failed for gift %s', gift['telegram_slug'])
+        if added and not app.config.get('TESTING'):
+            def tell_later():                                   # the messages go out in the background: a slow Telegram does not hold the next scan
+                with app.app_context():
+                    tell()
+            threading.Thread(target=tell_later, daemon=True, name='deposit-notify').start()
+        else:
+            tell()
         return dict(ok=True, scanned=seen, credited=len(added), initial_baseline=baseline)
 
     def run_scan():

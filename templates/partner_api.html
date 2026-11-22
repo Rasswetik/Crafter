@@ -265,7 +265,7 @@ while True:
     "balance": "132.6"
   }
 }</pre>
-  <div class="note"><b>Подарок подключённого маркета</b> выкупается на маркете и попадает в ваш инвентарь после доставки; это может занять немного времени. До этого статус операции может быть <code>processing</code> — проверяйте <code>/operations/{id}</code>.</div>
+  <div class="note"><b>Подарок подключённого маркета</b> выкупается на маркете и попадает в ваш инвентарь после доставки; это может занять до 40 секунд. Если покупка не готова за 8 секунд, API сразу отвечает <code>202</code> со статусом <code>processing</code>: не повторяйте запрос с новым ключом, а спрашивайте <code>GET /operations/{operation_id}</code>, пока статус не станет <code>done</code> или <code>failed</code>. Лот, который купили в другом месте, пропадает из <code>/lots</code> примерно за минуту; если он успел уйти, покупка вернёт <code>409</code> с кодом <code>price_changed</code>: возьмите другой лот.</div>
 
   <div class="ep" id="sell"><span class="m post">POST</span><code>/sell</code><em>право sell</em></div>
   <p>Выставляет ваш подарок на маркет Crafter или меняет цену уже выставленного. Ответ <code>state: "accepted"</code> означает, что цена сохранена. Подарок может быть куплен сразу, а может ждать покупателя — следите за <code>GET /inventory</code>.</p>
@@ -478,7 +478,7 @@ console.log(r.status, await r.json());</pre>
     <tr><td><code>banned</code></td><td>Аккаунт заблокирован (HTTP 403).</td></tr>
     <tr><td><code>browser_forbidden</code></td><td>Запрос пришёл из браузера.</td></tr>
     <tr><td><code>idempotency_required</code></td><td>В POST нет корректного <code>Idempotency-Key</code>.</td></tr>
-    <tr><td><code>price_changed</code></td><td>Цена лота выше вашего <code>max_price</code>.</td></tr>
+    <tr><td><code>price_changed</code></td><td>Цена лота выше вашего <code>max_price</code>, либо лот перепродан или изменил цену на маркете (возьмите другой лот).</td></tr>
     <tr><td><code>lot_not_found</code></td><td>Лот уже продан или снят.</td></tr>
     <tr><td><code>gift_not_found</code></td><td>Подарка нет среди ваших (или это пак, которого в API нет).</td></tr>
     <tr><td><code>recipient_not_found</code></td><td>Получатель ни разу не открывал Crafter.</td></tr>

@@ -34,7 +34,7 @@ from urllib.request import HTTPRedirectHandler, Request, build_opener
 from flask import abort, g, jsonify, render_template, request
 
 from partner_api import plain
-from telegram_bot import bot_api, premium_map, send_message, with_premium_emoji
+from telegram_bot import TelegramUnsure, bot_api, premium_map, send_message, with_premium_emoji
 
 SETTINGS_KEY = 'boostup_v1'
 KEY_PREFIX = 'BUP/'
@@ -164,6 +164,9 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
             message['reply_markup'] = {'inline_keyboard': buttons}
         try:
             return send_message(token, message)
+        except TelegramUnsure:
+            app.logger.warning('BoostUp bot message: Telegram did not answer, it is not repeated (it may have been delivered)')
+            return {'unsure': True}                              # not None: the message is not sent a second time
         except Exception:
             try:
                 if buttons:
@@ -183,6 +186,8 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
             try:
                 body = {**target, 'text': with_premium_emoji(token, text) if attempt == 0 else text, 'reply_markup': markup if attempt < 2 else without_icons(markup)}
                 return bot_api(token, 'editMessageText', body)
+            except TelegramUnsure:
+                return None                                      # an edit may have gone through; the next press shows the real state
             except Exception:
                 continue
         app.logger.warning('BoostUp bot message was not edited')
