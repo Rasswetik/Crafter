@@ -323,9 +323,6 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
         for gift in gifts:
             if gift.get('pack_item') or gift.get('test_only') or gift.get('catalog_only'):
                 continue
-            if db().execute("SELECT 1 FROM boostup_deposits WHERE user_id=? AND gift_id=? AND status IN ('delivered','credited') AND via='transfer' AND created>=?",
-                            (sender_id, gift['id'], now - 3 * 86400)).fetchone():
-                continue                                             # this transfer is already a deposit
             try:
                 value = gift_value(gift, config['percent'])
             except Exception:
