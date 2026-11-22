@@ -180,10 +180,18 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
         catalog = ctx['public_catalog']()
         params = {'collection_id': str(gift.get('collection_id') or ''), 'search': str(gift.get('number') or ''),
                   'sort_by': 'price asc', 'markets': str(gift.get('marketplace') or 'PORTALS').upper()}
-        try:
-            live = thermos.gifts(params, catalog)['gifts']
-        except (OSError, ValueError, KeyError, StopIteration):
-            abort(503, description='Не удалось проверить наличие лота на Thermos. Повторите позже')
+        live = None
+        for attempt in (0, 1):
+            try:
+                live = thermos.gifts(params, catalog)['gifts']
+                break
+            except (OSError, ValueError, KeyError, StopIteration) as error:
+                app.logger.warning('Thermos lot check failed (%s, attempt %d): %r', params.get('markets'), attempt + 1, error)
+                if attempt == 0:
+                    time.sleep(0.8)                      # a short network hiccup: one more look before giving up
+        if live is None:
+            # nothing was bought and nothing was charged: a plain refusal (409), not an «unknown result» (503), so the caller may simply try again
+            abort(409, description='Не удалось проверить наличие лота на Thermos. Повторите через несколько секунд')
         return any(x['id'] == gift['id'] and Decimal(str(x['price'])) == Decimal(str(ton_price)) for x in live)
 
     def balance_ton():
@@ -236,7 +244,21 @@ def install_thermos_market(app, db, auth, record, audit, ctx):
 
     # ---- acquisition (shared by the shop and the games) ---------------------------------------------
     def acquire(gifts):
-        """Buy lots on Thermos; the gifts go straight to the relayer. -> ('ok'|'failed'|'unknown', note)."""
+        """Buy lots on Thermos; the gifts go straight to the relayer. -> ('ok'|'failed'|'unknown', note).
+        Thermos sometimes refuses with «Gift price mismatch» although the lot is listed at the price (it answers right a moment later):
+        the purchase had failed completely, so it is tried once more after a short pause, if the lots are still listed at the same prices."""
+        outcome, note = acquire_once(gifts)
+        if outcome == 'failed' and re.search(r'price|mismatch', note, re.I):
+            time.sleep(1.5)
+            try:
+                if all(still_listed(gift, gift.get('price')) for gift in gifts):
+                    app.logger.warning('Thermos price mismatch: trying once more')
+                    outcome, note = acquire_once(gifts)
+            except HTTPException:
+                pass
+        return outcome, note
+
+    def acquire_once(gifts):
         recipient = relayer_id()
         if recipient is None:
             return 'failed', 'Релейер не подключён'

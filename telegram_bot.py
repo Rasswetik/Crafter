@@ -168,7 +168,7 @@ def render_gift_template(template, values):
 
 
 PHRASES = {
-    'sale': {'title': 'Подарок продан', 'text': '💰 Подарок {gift} продан\nВы получили: {amount} GRAM', 'fields': ('gift', 'amount')},
+    'sale': {'title': 'Подарок продан', 'text': '🎁 Подарок {gift} продан\nВы получили: {amount} GRAM', 'fields': ('gift', 'amount')},
     'purchase': {'title': 'Подарок куплен', 'text': '✅ Вы успешно купили {gift} за {price} GRAM. Подарок уже в вашем инвентаре Crafter.',
                  'fields': ('gift', 'price'), 'button': ('purchase_button', '🎁 ОТКРЫТЬ ПОДАРОК')},
     'offer_received': {'title': 'Новый оффер', 'text': '🎁 Новое предложение: {gift} — {amount} GRAM. Откройте Crafter, чтобы принять его.', 'fields': ('gift', 'amount')},
