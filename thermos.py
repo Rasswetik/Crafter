@@ -18,16 +18,34 @@ MIN_GAP, MAX_QUEUE_WAIT = 0.8, 6.0
 _gate = threading.Lock()
 _next_slot = [0.0]
 _paused_until = [0.0]
+_strikes = [0]
+# The pause grows while Thermos keeps answering 429 (30 s, 1, 2, 4, 8 minutes, at most 15) and is kept in the database by the app, so that a restart of the
+# server does not wipe it: a server that starts again and asks at once only prolongs the limit.
+PAUSE_STORE = None          # set by the app: an object with load() -> {'until': t, 'strikes': n} and save(until, strikes)
+
+
+def _pause_until():
+    until = _paused_until[0]
+    if PAUSE_STORE:
+        try:
+            saved = PAUSE_STORE.load() or {}
+            until = max(until, float(saved.get('until') or 0))
+            if not _strikes[0]:
+                _strikes[0] = int(saved.get('strikes') or 0)
+        except Exception:
+            pass
+    return until
 
 
 def is_blocked():
-    return time.time() < _paused_until[0]
+    return time.time() < _pause_until()
 
 
 def request(path, body=None):
     now = time.time()
-    if now < _paused_until[0]:
-        raise ThermosBusy('Thermos: пауза после лимита запросов, ещё %d с' % int(_paused_until[0] - now))
+    until = _pause_until()
+    if now < until:
+        raise ThermosBusy('Thermos: пауза после лимита запросов, ещё %d с' % int(until - now))
     with _gate:
         slot = max(time.time(), _next_slot[0])
         if slot - time.time() > MAX_QUEUE_WAIT:
@@ -41,15 +59,30 @@ def request(path, body=None):
         headers={'Accept':'application/json','Content-Type':'application/json'})
     try:
         with urlopen(req,timeout=8) as response:
-            return json.load(response)
+            data = json.load(response)
+        if _strikes[0]:
+            _strikes[0] = 0                                  # Thermos answers again: the next limit starts from a short pause
+            if PAUSE_STORE:
+                try:
+                    PAUSE_STORE.save(0, 0)
+                except Exception:
+                    pass
+        return data
     except HTTPError as error:
         if error.code == 429:
             try:
                 retry = int(error.headers.get('Retry-After', '') or 0)
             except (TypeError, ValueError):
                 retry = 0
-            _paused_until[0] = time.time() + min(max(retry, 20), 300)
-            raise ThermosBusy('Thermos: лимит запросов (429), пауза %d с' % min(max(retry, 20), 300)) from error
+            _strikes[0] += 1
+            seconds = min(max(retry, 30 * 2 ** (_strikes[0] - 1)), 900)
+            _paused_until[0] = time.time() + seconds
+            if PAUSE_STORE:
+                try:
+                    PAUSE_STORE.save(_paused_until[0], _strikes[0])
+                except Exception:
+                    pass
+            raise ThermosBusy('Thermos: лимит запросов (429), пауза %d с' % seconds) from error
         raise
 
 def ton(value):

@@ -500,6 +500,23 @@ def create_app(config=None):
     import thermos as _thermos_floors
     _thermos_floors.FLOORS_LOADER = stored_floors
 
+    class ThermosPauseStore:
+        """The pause after a Thermos request limit (429) is kept in the database: it survives a restart and is the same for every process."""
+        memo = {'at': 0.0, 'data': {}}
+
+        def load(self):
+            if time.time() - self.memo['at'] > 2:
+                data, _ = cached('thermos:pause', {})
+                self.memo.update(at=time.time(), data=data if isinstance(data, dict) else {})
+            return self.memo['data']
+
+        def save(self, until, strikes):
+            with db():
+                db().execute('INSERT INTO cache VALUES(?,?,?) ON CONFLICT (key) DO UPDATE SET payload=excluded.payload,updated=excluded.updated',
+                             ('thermos:pause', json.dumps({'until': until, 'strikes': strikes}), int(time.time())))
+            self.memo.update(at=0.0)
+    _thermos_floors.PAUSE_STORE = ThermosPauseStore()
+
     def sweep_floors(delay=1.0):
         """The cheapest page of every collection shows its real floor (thermos.remember_floors); the result is stored for all workers.
         A collection that cannot be read keeps its previous floor until it expires."""
