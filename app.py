@@ -1320,11 +1320,14 @@ def create_app(config=None):
         tell = app.extensions.get('crafter_transfer_hook')           # BoostUp: a gift that is given to its account inside Crafter is a deposit
         if tell:
             try:
-                tell(sender_id, recipient_id, gifts)
+                handled = tell(sender_id, recipient_id, gifts)
             except Exception:
+                handled = False
                 app.logger.warning('Transfer hook failed', exc_info=True)
-        if data.get('quiet') is True and request.environ.get('crafter.internal_user'):
-            return {'ok': True, 'gift_ids': ids}
+        else:
+            handled = False
+        if handled or (data.get('quiet') is True and request.environ.get('crafter.internal_user')):
+            return {'ok': True, 'gift_ids': ids}      # a deposit to BoostUp has its own single notification: no «sent» / «received» messages
         try:
             notify_gift_transfer(bot_settings(), recipient_id, gifts, sender, request.url_root, app.config['BOT_TOKEN'], message)
         except Exception:

@@ -19,6 +19,7 @@ import hmac
 import ipaddress
 import json
 import os
+import re
 import socket
 import string
 import threading
@@ -198,7 +199,10 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
         app.logger.warning('BoostUp bot message was not edited')
 
     def gift_link(gift):
-        return '<a href="' + escape(str(gift.get('telegram_url') or ''), quote=True) + '">' + escape(str(gift.get('name', '')) + ' #' + str(gift.get('number', ''))) + '</a>'
+        slug = str(gift.get('telegram_slug') or (re.sub(r'[^A-Za-z0-9]', '', str(gift.get('name') or '')) + '-' + str(gift.get('number') or '')))
+        url = str(gift.get('telegram_url') or ('https://t.me/nft/' + slug if gift.get('name') and gift.get('number') else ''))
+        label = escape(str(gift.get('name', '')) + ' #' + str(gift.get('number', '')))
+        return '<a href="' + escape(url, quote=True) + '">' + label + '</a>' if url else label
 
     def choice_text(gift):
         return '🎁 <b>Подарок получен</b>\n\n' + gift_link(gift) + ' уже у релейера Crafter.\n\n<b>Куда отправить подарок?</b>'
@@ -315,8 +319,9 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
         except (TypeError, ValueError):
             same = False
         if not config['enabled'] or not same or sender_id == recipient_id:
-            return
+            return False
         record_transfer(config, sender_id, int(recipient_id), gifts)
+        return True
 
     def record_transfer(config, sender_id, recipient_id, gifts, quiet=False):
         now = int(time.time())
@@ -335,11 +340,7 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
                               str(value['ton']) if value else None, str(value['gram']) if value else None, str(value['floor_ton']) if value else None,
                               str(value['percent']) if value else None, str(value['rate']) if value else None, recipient_id, now, now, now,
                               'Передача внутри Crafter', 'transfer', now, now))
-            try:
-                send(sender_id, '🚀 <b>Подарок передан BoostUp</b>\n\n' + gift_link(gift) + ' передан BoostUp. Он сейчас появится в вашем инвентаре BoostUp.')
-            except Exception:
-                pass
-        wake.set()
+        wake.set()                                                   # the player gets ONE message: «Подарок в инвентаре BoostUp», when BoostUp has credited it
 
     app.extensions['crafter_transfer_hook'] = on_transfer
     catch_up_at = [0]
@@ -521,7 +522,8 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
             return False
         update(deposit_id, status='credited', credited=int(time.time()), note=('BoostUp: ' + str(external))[:300] if external else '')
         gift = json.loads(row['payload'])
-        send(row['user_id'], '✅ <b>Подарок в инвентаре BoostUp</b>\n\n' + gift_link(gift) + ' зачислен в ваш инвентарь BoostUp.')
+        price = ('\nЦена: <b>' + plain(row['price_gram']) + ' GRAM</b>') if row.get('price_gram') else ''
+        send(row['user_id'], '✅ <b>Подарок в инвентаре BoostUp</b>\n\n' + gift_link(gift) + ' зачислен в ваш инвентарь BoostUp.' + price)
         return True
 
     def process():
