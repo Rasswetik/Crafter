@@ -23,7 +23,7 @@ KEY_PREFIX = 'CRT/'
 ALPHABET = string.ascii_letters + string.digits
 BASE = '/api/partner/v1'
 RATE_LIMIT, RATE_WINDOW = 30, 10.0
-INLINE_WAIT = 8.0                       # seconds a purchase may take before the API answers 202 «processing"
+INLINE_WAIT = 20.0                       # seconds a purchase may take before the API answers 202 «processing"
 OP_ID = re.compile(r'^[A-Za-z0-9_-]{16,80}$')
 CRAFTER_LOT = re.compile(r'^crafter-[0-9a-f]{32}$')
 RIGHTS = ['read', 'buy', 'sell', 'transfer', 'withdraw', 'offers']
@@ -735,11 +735,28 @@ def install_partner_api(app, db, auth, record, audit):
     # ---------------- withdrawing an NFT to Telegram ----------------
     def do_nft_withdraw(body, op_id):
         gift = mine_or_fail(str(body.get('gift_id') or ''))
-        status, reply = internal('POST', '/api/gifts/withdraw', {'gift_id': gift['gift_id'], 'request_id': op_id})
+        sent = {'gift_id': gift['gift_id'], 'request_id': op_id}
+        target = body.get('telegram_id')
+        to = None
+        if target not in (None, ''):                           # the relayer sends the gift to THIS Telegram account (a player of the partner), not to the owner of the key
+            try:
+                receiver = int(str(target))
+            except ValueError:
+                raise PartnerError(400, 'bad_request', 'telegram_id — число')
+            if receiver != g.partner['id']:
+                known = db().execute("SELECT username FROM users WHERE id=?", (receiver,)).fetchone()
+                username = re.sub(r'^@', '', str(body.get('username') or (known['username'] if known else '') or '').strip())
+                if not known and not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{4,31}', username):
+                    raise PartnerError(400, 'username_required', 'Получателя нет в Crafter: укажите его @username в поле username, иначе Telegram не найдёт аккаунт')
+                if username and not re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{4,31}', username):
+                    raise PartnerError(400, 'bad_request', 'username: латиница, цифры и _, от 5 до 32 символов')
+                sent.update(receiver_id=receiver, receiver_username=username)
+                to = {'telegram_id': str(receiver), 'username': username or None}
+        status, reply = internal('POST', '/api/gifts/withdraw', sent)
         if status != 200:
             relay_error(status, reply)
-        return {'gift_id': gift['gift_id'], 'withdrawal_id': reply.get('id'), 'status': reply.get('status', 'queued'), 'fee': plain(reply.get('fee_gram', '0')),
-                'note': 'Подарок отправит релейер Crafter вам в Telegram. Статус: GET /withdrawals'}
+        return {'gift_id': gift['gift_id'], 'withdrawal_id': reply.get('id'), 'status': reply.get('status', 'queued'), 'fee': plain(reply.get('fee_gram', '0')), 'to': to,
+                'note': ('Подарок отправит релейер Crafter получателю в Telegram. Статус: GET /withdrawals' if to else 'Подарок отправит релейер Crafter вам в Telegram. Статус: GET /withdrawals')}
 
     @app.get(BASE + '/withdrawals')
     @partner

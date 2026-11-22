@@ -89,7 +89,8 @@ def install_gift_withdrawals(app, db, auth, record, audit):
     # Used by partner-withdrawal fallback. It only queues verified inventory gifts
     # after a custody lookup, and shares the same transaction/idempotency guard.
     # payer: whose balance pays the fee (default: the owner). username: the Telegram name of the owner when the caller is someone else.
-    def queue_manual(uid,gift_id,rid,allow_partner=False,reason='',payer=None,username=None):
+    def queue_manual(uid,gift_id,rid,allow_partner=False,reason='',payer=None,username=None,receiver_id=None,receiver_username=None):
+        # receiver_id: the Telegram account that the relayer sends the gift to (default: the owner). The gift leaves the inventory of `uid`, who pays the fee.
         payer=uid if payer is None else payer
         wid='gw-'+str(uid)+'-'+rid
         auto_now=bool(app.extensions.get('crafter_auto_nft_enabled') and app.extensions['crafter_auto_nft_enabled']())
@@ -112,12 +113,15 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                 abort(409,description=problem)
             after=debit_fee(payer,wid,uid)
             now=int(time.time())
-            payload={'gift':gift,'receiver_user_id':uid,
-                     'receiver_username':(g.user.get('username') or '') if username is None else username,
+            payload={'gift':gift,'receiver_user_id':uid if receiver_id is None else receiver_id,
+                     'receiver_username':(receiver_username if receiver_username is not None else
+                                          ((g.user.get('username') or '') if username is None else username)),
                      'fee_gram':str(FEE_GRAM),'balance_after':str(after),
                      'custody_check':reason or 'relayer-account'}
             if payer!=uid:
                 payload['paid_by']=payer
+            if receiver_id is not None and receiver_id!=uid:
+                payload['to_other']=True                    # sent to somebody else's account: the owner is not told «sent to you»
             db().execute('INSERT INTO gift_withdrawals VALUES(?,?,?,?,?,?,?,?)',
                          (wid,uid,gift_id,json.dumps(payload,ensure_ascii=False),
                           'queued',now,now,reason[:500]))
@@ -146,7 +150,12 @@ def install_gift_withdrawals(app, db, auth, record, audit):
             abort(400,description='Некорректный номер заявки')
         if app.config['DEMO_MODE']:
             abort(409,description='Вывод демоподарков недоступен')
-        return queue_manual(g.user['id'],gift_id,rid)
+        receiver_id,receiver_username=None,None
+        if request.environ.get('crafter.internal_user') and data.get('receiver_id') is not None:     # only the Partner API may name another receiver
+            receiver_id,receiver_username=data.get('receiver_id'),str(data.get('receiver_username') or '')
+            if type(receiver_id) is not int or not 0<receiver_id<2**63 or not re.fullmatch(r'[A-Za-z0-9_]{0,32}',receiver_username):
+                abort(400,description='Некорректный получатель')
+        return queue_manual(g.user['id'],gift_id,rid,receiver_id=receiver_id,receiver_username=receiver_username)
 
     @app.post('/api/gifts/withdraw-paid')
     @auth()
@@ -281,7 +290,7 @@ def install_gift_withdrawals(app, db, auth, record, audit):
                          (decision, int(time.time()), note, wid))
         audit('NFT withdrawal ' + wid + ' marked ' + decision)      # outside the transaction: audit() commits, which PostgreSQL forbids inside it
         tell = app.extensions.get('crafter_notify_withdrawal')
-        if tell:
+        if tell and not (data.get('to_other') and decision == 'confirmed'):
             tell(owner, gift, decision == 'confirmed', '' if decision == 'confirmed' else note, 'thermos' if str(note).startswith('thermos-assign') else '')
 
     app.extensions['crafter_gift_withdrawal_finalize'] = finalize_withdrawal

@@ -159,6 +159,35 @@ def test_transfer_with_paid_withdrawal(client):
     assert second['id'] in [x['gift_id'] for x in client.get(BASE + '/inventory', headers=bearer(sender)).json['gifts']]      # nothing moved
 
 
+def test_withdraw_to_another_telegram_account(client):
+    sender = key_for(client, 42)
+    first = _relayer_gift(client, 42, 'telegram-luckylocket-5469', '2.0')
+    withdraw = lambda op, **body: client.post(BASE + '/withdraw', headers=bearer(sender, op), json=body)
+    payload = lambda: [json.loads(r[0]) for r in sqlite3.connect(client.application.config['DATABASE']).execute('SELECT payload FROM gift_withdrawals ORDER BY created').fetchall()]
+
+    # a player who never opened Crafter: Telegram cannot find the account without its username
+    assert withdraw('wd-other-0000000001', gift_id=first['id'], telegram_id='999000111').json['result']['code'] == 'username_required'
+    assert withdraw('wd-other-0000000002', gift_id=first['id'], telegram_id='999000111', username='bad name').json['result']['code'] == 'username_required'
+    sent = withdraw('wd-other-0000000003', gift_id=first['id'], telegram_id='999000111', username='@newplayer')
+    assert sent.status_code == 200, sent.json
+    assert sent.json['result']['to'] == {'telegram_id': '999000111', 'username': 'newplayer'} and sent.json['result']['fee'] == '0.4'
+    row = payload()[-1]
+    assert row['receiver_user_id'] == 999000111 and row['receiver_username'] == 'newplayer' and row['to_other'] is True
+    assert client.get(BASE + '/account', headers=bearer(sender)).json['balance'] == '1.6'              # the key owner paid the fee
+
+    # a player who is in Crafter: the username comes from Crafter
+    client.get('/api/me', headers=signed(44, username='bob'))
+    second = _relayer_gift(client, 42, 'telegram-luckylocket-7001', '2.0')
+    known = withdraw('wd-other-0000000004', gift_id=second['id'], telegram_id='44')
+    assert known.status_code == 200 and payload()[-1]['receiver_user_id'] == 44 and payload()[-1]['receiver_username'] == 'bob'
+
+    # without telegram_id the gift goes to the owner of the key, as before
+    third = _relayer_gift(client, 42, 'telegram-luckylocket-7002', '2.0')
+    own = withdraw('wd-other-0000000005', gift_id=third['id'])
+    assert own.status_code == 200 and own.json['result']['to'] is None
+    assert payload()[-1]['receiver_user_id'] == 42 and 'to_other' not in payload()[-1]
+
+
 def test_rotation_replaces_key_and_bot_command(client, monkeypatch):
     monkeypatch.setenv('RENDER_EXTERNAL_URL', 'https://crafter.example')
     old = key_for(client, 43)

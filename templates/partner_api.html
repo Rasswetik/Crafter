@@ -329,6 +329,7 @@ while True:
   <div class="ep"><span class="m post">POST</span><code>/offers/create</code><em>право offers</em></div>
   <p>Оффер на конкретный лот: <code>{"lot_id":"crafter-9f2c…","price":"8.5","expiry":"day"}</code>. Оффер на коллекцию: <code>{"collection":"Lol Pop","model":"Mirage","price":"4","quantity":2}</code>. Сумма резервируется на балансе до ответа, отзыва или окончания срока.</p>
   <div class="ep"><span class="m post">POST</span><code>/withdraw</code><em>право withdraw</em></div>
+  <p>Тело: <code>{"gift_id": "…"}</code>. Без других полей релейер отправляет подарок <b>вам</b> (на Telegram владельца ключа). Чтобы отправить его <b>другому аккаунту</b> (например, игроку вашего проекта), добавьте <code>"telegram_id"</code> получателя. Если получателя нет в Crafter, укажите ещё <code>"username"</code> (без <code>@</code> или с ним): без имени Telegram не найдёт аккаунт, и API вернёт <code>400 username_required</code>. Комиссию вывода <code>0.4</code> GRAM платит владелец ключа, подарок уходит из его инвентаря.</p>
 <pre>curl -X POST {{ base }}/withdraw \
   -H "Authorization: Bearer CRT/ваш_ключ" \
   -H "Content-Type: application/json" \
