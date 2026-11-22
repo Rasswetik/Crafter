@@ -133,6 +133,26 @@ def test_the_gift_goes_from_the_player_into_the_crafter_inventory_of_boostup(cli
     assert any(item['kind'] == 'transfer' for item in history)
 
 
+def test_a_gift_given_to_boostup_inside_crafter_is_a_deposit_too(client, world, bot):
+    give = lambda rid, who=USER, to=77, name='boostup_relayer', ids=None: client.post('/api/inventory/transfer', headers=who, json={
+        'gift_ids': ids or [GIFT['id']], 'recipient_id': to, 'request_id': rid, 'username': name})
+    sent = give('give-0001')                                                                           # the button «Передать» in the app: no bot question needed
+    assert sent.status_code == 200, sent.json
+    assert [g['id'] for g in client.get('/api/inventory', headers=BOOSTUP).json['gifts']] == [GIFT['id']]
+    deposits = api(client, world, '/deposits?status=delivered').json['deposits']
+    assert len(deposits) == 1 and deposits[0]['via'] == 'transfer' and deposits[0]['telegram_id'] == '43' and deposits[0]['gift']['slug'] == 'PlushPepe-4102'
+    assert run_worker(world) == {'processed': 1}
+    event = json.loads(world['hooks'][0][2])
+    assert event['via'] == 'transfer' and event['deposit_id'] == deposits[0]['deposit_id'] and event['gift']['gift_id'] == GIFT['id']
+    assert api(client, world, '/deposits/' + deposits[0]['deposit_id']).json['deposit']['status'] == 'credited'
+    assert any('Подарок передан BoostUp' in p['text'] for m, p in bot if m == 'sendMessage')
+    assert give('give-0001').status_code == 200 and len(api(client, world, '/deposits').json['deposits']) == 1      # the same request is not a second deposit
+
+    # BoostUp giving a gift to a player is not a deposit
+    back = give('give-0002', who=BOOSTUP, to=43, name='anna')
+    assert back.status_code == 200 and len(api(client, world, '/deposits').json['deposits']) == 1
+
+
 def test_webhook_is_repeated_until_boostup_answers(client, world, bot):
     _message, _buttons, offer_id = offer(world, bot)
     confirm(client, offer_id)

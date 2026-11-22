@@ -93,6 +93,11 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
         CREATE TABLE IF NOT EXISTS boostup_lease(id INTEGER PRIMARY KEY, until BIGINT NOT NULL);
         """)
         db().execute("INSERT INTO boostup_lease VALUES(1,0) ON CONFLICT(id) DO NOTHING")
+    try:                                                          # how the gift came: 'relayer' (sent to the relayer, chosen in the bot) or 'transfer' (given inside Crafter)
+        with app.app_context(), db():
+            db().execute("ALTER TABLE boostup_deposits ADD COLUMN via TEXT NOT NULL DEFAULT 'relayer'")
+    except Exception:
+        pass                                                      # the column exists already
 
     # ---------------- settings, deposit key, signing secret ----------------
     def settings():
@@ -266,7 +271,7 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
                 'telegram_id': str(row['user_id']), 'username': (user['username'] if user else None) or None, 'name': (user['name'] if user else None) or None,
                 'gift': gift_view(gift), 'value': value_view(row), 'account': account_view(row['account_id']),
                 'created': row['created'], 'confirmed': row['confirmed'], 'delivered': row['delivered'], 'credited': row['credited'],
-                'attempts': row['attempts'], 'note': row['note'] or None}
+                'attempts': row['attempts'], 'note': row['note'] or None, 'via': row.get('via') or 'relayer'}
 
     def load(deposit_id):
         row = db().execute("SELECT * FROM boostup_deposits WHERE id=?", (deposit_id,)).fetchone()
@@ -300,6 +305,33 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
         return True
 
     app.extensions['crafter_deposit_notify'] = start_offer
+
+    def on_transfer(sender_id, recipient_id, gifts):
+        """The second way of depositing: a player gives a gift to the Crafter account of BoostUp (the button «Передать» in the app or the Partner API).
+        The gift is already in the inventory of BoostUp, so the deposit is `delivered` at once and BoostUp is told by the same webhook as for the first way."""
+        config = settings()
+        if not config['enabled'] or not config['account_id'] or recipient_id != config['account_id'] or sender_id == recipient_id:
+            return
+        now = int(time.time())
+        for gift in gifts:
+            if gift.get('pack_item') or gift.get('test_only') or gift.get('catalog_only'):
+                continue
+            try:
+                value = gift_value(gift, config['percent'])
+            except Exception:
+                value = None                                     # the price is only information: the deposit does not wait for it
+            deposit_id = 'bu_' + uuid.uuid4().hex[:24]
+            with db():
+                db().execute("INSERT INTO boostup_deposits(id,user_id,gift_id,payload,status,price_ton,price_gram,floor_ton,percent,rate,account_id,confirmed,delivered,next_try,note,via,created,updated) "
+                             "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                             (deposit_id, sender_id, gift['id'], json.dumps(gift, ensure_ascii=False), 'delivered',
+                              str(value['ton']) if value else None, str(value['gram']) if value else None, str(value['floor_ton']) if value else None,
+                              str(value['percent']) if value else None, str(value['rate']) if value else None, recipient_id, now, now, now,
+                              'Передача внутри Crafter', 'transfer', now, now))
+            send(sender_id, '🚀 <b>Подарок передан BoostUp</b>\n\n' + gift_link(gift) + ' передан BoostUp. Он сейчас появится в вашем инвентаре BoostUp.')
+        wake.set()
+
+    app.extensions['crafter_transfer_hook'] = on_transfer
 
     # ---------------- 2. buttons of the bot ----------------
     def on_callback(callback):
@@ -408,7 +440,7 @@ def install_boostup(app, db, auth, audit, record, bot_settings):
     def webhook_body(row):
         view = deposit_view(row)
         return {'event': 'deposit.delivered', **{key: view[key] for key in ('deposit_id', 'telegram_id', 'username', 'name', 'gift', 'value', 'account',
-                                                                              'created', 'confirmed', 'delivered')}}
+                                                                              'via', 'created', 'confirmed', 'delivered')}}
 
     def sign(config, raw):
         stamp = str(int(time.time()))

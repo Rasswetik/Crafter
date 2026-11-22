@@ -34,6 +34,7 @@
     <li><b>Webhook в BoostUp.</b> Crafter отправляет <code>deposit.delivered</code> с данными игрока и подарка. BoostUp добавляет NFT в инвентарь игрока и отвечает <code>{"ok": true}</code>.</li>
     <li><b>Игроку приходит сообщение бота:</b> подарок зачислен в инвентарь BoostUp.</li>
   </ol>
+  <div class="note"><b>Второй способ пополнения: передача внутри Crafter.</b> Игрок, у которого подарок уже в инвентаре Crafter, нажимает «Передать» и выбирает аккаунт BoostUp ({{ account }}). Подарок мгновенно оказывается в инвентаре этого аккаунта и засчитывается как пополнение так же, но бот подтверждения не спрашивает. Так работает и передача через Partner API (<code>POST /transfer</code> на этот аккаунт). BoostUp получает тот же webhook <code>deposit.delivered</code>; поле <code>via</code> показывает способ: <code>relayer</code> или <code>transfer</code>.</div>
   <div class="ok"><b>Игрок один и тот же.</b> Игрок определяется по Telegram ID: поле <code>telegram_id</code> в webhook совпадает с Telegram ID игрока в BoostUp.</div>
 </section>
 
@@ -85,6 +86,7 @@
   },
   "value": { "ton": "7094.99", "gram": "41760.05", "floor_ton": "7094.99", "percent": "100", "rate_gram_per_ton": "5.886" },
   "account": { "telegram_id": "777000111", "username": "boostup_relayer", "name": "BoostUp" },
+  "via": "relayer",
   "created": 1790000000, "confirmed": 1790000060, "delivered": 1790000060
 }</pre>
   <p><code>gift.gift_id</code> — номер подарка в инвентаре аккаунта BoostUp: по нему подарок находится через Partner API (<a href="#inventory">как работать с подарком</a>). <code>gift.slug</code> и <code>gift.url</code> — идентификатор NFT в Telegram.</p>

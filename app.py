@@ -1317,6 +1317,12 @@ def create_app(config=None):
             sender = None if anonymous else {'name': g.user.get('first_name', ''), 'username': g.user.get('username', '')}
             record('gift_received', {'gifts': gifts, 'sender': sender, 'message': message}, uid=recipient_id)
             db().execute('INSERT INTO gift_transfers VALUES (?,?,?)', (sender_id, request_id, json.dumps(order)))
+        tell = app.extensions.get('crafter_transfer_hook')           # BoostUp: a gift that is given to its account inside Crafter is a deposit
+        if tell:
+            try:
+                tell(sender_id, recipient_id, gifts)
+            except Exception:
+                app.logger.warning('Transfer hook failed')
         if data.get('quiet') is True and request.environ.get('crafter.internal_user'):
             return {'ok': True, 'gift_ids': ids}
         try:
