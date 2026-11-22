@@ -520,6 +520,7 @@ async function adminUserTab(uid,tab){
                         (art?'<img src="'+esc(art)+'" alt="" loading="lazy">':'<span>◇</span>')+
                         '<b>'+esc(g.name||'Gift')+'</b><small>№'+esc(g.number||'—')+
                         ' · '+esc(g.status||'')+'</small>'+
+                        (g.status==='staked'?'<button type="button" onclick="adminUnstakeGift('+uid+','+arg(g.id)+')">Разблокировать из стейкинга</button>':'')+
                         '<button type="button" onclick="adminRemoveGift('+uid+','+arg(g.id)+')">'+
                         'Удалить из учёта</button></div>';
                 }).join('')+'</div>'+(res.has_more?'<button class="admin-link-button" onclick="adminInspectGifts('+uid+')">'+

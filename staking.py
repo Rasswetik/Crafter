@@ -314,6 +314,32 @@ def install_staking(app, db, auth, record, audit, staking_catalog, canonical_nam
             record('stake_claim', {'amount_gram': money(pending), 'reward_days': updated})
         return snapshot(uid)
 
+    @app.post('/api/admin/users/<int:uid>/gifts/unstake')
+    @auth(admin=True)
+    def staking_admin_unlock(uid):
+        """The administrator takes a gift of a player out of staking before the lock ends: the gift is free at once (the player can sell, send or withdraw it).
+        The rewards of the days that are already completed stay with the player."""
+        data = request.get_json(silent=True)
+        gift_id = data.get('gift_id') if isinstance(data, dict) else None
+        if not isinstance(data, dict) or data.get('confirm') != 'UNSTAKE_GIFT' or not isinstance(gift_id, str) or not 1 <= len(gift_id) <= 200:
+            abort(400, description='Подтвердите разблокировку подарка')
+        now = int(time.time())
+        settle_locked(now, uid)
+        with db():
+            db().execute('BEGIN IMMEDIATE')
+            entry = db().execute("SELECT id FROM staking_entries WHERE user_id=? AND nft_id=? AND status='active'", (uid, gift_id)).fetchone()
+            held = db().execute("SELECT status FROM inventory WHERE user_id=? AND nft_id=?", (uid, gift_id)).fetchone()
+            if not held:
+                abort(404, description='Подарок не найден у пользователя')
+            if held['status'] != 'staked' and not entry:
+                abort(409, description='Этот подарок не в стейкинге')
+            db().execute("UPDATE inventory SET status='unlisted' WHERE user_id=? AND nft_id=? AND status='staked'", (uid, gift_id))
+            if entry:
+                db().execute("UPDATE staking_entries SET status='withdrawn',withdrawn_at=? WHERE id=?", (now, entry['id']))
+            record('stake_withdraw', {'gift_id': gift_id, 'entry_id': entry['id'] if entry else None, 'by_admin': True}, uid=uid)
+        audit('Gift unstaked by admin: ' + str(uid) + ' / ' + gift_id[:90])
+        return {'ok': True, 'gift_id': gift_id}
+
     @app.get('/api/admin/staking')
     @auth(admin=True)
     def staking_admin_settings():

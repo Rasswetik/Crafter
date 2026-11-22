@@ -8,8 +8,17 @@ function adminGiftLine(gift,uid) {
   const eligible=gift.status==='unlisted'&&!gift.catalog_only;
   return '<div class="admin-gift-row"><img src="'+esc(image)+'" alt="" loading="lazy">'+
     '<div class="admin-gift-meta"><b>'+esc(label)+'</b><small>'+esc(gift.model||'')+' · '+esc(gift.status||'')+'</small></div>'+
+    (gift.status==='staked'?'<button type="button" class="admin-unstake-gift" onclick="adminUnstakeGift('+uid+','+arg(gift.id)+')">Разблокировать из стейкинга</button>':'')+
     '<button type="button" class="admin-remove-gift" '+(eligible?'':'disabled title="Сначала снимите с продажи или стейкинга"')+
     ' onclick="adminRemoveGift('+uid+','+arg(gift.id)+')">Удалить</button></div>';
+}
+async function adminUnstakeGift(uid,id) {
+  if(!confirm('Разблокировать подарок из стейкинга? Он сразу станет доступен игроку: его можно продать, передать или вывести.'))return;
+  try {
+    await api('admin/users/'+uid+'/gifts/unstake',{gift_id:id,confirm:'UNSTAKE_GIFT'});
+    toast('Подарок разблокирован, игрок может его вывести');
+    await adminInspectGifts(uid);
+  }catch(e){toast(e.message);}
 }
 async function adminInspectGifts(uid,offset=0) {
   sheet('Инвентарь пользователя','<p class="sub">Загрузка подарков…</p>');
